@@ -1,0 +1,115 @@
+@if (!publicPage()) {
+  <button class="skip-link" type="button" [attr.inert]="drawerActive() ? '' : null" (click)="skipToContent($event)">Ir para o conteúdo</button>
+}
+<div class="app-shell" [class.public-shell]="publicPage()">
+  @if (!publicPage()) {
+    <header class="masthead" [attr.inert]="drawerActive() ? '' : null">
+      <div class="brand-organization">
+        <img src="/if-goiano-urutai.png" alt="Instituto Federal Goiano, Campus Urutaí" />
+      </div>
+      <div class="brand-product">
+        <strong>SAGER</strong>
+        <span>Sistema de Apoio à Gestão da<br />Residência Estudantil</span>
+      </div>
+      <div class="demo-flag" aria-label="Ambiente de demonstração com dados fictícios">
+        <strong>Demonstração</strong>
+        <span>Dados fictícios</span>
+      </div>
+      @if (!isMobile()) {
+      <div class="session-controls">
+        <div class="control">
+          <label for="profile-select-desktop">Perfil</label>
+          <select id="profile-select-desktop" [value]="session.role()" (change)="setRoleFromSelect($event)">
+            <option value="gestor">Gestor</option>
+            <option value="supervisor">Supervisor</option>
+            <option value="residente">Residente</option>
+          </select>
+        </div>
+        <div class="control">
+          <label for="scenario-select-desktop">Cenário</label>
+          <select id="scenario-select-desktop" [value]="session.scenario()" (change)="setScenarioFromSelect($event)">
+            <option value="padrao">Padrão</option>
+            <option value="vazio">Sem dados</option>
+            <option value="erro">Erro</option>
+            <option value="carregando">Carregando</option>
+          </select>
+        </div>
+      </div>
+      }
+      <a class="exit-link" routerLink="/acesso" aria-label="Sair da demonstração">
+        <span class="material-symbols-rounded" aria-hidden="true">logout</span>
+        <span>Sair</span>
+      </a>
+      <button #menuButton class="menu-toggle" type="button" [attr.aria-expanded]="menuOpen()" aria-controls="app-navigation" (click)="toggleMenu()">
+        <span class="material-symbols-rounded" aria-hidden="true">{{ menuOpen() ? 'close' : 'menu' }}</span>
+        <span>Menu</span>
+      </button>
+    </header>
+  }
+
+  <div class="workspace">
+    @if (!publicPage()) {
+      @if (menuOpen()) {
+        <button class="nav-scrim" type="button" tabindex="-1" aria-hidden="true" (click)="closeMenu()"></button>
+      }
+      <aside id="app-navigation" class="sidebar" [class.sidebar-open]="menuOpen()" [attr.inert]="isMobile() && !menuOpen() ? '' : null" [attr.aria-hidden]="isMobile() && !menuOpen() ? 'true' : null" [attr.role]="drawerActive() ? 'dialog' : null" [attr.aria-modal]="drawerActive() ? 'true' : null" [attr.aria-labelledby]="drawerActive() ? 'drawer-title' : null" [attr.aria-label]="drawerActive() ? null : 'Navegação principal'" [cdkTrapFocus]="drawerActive()">
+        <div class="drawer-top">
+          <div class="drawer-brand">
+            <img src="/if-goiano-urutai.png" alt="Instituto Federal Goiano, Campus Urutaí" />
+            <strong id="drawer-title">SAGER</strong>
+          </div>
+          <button #closeButton class="nav-close" type="button" aria-label="Fechar menu" (click)="closeMenu()">
+            <span class="material-symbols-rounded" aria-hidden="true">close</span><span>Fechar</span>
+          </button>
+        </div>
+        <nav>
+          @for (item of navItems(); track item.path) {
+            <a [routerLink]="item.path" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: item.path === '/inicio' }" (click)="navigateFromMenu()">
+              <span class="material-symbols-rounded" aria-hidden="true">{{ item.icon }}</span>
+              <span>{{ item.label }}</span>
+            </a>
+          }
+        </nav>
+        @if (isMobile()) {
+        <div class="sidebar-demo-controls" aria-label="Opções da demonstração">
+          <strong>Demonstração</strong>
+          <div class="control">
+            <label for="profile-select-mobile">Perfil</label>
+            <select id="profile-select-mobile" [value]="session.role()" (change)="setRoleFromSelect($event)">
+              <option value="gestor">Gestor</option>
+              <option value="supervisor">Supervisor</option>
+              <option value="residente">Residente</option>
+            </select>
+          </div>
+          <div class="control">
+            <label for="scenario-select-mobile">Cenário</label>
+            <select id="scenario-select-mobile" [value]="session.scenario()" (change)="setScenarioFromSelect($event)">
+              <option value="padrao">Padrão</option>
+              <option value="vazio">Sem dados</option>
+              <option value="erro">Erro</option>
+              <option value="carregando">Carregando</option>
+            </select>
+          </div>
+        </div>
+        }
+        <div class="sidebar-note">
+          <strong>SAGER · Campus Urutaí</strong>
+          <span>Protótipo para avaliação das telas.</span>
+          <a routerLink="/acesso" (click)="navigateFromMenu()">Sair da demonstração</a>
+        </div>
+      </aside>
+    }
+
+    <div class="work-area" [attr.inert]="drawerActive() ? '' : null">
+      <div id="conteudo-principal" class="app-main" tabindex="-1">
+        <router-outlet />
+      </div>
+      @if (!publicPage()) {
+        <footer class="app-footer">
+          <span>SAGER · Campus Urutaí</span>
+          <span>Demonstração · dados fictícios</span>
+        </footer>
+      }
+    </div>
+  </div>
+</div>

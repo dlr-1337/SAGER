@@ -1,0 +1,18 @@
+{
+  "buildPath": "comp",
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "open sans",
+        "files": [
+          "frontend/src/styles.scss"
+        ],
+        "createdAt": "2026-09-25T18:49:18.559Z",
+        "reason": "Institutional legibility and consistent locally served typography for older users; documented in DESIGN.md."
+      }
+    ]
+  }
+}

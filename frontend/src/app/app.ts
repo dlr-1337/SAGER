@@ -1,0 +1,186 @@
+import { Component, ElementRef, HostListener, OnDestroy, ViewChild, computed, inject, signal } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { CdkTrapFocus } from '@angular/cdk/a11y';
+import { BreakpointObserver } from '@angular/cdk/layout';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet, NavigationEnd } from '@angular/router';
+import { filter } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { DemoSessionService, type DemoScenario, type Role } from './core/demo-session.service';
+
+interface NavItem {
+  label: string;
+  path: string;
+  icon: string;
+}
+
+const commonItems: NavItem[] = [{ label: 'Início', path: '/inicio', icon: 'home' }];
+
+const residentItem: NavItem = { label: 'Residentes', path: '/residentes', icon: 'groups' };
+
+const supervisorItems: NavItem[] = [
+  residentItem,
+  { label: 'Saídas e retornos', path: '/saidas', icon: 'move_item' },
+  { label: 'Notificações', path: '/notificacoes', icon: 'notifications' },
+];
+
+const navByRole: Record<Role, NavItem[]> = {
+  gestor: [
+    ...commonItems,
+    residentItem,
+    { label: 'Responsáveis', path: '/responsaveis', icon: 'family_restroom' },
+    { label: 'Supervisores', path: '/supervisores', icon: 'supervisor_account' },
+    { label: 'Quartos', path: '/quartos', icon: 'bed' },
+    { label: 'Relatórios', path: '/relatorios', icon: 'description' },
+    { label: 'Ajuda', path: '/ajuda', icon: 'help' },
+  ],
+  supervisor: [
+    ...commonItems,
+    ...supervisorItems,
+    { label: 'Chamada noturna', path: '/chamada', icon: 'bedtime' },
+    { label: 'Limpeza', path: '/limpeza', icon: 'cleaning_services' },
+    { label: 'Relatórios', path: '/relatorios', icon: 'description' },
+    { label: 'Ajuda', path: '/ajuda', icon: 'help' },
+  ],
+  residente: [
+    ...commonItems,
+    { label: 'Minhas saídas', path: '/saidas', icon: 'move_item' },
+    { label: 'Avisos e advertências', path: '/avisos', icon: 'notifications' },
+    { label: 'Ranking', path: '/ranking', icon: 'leaderboard' },
+    { label: 'Meu perfil', path: '/perfil', icon: 'person' },
+    { label: 'Ajuda', path: '/ajuda', icon: 'help' },
+  ],
+};
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, CdkTrapFocus],
+  templateUrl: './app.html',
+})
+export class App implements OnDestroy {
+  @ViewChild('menuButton') private menuButton?: ElementRef<HTMLButtonElement>;
+  @ViewChild('closeButton') private closeButton?: ElementRef<HTMLButtonElement>;
+  readonly session = inject(DemoSessionService);
+  private readonly router = inject(Router);
+  private readonly document = inject(DOCUMENT);
+  private readonly breakpointObserver = inject(BreakpointObserver);
+  readonly publicPage = signal(false);
+  readonly isMobile = signal(false);
+  readonly menuOpen = signal(false);
+  readonly drawerActive = computed(() => this.isMobile() && this.menuOpen());
+  readonly navItems = computed(() => navByRole[this.session.role()]);
+  private previousBodyOverflow: string | null = null;
+  private previousHtmlOverflow: string | null = null;
+  private focusContentAfterNavigation = false;
+
+  constructor() {
+    this.isMobile.set(this.breakpointObserver.isMatched('(max-width: 800px)'));
+    this.breakpointObserver.observe('(max-width: 800px)')
+      .pipe(takeUntilDestroyed())
+      .subscribe(({ matches }) => {
+        if (!matches && this.menuOpen()) this.closeMenu(false);
+        this.isMobile.set(matches);
+      });
+    this.router.events
+      .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd), takeUntilDestroyed())
+      .subscribe(() => {
+        this.updatePageVisibility();
+        if (this.menuOpen()) this.closeMenu(false);
+        if (this.focusContentAfterNavigation) {
+          this.focusContentAfterNavigation = false;
+          setTimeout(() => this.document.getElementById('conteudo-principal')?.focus(), 0);
+        }
+      });
+    queueMicrotask(() => this.updatePageVisibility());
+  }
+
+  ngOnDestroy(): void {
+    this.unlockScroll();
+  }
+
+  setRoleFromSelect(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    if (value === 'gestor' || value === 'supervisor' || value === 'residente') {
+      if (this.drawerActive()) this.navigateFromMenu();
+      this.session.setRole(value);
+      void this.router.navigateByUrl('/inicio');
+    }
+  }
+
+  setScenarioFromSelect(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    if (value === 'padrao' || value === 'vazio' || value === 'erro' || value === 'carregando') {
+      this.session.setScenario(value as DemoScenario);
+    }
+  }
+
+  toggleMenu(): void {
+    if (!this.isMobile()) return;
+    if (this.menuOpen()) {
+      this.closeMenu();
+      return;
+    }
+    this.menuOpen.set(true);
+    this.lockScroll();
+    setTimeout(() => this.closeButton?.nativeElement.focus(), 0);
+  }
+
+  closeMenu(restoreFocus = true): void {
+    if (!this.menuOpen()) return;
+    this.menuOpen.set(false);
+    this.unlockScroll();
+    if (restoreFocus) setTimeout(() => this.menuButton?.nativeElement.focus(), 0);
+  }
+
+  navigateFromMenu(): void {
+    if (!this.drawerActive()) return;
+    this.focusContentAfterNavigation = true;
+    this.closeMenu(false);
+    setTimeout(() => {
+      if (this.focusContentAfterNavigation) {
+        this.focusContentAfterNavigation = false;
+        this.document.getElementById('conteudo-principal')?.focus();
+      }
+    }, 100);
+  }
+
+  skipToContent(event: MouseEvent): void {
+    event.preventDefault();
+    const target = this.document.getElementById('conteudo-principal');
+    target?.focus();
+    target?.scrollIntoView({ block: 'start' });
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.drawerActive()) this.closeMenu();
+  }
+
+  private lockScroll(): void {
+    if (this.previousBodyOverflow !== null) return;
+    this.previousBodyOverflow = this.document.body.style.overflow;
+    this.previousHtmlOverflow = this.document.documentElement.style.overflow;
+    this.document.body.style.overflow = 'hidden';
+    this.document.documentElement.style.overflow = 'hidden';
+  }
+
+  private unlockScroll(): void {
+    if (this.previousBodyOverflow === null) return;
+    this.document.body.style.overflow = this.previousBodyOverflow;
+    this.document.documentElement.style.overflow = this.previousHtmlOverflow ?? '';
+    this.previousBodyOverflow = null;
+    this.previousHtmlOverflow = null;
+  }
+
+  private updatePageVisibility(): void {
+    let route = this.router.routerState.snapshot.root;
+    let isPublic = false;
+    while (route) {
+      isPublic ||= route.data['public'] === true;
+      if (!route.firstChild) break;
+      route = route.firstChild;
+    }
+    const path = this.router.url.split('?')[0];
+    this.publicPage.set(isPublic || /^\/(acesso|demonstracao|assinatura)(\/|$)/.test(path));
+  }
+}
