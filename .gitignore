@@ -1,0 +1,8 @@
+# Original source files kept outside the GitHub repository
+/SAGER_Corrigido.docx
+/proposta_tcc_guilherme_28629_assinado.pdf
+
+# Temporary image preparation and Impeccable build output
+/assets/plates/
+/.impeccable/build/*
+!/.impeccable/build/spec.json
