@@ -11,7 +11,7 @@ npm install
 npm start
 ```
 
-Acesse `http://localhost:4200/acesso`, escolha um perfil em “Explorar demonstração” e navegue pelo menu. O seletor no cabeçalho permite trocar de perfil. Para o fluxo público da autorização longa de exemplo, acesse `/assinatura/S-1048` a partir do detalhe da solicitação.
+Acesse `http://localhost:4200/acesso`, escolha um perfil em “Explorar demonstração” e navegue pelo menu. No desktop, perfil e cenário ficam no cabeçalho; no celular, ficam no menu. Para o fluxo público da autorização longa de exemplo, acesse `/assinatura/S-1048` a partir do detalhe da solicitação.
 
 ```bash
 npm run build
