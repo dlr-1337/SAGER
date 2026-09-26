@@ -214,17 +214,20 @@ restrição a gestor vista no protótipo substitui o texto RF/UC.
 
 ## D21 — Mecanismo, atributos e ciclo da conta institucional; E01, RF001/UC01.
 
-**Estado atual e encaminhamento:** **Google OIDC escolhido para o desenho do
-projeto; TI e prova real pendentes.** Usar Authorization Code, Spring Security,
+**Estado atual e encaminhamento:** **Google OIDC escolhido e prova técnica local
+implementada; TI e prova real pendentes.** Usar Authorization Code, Spring Security,
 `openid profile email`, vínculo pelo `sub`, nome/foto opcionais e sessão no
 servidor. Validar `hd` observado com contas autorizadas; domínio de e-mail não
 concede perfil. Acesso OAuth/Workspace, atributos reais, desligamento e teste
-institucional não foram confirmados. **Fase 0 não homologada sem esse teste.**
+institucional não foram confirmados. Os 16 testes sintéticos do backend passaram,
+mas não comprovam login institucional. **Fase 0 não homologada sem teste real e
+aceite TI/AE.**
 
 **Responsável / até a fase:** TI; prova na Fase 0, dependência da Fase 1.
 
 **Evidência:** PRD §E01 e §23.2; especificação §6; roteiro F0–F1; decisão do
-solicitante nesta Fase 0.
+solicitante nesta Fase 0; [contrato e pendências](AUTENTICACAO_GOOGLE.md) e
+[QA técnico](QA.md).
 
 ## D22 — Acesso a dados, retenção, descarte e objetivos de recuperação; proteção transversal.
 
