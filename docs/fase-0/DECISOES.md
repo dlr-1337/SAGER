@@ -133,6 +133,16 @@ adicional ou representação auditável equivalente e definir revisão posterior
 
 **Evidência:** PRD §E10 e §23.1; roteiro F5.
 
+## D13 — Critérios, gravidades e evidências de notificações; E05/E10/E13, RF004/RF005.
+
+**Estado atual e encaminhamento:** **Institucional pendente.** Catálogos,
+limites e responsáveis por configuração devem ser aprovados; não gerar sanção
+automática.
+
+**Responsável / até a fase:** AE; antes dos alertas nas Fases 3, 5 e 6.
+
+**Evidência:** PRD §E10 e §23.1; roteiro F3/F5/F6.
+
 ## Como fechar uma decisão
 
 Para cada ID, registrar neste registro ou em ata vinculada: **opção aprovada**,
