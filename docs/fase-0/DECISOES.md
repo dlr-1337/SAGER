@@ -143,6 +143,15 @@ automática.
 
 **Evidência:** PRD §E10 e §23.1; roteiro F3/F5/F6.
 
+## D14 — Limiar, modelo, signatários e procedimento do Termo de Compromisso; E12, RN10.
+
+**Estado atual e encaminhamento:** **Institucional pendente.** Não inferir
+quantidade de reincidências nem modalidade de ciência/assinatura.
+
+**Responsável / até a fase:** AE; Fase 5.
+
+**Evidência:** PRD §E12 e §23.1; roteiro F5.
+
 ## Como fechar uma decisão
 
 Para cada ID, registrar neste registro ou em ata vinculada: **opção aprovada**,
