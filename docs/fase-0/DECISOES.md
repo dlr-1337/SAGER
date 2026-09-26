@@ -48,6 +48,16 @@ preenchimento é aceito; sem tolerância implícita.
 
 **Evidência:** PRD §E06 e §23.1; roteiro F3.
 
+## D04 — Modalidades Curta/Longa versus rótulos adicionais dos protótipos; E06, UC06/RN01.
+
+**Estado atual e encaminhamento:** **Proposta de projeto; AE pendente.** Usar
+Curta e Longa conforme UC/RN revisados até homologar; não criar Breve ou Visita
+pra casa por inferência.
+
+**Responsável / até a fase:** AE; Fase 3.
+
+**Evidência:** PRD §E06 e §23.1; roteiro F3.
+
 ## Como fechar uma decisão
 
 Para cada ID, registrar neste registro ou em ata vinculada: **opção aprovada**,
