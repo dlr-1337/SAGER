@@ -49,7 +49,8 @@ altera a URI de retorno. O login começa em `/oauth2/authorization/google`.
 1. Com `SAGER_ALLOWED_HD` vazio, o acesso falha fechado. O backend registra somente o
    valor sintaticamente seguro do `hd` observado, sem token, e-mail ou `sub`. A TI
    confere e aprova os valores de servidor e estudante; reinicie com a lista aprovada.
-2. O titular da conta institucional entra no navegador. No primeiro login autorizado
+2. O titular da conta institucional entra em uma sessão privativa nova do navegador.
+   No primeiro login autorizado
    pelo `hd`, a página mostra `403` e um UUID de solicitação, pois ainda não há perfil
    local. Esse UUID é o `id` da identidade local; não é o `sub` Google.
 3. Depois do aceite da AE/TI para o **perfil de teste**, um operador autorizado abre
@@ -65,9 +66,11 @@ altera a URI de retorno. O login começa em `/oauth2/authorization/google`.
    O campo `profile` aceita **um** dos valores `gestor`, `supervisor` ou `residente`;
    a notação acima representa uma escolha, não texto literal a inserir. Não conceda
    perfil pela semelhança do e-mail ou pelo `hd`. Não há endpoint público de concessão.
+
 4. O titular repete o login. `/api/v1/auth/me` deve retornar UUID local, e-mail
    verificado, nome/foto opcionais e **somente** perfis locais aprovados. Repita para
-   servidor e estudante. Uma terceira conta sem perfil deve continuar em `403`.
+   servidor e estudante, sempre em sessões isoladas. Uma terceira conta sem perfil
+   deve continuar em `403` sem reutilizar a sessão de uma conta já aprovada.
 5. Para testar logout pelo navegador, obtenha `headerName` e `token` em
    `/api/v1/auth/csrf` e envie `POST /api/v1/auth/logout` com esse cabeçalho. Sem CSRF,
    o POST deve ser rejeitado. Verifique a ausência de sessão autenticada após logout.
