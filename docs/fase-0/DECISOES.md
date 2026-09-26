@@ -96,6 +96,16 @@ o limite do fluxo de retorno longo antes de implementar correções retroativas.
 
 **Evidência:** PRD §E08 e §23.1; roteiro F3.
 
+## D09 — Janela, população, fechamento e correção da chamada das 22h30; E05, UC05.
+
+**Estado atual e encaminhamento:** **Técnica definida; AE pendente.** Fuso
+`America/Sao_Paulo`, unicidade por chamada/residente e controle de versão são
+referências técnicas, não uma janela de tolerância aprovada.
+
+**Responsável / até a fase:** AE; Fase 3.
+
+**Evidência:** PRD §E05 e §23.1; especificação §4.3/§7; roteiro F3.
+
 ## Como fechar uma decisão
 
 Para cada ID, registrar neste registro ou em ata vinculada: **opção aprovada**,
