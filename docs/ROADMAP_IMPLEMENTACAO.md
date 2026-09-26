@@ -118,6 +118,12 @@ as telas não apresentam ocupação ou nota inventada.
 
 **Decisões de entrada:** D01, D02, D15 e D19; D22 para retenção e acesso aos dados.
 
+**Estado em 26/09/2026:** a [primeira fatia de supervisores](fase-2/README.md) persiste
+o cadastro funcional no PostgreSQL, com API restrita ao gestor local e telas integradas;
+o [QA](fase-2/QA.md) registra testes e prova após reinício. Residentes,
+responsáveis e quartos continuam demonstrativos. A saída da Fase 2 depende das
+decisões da AE/TI indicadas acima e da implementação das demais fatias.
+
 ### Fase 3 — Chamada, saída curta, decisão e retorno
 
 **Cobertura:** E05, E06/E07 na modalidade curta e E08; AC16–AC20, AC22–AC24,
