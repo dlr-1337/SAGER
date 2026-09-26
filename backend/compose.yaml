@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: sager
       POSTGRES_PASSWORD: ${SAGER_DB_PASSWORD:?SAGER_DB_PASSWORD must be set outside Git}
     ports:
-      - '127.0.0.1:5432:5432'
+      - '127.0.0.1:${SAGER_DB_PORT:-5432}:5432'
     volumes:
       - sager_postgres_data:/var/lib/postgresql/data
     healthcheck:
