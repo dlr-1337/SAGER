@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: sager-backend
+  datasource:
+    url: ${SAGER_DB_URL:jdbc:postgresql://localhost:5432/sager}
+    username: ${SAGER_DB_USER:sager}
+    password: ${SAGER_DB_PASSWORD}
+  flyway:
+    enabled: true
+  session:
+    timeout: ${SAGER_SESSION_TIMEOUT:30m}
+    jdbc:
+      initialize-schema: never
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${SAGER_GOOGLE_CLIENT_ID}
+            client-secret: ${SAGER_GOOGLE_CLIENT_SECRET}
+            scope: openid,profile,email
+            redirect-uri: '{baseUrl}/login/oauth2/code/{registrationId}'
+
+server:
+  port: 8080
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        secure: true
+        same-site: lax
+
+sager:
+  auth:
+    allowed-hd: ${SAGER_ALLOWED_HD:}
