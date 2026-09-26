@@ -124,6 +124,15 @@ indicadores, agregação e origem antes de calcular ou apresentar série histór
 
 **Evidência:** PRD §E14 e §23.1; roteiro F6.
 
+## D12 — Cancelamento da notificação ausente da lista de estados; E10, UC10.
+
+**Estado atual e encaminhamento:** **Institucional pendente.** Escolher estado
+adicional ou representação auditável equivalente e definir revisão posterior.
+
+**Responsável / até a fase:** AE/TI; Fase 5.
+
+**Evidência:** PRD §E10 e §23.1; roteiro F5.
+
 ## Como fechar uma decisão
 
 Para cada ID, registrar neste registro ou em ata vinculada: **opção aprovada**,
