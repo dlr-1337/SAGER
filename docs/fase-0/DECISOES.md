@@ -236,6 +236,15 @@ destino, retenção e acesso médico precisam de aceite.
 
 **Evidência:** PRD §21 e §23.2; especificação §11–12; roteiro F1/F7.
 
+## D23 — Escopo de “relatórios offline” e contingência; E14 e operação.
+
+**Estado atual e encaminhamento:** **Institucional pendente.** Definir forma de
+degradação; não presumir aplicativo inteiro offline.
+
+**Responsável / até a fase:** AE/TI; Fase 7.
+
+**Evidência:** PRD §21.3 e §23.2; roteiro F7.
+
 ## Como fechar uma decisão
 
 Para cada ID, registrar neste registro ou em ata vinculada: **opção aprovada**,
