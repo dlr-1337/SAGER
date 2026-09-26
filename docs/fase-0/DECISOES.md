@@ -184,6 +184,15 @@ desenho técnico, não política de prazo ou recusa.
 
 **Evidência:** PRD §E09 e §23.2; especificação §8.3–8.4; roteiro F4.
 
+## D18 — Autoria, publicação, segmentação, revisão e canais dos avisos; E11, UC04/UC08.
+
+**Estado atual e encaminhamento:** **Institucional pendente.** Separar avisos de
+alertas internos sigilosos; não presumir envio por e-mail.
+
+**Responsável / até a fase:** AE; Fase 5.
+
+**Evidência:** PRD §E11 e §23.2; roteiro F5.
+
 ## Como fechar uma decisão
 
 Para cada ID, registrar neste registro ou em ata vinculada: **opção aprovada**,
