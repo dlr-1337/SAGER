@@ -111,6 +111,41 @@ Spring Security é `/oauth2/authorization/google`. O Nginx encaminhará ambos os
 caminhos ao backend na mesma origem. URLs pós-login deverão ser locais e permitidas
 explicitamente; não aceitar redirecionamento arbitrário recebido por parâmetro.
 
+## Roteiro de teste institucional para D21
+
+**Pré-condições:** cliente OAuth autorizado para o público de teste pela TI, política
+do Workspace liberada, URI de retorno registrada, backend da Fase 1 disponível sob
+HTTPS ou `localhost`, sessão e cadastro local de teste configurados com dados
+sintéticos. O teste será executado por titulares/autorizados; este repositório não
+guarda senha, token, cookie, captura de ID token nem dados pessoais dos participantes.
+
+1. Com uma conta institucional de servidor autorizada, iniciar o login; confirmar
+   retorno à aplicação, `GET /api/v1/auth/me` com UUID local, e-mail verificado,
+   nome/foto opcionais e somente o perfil previamente provisionado. Repetir com
+   conta estudantil autorizada, se ambas forem destinadas ao SAGER. Registrar apenas
+   se o `hd` observado correspondeu ao valor aprovado, sem copiar token ou e-mail.
+2. Repetir login da mesma conta após alteração controlada de e-mail, se a TI puder
+   disponibilizar o cenário; verificar que o UUID local continua ligado ao mesmo
+   `iss` + `sub` e que não surgem duplicatas. Se a TI não puder executar essa
+   simulação, registrar a limitação e cobrir a regra com teste automatizado.
+3. Tentar conta Google pessoal, conta de outro Workspace, conta sem perfil local e
+   conta localmente desabilitada. Todas devem ficar sem acesso funcional; domínio
+   do e-mail parecido não supera ausência ou divergência de `hd`.
+4. Testar callback com `state` inválido e token inválido/vencido em ambiente de teste
+   controlado. Confirmar ausência de sessão válida. Confirmar também mensagem de
+   indisponibilidade quando o provedor não responder, sem expor detalhes técnicos.
+5. Verificar acesso a endpoint de outro perfil e a registro de outro residente;
+   ambos devem ser negados pelo backend. Confirmar cookie protegido, CSRF nas
+   mutações, logout, expiração por inatividade e ausência de tokens no armazenamento
+   do navegador. Registrar a política real de sessão e desligamento informada pela TI.
+
+**Evidência para encerrar D21:** data/ambiente, aprovação do cliente e da política
+Workspace pela TI, tipos de contas testados, valores de `hd` aprovados (sem claims
+individuais), resultado por cenário, política de sessão/desligamento e responsável
+institucional pela aceitação. Falhas ou cenários indisponíveis permanecem explícitos.
+Até executar e registrar essa prova, **AC01/AC02 e AT03 não estão homologados** e a
+Fase 0 permanece não homologada quanto ao login real.
+
 ## Referências externas
 
 - [Google OpenID Connect: fluxo de servidor, claims e `hd`](https://developers.google.com/identity/openid-connect/openid-connect)
