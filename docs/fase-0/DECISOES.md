@@ -115,6 +115,15 @@ ou fórmula do protótipo como regra oficial.
 
 **Evidência:** PRD §E13 e §23.1; roteiro F6.
 
+## D11 — Métrica da “evolução do comportamento”; E14, RF011/UC11.
+
+**Estado atual e encaminhamento:** **Institucional pendente.** Definir
+indicadores, agregação e origem antes de calcular ou apresentar série histórica.
+
+**Responsável / até a fase:** AE; Fase 6.
+
+**Evidência:** PRD §E14 e §23.1; roteiro F6.
+
 ## Como fechar uma decisão
 
 Para cada ID, registrar neste registro ou em ata vinculada: **opção aprovada**,
