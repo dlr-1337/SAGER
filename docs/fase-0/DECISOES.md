@@ -212,6 +212,20 @@ restrição a gestor vista no protótipo substitui o texto RF/UC.
 
 **Evidência:** PRD §E14 e §23.2; roteiro F6.
 
+## D21 — Mecanismo, atributos e ciclo da conta institucional; E01, RF001/UC01.
+
+**Estado atual e encaminhamento:** **Google OIDC escolhido para o desenho do
+projeto; TI e prova real pendentes.** Usar Authorization Code, Spring Security,
+`openid profile email`, vínculo pelo `sub`, nome/foto opcionais e sessão no
+servidor. Validar `hd` observado com contas autorizadas; domínio de e-mail não
+concede perfil. Acesso OAuth/Workspace, atributos reais, desligamento e teste
+institucional não foram confirmados. **Fase 0 não homologada sem esse teste.**
+
+**Responsável / até a fase:** TI; prova na Fase 0, dependência da Fase 1.
+
+**Evidência:** PRD §E01 e §23.2; especificação §6; roteiro F0–F1; decisão do
+solicitante nesta Fase 0.
+
 ## Como fechar uma decisão
 
 Para cada ID, registrar neste registro ou em ata vinculada: **opção aprovada**,
