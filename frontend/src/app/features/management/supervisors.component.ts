@@ -1,9 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { ManagementDemoService } from './management-demo.service';
+import { Supervisor } from './management.models';
+import { SupervisorApiError, SupervisorApiService } from './supervisor-api.service';
 
 @Component({
   selector: 'app-supervisors',
@@ -40,14 +42,14 @@ import { ManagementDemoService } from './management-demo.service';
           <div class="mg-section-heading">
             <h2 id="supervisor-results-title">Equipe cadastrada</h2>
             <p aria-live="polite">
-              @if (scenario() === 'padrao') {
-                {{ filtered().length }} de {{ service.supervisors().length }} supervisores
-              } @else {
+              @if (isDemo() && scenario() !== 'padrao') {
                 Cenário demonstrativo
+              } @else if (!loading() && !loadError()) {
+                {{ filtered().length }} de {{ supervisors().length }} supervisores
               }
             </p>
           </div>
-          @if (scenario() === 'carregando') {
+          @if (isDemo() && scenario() === 'carregando') {
             <div class="mg-empty" role="status" aria-live="polite">
               <span class="material-symbols-rounded mg-loading-icon" aria-hidden="true"
                 >progress_activity</span
@@ -58,7 +60,7 @@ import { ManagementDemoService } from './management-demo.service';
                 Voltar ao cenário padrão
               </button>
             </div>
-          } @else if (scenario() === 'erro') {
+          } @else if (isDemo() && scenario() === 'erro') {
             <div class="mg-empty" role="alert">
               <span class="material-symbols-rounded" aria-hidden="true">error</span>
               <h3>Não foi possível carregar supervisores</h3>
@@ -67,13 +69,30 @@ import { ManagementDemoService } from './management-demo.service';
                 Tentar novamente
               </button>
             </div>
-          } @else if (scenario() === 'vazio') {
+          } @else if (isDemo() && scenario() === 'vazio') {
             <div class="mg-empty" role="status">
               <span class="material-symbols-rounded" aria-hidden="true">group_off</span>
               <h3>Nenhum supervisor cadastrado</h3>
               <p>Este é o estado vazio da demonstração.</p>
               <button type="button" class="btn mg-secondary" (click)="restoreScenario()">
                 Voltar ao cenário padrão
+              </button>
+            </div>
+          } @else if (loading()) {
+            <div class="mg-empty" role="status" aria-live="polite">
+              <span class="material-symbols-rounded mg-loading-icon" aria-hidden="true"
+                >progress_activity</span
+              >
+              <h3>Carregando supervisores</h3>
+              <p>Consultando os cadastros locais de teste.</p>
+            </div>
+          } @else if (loadError()) {
+            <div class="mg-empty" role="alert">
+              <span class="material-symbols-rounded" aria-hidden="true">error</span>
+              <h3>Não foi possível carregar supervisores</h3>
+              <p>{{ loadError() }}</p>
+              <button type="button" class="btn mg-primary" (click)="load()">
+                Tentar novamente
               </button>
             </div>
           } @else if (filtered().length) {
@@ -97,6 +116,18 @@ import { ManagementDemoService } from './management-demo.service';
                 </article>
               }
             </div>
+          } @else if (supervisors().length === 0) {
+            <div class="mg-empty" role="status">
+              <span class="material-symbols-rounded" aria-hidden="true">group_off</span>
+              <h3>Nenhum supervisor cadastrado</h3>
+              <p>
+                {{
+                  isDemo()
+                    ? 'Este é o estado vazio da demonstração.'
+                    : 'Cadastre o primeiro supervisor com dados fictícios para testar este fluxo.'
+                }}
+              </p>
+            </div>
           } @else {
             <div class="mg-empty" role="status">
               <span class="material-symbols-rounded" aria-hidden="true">search_off</span>
@@ -111,8 +142,11 @@ import { ManagementDemoService } from './management-demo.service';
         <div class="mg-note">
           <span class="material-symbols-rounded" aria-hidden="true">info</span>
           <p>
-            O cadastro funcional não cria uma credencial ou senha. O acesso real dependerá da
-            autenticação institucional definida pela TI.
+            {{
+              isDemo()
+                ? 'Estes registros são demonstrativos e não criam credenciais.'
+                : 'Ambiente local de teste: use apenas dados fictícios. O cadastro funcional não cria credencial ou senha.'
+            }}
           </p>
         </div>
       } @else {
@@ -128,21 +162,48 @@ import { ManagementDemoService } from './management-demo.service';
 })
 export class SupervisorsComponent {
   readonly service = inject(ManagementDemoService);
+  private readonly api = inject(SupervisorApiService);
   private readonly session = inject(DemoSessionService);
+  readonly isDemo = this.session.active;
   readonly canEdit = computed(() => this.session.hasRole('gestor'));
   readonly scenario = this.session.scenario;
   readonly search = new FormControl('', { nonNullable: true });
+  readonly localSupervisors = signal<Supervisor[]>([]);
+  readonly loading = signal(false);
+  readonly loadError = signal('');
+  readonly supervisors = computed(() =>
+    this.isDemo() ? this.service.supervisors() : this.localSupervisors(),
+  );
   private readonly query = toSignal(this.search.valueChanges, { initialValue: '' });
   readonly filtered = computed(() => {
     const value = this.query().trim().toLocaleLowerCase('pt-BR');
-    return this.service
-      .supervisors()
-      .filter(
-        (item) =>
-          !value ||
-          `${item.name} ${item.institutionalId}`.toLocaleLowerCase('pt-BR').includes(value),
-      );
+    return this.supervisors().filter(
+      (item) =>
+        !value || `${item.name} ${item.institutionalId}`.toLocaleLowerCase('pt-BR').includes(value),
+    );
   });
+
+  constructor() {
+    if (!this.isDemo() && this.canEdit()) void this.load();
+  }
+
+  async load(): Promise<void> {
+    if (this.isDemo() || !this.canEdit()) return;
+    this.loading.set(true);
+    this.loadError.set('');
+    try {
+      this.localSupervisors.set(await this.api.list());
+    } catch (error) {
+      this.localSupervisors.set([]);
+      this.loadError.set(
+        error instanceof SupervisorApiError && error.status === 403
+          ? 'Seu perfil não tem permissão para consultar esta equipe.'
+          : 'Confira a conexão com o backend local e tente novamente.',
+      );
+    } finally {
+      this.loading.set(false);
+    }
+  }
 
   restoreScenario(): void {
     this.session.setScenario('padrao');
