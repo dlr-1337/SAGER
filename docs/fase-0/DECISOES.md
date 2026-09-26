@@ -255,6 +255,21 @@ fronteira dos 2 segundos.
 
 **Evidência:** PRD §23.2; especificação §1.2/§13; roteiro F7.
 
+## D25 — Licenças, contratação, orçamento e uso de provedores externos; E09 e operação.
+
+**Estado atual e encaminhamento:** **Institucional pendente.** Twilio é
+**recomendação de projeto para integração futura de WhatsApp**, por API e
+sandbox; não é fornecedor de produção aprovado. Produção depende de
+cadastro/verificação Meta e da avaliação institucional de custos, termos e
+licenças. O desenho anterior cita Meta direta e Clicksign como referências, a
+conciliar antes da Fase 4.
+
+**Responsável / até a fase:** Instituição/TI; antes de contratar/ativar a
+Fase 4.
+
+**Evidência:** PRD §23.2; especificação §8.1/§17; roteiro F4; decisão do
+solicitante nesta Fase 0.
+
 ## Como fechar uma decisão
 
 Para cada ID, registrar neste registro ou em ata vinculada: **opção aprovada**,
