@@ -1,4 +1,4 @@
-# Registro de decisões da Fase 0
+# Registro de decisões D01–D26
 
 **Registro:** 25/09/2026. **Base funcional:**
 [PRD v2.0, seção 23](../../SAGER_PRD_v2.0_Angular_SpringBoot.md). **Base de
@@ -269,6 +269,16 @@ Fase 4.
 
 **Evidência:** PRD §23.2; especificação §8.1/§17; roteiro F4; decisão do
 solicitante nesta Fase 0.
+
+## D26 — Diagramas e modelo físico após a homologação dos fluxos; domínio transversal.
+
+**Estado atual e encaminhamento:** **Institucional pendente.** Atualizar
+vínculos, estados, mensagens, assinaturas, ciência e termos conforme decisões
+aprovadas; retirar penalidades antigas incompatíveis.
+
+**Responsável / até a fase:** AE/TI; consolidar até a Fase 7.
+
+**Evidência:** PRD §23.2; roteiro F7.
 
 ## Como fechar uma decisão
 
