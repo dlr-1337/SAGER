@@ -174,6 +174,16 @@ obrigatório.
 **Evidência:** PRD §E09 e §23.2; especificação §8.1; roteiro F4; decisão do
 solicitante nesta Fase 0.
 
+## D17 — Expiração, reenvio e recusa do link de assinatura; E09, UC18.
+
+**Estado atual e encaminhamento:** **Institucional pendente.** Versões
+imutáveis, eventos idempotentes e bloqueio após falha de armazenamento são
+desenho técnico, não política de prazo ou recusa.
+
+**Responsável / até a fase:** AE/TI; Fase 4.
+
+**Evidência:** PRD §E09 e §23.2; especificação §8.3–8.4; roteiro F4.
+
 ## Como fechar uma decisão
 
 Para cada ID, registrar neste registro ou em ata vinculada: **opção aprovada**,
