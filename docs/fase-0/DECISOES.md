@@ -152,6 +152,15 @@ quantidade de reincidências nem modalidade de ciência/assinatura.
 
 **Evidência:** PRD §E12 e §23.1; roteiro F5.
 
+## D15 — Cardinalidade e prioridade dos responsáveis, identidade e telefone; E02/E09, RN03.
+
+**Estado atual e encaminhamento:** **Institucional pendente.** Definir vínculo
+ativo, autorização e destinatário antes do envio ao responsável.
+
+**Responsável / até a fase:** AE/TI; Fases 2 e 4.
+
+**Evidência:** PRD §E02, §E09 e §23.2; roteiro F2/F4.
+
 ## Como fechar uma decisão
 
 Para cada ID, registrar neste registro ou em ata vinculada: **opção aprovada**,
