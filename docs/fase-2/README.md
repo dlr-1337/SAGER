@@ -34,8 +34,16 @@ A [D01](../fase-0/DECISOES.md) define a matriz de permissões; a [D02](../fase-0
 define origem, validação e ciclo da matrícula; a [D15](../fase-0/DECISOES.md) define
 cardinalidade e prioridade dos responsáveis; a [D19](../fase-0/DECISOES.md) define
 capacidade, ocupação e transições dos quartos; e a [D22](../fase-0/DECISOES.md) define
-acesso e retenção de dados sensíveis. Elas ainda não têm aprovação registrada. O
-solicitante informou que enviará as definições da AE/TI.
+acesso e retenção de dados sensíveis. Elas ainda não têm aprovação registrada.
+Em 26/09/2026, o solicitante esclareceu que todos os servidores da GAE, inclusive
+profissionais de saúde, devem acessar dados não sensíveis; que responsáveis legais
+podem ser detentores da guarda, ambos os pais ou apenas um deles; e que dados
+sensíveis devem ficar restritos a profissionais de saúde, com sigilo próprio de
+cada profissão. São orientações preliminares, ainda sem matriz de permissões
+aprovada. A matrícula é usada no SUAP, mas sua origem e validação no SAGER
+continuam indefinidas. A planilha prometida para 27/09/2026 ainda não foi
+recebida; regras de quartos e detalhes dos vínculos e do acesso sensível seguem
+abertos no [registro de decisões](../fase-0/DECISOES.md).
 
 Até lá, não se deve inferir matrícula do login local, conceder acesso médico,
 escolher signatário automaticamente, calcular ocupação a partir de capacidade não

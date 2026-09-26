@@ -1,6 +1,7 @@
 # Registro de decisões D01–D26
 
-**Registro inicial:** 25/09/2026. **Revisão do login:** 26/09/2026. **Base funcional:**
+**Registro inicial:** 25/09/2026. **Revisão do login:** 26/09/2026.
+**Informações preliminares da Fase 2:** 26/09/2026. **Base funcional:**
 [PRD v2.0, seção 23](../../SAGER_PRD_v2.0_Angular_SpringBoot.md). **Base de
 implementação:**
 [Especificação Técnica v2.0](../../SAGER_Especificacao_Tecnica_v2.0.md) e
@@ -19,24 +20,35 @@ formalizada; uma proposta técnica não a substitui.
 
 **Estado atual e encaminhamento:** **Institucional pendente.** O projeto prevê
 perfis locais explícitos e autorização no servidor, mas não atribui perfil pelo
-domínio do e-mail nem presume acesso do gestor a dados médicos.
+domínio do e-mail nem presume acesso do gestor a dados médicos. O solicitante
+informou que os servidores da GAE, inclusive os profissionais de saúde, poderão
+acessar dados não sensíveis. Esta orientação ainda precisa ser traduzida em uma
+matriz de recursos e operações por perfil, com confirmação da AE/TI. Acesso a
+dados sensíveis segue a delimitação preliminar da D22.
 
 **Responsável / até a fase:** AE/TI; entrada da Fase 1.
 
-**Evidência:** PRD §2.2–2.3 e §23.1; roteiro F0–F1.
+**Evidência:** PRD §2.2–2.3 e §23.1; roteiro F0–F1; informação do solicitante
+de 26/09/2026, sem aceite institucional registrado.
 
 ## D02 — Dicionário cadastral, campos, unicidade, matrícula, desligamento e maioridade; E02, RF002, UC015.
 
 **Estado atual e encaminhamento:** **Adiada a origem da matrícula pelo
 solicitante; homologação pendente.** O login local provisório não fornece nem
 valida matrícula. A fatia de cadastro de residente da Fase 1 deve aguardar decisão de
-dados e vínculo, sem inventar matrícula ou regra de validação.
+dados e vínculo, sem inventar matrícula ou regra de validação. O IF Goiano informa
+que a matrícula é usada como identificador de acesso ao SUAP; isso não define
+como ela será obtida pelo SAGER. O solicitante relatou exemplos numéricos
+mascarados com 16 e 17 posições, sem confirmação de formato universal ou da
+composição dos blocos. Origem, validação, unicidade e ciclo permanecem abertos.
 
 **Responsável / até a fase:** AE/TI; antes da fatia cadastral da Fase 1 e da
 Fase 2.
 
 **Evidência:** PRD §E02 e §23.1; roteiro F1–F2; decisão do solicitante nesta
-Fase 0.
+Fase 0; [infográfico do IF Goiano](https://ifgoiano.edu.br/pdf/infografico_email.pdf)
+para uso da matrícula no SUAP; relato do solicitante em 26/09/2026 para os
+exemplos de comprimento, ainda sem confirmação de regra institucional.
 
 ## D03 — Referência temporal para envio da saída preenchida com “agora”; E06, UC06.
 
@@ -155,11 +167,16 @@ quantidade de reincidências nem modalidade de ciência/assinatura.
 ## D15 — Cardinalidade e prioridade dos responsáveis, identidade e telefone; E02/E09, RN03.
 
 **Estado atual e encaminhamento:** **Institucional pendente.** Definir vínculo
-ativo, autorização e destinatário antes do envio ao responsável.
+ativo, autorização e destinatário antes do envio ao responsável. O solicitante
+esclareceu que um residente pode ter como responsáveis legais quem detém sua
+guarda, pai e mãe, apenas a mãe, apenas o pai ou outra configuração legalmente
+válida. A regra para quantidade, comprovação do vínculo, prioridade e escolha
+do destinatário ainda depende da planilha anunciada e de confirmação da AE/TI.
 
 **Responsável / até a fase:** AE/TI; Fases 2 e 4.
 
-**Evidência:** PRD §E02, §E09 e §23.2; roteiro F2/F4.
+**Evidência:** PRD §E02, §E09 e §23.2; roteiro F2/F4; esclarecimento do
+solicitante em 26/09/2026, sem aceite institucional registrado.
 
 ## D16 — Modalidade, identidade, serviço e contratação da assinatura; E09, RF015/RF016.
 
@@ -197,11 +214,14 @@ alertas internos sigilosos; não presumir envio por e-mail.
 
 **Estado atual e encaminhamento:** **Institucional pendente.** O número único
 exigido pelo UC16 não resolve sozinho ocupação parcial nem movimentação de
-residentes.
+residentes. O solicitante informou que possui uma planilha com regras e dados
+para essa definição, mas ainda não a disponibilizou. Capacidade, alocação,
+ocupação e transições continuam sem regra implementável.
 
 **Responsável / até a fase:** AE; antes da Fase 2.
 
-**Evidência:** PRD §E04 e §23.2; roteiro F2.
+**Evidência:** PRD §E04 e §23.2; roteiro F2; informação do solicitante em
+26/09/2026 sobre planilha ainda não recebida.
 
 ## D20 — Exportações por perfil, dados sensíveis, colunas e filtros; E14, RF011/UC11.
 
@@ -237,11 +257,18 @@ solicitante de 26/09/2026; [contrato provisório](AUTENTICACAO_LOCAL.md),
 
 **Estado atual e encaminhamento:** **Institucional pendente.** Backup conjunto
 de PostgreSQL e arquivos com restauração ensaiada é desenho técnico; frequência,
-destino, retenção e acesso médico precisam de aceite.
+destino e retenção precisam de aceite. O solicitante informou que somente
+profissionais de saúde poderão acessar dados sensíveis, respeitando o sigilo
+próprio de cada profissão, como no atendimento psicológico. Isso não define
+acesso irrestrito entre profissionais de saúde: categorias de dados, escopo por
+profissão e por vínculo de atendimento, operações permitidas e trilha de acesso
+precisam da planilha anunciada e de confirmação da AE/TI. Até lá, não conceder
+acesso médico pelo perfil geral de gestor ou supervisor.
 
 **Responsável / até a fase:** AE/TI; entrada sensível da Fase 1 e Fase 7.
 
-**Evidência:** PRD §21 e §23.2; especificação §11–12; roteiro F1/F7.
+**Evidência:** PRD §21 e §23.2; especificação §11–12; roteiro F1/F7;
+esclarecimento do solicitante em 26/09/2026, sem aceite institucional registrado.
 
 ## D23 — Escopo de “relatórios offline” e contingência; E14 e operação.
 
