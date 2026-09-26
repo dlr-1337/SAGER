@@ -67,6 +67,16 @@ deve ser interpretada automaticamente como registro de partida.
 
 **Evidência:** PRD §18.1 e §23.1; roteiro F3.
 
+## D06 — Prazos, atores e transições de cancelamento/expiração; E06–E07, UC07.
+
+**Estado atual e encaminhamento:** **Institucional pendente.** Definir
+antecedência, automação e tratamento de solicitações vencidas antes de criar
+transições definitivas.
+
+**Responsável / até a fase:** AE; Fase 3.
+
+**Evidência:** PRD §E07 e §23.1; roteiro F3.
+
 ## Como fechar uma decisão
 
 Para cada ID, registrar neste registro ou em ata vinculada: **opção aprovada**,
