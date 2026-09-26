@@ -55,6 +55,12 @@ definidas, prova do login institucional documentada e responsáveis indicados pa
 integrações externas. Ausência de credenciais ou contratação não paralisa módulos
 independentes, mas mantém a homologação dessas integrações pendente.
 
+**Estado em 25/09/2026:** os [registros da Fase 0](fase-0/README.md) documentam versões,
+contrato de Google OIDC, integrações e D01–D26. O JDK 21 foi instalado e o daemon Docker
+verificado, com limitação de reinício registrada no QA. A prova real do login ainda
+depende de cliente OAuth e política Workspace
+autorizados pela TI; portanto, **a Fase 0 não está homologada**.
+
 ### Fase 1 — Fundação técnica e primeira fatia real
 
 **Cobertura:** E01; AC01–AC03; início de E15; AT01 e AT03–AT06. AT02 fecha na
