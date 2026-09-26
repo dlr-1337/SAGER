@@ -15,9 +15,10 @@ proposta na seção 22.3 do PRD, sem retirar funcionalidades.
 
 O repositório tem um protótipo Angular navegável em `frontend/`. Seus cadastros e fluxos
 operacionais usam serviços em memória; o acesso usa seleção de perfil em `sessionStorage`;
-a assinatura é simulada; relatórios e ranking usam dados de exemplo. Ainda não há `backend/`
-nem `infra/`. As telas existentes são a base visual e funcional a integrar, não evidência de
-regras persistidas ou de autenticação real.
+a assinatura é simulada; relatórios e ranking usam dados de exemplo. A prova mínima
+Google OIDC em `backend/` foi adicionada na Fase 0; ainda não há `infra/` nem integração
+do Angular com a API. As telas existentes são a base visual e funcional a integrar, não
+evidência de regras persistidas ou de autenticação real.
 
 A arquitetura de referência é o monólito modular Spring Boot com PostgreSQL/Flyway,
 sessão e autorização no servidor, Angular e API na mesma origem, arquivos privados e
@@ -57,9 +58,10 @@ independentes, mas mantém a homologação dessas integrações pendente.
 
 **Estado em 25/09/2026:** os [registros da Fase 0](fase-0/README.md) documentam versões,
 contrato de Google OIDC, integrações e D01–D26. O JDK 21 foi instalado e o daemon Docker
-verificado, com limitação de reinício registrada no QA. A prova real do login ainda
-depende de cliente OAuth e política Workspace
-autorizados pela TI; portanto, **a Fase 0 não está homologada**.
+verificado, com limitação de reinício registrada no QA. Uma
+[prova técnica local](../backend/README.md) foi implementada e passou em testes sintéticos
+com PostgreSQL e HTTP reais. A prova com contas institucionais, confirmação do cliente
+OAuth/Workspace e aceite TI/AE ainda faltam; portanto, **a Fase 0 não está homologada**.
 
 ### Fase 1 — Fundação técnica e primeira fatia real
 
