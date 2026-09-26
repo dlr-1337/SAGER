@@ -58,6 +58,15 @@ pra casa por inferência.
 
 **Evidência:** PRD §E06 e §23.1; roteiro F3.
 
+## D05 — Evento de entrada em “em andamento” e distinção da saída física; E07–E08, UC17.
+
+**Estado atual e encaminhamento:** **Institucional pendente.** A aprovação não
+deve ser interpretada automaticamente como registro de partida.
+
+**Responsável / até a fase:** AE; Fase 3.
+
+**Evidência:** PRD §18.1 e §23.1; roteiro F3.
+
 ## Como fechar uma decisão
 
 Para cada ID, registrar neste registro ou em ata vinculada: **opção aprovada**,
