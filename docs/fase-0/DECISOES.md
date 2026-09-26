@@ -193,6 +193,16 @@ alertas internos sigilosos; não presumir envio por e-mail.
 
 **Evidência:** PRD §E11 e §23.2; roteiro F5.
 
+## D19 — Unicidade, capacidade, alocação e estados dos quartos; E04, UC16.
+
+**Estado atual e encaminhamento:** **Institucional pendente.** O número único
+exigido pelo UC16 não resolve sozinho ocupação parcial nem movimentação de
+residentes.
+
+**Responsável / até a fase:** AE; antes da Fase 2.
+
+**Evidência:** PRD §E04 e §23.2; roteiro F2.
+
 ## Como fechar uma decisão
 
 Para cada ID, registrar neste registro ou em ata vinculada: **opção aprovada**,
