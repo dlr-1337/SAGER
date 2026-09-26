@@ -47,8 +47,8 @@ public class InstitutionalOidcUserService implements OAuth2UserService<OidcUserR
         String email = user.getIdToken().getClaimAsString("email");
         Object verified = user.getIdToken().getClaims().get("email_verified");
 
-        if (issuer == null || subject == null || subject.isBlank() || email == null
-                || email.isBlank() || !(Boolean.TRUE.equals(verified) || "true".equals(verified))) {
+        if (issuer == null || issuer.isBlank() || subject == null || subject.isBlank()
+                || email == null || email.isBlank() || !Boolean.TRUE.equals(verified)) {
             throw rejected("invalid_identity_claims");
         }
 

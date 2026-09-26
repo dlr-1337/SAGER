@@ -100,6 +100,21 @@ class InstitutionalOidcUserServiceTest {
     }
 
     @Test
+    void doesNotTreatAStringAsVerifiedEmail() {
+        Map<String, Object> claims = new HashMap<>(user("ifgoiano.edu.br", true,
+                "servidor@exemplo.invalid").getIdToken().getClaims());
+        claims.put("email_verified", "true");
+        OidcIdToken token = new OidcIdToken("synthetic-token", Instant.now(),
+                Instant.now().plusSeconds(3600), claims);
+        when(delegate.loadUser(any())).thenReturn(new DefaultOidcUser(
+                List.of(new SimpleGrantedAuthority("OIDC_USER")), token, "sub"));
+
+        assertThatThrownBy(() -> service("ifgoiano.edu.br").loadUser(request))
+                .isInstanceOf(OAuth2AuthenticationException.class);
+        verifyNoInteractions(identities);
+    }
+
+    @Test
     void rejectsALocallyDisabledIdentity() {
         when(delegate.loadUser(any())).thenReturn(user("ifgoiano.edu.br", true,
                 "servidor@exemplo.invalid"));
