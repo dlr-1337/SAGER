@@ -226,6 +226,16 @@ institucional não foram confirmados. **Fase 0 não homologada sem esse teste.**
 **Evidência:** PRD §E01 e §23.2; especificação §6; roteiro F0–F1; decisão do
 solicitante nesta Fase 0.
 
+## D22 — Acesso a dados, retenção, descarte e objetivos de recuperação; proteção transversal.
+
+**Estado atual e encaminhamento:** **Institucional pendente.** Backup conjunto
+de PostgreSQL e arquivos com restauração ensaiada é desenho técnico; frequência,
+destino, retenção e acesso médico precisam de aceite.
+
+**Responsável / até a fase:** AE/TI; entrada sensível da Fase 1 e Fase 7.
+
+**Evidência:** PRD §21 e §23.2; especificação §11–12; roteiro F1/F7.
+
 ## Como fechar uma decisão
 
 Para cada ID, registrar neste registro ou em ata vinculada: **opção aprovada**,
