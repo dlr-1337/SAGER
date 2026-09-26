@@ -25,6 +25,19 @@ domínio do e-mail nem presume acesso do gestor a dados médicos.
 
 **Evidência:** PRD §2.2–2.3 e §23.1; roteiro F0–F1.
 
+## D02 — Dicionário cadastral, campos, unicidade, matrícula, desligamento e maioridade; E02, RF002, UC015.
+
+**Estado atual e encaminhamento:** **Adiada a origem da matrícula pelo
+solicitante; homologação pendente.** O login Google padrão não entrega
+matrícula. A fatia de cadastro de residente da Fase 1 deve aguardar decisão de
+dados e vínculo, sem inventar matrícula ou regra de validação.
+
+**Responsável / até a fase:** AE/TI; antes da fatia cadastral da Fase 1 e da
+Fase 2.
+
+**Evidência:** PRD §E02 e §23.1; roteiro F1–F2; decisão do solicitante nesta
+Fase 0.
+
 ## Como fechar uma decisão
 
 Para cada ID, registrar neste registro ou em ata vinculada: **opção aprovada**,
