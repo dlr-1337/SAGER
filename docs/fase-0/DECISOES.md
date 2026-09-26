@@ -203,6 +203,15 @@ residentes.
 
 **Evidência:** PRD §E04 e §23.2; roteiro F2.
 
+## D20 — Exportações por perfil, dados sensíveis, colunas e filtros; E14, RF011/UC11.
+
+**Estado atual e encaminhamento:** **Institucional pendente.** Não assumir que a
+restrição a gestor vista no protótipo substitui o texto RF/UC.
+
+**Responsável / até a fase:** AE; Fase 6.
+
+**Evidência:** PRD §E14 e §23.2; roteiro F6.
+
 ## Como fechar uma decisão
 
 Para cada ID, registrar neste registro ou em ata vinculada: **opção aprovada**,
