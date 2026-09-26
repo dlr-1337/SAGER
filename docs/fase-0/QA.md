@@ -1,8 +1,9 @@
 # QA da preparação do backend — Fase 0
 
-**Executado em:** 2026-09-25 · **Escopo:** documentação e ambiente da branch `backend`.
-Os resultados abaixo verificam a preparação da Fase 0. Eles não demonstram autenticação
-institucional, API Spring Boot ou integrações externas em produção.
+**Executado inicialmente em:** 2026-09-25 · **Escopo:** documentação e ambiente da
+branch `backend`. A seção inicial registra o estado anterior à prova mínima Spring
+Boot; a atualização técnica está ao final. Nenhuma delas demonstra login real com
+conta institucional ou integração externa em produção.
 
 | Verificação                                                                                                                                    | Resultado                                                                                                                                                                                                                                                                             |
 | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -31,7 +32,33 @@ institucional, API Spring Boot ou integrações externas em produção.
   reapareceu também após um ciclo normal de `docker desktop stop` e `start`. O ambiente
   precisa de investigação para um início estável antes dos testes com PostgreSQL na
   Fase 1; conferir `docker info` em cada sessão. Nenhum reset de dados foi feito.
-- Não existe `backend/` nesta fase para compilar ou testar Spring Boot/PostgreSQL. A prova
-  Google OIDC real continua pendente de cliente OAuth e política Workspace autorizados
-  pela TI. **A Fase 0 não está homologada.** Matrícula, conta WhatsApp e assinatura real
+- No momento desta primeira verificação ainda não existia `backend/`. A prova mínima
+  foi acrescentada em seguida, com resultados abaixo. A prova Google OIDC real
+  continua pendente de cliente OAuth/política Workspace autorizados pela TI.
+  **A Fase 0 não está homologada.** Matrícula, conta WhatsApp e assinatura real
   permanecem abertas para as decisões indicadas no [registro](DECISOES.md).
+
+## Atualização: prova técnica local do login
+
+**Executado em:** 2026-09-25 · **Escopo:** `backend/`, somente valores sintéticos.
+
+| Verificação       | Evidência                                                                     | Resultado                                                                                                                                                                                      |
+| ----------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Wrapper/JDK       | `mvnw.cmd --version` com `JAVA_HOME` local                                    | Maven 3.9.16 e Temurin 21.0.12.1                                                                                                                                                               |
+| Testes Java       | `backend/mvnw.cmd -B -ntp verify`                                             | **16 testes passaram**, sem falhas ou omissões                                                                                                                                                 |
+| Banco e migrações | Testcontainers/PostgreSQL 17.11 em banco vazio                                | Flyway V1/V2 aplicadas; identidade única por `iss` + `sub`; tabelas de sessão disponíveis                                                                                                      |
+| Autorização       | Testes de política OIDC e API                                                 | `hd` não aprovado, lista vazia, e-mail não verificado, conta desativada/sem perfil negados; `/me` reconsulta o perfil local                                                                    |
+| HTTP e sessão     | Tomcat em porta aleatória e MockMvc                                           | `/` 200, `/me` anônimo 401, CSRF 200, início OAuth 302, callback `localhost:8080` gerado corretamente, cookie protegido, callback com `state` desconhecido 403 e sessão removida do PostgreSQL |
+| Empacotamento     | `backend/mvnw.cmd -B -ntp verify`                                             | JAR Spring Boot criado em `backend/target/`, ignorado pelo Git                                                                                                                                 |
+| Compose           | `docker compose config --quiet` com porta local alternativa e senha sintética | Configuração válida; 5432 já estava em uso por outro processo, portanto `SAGER_DB_PORT` permite outra porta                                                                                    |
+
+Os documentos alterados passaram no Prettier; 38 links locais foram resolvidos e a
+busca por assinaturas de credenciais não encontrou valores nos novos arquivos.
+
+Os testes OIDC usam token e principal sintéticos, além de uma URI de callback gerada
+localmente. **Não houve login de servidor ou estudante pelo Google**, nem confirmação
+de que a URI está cadastrada no cliente da TI. Também faltam prova de conta sem perfil
+real, política de expiração/desligamento e aceite nominal da TI/AE. A lista de
+[evidências ainda necessárias](AUTENTICACAO_GOOGLE.md)
+permanece aberta. O aviso do Mockito sobre anexação dinâmica de agente não causou
+falha; ele é questão de manutenção da suíte, sem impacto na prova executada.

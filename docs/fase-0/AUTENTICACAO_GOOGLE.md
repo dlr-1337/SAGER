@@ -1,8 +1,9 @@
 # Fase 0 — contrato de autenticação Google
 
-**Estado em 25/09/2026:** contrato técnico proposto pelo projeto. **D21 pendente de
-validação com a TI e de teste real com cliente OAuth autorizado.** Este documento não
-constitui aprovação institucional nem evidência de login em funcionamento.
+**Estado em 25/09/2026:** contrato e prova técnica local implementados em
+[`backend/`](../../backend/README.md). **D21 e a homologação da Fase 0 continuam
+pendentes de login real e aceite da TI/AE.** Os testes sintéticos não demonstram que
+o cliente OAuth do SAGER esteja autorizado no Google Workspace.
 
 **Base:** [PRD v2.0, E01, AC01–AC03 e D01/D21](../../SAGER_PRD_v2.0_Angular_SpringBoot.md),
 [especificação técnica v2.0, seção 6](../../SAGER_Especificacao_Tecnica_v2.0.md) e
@@ -93,29 +94,61 @@ política institucional em D21.
 
 ## Configuração necessária para a prova real
 
-| Item                                | Preparação                                                                                                                                                             | Situação                   |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
-| Cliente OAuth do tipo aplicação web | TI/instituição define projeto, proprietário, tela de consentimento, público de teste e política de acesso no Google Workspace.                                         | Pendente                   |
-| `client_id` e `client_secret`       | Fornecidos por canal seguro e injetados no backend como variáveis/gerenciador de segredos; nunca em Git, exemplos preenchidos, logs ou frontend.                       | Pendente                   |
-| Escopos                             | `openid`, `profile`, `email`; sem Directory API ou escopo de matrícula.                                                                                                | Definido para o projeto    |
-| Redirecionamento local              | Registrar exatamente `http://localhost:8080/login/oauth2/code/google` se a prova local usar a porta 8080.                                                              | Pendente de cliente        |
-| Redirecionamento institucional      | Registrar `https://<dominio-aprovado>/login/oauth2/code/google` após a TI definir o domínio; validar cabeçalhos de proxy confiáveis para formar a URL externa correta. | Pendente de infraestrutura |
-| Domínios hospedados                 | Configurar apenas `hd` observado no teste e aprovado pela TI; rejeitar lista ausente em ambiente real.                                                                 | Pendente de teste          |
-| Contas de teste                     | TI/AE indicam contas institucionais autorizadas de servidor e estudante e aprovam o provisionamento local de perfis sintéticos.                                        | Pendente                   |
+| Item                                | Preparação                                                                                                                                                             | Situação                                                                                          |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Cliente OAuth do tipo aplicação web | TI/instituição confirma projeto, proprietário, tela de consentimento, público de teste e política de acesso no Google Workspace.                                       | Existência informada pelo solicitante; autorização da TI/Workspace não comprovada aqui            |
+| `client_id` e `client_secret`       | Fornecidos por canal seguro e injetados no backend como variáveis/gerenciador de segredos; nunca em Git, exemplos preenchidos, logs ou frontend.                       | Local seguro ainda não informado ao projeto                                                       |
+| Escopos                             | `openid`, `profile`, `email`; sem Directory API ou escopo de matrícula.                                                                                                | Definido para o projeto                                                                           |
+| Redirecionamento local              | Registrar exatamente `http://localhost:8080/login/oauth2/code/google` para a prova local.                                                                              | URI gerada pelo backend e verificada em teste sintético; cadastro no cliente ainda não confirmado |
+| Redirecionamento institucional      | Registrar `https://<dominio-aprovado>/login/oauth2/code/google` após a TI definir o domínio; validar cabeçalhos de proxy confiáveis para formar a URL externa correta. | Pendente de infraestrutura                                                                        |
+| Domínios hospedados                 | Configurar apenas `hd` observado no teste e aprovado pela TI; lista ausente bloqueia todos os logins.                                                                  | Pendente de observação e aceite                                                                   |
+| Contas de teste                     | TI/AE indicam titulares de contas institucionais de servidor e estudante e aprovam o perfil local da prova.                                                            | Titulares e perfil não indicados                                                                  |
 
-Na Fase 1, a configuração Spring Boot deverá declarar
-`spring.security.oauth2.client.registration.google` com o client ID e o segredo
-obtidos do ambiente, os três escopos e o redirecionamento padrão
-`{baseUrl}/login/oauth2/code/{registrationId}`. O caminho de início padrão do
-Spring Security é `/oauth2/authorization/google`. O Nginx encaminhará ambos os
-caminhos ao backend na mesma origem. URLs pós-login deverão ser locais e permitidas
-explicitamente; não aceitar redirecionamento arbitrário recebido por parâmetro.
+A prova mínima já declara `spring.security.oauth2.client.registration.google` em
+[`application.yml`](../../backend/src/main/resources/application.yml), com client ID e
+segredo lidos do ambiente, os três escopos e o redirecionamento padrão
+`{baseUrl}/login/oauth2/code/{registrationId}`. O início é
+`/oauth2/authorization/google` e o sucesso vai para `/api/v1/auth/me`, sem aceitar
+URL pós-login arbitrária. O Nginx e a integração com Angular são trabalho posterior.
+
+## Prova técnica executada e limites
+
+Em 25/09/2026, `backend/mvnw.cmd -B -ntp verify` passou com **16 testes** em
+Temurin 21.0.12.1 e Spring Boot 4.1.1. O Testcontainers iniciou PostgreSQL 17.11;
+Flyway aplicou as migrações V1 e V2 em banco vazio. Os testes cobriram recusa de `hd`
+fora da lista ou lista vazia, e-mail não verificado, identidade desabilitada ou sem
+perfil, vínculo estável por `iss` + `sub`, contrato de `/me`, CSRF, logout, cookie
+`Secure`/`HttpOnly`/`SameSite=Lax` e revogação de sessão após callback com `state`
+desconhecido. Um servidor HTTP real em porta aleatória respondeu `200` em `/`, `401`
+em `/api/v1/auth/me`, `200` no endpoint CSRF e `302` no início OAuth. O teste de
+redirect em porta 8080 confirmou a URI de retorno exata planejada. A evidência
+detalhada está em [QA.md](QA.md) e no [teste de integração](../../backend/src/test/java/br/edu/ifgoiano/sager/auth/AuthFlowIntegrationTest.java).
+
+Nesses testes, o cliente OAuth e os tokens são **sintéticos**. Não houve navegação de
+um titular até o Google, troca real de código por token nem confirmação de política
+Workspace. O teste de perfil usa um principal OIDC simulado; ele verifica a consulta
+ao cadastro local, não substitui a prova institucional. Não foram testados ainda
+expiração por inatividade e desligamento institucional; a política depende da TI.
+
+### Registro necessário para homologar D21
+
+| Evidência                                                            | Resultado atual | Responsável, data e referência exigidos                                            |
+| -------------------------------------------------------------------- | --------------- | ---------------------------------------------------------------------------------- |
+| Cliente web autorizado no Workspace e URI exata cadastrada           | Pendente        | TI: nome/cargo, data e referência da confirmação                                   |
+| `hd` do ID token validado para servidor e estudante; lista permitida | Pendente        | TI: valores aceitos, nome/cargo, data e referência                                 |
+| Perfil local de teste e regra de concessão                           | Pendente        | AE e TI: perfil aprovado, nome/cargo, data e referência                            |
+| Sessão, expiração e desligamento/revogação                           | Pendente        | TI: política, nome/cargo, data e referência                                        |
+| Login real de servidor, estudante e conta sem perfil                 | Pendente        | Executores autorizados: data, ambiente e resultado por cenário, sem dados pessoais |
+| Aceite final da Fase 0                                               | Pendente        | TI/AE: nomes, datas, referência e eventuais restrições                             |
+
+O [procedimento operacional](../../backend/README.md) explica como iniciar o backend,
+observar o `hd` sem copiar o token e conceder um perfil apenas após autorização.
 
 ## Roteiro de teste institucional para D21
 
 **Pré-condições:** cliente OAuth autorizado para o público de teste pela TI, política
-do Workspace liberada, URI de retorno registrada, backend da Fase 1 disponível sob
-HTTPS ou `localhost`, sessão e cadastro local de teste configurados com dados
+do Workspace liberada, URI de retorno registrada, backend da prova disponível em
+`localhost`, sessão e cadastro local de teste configurados com dados
 sintéticos. O teste será executado por titulares/autorizados; este repositório não
 guarda senha, token, cookie, captura de ID token nem dados pessoais dos participantes.
 
