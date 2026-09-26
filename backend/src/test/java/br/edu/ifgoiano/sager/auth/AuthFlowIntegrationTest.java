@@ -9,11 +9,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.OidcLoginRequestPostProcessor;
@@ -22,7 +29,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
-@SpringBootTest(properties = {
+@SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT, properties = {
         "spring.security.oauth2.client.registration.google.client-id=synthetic-client",
         "spring.security.oauth2.client.registration.google.client-secret=synthetic-secret",
         "sager.auth.allowed-hd=ifgoiano.edu.br"
@@ -51,6 +58,9 @@ class AuthFlowIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbc;
+
+    @LocalServerPort
+    private int port;
 
     @BeforeEach
     void cleanIdentities() {
@@ -137,6 +147,30 @@ class AuthFlowIntegrationTest {
                         org.hamcrest.Matchers.containsString("response_type=code"),
                         org.hamcrest.Matchers.containsString("scope=openid%20profile%20email"),
                         org.hamcrest.Matchers.containsString("redirect_uri=http://localhost:8080/login/oauth2/code/google"))));
+    }
+
+    @Test
+    void servesTheAnonymousAndOAuthEndpointsOverRealHttp() throws Exception {
+        try (HttpClient client = HttpClient.newBuilder()
+                .followRedirects(HttpClient.Redirect.NEVER).build()) {
+            assertThat(fetch(client, "/").statusCode()).isEqualTo(200);
+            assertThat(fetch(client, "/api/v1/auth/me").statusCode()).isEqualTo(401);
+            assertThat(fetch(client, "/api/v1/auth/csrf").statusCode()).isEqualTo(200);
+
+            HttpResponse<Void> oauth = fetch(client, "/oauth2/authorization/google");
+            assertThat(oauth.statusCode()).isEqualTo(302);
+            assertThat(oauth.headers().firstValue("Location").orElseThrow())
+                    .contains("response_type=code")
+                    .contains("redirect_uri=http://localhost:" + port + "/login/oauth2/code/google");
+            assertThat(oauth.headers().firstValue("Set-Cookie").orElseThrow())
+                    .contains("Secure", "HttpOnly", "SameSite=Lax");
+        }
+    }
+
+    private HttpResponse<Void> fetch(HttpClient client, String path) throws Exception {
+        HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
+                .GET().build();
+        return client.send(request, HttpResponse.BodyHandlers.discarding());
     }
 
     private static OidcLoginRequestPostProcessor syntheticLogin() {
