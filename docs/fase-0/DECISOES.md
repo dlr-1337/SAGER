@@ -106,6 +106,15 @@ referências técnicas, não uma janela de tolerância aprovada.
 
 **Evidência:** PRD §E05 e §23.1; especificação §4.3/§7; roteiro F3.
 
+## D10 — Escala, pesos, períodos, desempate e limiar de alerta da limpeza; E13, UC09/UC12.
+
+**Estado atual e encaminhamento:** **Institucional pendente.** Não usar números
+ou fórmula do protótipo como regra oficial.
+
+**Responsável / até a fase:** AE; Fase 6.
+
+**Evidência:** PRD §E13 e §23.1; roteiro F6.
+
 ## Como fechar uma decisão
 
 Para cada ID, registrar neste registro ou em ata vinculada: **opção aprovada**,
