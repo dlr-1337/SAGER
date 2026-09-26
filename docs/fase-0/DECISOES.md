@@ -38,6 +38,16 @@ Fase 2.
 **Evidência:** PRD §E02 e §23.1; roteiro F1–F2; decisão do solicitante nesta
 Fase 0.
 
+## D03 — Referência temporal para envio da saída preenchida com “agora”; E06, UC06.
+
+**Estado atual e encaminhamento:** **Institucional pendente.** Definir se o
+horário é atualizado, se vale o instante do envio ou qual intervalo de
+preenchimento é aceito; sem tolerância implícita.
+
+**Responsável / até a fase:** AE/TI; Fase 3.
+
+**Evidência:** PRD §E06 e §23.1; roteiro F3.
+
 ## Como fechar uma decisão
 
 Para cada ID, registrar neste registro ou em ata vinculada: **opção aprovada**,
