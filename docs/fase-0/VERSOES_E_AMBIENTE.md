@@ -51,7 +51,14 @@ O Docker Desktop 4.91.0 iniciou e `docker info` retornou
 `Server=29.8.0; OS=Docker Desktop; OSType=linux`, comprovando o daemon operacional
 em 2026-09-25. A inicialização inicial falhou ao acessar sockets locais antigos; após
 parar o Desktop e o WSL, as pastas **somente de sockets transitórios** foram preservadas
-com sufixo `.recovery-*` fora do repositório e o Desktop iniciou normalmente. Nenhum
-volume, contêiner ou imagem foi apagado ou redefinido. Essa recuperação é uma observação
-local, não parte da instalação reproduzível do SAGER; se o erro voltar, consultar os logs
-do Docker Desktop antes de alterar o ambiente.
+com sufixo `.recovery-*` fora do repositório e o Desktop iniciou. Nenhum volume,
+contêiner ou imagem foi apagado ou redefinido.
+
+**Limitação local observada no QA:** após o Desktop encerrar, inclusive com
+`docker desktop stop` normal, a falha de acesso ao socket `sailor-ingest.sock`
+reapareceu na partida seguinte. O mesmo isolamento dos diretórios
+transitórios, feito com o Desktop parado e os caminhos conferidos, restaurou o daemon;
+`docker info` voltou a responder. O início após encerramento ainda não está estável.
+Revalidar `docker info` em cada nova sessão e investigar a correção do Docker Desktop
+antes de depender dele para os testes da Fase 1. Não usar “Reset to factory defaults”
+como procedimento de recuperação, pois isso não foi testado nem autorizado aqui.
