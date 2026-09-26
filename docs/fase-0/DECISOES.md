@@ -87,6 +87,15 @@ assinado armazenado**; a dúvida é apenas a ordem permitida da rejeição.
 
 **Evidência:** PRD §E07, §E09 e §23.1; roteiro F4.
 
+## D08 — Lançamento tardio, correção e saída curta aberta após o prazo; E08, UC17.
+
+**Estado atual e encaminhamento:** **Institucional pendente.** Confirmar também
+o limite do fluxo de retorno longo antes de implementar correções retroativas.
+
+**Responsável / até a fase:** AE; Fase 3.
+
+**Evidência:** PRD §E08 e §23.1; roteiro F3.
+
 ## Como fechar uma decisão
 
 Para cada ID, registrar neste registro ou em ata vinculada: **opção aprovada**,
