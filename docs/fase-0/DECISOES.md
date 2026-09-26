@@ -161,6 +161,19 @@ ativo, autorização e destinatário antes do envio ao responsável.
 
 **Evidência:** PRD §E02, §E09 e §23.2; roteiro F2/F4.
 
+## D16 — Modalidade, identidade, serviço e contratação da assinatura; E09, RF015/RF016.
+
+**Estado atual e encaminhamento:** **Serviço e modalidade adiados pelo
+solicitante; aprovação pendente.** A Clicksign API 3.0 da especificação é só
+referência técnica condicionada; não há fornecedor nem assinatura
+manual/digital/gov.br homologados. O bloqueio da aprovação longa continua
+obrigatório.
+
+**Responsável / até a fase:** AE/TI e instituição; antes de ativar a Fase 4.
+
+**Evidência:** PRD §E09 e §23.2; especificação §8.1; roteiro F4; decisão do
+solicitante nesta Fase 0.
+
 ## Como fechar uma decisão
 
 Para cada ID, registrar neste registro ou em ata vinculada: **opção aprovada**,
