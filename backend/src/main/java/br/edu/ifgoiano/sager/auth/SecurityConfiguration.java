@@ -59,6 +59,8 @@ public class SecurityConfiguration {
                         .permitAll()
                         .requestMatchers("/api/v1/auth/me", "/api/v1/auth/logout")
                         .authenticated()
+                        .requestMatchers("/api/v1/supervisores", "/api/v1/supervisores/**")
+                        .hasRole("GESTOR")
                         .anyRequest().denyAll())
                 .authenticationProvider(provider)
                 .formLogin(login -> login.loginPage("/api/v1/auth/login")
