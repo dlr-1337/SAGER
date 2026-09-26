@@ -65,6 +65,7 @@ class AuthFlowIntegrationTest {
     @BeforeEach
     void cleanIdentities() {
         jdbc.update("DELETE FROM sager_identity");
+        jdbc.update("DELETE FROM spring_session");
     }
 
     @AfterAll
@@ -133,6 +134,26 @@ class AuthFlowIntegrationTest {
                         org.hamcrest.Matchers.containsString("Secure"),
                         org.hamcrest.Matchers.containsString("HttpOnly"),
                         org.hamcrest.Matchers.containsString("SameSite=Lax"))));
+    }
+
+    @Test
+    void rejectsAnUncorrelatedCallbackAndInvalidatesTheSession() throws Exception {
+        try (HttpClient client = HttpClient.newBuilder()
+                .followRedirects(HttpClient.Redirect.NEVER).build()) {
+            HttpResponse<Void> authorization = fetch(client, "/oauth2/authorization/google");
+            String cookie = authorization.headers().firstValue("Set-Cookie").orElseThrow()
+                    .split(";", 2)[0];
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM spring_session", Integer.class))
+                    .isEqualTo(1);
+
+            HttpRequest callback = HttpRequest.newBuilder(URI.create("http://localhost:" + port
+                            + "/login/oauth2/code/google?code=invalid&state=unrecognized"))
+                    .header("Cookie", cookie).GET().build();
+            assertThat(client.send(callback, HttpResponse.BodyHandlers.discarding()).statusCode())
+                    .isEqualTo(403);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM spring_session", Integer.class))
+                    .isZero();
+        }
     }
 
     @Test

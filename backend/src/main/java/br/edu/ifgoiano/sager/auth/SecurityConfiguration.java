@@ -59,6 +59,9 @@ public class SecurityConfiguration {
 
     private AuthenticationFailureHandler loginFailureHandler() {
         return (request, response, exception) -> {
+            if (request.getSession(false) != null) {
+                request.getSession(false).invalidate();
+            }
             response.setStatus(HttpStatus.FORBIDDEN.value());
             response.setCharacterEncoding(StandardCharsets.UTF_8.name());
             response.setContentType("text/html;charset=UTF-8");
