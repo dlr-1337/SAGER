@@ -1,5 +1,10 @@
 # QA da preparação do backend — Fase 0
 
+**Revisão de 26/09/2026:** a prova Google OIDC abaixo é evidência **histórica**.
+O [login local provisório](AUTENTICACAO_LOCAL.md) a substitui para desenvolvimento
+e teste. Os resultados do novo login foram registrados após a execução;
+o aceite técnico local não homologa D21 nem a Fase 0.
+
 **Executado inicialmente em:** 2026-09-25 · **Escopo:** documentação e ambiente da
 branch `backend`. A seção inicial registra o estado anterior à prova mínima Spring
 Boot; a atualização técnica está ao final. Nenhuma delas demonstra login real com
@@ -28,17 +33,18 @@ conta institucional ou integração externa em produção.
 - O servidor Angular emitiu `NG0913` para a marca oficial do IF Goiano: a imagem de origem
   é muito maior que o tamanho exibido. O aviso já ocorre no frontend existente; esta fase
   não alterou a marca nem as telas.
-- O Docker ficou operacional nas verificações após recuperação, mas a falha de socket
-  reapareceu também após um ciclo normal de `docker desktop stop` e `start`. O ambiente
-  precisa de investigação para um início estável antes dos testes com PostgreSQL na
-  Fase 1; conferir `docker info` em cada sessão. Nenhum reset de dados foi feito.
+- Em 25/09/2026, o Docker ficou operacional após recuperação, mas a falha de
+  `sailor-ingest.sock` reapareceu após reinício limpo no Desktop 4.91.0. O
+  acompanhamento após a atualização está registrado abaixo. Nenhum reset de dados
+  foi feito.
 - No momento desta primeira verificação ainda não existia `backend/`. A prova mínima
-  foi acrescentada em seguida, com resultados abaixo. A prova Google OIDC real
-  continua pendente de cliente OAuth/política Workspace autorizados pela TI.
+  foi acrescentada em seguida, com resultados abaixo. Na proposta da época, uma
+  prova Google OIDC real exigiria cliente OAuth e política Workspace autorizados
+  pela TI; o provedor institucional hoje continua indefinido.
   **A Fase 0 não está homologada.** Matrícula, conta WhatsApp e assinatura real
   permanecem abertas para as decisões indicadas no [registro](DECISOES.md).
 
-## Atualização: prova técnica local do login
+## Histórico: prova técnica Google OIDC descontinuada
 
 **Executado em:** 2026-09-25 · **Escopo:** `backend/`, somente valores sintéticos.
 
@@ -58,7 +64,79 @@ busca por assinaturas de credenciais não encontrou valores nos novos arquivos.
 Os testes OIDC usam token e principal sintéticos, além de uma URI de callback gerada
 localmente. **Não houve login de servidor ou estudante pelo Google**, nem confirmação
 de que a URI está cadastrada no cliente da TI. Também faltam prova de conta sem perfil
-real, política de expiração/desligamento e aceite nominal da TI/AE. A lista de
-[evidências ainda necessárias](AUTENTICACAO_GOOGLE.md)
-permanece aberta. O aviso do Mockito sobre anexação dinâmica de agente não causou
+real, política de expiração/desligamento e aceite nominal da TI/AE. O
+[roteiro de evidências da proposta Google](AUTENTICACAO_GOOGLE.md) é histórico;
+o fechamento de D21 dependerá do provedor que a TI definir. O aviso do Mockito
+sobre anexação dinâmica de agente não causou
 falha; ele é questão de manutenção da suíte, sem impacto na prova executada.
+
+## Revisão: login local provisório
+
+**Estado em 26/09/2026:** implementação e prova técnica local concluídas. Após reproduzir
+a falha de `sailor-ingest.sock` no Desktop 4.91.0, foram preservados em backups
+fora do Git apenas `%LOCALAPPDATA%\Docker\run` e
+`%LOCALAPPDATA%\docker-secrets-engine`. O Desktop foi atualizado para
+**4.92.0.240144**. `docker desktop restart --timeout 45` concluiu em cerca de 7
+segundos e `docker info` retornou Engine `29.8.0`, `OSType=linux`. Após todos os
+testes, `docker ps` não mostrou contêineres ativos;
+`docker desktop stop --timeout 45` passou em cerca de 13 segundos e
+`docker desktop start --timeout 60` em cerca de 3 segundos, ambos com código 0.
+`docker desktop status` retornou `running` e `docker info` confirmou Engine
+`29.8.0`, `OSType=linux`. Essa partida fria passou no cenário que antes falhava.
+Esses resultados não garantem estabilidade permanente; repetir `docker info` em cada
+sessão. Nenhum volume, contêiner ou imagem foi apagado ou redefinido.
+
+A tabela abaixo distingue testes automatizados da prova manual integrada.
+
+| Verificação         | Comando ou cenário                                                                                | Resultado                                                                                                                                                                                                         |
+| ------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend e migrações | `.\mvnw.cmd -B -ntp clean verify` em `backend/`, com Temurin 21 e Testcontainers/PostgreSQL 17.11 | **11 testes, 0 falhas, BUILD SUCCESS**; Flyway V1–V3, hash e restrições verificados.                                                                                                                              |
+| CLI local           | Criar, redefinir senha e desativar conta sintética com console oculto                             | Criação com senha oculta e desativação verificadas manualmente; redefinição e despacho cobertos por testes automatizados.                                                                                         |
+| Segurança HTTP      | Login, CSRF, `/me`, perfis, logout e revogação após reset/desativação                             | Testes usam HTTP real em porta aleatória e PostgreSQL Testcontainers; prova manual separada integrou Angular e backend em 8080.                                                                                   |
+| Limite de ambiente  | Bind em `127.0.0.1` no perfil `local`; acesso negado fora dele                                    | Testes automatizados de perfil não local, bind externo e perfis mistos passaram.                                                                                                                                  |
+| Angular             | `npm run build` e `npm test -- --watch=false` em `frontend/`                                      | Build e **21/21 testes unitários** passaram.                                                                                                                                                                      |
+| Navegador           | Playwright: suíte geral, casos focados e prova integrada                                          | **25/25** na suíte geral final após correção, com backend indisponível; autenticação focada 4/4 e prova adicional com backend, banco e navegador reais passaram.                                                  |
+| Higiene             | `git diff --check origin/backend`, links locais e varredura de 46 arquivos alterados/novos        | Diff sem erro; 49 links locais resolvidos e Prettier passou nos documentos. Nenhum marcador de chave privada, token Google/GitHub/OpenAI ou segredo atribuído encontrado; e-mails somente em domínios reservados. |
+
+Comandos Playwright em `frontend/`:
+
+```text
+npx playwright test --grep-invert "captura telas centrais"
+npx playwright test e2e/local-auth.spec.ts --workers=2
+npx playwright test e2e/route-audit.spec.ts --workers=2
+```
+
+Após o ajuste de sessão em aba nova, uma execução intermediária com backend
+indisponível teve 24 aprovações e uma falha de corrida no próprio teste
+`route-audit`. O teste passou a aguardar a entrada na demonstração; seus dois
+casos focados passaram. A suíte geral foi repetida após a correção com backend
+indisponível e passou **25/25 em 1,8 minuto, exit code 0**. Os quatro testes
+focados de autenticação passaram e interceptam `/api/v1/auth/**`. A suíte geral
+exclui a captura visual que sobrescreve imagens rastreadas. A prova integrada
+abaixo é a evidência separada de login contra PostgreSQL.
+
+### Prova manual integrada em 26/09/2026
+
+Com banco descartável PostgreSQL 17.11 em `127.0.0.1:55432`, Spring Boot no perfil
+`local` em `127.0.0.1:8080` e Angular em `127.0.0.1:4200`, Flyway aplicou V1–V3.
+A CLI interativa criou uma conta sintética com senha digitada de forma oculta; não
+foram usados dados pessoais nas evidências.
+
+- Login no navegador retornou `204`. `/api/v1/auth/me` retornou `200` com perfil
+  local `gestor`; a recarga da página preservou a sessão.
+- O cookie de sessão no HTTP local foi observado com `HttpOnly`, `SameSite=Lax` e
+  `Secure=false`. Uma rota de supervisor foi negada para esse perfil no Angular.
+- Senha errada foi rejeitada. Após logout, `/me` retornou `401`. A desativação da
+  conta pela CLI revogou uma sessão ativa: `/me` retornou `401` e a rota interna
+  redirecionou para `/acesso`.
+- Com o backend parado, o acesso direto a `/inicio` redirecionou para `/acesso`;
+  `/demonstracao` abriu e a recarga manteve o modo fictício. A captura pós-login
+  foi revisada e mostrava os rótulos de dados fictícios.
+
+**Aceite técnico local:** os cenários de login provisório acima passaram para
+desenvolvimento e teste. Esse aceite não homologa identidade institucional,
+AC01/AC02, AT03 ou a Fase 0; D21 continua aberta. A verificação final dos
+arquivos antes dos commits não encontrou segredos nem dados pessoais nas alterações.
+
+Nenhuma senha, cookie, e-mail pessoal ou dado real integra estas evidências. A
+prova e o aceite institucionais permanecem pendentes em [D21](DECISOES.md).

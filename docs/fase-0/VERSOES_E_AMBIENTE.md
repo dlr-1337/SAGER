@@ -1,6 +1,6 @@
 # Versões e ambiente da Fase 0
 
-**Registro:** 2026-09-25 · **Base:** [roteiro de implementação](../ROADMAP_IMPLEMENTACAO.md),
+**Registro inicial:** 2026-09-25 · **Atualização do Docker:** 2026-09-26 · **Base:** [roteiro de implementação](../ROADMAP_IMPLEMENTACAO.md),
 [PRD v2.0](../../SAGER_PRD_v2.0_Angular_SpringBoot.md) e
 [especificação técnica v2.0](../../SAGER_Especificacao_Tecnica_v2.0.md).
 
@@ -39,33 +39,38 @@ O arquivo binário e qualquer cache de download ficam fora do Git.
 
 ## Ambientes da Fase 1
 
-- `dev`: dados sintéticos, segredos locais fora do Git e serviços externos em sandbox ou
-  adaptadores explicitamente demonstrativos.
+- `local`: login provisório por e-mail/senha própria, banco e dados sintéticos, bind
+  do backend em `127.0.0.1` e segredos fora do Git. Não é ambiente de produção.
+- `dev`: futuro ambiente de desenvolvimento com serviços externos em sandbox ou
+  adaptadores explicitamente demonstrativos; o login local não deve ser exposto em rede.
 - `test`: banco descartável, migrações Flyway e testes automatizados com dados sintéticos.
 - `prod`: segredos injetados pela infraestrutura institucional, dados e documentos privados,
   integração real somente após as decisões e aprovações correspondentes.
 - `frontend/package-lock.json` continua sendo a fonte das versões npm; `npm ci` é o comando
   reproduzível. O backend versiona `mvnw`, `mvnw.cmd`, `.mvn/wrapper/` e `pom.xml`.
 
-O cliente Docker e o Compose estão instalados (`29.8.0` e `5.5.1` respectivamente).
-O Docker Desktop 4.91.0 iniciou e `docker info` retornou
-`Server=29.8.0; OS=Docker Desktop; OSType=linux`, comprovando o daemon operacional
-em 2026-09-25. A inicialização inicial falhou ao acessar sockets locais antigos; após
-parar o Desktop e o WSL, as pastas **somente de sockets transitórios** foram preservadas
-com sufixo `.recovery-*` fora do repositório e o Desktop iniciou. Nenhum volume,
+O cliente Docker e o Compose estavam instalados (`29.8.0` e `5.5.1`
+respectivamente). Em 25/09/2026, o Docker Desktop 4.91.0 iniciou e `docker info`
+retornou `Server=29.8.0; OS=Docker Desktop; OSType=linux`. Uma falha ao acessar
+`sailor-ingest.sock` reapareceu após reinício limpo. Com o Desktop e o WSL parados,
+foram isolados **somente** `%LOCALAPPDATA%\Docker\run` e
+`%LOCALAPPDATA%\docker-secrets-engine` em backups fora do Git. Nenhum volume,
 contêiner ou imagem foi apagado ou redefinido.
 
-**Limitação local observada no QA:** após o Desktop encerrar, inclusive com
-`docker desktop stop` normal, a falha de acesso ao socket `sailor-ingest.sock`
-reapareceu na partida seguinte. O mesmo isolamento dos diretórios
-transitórios, feito com o Desktop parado e os caminhos conferidos, restaurou o daemon;
-`docker info` voltou a responder. O início após encerramento ainda não está estável.
-Revalidar `docker info` em cada nova sessão e investigar a correção do Docker Desktop
-antes de depender dele para os testes da Fase 1. Não usar “Reset to factory defaults”
-como procedimento de recuperação, pois isso não foi testado nem autorizado aqui.
+Em 26/09/2026, o Desktop foi atualizado para **4.92.0.240144**.
+`docker desktop restart --timeout 45` concluiu em aproximadamente 7 segundos e
+`docker info` voltou a responder com Engine `29.8.0` e `OSType=linux`. Após todos
+os testes, `docker ps` não mostrou contêineres ativos;
+`docker desktop stop --timeout 45` concluiu em cerca de 13 segundos e
+`docker desktop start --timeout 60` em cerca de 3 segundos, ambos com código 0.
+`docker desktop status` retornou `running` e `docker info` confirmou Engine
+`29.8.0`, `OSType=linux`. Essa partida fria, que antes reproduzia a falha,
+passou após a atualização; isso não garante que toda
+partida futura será estável. Conferir `docker info` em cada sessão de teste e
+registrar eventual recorrência. Não foi usado reset de fábrica.
 
 **Atualização da prova local:** Docker respondeu em execuções repetidas da suíte do
 backend em 25/09/2026. Testcontainers iniciou e removeu PostgreSQL 17.11 sem usar
-dados reais. Isso confirma o daemon durante os testes; não elimina a limitação de
-reinício do Desktop descrita acima. A porta local 5432 já estava ocupada por outro
+dados reais. Em 26/09/2026, a suíte final do login local aplicou Flyway V1–V3 e
+passou com 11 testes no mesmo PostgreSQL 17.11. A porta local 5432 já estava ocupada por outro
 processo; [`compose.yaml`](../../backend/compose.yaml) permite `SAGER_DB_PORT` alternativo.
