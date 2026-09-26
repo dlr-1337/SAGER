@@ -45,3 +45,20 @@ O arquivo binário e qualquer cache de download ficam fora do Git.
   integração real somente após as decisões e aprovações correspondentes.
 - `frontend/package-lock.json` continua sendo a fonte das versões npm; `npm ci` é o comando
   reproduzível. O futuro backend deve versionar `mvnw`, `mvnw.cmd`, `.mvn/wrapper/` e `pom.xml`.
+
+O cliente Docker e o Compose estão instalados (`29.8.0` e `5.5.1` respectivamente).
+O Docker Desktop 4.91.0 iniciou e `docker info` retornou
+`Server=29.8.0; OS=Docker Desktop; OSType=linux`, comprovando o daemon operacional
+em 2026-09-25. A inicialização inicial falhou ao acessar sockets locais antigos; após
+parar o Desktop e o WSL, as pastas **somente de sockets transitórios** foram preservadas
+com sufixo `.recovery-*` fora do repositório e o Desktop iniciou. Nenhum volume,
+contêiner ou imagem foi apagado ou redefinido.
+
+**Limitação local observada no QA:** após o Desktop encerrar, inclusive com
+`docker desktop stop` normal, a falha de acesso ao socket `sailor-ingest.sock`
+reapareceu na partida seguinte. O mesmo isolamento dos diretórios
+transitórios, feito com o Desktop parado e os caminhos conferidos, restaurou o daemon;
+`docker info` voltou a responder. O início após encerramento ainda não está estável.
+Revalidar `docker info` em cada nova sessão e investigar a correção do Docker Desktop
+antes de depender dele para os testes da Fase 1. Não usar “Reset to factory defaults”
+como procedimento de recuperação, pois isso não foi testado nem autorizado aqui.
