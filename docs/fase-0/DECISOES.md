@@ -1,0 +1,36 @@
+# Registro de decisões da Fase 0
+
+**Registro:** 25/09/2026. **Base funcional:**
+[PRD v2.0, seção 23](../../SAGER_PRD_v2.0_Angular_SpringBoot.md). **Base de
+implementação:**
+[Especificação Técnica v2.0](../../SAGER_Especificacao_Tecnica_v2.0.md) e
+[roteiro de fases](../ROADMAP_IMPLEMENTACAO.md).
+
+Este registro separa uma **escolha de projeto** da **homologação
+institucional**. AE significa Assistência Estudantil; TI significa a equipe de
+tecnologia da instituição. Os responsáveis abaixo seguem os encaminhamentos
+propostos pelo PRD e precisam ser confirmados pela governança institucional.
+**Não há opção institucional aprovada, data de aprovação ou evidência de
+homologação registrada para D01–D26.** A data acima é apenas a data deste
+registro. Em cada decisão, “pendente” indica a decisão que ainda deve ser
+formalizada; uma proposta técnica não a substitui.
+
+## D01 — Matriz de perfis, permissões e provisionamento do gestor; E01–E03, RF002, UC01/UC015.
+
+**Estado atual e encaminhamento:** **Institucional pendente.** O projeto prevê
+perfis locais explícitos e autorização no servidor, mas não atribui perfil pelo
+domínio do e-mail nem presume acesso do gestor a dados médicos.
+
+**Responsável / até a fase:** AE/TI; entrada da Fase 1.
+
+**Evidência:** PRD §2.2–2.3 e §23.1; roteiro F0–F1.
+
+## Como fechar uma decisão
+
+Para cada ID, registrar neste registro ou em ata vinculada: **opção aprovada**,
+**responsável institucional nominal**, **data**, **justificativa e evidência**,
+**requisito afetado** e **versão do PRD**. Alterações que afetem contrato, dados
+ou estados devem atualizar a especificação, o modelo, os testes e o roteiro de
+homologação. Uma credencial disponível ou uma simulação não equivale a aprovação
+institucional; uma escolha de fornecedor para estudo não autoriza contratação ou
+tratamento de dados reais.
