@@ -77,6 +77,16 @@ transições definitivas.
 
 **Evidência:** PRD §E07 e §23.1; roteiro F3.
 
+## D07 — Possibilidade de rejeitar saída longa antes da assinatura; E07/E09, UC07/RN05.
+
+**Estado atual e encaminhamento:** **AE pendente.** Permanece vigente o
+requisito do PRD: **aprovação de saída longa exige assinatura válida e documento
+assinado armazenado**; a dúvida é apenas a ordem permitida da rejeição.
+
+**Responsável / até a fase:** AE; Fases 3–4.
+
+**Evidência:** PRD §E07, §E09 e §23.1; roteiro F4.
+
 ## Como fechar uma decisão
 
 Para cada ID, registrar neste registro ou em ata vinculada: **opção aprovada**,
