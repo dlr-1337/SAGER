@@ -1,4 +1,4 @@
-# Fase 0 — WhatsApp
+# Fase 0 — WhatsApp e assinatura
 
 **Estado em 25/09/2026:** avaliação técnica para planejamento. Nenhuma conta, contratação,
 credencial, mensagem ou assinatura real foi criada nesta fase. A escolha de fornecedor para
@@ -30,3 +30,23 @@ A [especificação técnica atual, seção 8](../../SAGER_Especificacao_Tecnica_
 Meta Cloud API direta como referência. A preferência por Twilio registrada aqui requer alinhar
 essa referência antes da implementação da Fase 4. Ela não altera por si só uma aprovação
 institucional, que ainda não existe.
+
+## Assinatura: decisão futura
+
+| Modalidade a avaliar                                                                      | Ponto a esclarecer antes de escolher                                                                                                                                                                                                                                                                                                |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Assinatura manual em papel                                                                | Exigiria procedimento presencial, conferência da identidade, digitalização e guarda da evidência. O PRD pede assinatura **eletrônica via link** para a saída longa; a via manual não pode substituí-la sem revisão e homologação expressa do requisito.                                                                             |
+| Serviço de assinatura eletrônica com API, inclusive opção com certificado digital         | Verificar método de identificação do responsável, assinatura do documento correto, evidências, webhooks, documento assinado, custos e contrato. A [Clicksign API 3.0](https://developers.clicksign.com/reference/comece-agora) é somente a referência técnica hoje citada no PRD e na especificação; seu uso não foi aprovado.      |
+| [Assinatura GOV.BR](https://www.gov.br/iti/pt-br/assuntos/assinatura-eletronica-avancada) | O ITI descreve assinatura avançada via portal ou API para aplicações públicas integradas e exige conta gov.br prata ou ouro. A TI deve confirmar elegibilidade de integração do SAGER, acesso à API, identidade dos responsáveis e capacidade de devolver documento e evidências ao fluxo. Não há integração autorizada nesta fase. |
+
+**Decisão institucional pendente (D16 e D25):** AE/TI devem definir a modalidade admitida,
+verificação de identidade, fornecedor ou serviço, acesso, orçamento, licenças e procedimento de
+homologação. Também permanecem D07 (eventual rejeição antes da assinatura), D15 (responsável
+destinatário) e D17 (expiração, recusa e reenvio). O texto das decisões está no
+[PRD, seção 23](../../SAGER_PRD_v2.0_Angular_SpringBoot.md).
+
+Até essa decisão, o backend pode usar um adaptador simulado em desenvolvimento. Simulação,
+desenho de assinatura, mensagem entregue ou documento apenas gerado **não liberam aprovação**.
+A regra de produção permanece: verificar assinatura válida do responsável correto para a versão
+vigente, armazenar o documento assinado e as evidências e, só então, permitir análise e eventual
+aprovação pelo supervisor ([PRD, seções 8 e 11](../../SAGER_PRD_v2.0_Angular_SpringBoot.md)).
