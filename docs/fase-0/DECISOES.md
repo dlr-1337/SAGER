@@ -245,6 +245,16 @@ degradação; não presumir aplicativo inteiro offline.
 
 **Evidência:** PRD §21.3 e §23.2; roteiro F7.
 
+## D24 — Cenário de carga e método de medição na VPS; metas técnicas AT.
+
+**Estado atual e encaminhamento:** **Institucional pendente.** Os limites da SRS
+são metas, não medição já realizada; TI deve definir concorrência, cenários e
+fronteira dos 2 segundos.
+
+**Responsável / até a fase:** TI/AE; Fase 7.
+
+**Evidência:** PRD §23.2; especificação §1.2/§13; roteiro F7.
+
 ## Como fechar uma decisão
 
 Para cada ID, registrar neste registro ou em ata vinculada: **opção aprovada**,
