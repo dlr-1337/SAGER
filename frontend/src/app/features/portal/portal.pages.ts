@@ -1,12 +1,14 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
+import { LocalAuthService } from '../../core/local-auth.service';
 import { OperationsDemoService } from '../operations/operations-demo.service';
 
 @Component({
   standalone: true,
   selector: 'sager-access',
-  imports: [RouterLink],
+  imports: [RouterLink, ReactiveFormsModule],
   template: `
     <main class="access-layout">
       <section class="access-intro" aria-labelledby="access-title">
@@ -24,11 +26,38 @@ import { OperationsDemoService } from '../operations/operations-demo.service';
         </div>
       </section>
       <section class="access-card" aria-labelledby="access-card-title">
-        <span class="demo-label">Protótipo navegável</span>
+        <span class="demo-label">Acesso local · desenvolvimento e testes</span>
         <h2 id="access-card-title">Acessar o SAGER</h2>
         <p>
-          A autenticação institucional será conectada em outra etapa. Explore agora as telas com
-          dados fictícios.
+          Entre com a conta local fornecida pelo operador. As telas ainda mostram dados fictícios.
+        </p>
+        <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+          <label for="login-email">E-mail</label>
+          <input
+            id="login-email"
+            type="email"
+            formControlName="email"
+            autocomplete="username"
+            required
+          />
+          <label for="login-password">Senha</label>
+          <input
+            id="login-password"
+            type="password"
+            formControlName="password"
+            autocomplete="current-password"
+            required
+          />
+          @if (error()) {
+            <p class="login-error" role="alert">{{ error() }}</p>
+          }
+          <button class="btn" type="submit" [disabled]="busy()">
+            {{ busy() ? 'Entrando...' : 'Entrar com e-mail e senha' }}
+          </button>
+        </form>
+        <div class="access-divider"><span>ou</span></div>
+        <p class="demo-intro">
+          Explore as telas sem conta. A demonstração é pública e usa somente exemplos fictícios.
         </p>
         <a class="btn" routerLink="/demonstracao"
           ><span class="material-symbols-outlined" aria-hidden="true">explore</span>Explorar
@@ -36,7 +65,7 @@ import { OperationsDemoService } from '../operations/operations-demo.service';
         >
         <div class="access-support">
           <a routerLink="/ajuda">Como funciona a demonstração</a
-          ><span>Sem dados reais ou autenticação</span>
+          ><span>Autenticação institucional a definir</span>
         </div>
       </section>
     </main>
@@ -129,11 +158,60 @@ import { OperationsDemoService } from '../operations/operations-demo.service';
         color: #425449;
         font-size: 1.06rem;
         line-height: 1.55;
-        margin-bottom: 26px;
+        margin-bottom: 20px;
+      }
+      .access-card form {
+        display: grid;
+        gap: 8px;
+      }
+      .access-card label {
+        font-weight: 700;
+        color: #263d2c;
+      }
+      .access-card input {
+        width: 100%;
+        min-height: 44px;
+        border: 1px solid #9cad9e;
+        border-radius: 7px;
+        padding: 9px 12px;
+        font: inherit;
+        margin-bottom: 8px;
+      }
+      .access-card input:focus-visible {
+        outline: 3px solid #a45c00;
+        outline-offset: 2px;
       }
       .access-card .btn {
         width: 100%;
         justify-content: center;
+        cursor: pointer;
+      }
+      .access-card .btn:disabled {
+        opacity: 0.7;
+        cursor: wait;
+      }
+      .access-card .login-error {
+        color: #9a251b;
+        font-weight: 700;
+        margin: 0 0 8px;
+        font-size: 0.92rem;
+      }
+      .access-divider {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 22px 0;
+        color: #536359;
+      }
+      .access-divider::before,
+      .access-divider::after {
+        content: '';
+        flex: 1;
+        border-top: 1px solid #dbe5dc;
+      }
+      .access-card .demo-intro {
+        font-size: 0.94rem;
+        margin-bottom: 16px;
       }
       .access-support {
         display: flex;
@@ -171,7 +249,47 @@ import { OperationsDemoService } from '../operations/operations-demo.service';
     `,
   ],
 })
-export class AccessPage {}
+export class AccessPage {
+  private readonly auth = inject(LocalAuthService);
+  private readonly session = inject(DemoSessionService);
+  private readonly router = inject(Router);
+  readonly busy = signal(false);
+  readonly error = signal('');
+  readonly form = new FormGroup({
+    email: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, Validators.email],
+    }),
+    password: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+  });
+
+  async submit(): Promise<void> {
+    this.error.set('');
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      this.error.set('Informe um e-mail válido e a senha.');
+      return;
+    }
+    this.busy.set(true);
+    try {
+      const result = await this.auth.login(
+        this.form.controls.email.value.trim(),
+        this.form.controls.password.value,
+      );
+      if (result === 'invalid') {
+        this.error.set('E-mail ou senha inválidos, ou conta desativada.');
+        return;
+      }
+      this.session.deactivate();
+      this.form.controls.password.reset();
+      await this.router.navigateByUrl('/inicio');
+    } catch {
+      this.error.set('O login local está indisponível. Você ainda pode explorar a demonstração.');
+    } finally {
+      this.busy.set(false);
+    }
+  }
+}
 
 @Component({
   standalone: true,
@@ -186,9 +304,9 @@ export class AccessPage {}
           <p>Os perfis usam exemplos fictícios para mostrar cada jornada.</p>
         </div>
       </div>
-      <div class="role-grid">
+      <div class="role-grid" [attr.aria-busy]="busy()">
         @for (option of options; track option.role) {
-          <button type="button" class="role-card" (click)="choose(option.role)">
+          <button type="button" class="role-card" [disabled]="busy()" (click)="choose(option.role)">
             <span class="material-symbols-outlined" aria-hidden="true">{{ option.icon }}</span>
             <strong>{{ option.title }}</strong
             ><span>{{ option.description }}</span>
@@ -199,6 +317,9 @@ export class AccessPage {}
           </button>
         }
       </div>
+      @if (error()) {
+        <p class="demo-error" role="alert">{{ error() }}</p>
+      }
       <p class="demo-note">
         <span class="material-symbols-outlined" aria-hidden="true">info</span>As ações alteram
         apenas a demonstração nesta sessão. Nenhum cadastro real será criado.
@@ -247,6 +368,10 @@ export class AccessPage {}
         border-color: #318757;
         box-shadow: 0 10px 28px #113f2b1e;
       }
+      .role-card:disabled {
+        opacity: 0.7;
+        cursor: wait;
+      }
       .role-card:focus-visible {
         outline: 3px solid #a45c00;
         outline-offset: 3px;
@@ -280,6 +405,10 @@ export class AccessPage {}
         color: #536359;
         line-height: 1.5;
       }
+      .demo-error {
+        color: #9a251b;
+        font-weight: 700;
+      }
       @media (max-width: 760px) {
         .role-grid {
           grid-template-columns: 1fr;
@@ -293,7 +422,10 @@ export class AccessPage {}
 })
 export class DemoSelectorPage {
   private readonly session = inject(DemoSessionService);
+  private readonly auth = inject(LocalAuthService);
   private readonly router = inject(Router);
+  readonly busy = signal(false);
+  readonly error = signal('');
   readonly options = [
     {
       role: 'supervisor' as const,
@@ -314,9 +446,25 @@ export class DemoSelectorPage {
       description: 'Minhas saídas, avisos, advertências e ranking.',
     },
   ];
-  choose(role: 'gestor' | 'supervisor' | 'residente') {
-    this.session.setRole(role);
-    void this.router.navigateByUrl('/inicio');
+  async choose(role: 'gestor' | 'supervisor' | 'residente'): Promise<void> {
+    if (this.busy()) return;
+    this.busy.set(true);
+    this.error.set('');
+    try {
+      // Revalida o cookie: numa aba nova ainda não existe principal em memória.
+      if (await this.auth.refresh()) {
+        try {
+          await this.auth.logout();
+        } catch {
+          this.error.set('Não foi possível encerrar a sessão local. Tente novamente.');
+          return;
+        }
+      }
+      this.session.activate(role);
+      await this.router.navigateByUrl('/inicio');
+    } finally {
+      this.busy.set(false);
+    }
   }
 }
 
@@ -982,10 +1130,10 @@ export class HomePage {
         <div>
           <h2>Como usar esta demonstração</h2>
           <p>
-            Escolha um perfil para navegar. As informações são fictícias e as ações ficam apenas
-            nesta sessão.
+            Escolha um perfil para navegar. As informações das telas são fictícias e as ações ficam
+            apenas nesta sessão.
           </p>
-          <a routerLink="/demonstracao">Trocar de perfil</a>
+          <a routerLink="/demonstracao">Escolher perfil de demonstração</a>
         </div>
       </section>
       <h2>Guias por tarefa</h2>
@@ -1169,7 +1317,9 @@ export class HelpPage {}
   template: `<main class="page simple-page">
     <header class="page-header">
       <div>
-        <span class="eyebrow">Conta de demonstração</span>
+        <span class="eyebrow">{{
+          session.active() ? 'Conta de demonstração' : 'Conta local de teste'
+        }}</span>
         <h1>Meu perfil</h1>
         <p>Veja o perfil ativo nesta sessão.</p>
       </div>
@@ -1179,14 +1329,16 @@ export class HelpPage {}
         <span class="material-symbols-outlined" aria-hidden="true">person</span>
       </div>
       <div>
-        <strong>{{ label() }}</strong
-        ><span>IF Goiano · Campus Urutaí</span
-        ><small>Dados de demonstração · Nenhuma conta institucional conectada</small>
+        <strong>{{ session.active() ? label() : auth.principal()?.nome }}</strong
+        ><span>{{ session.active() ? 'IF Goiano · Campus Urutaí' : auth.principal()?.email }}</span
+        ><small>As telas usam dados fictícios · Nenhuma conta institucional conectada</small>
       </div>
     </section>
     <div class="action-row">
-      <a class="btn-secondary" routerLink="/demonstracao">Trocar perfil</a
-      ><a class="btn" routerLink="/inicio">Voltar ao início</a>
+      @if (session.active()) {
+        <a class="btn-secondary" routerLink="/demonstracao">Trocar perfil</a>
+      }
+      <a class="btn" routerLink="/inicio">Voltar ao início</a>
     </div>
   </main>`,
   styles: [
@@ -1241,7 +1393,8 @@ export class HelpPage {}
   ],
 })
 export class ProfilePage {
-  private readonly session = inject(DemoSessionService);
+  readonly session = inject(DemoSessionService);
+  readonly auth = inject(LocalAuthService);
   readonly label = computed(
     () =>
       ({
@@ -1260,12 +1413,17 @@ export class ProfilePage {
     <span class="material-symbols-outlined" aria-hidden="true">lock</span>
     <h1>Acesso não disponível para este perfil</h1>
     <p>
-      Esta área pertence a outra jornada da demonstração. Escolha um perfil compatível para
-      continuar.
+      {{
+        session.active()
+          ? 'Esta área pertence a outra jornada da demonstração. Escolha um perfil compatível para continuar.'
+          : 'O perfil da sua conta local não permite esta área.'
+      }}
     </p>
     <div class="action-row">
-      <a class="btn" routerLink="/demonstracao">Escolher outro perfil</a
-      ><a class="btn-secondary" routerLink="/inicio">Voltar ao início</a>
+      @if (session.active()) {
+        <a class="btn" routerLink="/demonstracao">Escolher outro perfil</a>
+      }
+      <a class="btn-secondary" routerLink="/inicio">Voltar ao início</a>
     </div>
   </main>`,
   styles: [
@@ -1299,7 +1457,9 @@ export class ProfilePage {
     `,
   ],
 })
-export class DeniedPage {}
+export class DeniedPage {
+  readonly session = inject(DemoSessionService);
+}
 
 @Component({
   standalone: true,

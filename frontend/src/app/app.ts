@@ -1,4 +1,13 @@
-import { Component, ElementRef, HostListener, OnDestroy, ViewChild, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  HostListener,
+  OnDestroy,
+  ViewChild,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { CdkTrapFocus } from '@angular/cdk/a11y';
 import { BreakpointObserver } from '@angular/cdk/layout';
@@ -6,6 +15,7 @@ import { Router, RouterLink, RouterLinkActive, RouterOutlet, NavigationEnd } fro
 import { filter } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DemoSessionService, type DemoScenario, type Role } from './core/demo-session.service';
+import { LocalAuthService } from './core/local-auth.service';
 
 interface NavItem {
   label: string;
@@ -61,10 +71,12 @@ export class App implements OnDestroy {
   @ViewChild('menuButton') private menuButton?: ElementRef<HTMLButtonElement>;
   @ViewChild('closeButton') private closeButton?: ElementRef<HTMLButtonElement>;
   readonly session = inject(DemoSessionService);
+  private readonly auth = inject(LocalAuthService);
   private readonly router = inject(Router);
   private readonly document = inject(DOCUMENT);
   private readonly breakpointObserver = inject(BreakpointObserver);
   readonly publicPage = signal(false);
+  readonly exitError = signal('');
   readonly isMobile = signal(false);
   readonly menuOpen = signal(false);
   readonly drawerActive = computed(() => this.isMobile() && this.menuOpen());
@@ -75,14 +87,18 @@ export class App implements OnDestroy {
 
   constructor() {
     this.isMobile.set(this.breakpointObserver.isMatched('(max-width: 800px)'));
-    this.breakpointObserver.observe('(max-width: 800px)')
+    this.breakpointObserver
+      .observe('(max-width: 800px)')
       .pipe(takeUntilDestroyed())
       .subscribe(({ matches }) => {
         if (!matches && this.menuOpen()) this.closeMenu(false);
         this.isMobile.set(matches);
       });
     this.router.events
-      .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd), takeUntilDestroyed())
+      .pipe(
+        filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+        takeUntilDestroyed(),
+      )
       .subscribe(() => {
         this.updatePageVisibility();
         if (this.menuOpen()) this.closeMenu(false);
@@ -112,6 +128,21 @@ export class App implements OnDestroy {
     if (value === 'padrao' || value === 'vazio' || value === 'erro' || value === 'carregando') {
       this.session.setScenario(value as DemoScenario);
     }
+  }
+
+  async signOut(): Promise<void> {
+    this.exitError.set('');
+    if (!this.session.active()) {
+      try {
+        await this.auth.logout();
+      } catch {
+        this.exitError.set('Não foi possível encerrar a sessão local. Tente novamente.');
+        return;
+      }
+    }
+    this.session.deactivate();
+    if (this.drawerActive()) this.navigateFromMenu();
+    await this.router.navigateByUrl('/acesso');
   }
 
   toggleMenu(): void {
@@ -181,6 +212,6 @@ export class App implements OnDestroy {
       route = route.firstChild;
     }
     const path = this.router.url.split('?')[0];
-    this.publicPage.set(isPublic || /^\/(acesso|demonstracao|assinatura)(\/|$)/.test(path));
+    this.publicPage.set(isPublic || /^\/(acesso|demonstracao|ajuda|assinatura)(\/|$)/.test(path));
   }
 }

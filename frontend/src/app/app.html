@@ -18,11 +18,18 @@
         <strong>SAGER</strong>
         <span>Sistema de Apoio à Gestão da<br />Residência Estudantil</span>
       </div>
-      <div class="demo-flag" aria-label="Ambiente de demonstração com dados fictícios">
-        <strong>Demonstração</strong>
+      <div
+        class="demo-flag"
+        [attr.aria-label]="
+          session.active()
+            ? 'Ambiente de demonstração com dados fictícios'
+            : 'Login local de teste com telas de dados fictícios'
+        "
+      >
+        <strong>{{ session.active() ? 'Demonstração' : 'Login local' }}</strong>
         <span>Dados fictícios</span>
       </div>
-      @if (!isMobile()) {
+      @if (!isMobile() && session.active()) {
         <div class="session-controls">
           <div class="control">
             <label for="profile-select-desktop">Perfil</label>
@@ -51,10 +58,15 @@
           </div>
         </div>
       }
-      <a class="exit-link" routerLink="/acesso" aria-label="Sair da demonstração">
+      <button
+        class="exit-link"
+        type="button"
+        [attr.aria-label]="session.active() ? 'Sair da demonstração' : 'Sair da conta local'"
+        (click)="signOut()"
+      >
         <span class="material-symbols-rounded" aria-hidden="true">logout</span>
         <span>Sair</span>
-      </a>
+      </button>
       <button
         #menuButton
         class="menu-toggle"
@@ -123,7 +135,7 @@
             </a>
           }
         </nav>
-        @if (isMobile()) {
+        @if (isMobile() && session.active()) {
           <div class="sidebar-demo-controls" aria-label="Opções da demonstração">
             <strong>Demonstração</strong>
             <div class="control">
@@ -155,20 +167,28 @@
         }
         <div class="sidebar-note">
           <strong>SAGER · Campus Urutaí</strong>
-          <span>Protótipo para avaliação das telas.</span>
-          <a routerLink="/acesso" (click)="navigateFromMenu()">Sair da demonstração</a>
+          <span>As telas mostram apenas dados fictícios.</span>
+          <button type="button" (click)="signOut()">
+            {{ session.active() ? 'Sair da demonstração' : 'Sair da conta local' }}
+          </button>
         </div>
       </aside>
     }
 
     <div class="work-area" [attr.inert]="drawerActive() ? '' : null">
+      @if (exitError()) {
+        <p class="session-error" role="alert">{{ exitError() }}</p>
+      }
       <div id="conteudo-principal" class="app-main" tabindex="-1">
         <router-outlet />
       </div>
       @if (!publicPage()) {
         <footer class="app-footer">
           <span>SAGER · Campus Urutaí</span>
-          <span>Demonstração · dados fictícios</span>
+          <span
+            >{{ session.active() ? 'Demonstração' : 'Login local de teste' }} · dados
+            fictícios</span
+          >
         </footer>
       }
     </div>

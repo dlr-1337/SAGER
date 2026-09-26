@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { enterDemo } from './demo-session';
+
+test.beforeEach(async ({ page }) => enterDemo(page));
 
 test('menu móvel contém foco, bloqueia o fundo e mantém a marca no drawer', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 740 });
@@ -23,7 +26,9 @@ test('menu móvel contém foco, bloqueia o fundo e mantém a marca no drawer', a
 
   for (let index = 0; index < 12; index++) {
     await page.keyboard.press(index === 0 ? 'Shift+Tab' : 'Tab');
-    const focusInside = await page.evaluate(() => document.getElementById('app-navigation')?.contains(document.activeElement));
+    const focusInside = await page.evaluate(() =>
+      document.getElementById('app-navigation')?.contains(document.activeElement),
+    );
     expect(focusInside, `foco fora do menu no passo ${index}`).toBe(true);
   }
 
@@ -32,15 +37,23 @@ test('menu móvel contém foco, bloqueia o fundo e mantém a marca no drawer', a
   await page.mouse.wheel(0, 550);
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(scrollWhileOpen);
 
-  const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
-  expect(axe.violations.filter(item => ['critical', 'serious'].includes(item.impact ?? ''))).toEqual([]);
+  const axe = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+    .analyze();
+  expect(
+    axe.violations.filter((item) => ['critical', 'serious'].includes(item.impact ?? '')),
+  ).toEqual([]);
 
   await page.keyboard.press('Escape');
   await expect(menu).toBeFocused();
   await expect(drawer).toHaveAttribute('inert', '');
   await expect(page.locator('body')).not.toHaveCSS('overflow', 'hidden');
   await page.keyboard.press('Tab');
-  expect(await page.evaluate(() => document.getElementById('app-navigation')?.contains(document.activeElement))).toBe(false);
+  expect(
+    await page.evaluate(() =>
+      document.getElementById('app-navigation')?.contains(document.activeElement),
+    ),
+  ).toBe(false);
 
   await menu.click();
   await page.locator('.nav-scrim').click({ position: { x: 311, y: 400 }, force: true });

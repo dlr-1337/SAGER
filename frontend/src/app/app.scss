@@ -188,6 +188,26 @@ app-root {
   font-size: 0.875rem;
   font-weight: 700;
 }
+.sidebar-note button {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--green-800);
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.session-error {
+  margin: 0;
+  padding: 12px 24px;
+  color: var(--danger);
+  background: var(--danger-bg);
+  font-weight: 700;
+}
 .drawer-top,
 .sidebar-demo-controls,
 .nav-close {
