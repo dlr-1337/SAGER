@@ -1,87 +1,118 @@
 package br.edu.ifgoiano.sager.auth;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.Arrays;
 
-import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.crypto.factory.PasswordEncoderFactories;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.AuthenticationFailureHandler;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.session.web.http.CookieSerializer;
 import org.springframework.session.web.http.DefaultCookieSerializer;
 
 @Configuration
 public class SecurityConfiguration {
     @Bean
-    CookieSerializer cookieSerializer() {
+    PasswordEncoder passwordEncoder() {
+        return PasswordEncoderFactories.createDelegatingPasswordEncoder();
+    }
+
+    @Bean
+    CookieSerializer cookieSerializer(Environment environment) {
         DefaultCookieSerializer serializer = new DefaultCookieSerializer();
-        serializer.setUseSecureCookie(true);
+        serializer.setUseSecureCookie(!Arrays.asList(environment.getActiveProfiles()).contains("local"));
         serializer.setUseHttpOnlyCookie(true);
         serializer.setSameSite("Lax");
         return serializer;
     }
 
     @Bean
-    InstitutionalOidcUserService institutionalOidcUserService(IdentityRepository identities,
-            @Value("${sager.auth.allowed-hd:}") String allowedHostedDomains) {
-        return new InstitutionalOidcUserService(identities, allowedHostedDomains);
+    @Profile("local")
+    @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
+    FilterRegistrationBean<LocalAccountStatusFilter> accountStatusFilterRegistration(
+            LocalAccountStatusFilter filter) {
+        FilterRegistrationBean<LocalAccountStatusFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
     }
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http,
-            InstitutionalOidcUserService institutionalUserService) throws Exception {
+    @Profile("local")
+    @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
+    SecurityFilterChain localSecurityFilterChain(HttpSecurity http, Environment environment,
+            LocalAccountAuthenticationProvider provider, LocalAccountStatusFilter accountStatusFilter)
+            throws Exception {
+        requireLoopbackOnly(environment);
         http.authorizeHttpRequests(requests -> requests
-                        .requestMatchers("/", "/index.html", "/error", "/api/v1/auth/csrf",
-                                "/oauth2/authorization/google", "/login/oauth2/code/google")
+                        .requestMatchers("/api/v1/auth/csrf", "/api/v1/auth/login", "/error")
                         .permitAll()
-                        .requestMatchers("/api/v1/auth/me", "/api/v1/auth/logout").authenticated()
+                        .requestMatchers("/api/v1/auth/me", "/api/v1/auth/logout")
+                        .authenticated()
                         .anyRequest().denyAll())
-                .oauth2Login(login -> login
-                        .userInfoEndpoint(userInfo -> userInfo.oidcUserService(institutionalUserService))
-                        .defaultSuccessUrl("/api/v1/auth/me", true)
-                        .failureHandler(loginFailureHandler()))
+                .authenticationProvider(provider)
+                .formLogin(login -> login.loginPage("/api/v1/auth/login")
+                        .loginProcessingUrl("/api/v1/auth/login")
+                        .usernameParameter("email")
+                        .passwordParameter("password")
+                        .successHandler((request, response, authentication) -> {
+                            response.setHeader("Cache-Control", "no-store");
+                            response.setStatus(HttpStatus.NO_CONTENT.value());
+                        })
+                        .failureHandler((request, response, exception) -> {
+                            response.setHeader("Cache-Control", "no-store");
+                            response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                        }))
                 .logout(logout -> logout.logoutUrl("/api/v1/auth/logout")
-                        .logoutSuccessHandler((request, response, authentication) ->
-                                response.setStatus(HttpStatus.NO_CONTENT.value())))
+                        .logoutSuccessHandler((request, response, authentication) -> {
+                            response.setHeader("Cache-Control", "no-store");
+                            response.setStatus(HttpStatus.NO_CONTENT.value());
+                        }))
+                .sessionManagement(session -> session.sessionFixation(fixation ->
+                        fixation.changeSessionId()))
+                .addFilterAfter(accountStatusFilter, UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(errors -> errors.authenticationEntryPoint((request, response, error) ->
                         response.sendError(HttpStatus.UNAUTHORIZED.value())))
                 .csrf(Customizer.withDefaults())
-                .httpBasic(AbstractHttpConfigurer::disable)
-                .formLogin(AbstractHttpConfigurer::disable);
+                .httpBasic(AbstractHttpConfigurer::disable);
         return http.build();
     }
 
-    private AuthenticationFailureHandler loginFailureHandler() {
-        return (request, response, exception) -> {
-            if (request.getSession(false) != null) {
-                request.getSession(false).invalidate();
-            }
-            response.setStatus(HttpStatus.FORBIDDEN.value());
-            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-            response.setContentType("text/html;charset=UTF-8");
-            response.setHeader("Cache-Control", "no-store");
-            if (exception instanceof PendingProfileException pending) {
-                writePage(response, "Perfil local pendente",
-                        "Informe este código ao operador autorizado: " + pending.requestId());
-            } else {
-                writePage(response, "Acesso não autorizado",
-                        "Esta conta não recebeu acesso ao SAGER. Procure a equipe responsável.");
-            }
-        };
+    @Bean
+    @Profile("!local")
+    @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
+    SecurityFilterChain closedSecurityFilterChain(HttpSecurity http) throws Exception {
+        http.authorizeHttpRequests(requests -> requests.anyRequest().denyAll())
+                .formLogin(AbstractHttpConfigurer::disable)
+                .httpBasic(AbstractHttpConfigurer::disable)
+                .csrf(Customizer.withDefaults());
+        return http.build();
     }
 
-    private void writePage(HttpServletResponse response, String title, String message)
-            throws IOException {
-        response.getWriter().write("""
-                <!doctype html><html lang="pt-BR"><meta charset="utf-8">
-                <title>%s</title><main><h1>%s</h1><p>%s</p>
-                <p><a href="/">Voltar</a></p></main></html>
-                """.formatted(title, title, message));
+    static void requireLoopbackOnly(Environment environment) {
+        if (!Arrays.equals(environment.getActiveProfiles(), new String[] { "local" })) {
+            throw new IllegalStateException("O login local exige somente o perfil 'local'.");
+        }
+        String address = environment.getProperty("server.address", "");
+        if (address.isBlank()) {
+            throw new IllegalStateException("O login local exige server.address de loopback.");
+        }
+        try {
+            if (!InetAddress.getByName(address).isLoopbackAddress()) {
+                throw new IllegalStateException("O login local exige server.address de loopback.");
+            }
+        } catch (UnknownHostException error) {
+            throw new IllegalStateException("server.address invalido para login local.", error);
+        }
     }
 }

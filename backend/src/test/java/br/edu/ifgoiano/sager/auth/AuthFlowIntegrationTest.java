@@ -1,41 +1,41 @@
 package br.edu.ifgoiano.sager.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oidcLogin;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.net.CookieManager;
+import java.net.CookiePolicy;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
 
-import org.junit.jupiter.api.AfterAll;
+import br.edu.ifgoiano.sager.SagerApplication;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.SpringApplication;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.OidcLoginRequestPostProcessor;
+import org.springframework.mock.env.MockEnvironment;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
-@SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT, properties = {
-        "spring.security.oauth2.client.registration.google.client-id=synthetic-client",
-        "spring.security.oauth2.client.registration.google.client-secret=synthetic-secret",
-        "sager.auth.allowed-hd=ifgoiano.edu.br"
-})
-@AutoConfigureMockMvc
+@SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
+@ActiveProfiles("local")
 class AuthFlowIntegrationTest {
+    private static final String PASSWORD = "Senha sintetica 123!";
     private static final PostgreSQLContainer POSTGRES =
             new PostgreSQLContainer("postgres:17.11");
 
@@ -51,156 +51,244 @@ class AuthFlowIntegrationTest {
     }
 
     @Autowired
-    private MockMvc mvc;
+    private LocalAccountRepository repository;
 
     @Autowired
-    private IdentityRepository identities;
+    private LocalAccountProvisioningService provisioning;
+
+    @Autowired
+    private PasswordEncoder passwords;
 
     @Autowired
     private JdbcTemplate jdbc;
+
+    @Autowired
+    private ObjectMapper json;
 
     @LocalServerPort
     private int port;
 
     @BeforeEach
-    void cleanIdentities() {
-        jdbc.update("DELETE FROM sager_identity");
+    void cleanDatabase() {
         jdbc.update("DELETE FROM spring_session");
-    }
-
-    @AfterAll
-    static void stopDatabase() {
-        POSTGRES.stop();
+        jdbc.update("DELETE FROM sager_local_account");
     }
 
     @Test
-    void migratesAnEmptyPostgresAndKeepsIssuerSubjectStable() {
+    void migratesWithoutChangingTheHistoricalIdentityTablesAndHashesPasswords() {
+        assertThat(jdbc.queryForObject("SELECT to_regclass('sager_identity')", String.class))
+                .isNotNull();
         assertThat(jdbc.queryForObject("SELECT to_regclass('spring_session')", String.class))
                 .isNotNull();
-        LocalIdentity first = identities.findOrCreate("https://accounts.google.com", "subject-1");
-        LocalIdentity second = identities.findOrCreate("https://accounts.google.com", "subject-1");
-        LocalIdentity otherIssuer = identities.findOrCreate("https://other.example", "subject-1");
+        assertThat(jdbc.queryForObject("SELECT to_regclass('sager_local_account')", String.class))
+                .isNotNull();
+        assertThat(jdbc.queryForObject("""
+                SELECT character_maximum_length FROM information_schema.columns
+                WHERE lower(table_name) = 'spring_session' AND lower(column_name) = 'principal_name'
+                """, Integer.class)).isEqualTo(320);
 
-        assertThat(second.id()).isEqualTo(first.id());
-        assertThat(otherIssuer.id()).isNotEqualTo(first.id());
-        assertThat(first.profiles()).isEmpty();
+        char[] supplied = PASSWORD.toCharArray();
+        provisioning.create("  GESTOR@example.invalid  ", " Gestor Sintetico ", "gestor", supplied);
+        LocalAccount account = repository.findByEmail("gestor@example.invalid").orElseThrow();
+        assertThat(account.email()).isEqualTo("gestor@example.invalid");
+        assertThat(account.name()).isEqualTo("Gestor Sintetico");
+        assertThat(account.profile()).isEqualTo("gestor");
+        assertThat(account.passwordHash()).startsWith("{bcrypt}");
+        assertThat(account.passwordHash()).doesNotContain(PASSWORD);
+        assertThat(passwords.matches(PASSWORD, account.passwordHash())).isTrue();
+        assertThat(supplied).containsOnly('\0');
+
+        assertThatThrownBy(() -> provisioning.create("gestor@example.invalid", "Outro", "gestor",
+                PASSWORD.toCharArray())).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
-    void deniesAnAnonymousCallerAndAnUnprovisionedIdentity() throws Exception {
-        mvc.perform(get("/api/v1/auth/me")).andExpect(status().isUnauthorized());
-        identities.findOrCreate("https://accounts.google.com", "subject-1");
-        mvc.perform(get("/api/v1/auth/me").with(syntheticLogin()))
-                .andExpect(status().isForbidden());
-    }
+    void handlesLoginSessionCsrfAndLogoutOverRealHttp() throws Exception {
+        provisioning.create("supervisor@example.invalid", "Supervisor Sintetico", "supervisor",
+                PASSWORD.toCharArray());
+        try (HttpClient client = browser()) {
+            HttpResponse<String> tokenResponse = get(client, "/api/v1/auth/csrf");
+            assertThat(tokenResponse.statusCode()).isEqualTo(200);
+            assertThat(tokenResponse.headers().firstValue("Cache-Control").orElseThrow())
+                    .contains("no-store");
+            String sessionCookie = tokenResponse.headers().allValues("Set-Cookie").getFirst();
+            assertThat(sessionCookie).contains("HttpOnly", "SameSite=Lax").doesNotContain("Secure");
+            String token = json.readTree(tokenResponse.body()).path("token").asText();
+            assertThat(token).isNotBlank();
 
-    @Test
-    void returnsOnlyLocalProfilesAndRechecksDeactivation() throws Exception {
-        LocalIdentity identity = identities.findOrCreate("https://accounts.google.com", "subject-1");
-        jdbc.update("INSERT INTO sager_identity_profile (identity_id, profile) VALUES (?, ?)",
-                identity.id(), "supervisor");
-
-        mvc.perform(get("/api/v1/auth/me").with(syntheticLogin()))
-                .andExpect(status().isOk())
-                .andExpect(header().string("Cache-Control", "no-store"))
-                .andExpect(jsonPath("$.id").value(identity.id().toString()))
-                .andExpect(jsonPath("$.email").value("user@example.invalid"))
-                .andExpect(jsonPath("$.nome").value("Teste Sintético"))
-                .andExpect(jsonPath("$.perfis[0]").value("supervisor"))
-                .andExpect(jsonPath("$.sub").doesNotExist())
-                .andExpect(jsonPath("$.matricula").doesNotExist());
-
-        jdbc.update("UPDATE sager_identity SET active = false WHERE id = ?", identity.id());
-        mvc.perform(get("/api/v1/auth/me").with(syntheticLogin()))
-                .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void protectsLogoutWithCsrf() throws Exception {
-        mvc.perform(get("/api/v1/auth/csrf"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token").isNotEmpty());
-        mvc.perform(post("/api/v1/auth/logout").with(syntheticLogin()))
-                .andExpect(status().isForbidden());
-        mvc.perform(post("/api/v1/auth/logout").with(syntheticLogin()).with(csrf()))
-                .andExpect(status().isNoContent());
-    }
-
-    @Test
-    void issuesAProtectedSessionCookie() throws Exception {
-        mvc.perform(get("/oauth2/authorization/google"))
-                .andExpect(status().isFound())
-                .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.allOf(
-                        org.hamcrest.Matchers.containsString("Secure"),
-                        org.hamcrest.Matchers.containsString("HttpOnly"),
-                        org.hamcrest.Matchers.containsString("SameSite=Lax"))));
-    }
-
-    @Test
-    void rejectsAnUncorrelatedCallbackAndInvalidatesTheSession() throws Exception {
-        try (HttpClient client = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.NEVER).build()) {
-            HttpResponse<Void> authorization = fetch(client, "/oauth2/authorization/google");
-            String cookie = authorization.headers().firstValue("Set-Cookie").orElseThrow()
-                    .split(";", 2)[0];
-            assertThat(jdbc.queryForObject("SELECT count(*) FROM spring_session", Integer.class))
-                    .isEqualTo(1);
-
-            HttpRequest callback = HttpRequest.newBuilder(URI.create("http://localhost:" + port
-                            + "/login/oauth2/code/google?code=invalid&state=unrecognized"))
-                    .header("Cookie", cookie).GET().build();
-            assertThat(client.send(callback, HttpResponse.BodyHandlers.discarding()).statusCode())
+            assertThat(get(client, "/api/v1/auth/me").statusCode()).isEqualTo(401);
+            assertThat(get(client, "/login").statusCode()).isNotEqualTo(200);
+            assertThat(get(client, "/oauth2/authorization/google").statusCode())
+                    .isNotEqualTo(302);
+            assertThat(login(client, "supervisor@example.invalid", PASSWORD, null).statusCode())
                     .isEqualTo(403);
-            assertThat(jdbc.queryForObject("SELECT count(*) FROM spring_session", Integer.class))
-                    .isZero();
+
+            assertThat(login(client, "supervisor@example.invalid", "senha incorreta", token)
+                    .statusCode()).isEqualTo(401);
+            assertThat(login(client, "supervisor@example.invalid", PASSWORD, token)
+                    .statusCode()).isEqualTo(204);
+
+            HttpResponse<String> me = get(client, "/api/v1/auth/me");
+            assertThat(me.statusCode()).isEqualTo(200);
+            JsonNode identity = json.readTree(me.body());
+            assertThat(identity.path("id").asText()).isEqualTo(repository
+                    .findByEmail("supervisor@example.invalid").orElseThrow().id().toString());
+            assertThat(identity.path("nome").asText()).isEqualTo("Supervisor Sintetico");
+            assertThat(identity.path("email").asText()).isEqualTo("supervisor@example.invalid");
+            assertThat(identity.path("fotoUrl").isNull()).isTrue();
+            assertThat(identity.path("perfis").get(0).asText()).isEqualTo("supervisor");
+            assertThat(identity.has("matricula")).isFalse();
+            assertThat(identity.has("passwordHash")).isFalse();
+            assertThat(me.headers().firstValue("Cache-Control").orElseThrow())
+                    .contains("no-store");
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM spring_session", Integer.class))
+                    .isPositive();
+
+            assertThat(post(client, "/api/v1/auth/logout", "", null).statusCode())
+                    .isEqualTo(403);
+            String afterLoginToken = csrfToken(client);
+            assertThat(post(client, "/api/v1/auth/logout", "", afterLoginToken).statusCode())
+                    .isEqualTo(204);
+            assertThat(get(client, "/api/v1/auth/me").statusCode()).isEqualTo(401);
         }
     }
 
     @Test
-    void startsAuthorizationCodeWithTheLocalCallback() throws Exception {
-        mvc.perform(get("/oauth2/authorization/google")
-                        .with(request -> {
-                            request.setServerPort(8080);
-                            return request;
-                        }))
-                .andExpect(status().isFound())
-                .andExpect(header().string("Location", org.hamcrest.Matchers.allOf(
-                        org.hamcrest.Matchers.containsString("response_type=code"),
-                        org.hamcrest.Matchers.containsString("scope=openid%20profile%20email"),
-                        org.hamcrest.Matchers.containsString("redirect_uri=http://localhost:8080/login/oauth2/code/google"))));
+    void onlyOperatorAssignedProfilesAreExposed() throws Exception {
+        for (String profile : List.of("gestor", "supervisor", "residente")) {
+            String email = profile + "@example.invalid";
+            provisioning.create(email, "Conta " + profile, profile, PASSWORD.toCharArray());
+            try (HttpClient client = browser()) {
+                assertThat(login(client, email, PASSWORD, csrfToken(client)).statusCode())
+                        .isEqualTo(204);
+                JsonNode me = json.readTree(get(client, "/api/v1/auth/me").body());
+                assertThat(me.path("perfis").size()).isEqualTo(1);
+                assertThat(me.path("perfis").get(0).asText()).isEqualTo(profile);
+            }
+        }
+        assertThatThrownBy(() -> provisioning.create("outro@example.invalid", "Outro", "admin",
+                PASSWORD.toCharArray())).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
-    void servesTheAnonymousAndOAuthEndpointsOverRealHttp() throws Exception {
-        try (HttpClient client = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.NEVER).build()) {
-            assertThat(fetch(client, "/").statusCode()).isEqualTo(200);
-            assertThat(fetch(client, "/api/v1/auth/me").statusCode()).isEqualTo(401);
-            assertThat(fetch(client, "/api/v1/auth/csrf").statusCode()).isEqualTo(200);
-
-            HttpResponse<Void> oauth = fetch(client, "/oauth2/authorization/google");
-            assertThat(oauth.statusCode()).isEqualTo(302);
-            assertThat(oauth.headers().firstValue("Location").orElseThrow())
-                    .contains("response_type=code")
-                    .contains("redirect_uri=http://localhost:" + port + "/login/oauth2/code/google");
-            assertThat(oauth.headers().firstValue("Set-Cookie").orElseThrow())
-                    .contains("Secure", "HttpOnly", "SameSite=Lax");
+    void resetAndDisableRevokeExistingSessions() throws Exception {
+        String email = "residente@example.invalid";
+        provisioning.create(email, "Residente Sintetico", "residente", PASSWORD.toCharArray());
+        try (HttpClient client = browser()) {
+            assertThat(login(client, email, PASSWORD, csrfToken(client)).statusCode()).isEqualTo(204);
+            assertThat(get(client, "/api/v1/auth/me").statusCode()).isEqualTo(200);
+            provisioning.resetPassword(email, "Outra senha sintetica 456!".toCharArray());
+            assertThat(get(client, "/api/v1/auth/me").statusCode()).isEqualTo(401);
+        }
+        try (HttpClient client = browser()) {
+            assertThat(login(client, email, PASSWORD, csrfToken(client)).statusCode()).isEqualTo(401);
+            assertThat(login(client, email, "Outra senha sintetica 456!", csrfToken(client))
+                    .statusCode()).isEqualTo(204);
+            provisioning.disable(email);
+            assertThat(get(client, "/api/v1/auth/me").statusCode()).isEqualTo(401);
+            assertThat(login(client, email, "Outra senha sintetica 456!", csrfToken(client))
+                    .statusCode()).isEqualTo(401);
         }
     }
 
-    private HttpResponse<Void> fetch(HttpClient client, String path) throws Exception {
-        HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
-                .GET().build();
-        return client.send(request, HttpResponse.BodyHandlers.discarding());
+    @Test
+    void preservesALongEmailInTheSessionIndex() throws Exception {
+        String email = "a".repeat(60) + "@" + "b".repeat(60) + "." + "c".repeat(60)
+                + "." + "d".repeat(60) + "." + "e".repeat(60);
+        provisioning.create(email, "Conta Sintetica", "gestor", PASSWORD.toCharArray());
+        try (HttpClient client = browser()) {
+            assertThat(login(client, email, PASSWORD, csrfToken(client)).statusCode()).isEqualTo(204);
+            assertThat(get(client, "/api/v1/auth/me").statusCode()).isEqualTo(200);
+            assertThat(jdbc.queryForObject("SELECT principal_name FROM spring_session",
+                    String.class)).isEqualTo(email);
+        }
     }
 
-    private static OidcLoginRequestPostProcessor syntheticLogin() {
-        return oidcLogin().idToken(token -> token
-                .claim("iss", "https://accounts.google.com")
-                .claim("sub", "subject-1")
-                .claim("email", "user@example.invalid")
-                .claim("email_verified", true)
-                .claim("hd", "ifgoiano.edu.br")
-                .claim("name", "Teste Sintético"));
+    @Test
+    void nonLocalProfileDoesNotExposeLoginOrCsrf() throws Exception {
+        SpringApplication application = new SpringApplication(SagerApplication.class);
+        application.setAdditionalProfiles("production");
+        try (var context = application.run("--server.port=0",
+                "--spring.datasource.url=" + POSTGRES.getJdbcUrl(),
+                "--spring.datasource.username=" + POSTGRES.getUsername(),
+                "--spring.datasource.password=" + POSTGRES.getPassword())) {
+            int closedPort = ((ServletWebServerApplicationContext) context).getWebServer().getPort();
+            try (HttpClient client = browser()) {
+                HttpResponse<String> csrf = request(client,
+                        HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + closedPort
+                                + "/api/v1/auth/csrf")).GET().build());
+                assertThat(csrf.statusCode()).isIn(401, 403);
+                HttpResponse<String> login = request(client,
+                        HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + closedPort
+                                + "/api/v1/auth/login"))
+                                .POST(HttpRequest.BodyPublishers.ofString("email=x&password=y"))
+                                .header("Content-Type", "application/x-www-form-urlencoded")
+                                .build());
+                assertThat(login.statusCode()).isIn(401, 403);
+            }
+        }
+    }
+
+    @Test
+    void localModeRefusesNonLoopbackBindingOrMixedProfiles() {
+        MockEnvironment publicAddress = new MockEnvironment()
+                .withProperty("server.address", "0.0.0.0");
+        publicAddress.setActiveProfiles("local");
+        assertThatThrownBy(() -> SecurityConfiguration.requireLoopbackOnly(publicAddress))
+                .isInstanceOf(IllegalStateException.class);
+
+        MockEnvironment unspecifiedAddress = new MockEnvironment()
+                .withProperty("server.address", "");
+        unspecifiedAddress.setActiveProfiles("local");
+        assertThatThrownBy(() -> SecurityConfiguration.requireLoopbackOnly(unspecifiedAddress))
+                .isInstanceOf(IllegalStateException.class);
+
+        MockEnvironment mixedProfiles = new MockEnvironment()
+                .withProperty("server.address", "127.0.0.1");
+        mixedProfiles.setActiveProfiles("local", "production");
+        assertThatThrownBy(() -> SecurityConfiguration.requireLoopbackOnly(mixedProfiles))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    private HttpClient browser() {
+        return HttpClient.newBuilder()
+                .cookieHandler(new CookieManager(null, CookiePolicy.ACCEPT_ALL))
+                .followRedirects(HttpClient.Redirect.NEVER)
+                .build();
+    }
+
+    private String csrfToken(HttpClient client) throws Exception {
+        HttpResponse<String> response = get(client, "/api/v1/auth/csrf");
+        assertThat(response.statusCode()).isEqualTo(200);
+        return json.readTree(response.body()).path("token").asText();
+    }
+
+    private HttpResponse<String> login(HttpClient client, String email, String password, String csrf)
+            throws Exception {
+        String form = "email=" + URLEncoder.encode(email, StandardCharsets.UTF_8)
+                + "&password=" + URLEncoder.encode(password, StandardCharsets.UTF_8);
+        return post(client, "/api/v1/auth/login", form, csrf);
+    }
+
+    private HttpResponse<String> post(HttpClient client, String path, String body, String csrf)
+            throws Exception {
+        HttpRequest.Builder builder = HttpRequest.newBuilder(uri(path))
+                .header("Content-Type", "application/x-www-form-urlencoded");
+        if (csrf != null) {
+            builder.header("X-CSRF-TOKEN", csrf);
+        }
+        return request(client, builder.POST(HttpRequest.BodyPublishers.ofString(body)).build());
+    }
+
+    private HttpResponse<String> get(HttpClient client, String path) throws Exception {
+        return request(client, HttpRequest.newBuilder(uri(path)).GET().build());
+    }
+
+    private HttpResponse<String> request(HttpClient client, HttpRequest request) throws Exception {
+        return client.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    private URI uri(String path) {
+        return URI.create("http://127.0.0.1:" + port + path);
     }
 }

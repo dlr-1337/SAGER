@@ -7,7 +7,6 @@ import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -15,24 +14,23 @@ import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 public class AuthController {
-    private final IdentityRepository identities;
+    private final LocalAccountRepository accounts;
 
-    public AuthController(IdentityRepository identities) {
-        this.identities = identities;
+    public AuthController(LocalAccountRepository accounts) {
+        this.accounts = accounts;
     }
 
     @GetMapping("/api/v1/auth/me")
-    public ResponseEntity<MeResponse> me(@AuthenticationPrincipal OidcUser user) {
-        if (user == null) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+    public ResponseEntity<MeResponse> me(@AuthenticationPrincipal LocalAccountPrincipal principal) {
+        if (principal == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         }
-        String issuer = user.getIdToken().getClaimAsString("iss");
-        LocalIdentity identity = identities.find(issuer, user.getIdToken().getSubject())
-                .filter(local -> local.active() && !local.profiles().isEmpty())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN));
-        MeResponse response = new MeResponse(identity.id(), user.getIdToken().getClaimAsString("name"),
-                user.getIdToken().getClaimAsString("email"),
-                user.getIdToken().getClaimAsString("picture"), identity.profiles());
+        LocalAccount account = accounts.findById(principal.id())
+                .filter(value -> value.active() && value.email().equals(principal.email())
+                        && value.profile().equals(principal.profile()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+        MeResponse response = new MeResponse(account.id(), account.name(), account.email(),
+                null, List.of(account.profile()));
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(response);
     }
 
