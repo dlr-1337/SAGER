@@ -1,7 +1,14 @@
-# Fase 0 — contrato de autenticação Google
+# Fase 0 — registro histórico da prova Google OIDC
 
-**Estado em 25/09/2026:** contrato e prova técnica local implementados em
-[`backend/`](../../backend/README.md). **D21 e a homologação da Fase 0 continuam
+**Descontinuado em 26/09/2026.** O solicitante escolheu
+[login local provisório](AUTENTICACAO_LOCAL.md) para desenvolvimento e teste e adiou
+a escolha do mecanismo institucional. Este documento preserva o contrato proposto
+e a evidência da prova Google anterior. Suas rotas, variáveis e instruções OAuth
+**não são configuração operacional vigente**. A decisão D21 continua pendente; uma
+escolha futura pela TI poderá ser diferente de Google OIDC.
+
+**Estado histórico em 25/09/2026:** contrato e prova técnica local haviam sido
+implementados em `backend/`. **D21 e a homologação da Fase 0 continuam
 pendentes de login real e aceite da TI/AE.** Os testes sintéticos não demonstram que
 o cliente OAuth do SAGER esteja autorizado no Google Workspace.
 
@@ -9,7 +16,7 @@ o cliente OAuth do SAGER esteja autorizado no Google Workspace.
 [especificação técnica v2.0, seção 6](../../SAGER_Especificacao_Tecnica_v2.0.md) e
 [roteiro de implementação](../ROADMAP_IMPLEMENTACAO.md).
 
-## Fluxo e limites da identidade
+## Fluxo e limites da identidade propostos em 25/09/2026
 
 1. O navegador inicia `GET /oauth2/authorization/google` na mesma origem da interface.
    O Spring Security OAuth2 Login inicia **Authorization Code**, com `state` para
@@ -54,7 +61,7 @@ no servidor por operação e por registro; conta sem perfil autorizado ou desabi
 localmente não acessa recursos. O processo de desligamento no Google Workspace e sua
 propagação para sessões existentes dependem de acordo com a TI em D21.
 
-## Contrato HTTP inicial
+## Contrato HTTP anterior
 
 `GET /api/v1/auth/me`, autenticado, devolve `200` com JSON em `camelCase`:
 
@@ -83,7 +90,7 @@ Para erro de provedor ou credencial, apresentar mensagem compreensível sem cria
 sessão válida, como exigido por AC02. O contrato de erro seguirá o padrão da
 especificação técnica.
 
-O backend manterá sessão com Spring Session JDBC e cookie `Secure`, `HttpOnly` e
+O desenho anterior previa sessão com Spring Session JDBC e cookie `Secure`, `HttpOnly` e
 `SameSite=Lax` como ponto de partida para o callback GET. A interface e a API
 ficarão na mesma origem. CSRF permanece ativo para mutações; o Angular obtém o token
 de modo compatível com a versão do Spring Security. `POST /api/v1/auth/logout`
@@ -92,7 +99,7 @@ invalida a sessão. Access/refresh tokens não são persistidos em `localStorage
 adicionais. Duração e inatividade propostas na especificação técnica dependem da
 política institucional em D21.
 
-## Configuração necessária para a prova real
+## Configuração prevista para a prova Google anterior
 
 | Item                                | Preparação                                                                                                                                                             | Situação                                                                                          |
 | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
@@ -104,12 +111,13 @@ política institucional em D21.
 | Domínios hospedados                 | Configurar apenas `hd` observado no teste e aprovado pela TI; lista ausente bloqueia todos os logins.                                                                  | Pendente de observação e aceite                                                                   |
 | Contas de teste                     | TI/AE indicam titulares de contas institucionais de servidor e estudante e aprovam o perfil local da prova.                                                            | Titulares e perfil não indicados                                                                  |
 
-A prova mínima já declara `spring.security.oauth2.client.registration.google` em
-[`application.yml`](../../backend/src/main/resources/application.yml), com client ID e
-segredo lidos do ambiente, os três escopos e o redirecionamento padrão
+A prova mínima declarava `spring.security.oauth2.client.registration.google` em
+`application.yml`, com client ID e segredo lidos do ambiente, os três escopos e o redirecionamento padrão
 `{baseUrl}/login/oauth2/code/{registrationId}`. O início é
 `/oauth2/authorization/google` e o sucesso vai para `/api/v1/auth/me`, sem aceitar
-URL pós-login arbitrária. O Nginx e a integração com Angular são trabalho posterior.
+URL pós-login arbitrária. Essa configuração foi retirada do fluxo ativo ao adotar
+o login local. O Nginx e a integração definitiva com Angular permanecem trabalho
+posterior.
 
 ## Prova técnica executada e limites
 
@@ -122,7 +130,8 @@ perfil, vínculo estável por `iss` + `sub`, contrato de `/me`, CSRF, logout, co
 desconhecido. Um servidor HTTP real em porta aleatória respondeu `200` em `/`, `401`
 em `/api/v1/auth/me`, `200` no endpoint CSRF e `302` no início OAuth. O teste de
 redirect em porta 8080 confirmou a URI de retorno exata planejada. A evidência
-detalhada está em [QA.md](QA.md) e no [teste de integração](../../backend/src/test/java/br/edu/ifgoiano/sager/auth/AuthFlowIntegrationTest.java).
+detalhada está em [QA.md](QA.md). Os testes daquela prova foram substituídos na
+implementação ativa e podem ser consultados no histórico Git.
 
 Nesses testes, o cliente OAuth e os tokens são **sintéticos**. Não houve navegação de
 um titular até o Google, troca real de código por token nem confirmação de política
@@ -130,7 +139,7 @@ Workspace. O teste de perfil usa um principal OIDC simulado; ele verifica a cons
 ao cadastro local, não substitui a prova institucional. Não foram testados ainda
 expiração por inatividade e desligamento institucional; a política depende da TI.
 
-### Registro necessário para homologar D21
+### Registro previsto para a antiga proposta Google
 
 | Evidência                                                            | Resultado atual | Responsável, data e referência exigidos                                            |
 | -------------------------------------------------------------------- | --------------- | ---------------------------------------------------------------------------------- |
@@ -141,10 +150,11 @@ expiração por inatividade e desligamento institucional; a política depende da
 | Login real de servidor, estudante e conta sem perfil                 | Pendente        | Executores autorizados: data, ambiente e resultado por cenário, sem dados pessoais |
 | Aceite final da Fase 0                                               | Pendente        | TI/AE: nomes, datas, referência e eventuais restrições                             |
 
-O [procedimento operacional](../../backend/README.md) explica como iniciar o backend,
-observar o `hd` sem copiar o token e conceder um perfil apenas após autorização.
+O [procedimento operacional vigente](../../backend/README.md) descreve o login
+local. O roteiro institucional abaixo é histórico e exige nova decisão D21 antes
+de eventual execução.
 
-## Roteiro de teste institucional para D21
+## Roteiro institucional anterior, não executado
 
 **Pré-condições:** cliente OAuth autorizado para o público de teste pela TI, política
 do Workspace liberada, URI de retorno registrada, backend da prova disponível em
@@ -172,12 +182,12 @@ guarda senha, token, cookie, captura de ID token nem dados pessoais dos particip
    mutações, logout, expiração por inatividade e ausência de tokens no armazenamento
    do navegador. Registrar a política real de sessão e desligamento informada pela TI.
 
-**Evidência para encerrar D21:** data/ambiente, aprovação do cliente e da política
+**Na antiga proposta, a evidência para encerrar D21 seria:** data/ambiente, aprovação do cliente e da política
 Workspace pela TI, tipos de contas testados, valores de `hd` aprovados (sem claims
 individuais), resultado por cenário, política de sessão/desligamento e responsável
 institucional pela aceitação. Falhas ou cenários indisponíveis permanecem explícitos.
-Até executar e registrar essa prova, **AC01/AC02 e AT03 não estão homologados** e a
-Fase 0 permanece não homologada quanto ao login real.
+Independentemente do provedor institucional escolhido depois, **AC01/AC02 e AT03 não
+estão homologados** e a Fase 0 permanece não homologada quanto ao login real.
 
 ## Referências externas
 

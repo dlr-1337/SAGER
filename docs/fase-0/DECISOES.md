@@ -1,6 +1,6 @@
 # Registro de decisões D01–D26
 
-**Registro:** 25/09/2026. **Base funcional:**
+**Registro inicial:** 25/09/2026. **Revisão do login:** 26/09/2026. **Base funcional:**
 [PRD v2.0, seção 23](../../SAGER_PRD_v2.0_Angular_SpringBoot.md). **Base de
 implementação:**
 [Especificação Técnica v2.0](../../SAGER_Especificacao_Tecnica_v2.0.md) e
@@ -28,8 +28,8 @@ domínio do e-mail nem presume acesso do gestor a dados médicos.
 ## D02 — Dicionário cadastral, campos, unicidade, matrícula, desligamento e maioridade; E02, RF002, UC015.
 
 **Estado atual e encaminhamento:** **Adiada a origem da matrícula pelo
-solicitante; homologação pendente.** O login Google padrão não entrega
-matrícula. A fatia de cadastro de residente da Fase 1 deve aguardar decisão de
+solicitante; homologação pendente.** O login local provisório não fornece nem
+valida matrícula. A fatia de cadastro de residente da Fase 1 deve aguardar decisão de
 dados e vínculo, sem inventar matrícula ou regra de validação.
 
 **Responsável / até a fase:** AE/TI; antes da fatia cadastral da Fase 1 e da
@@ -214,20 +214,24 @@ restrição a gestor vista no protótipo substitui o texto RF/UC.
 
 ## D21 — Mecanismo, atributos e ciclo da conta institucional; E01, RF001/UC01.
 
-**Estado atual e encaminhamento:** **Google OIDC escolhido e prova técnica local
-implementada; TI e prova real pendentes.** Usar Authorization Code, Spring Security,
-`openid profile email`, vínculo pelo `sub`, nome/foto opcionais e sessão no
-servidor. Validar `hd` observado com contas autorizadas; domínio de e-mail não
-concede perfil. Acesso OAuth/Workspace, atributos reais, desligamento e teste
-institucional não foram confirmados. Os 16 testes sintéticos do backend passaram,
-mas não comprovam login institucional. **Fase 0 não homologada sem teste real e
+**Estado atual e encaminhamento:** **Provedor institucional indefinido; TI e prova
+real pendentes.** Por decisão do solicitante em 26/09/2026, a antiga prova Google
+OIDC foi descontinuada como mecanismo ativo. Para desenvolvimento e teste, o projeto
+adota login local provisório por e-mail e senha própria do SAGER, com contas e perfis
+criados por operador, sessão no servidor e acesso limitado ao ambiente local. O
+e-mail identifica a conta de teste; seu domínio não concede perfil. A prova Google
+anterior passou em 16 testes sintéticos, mas jamais comprovou acesso institucional.
+O login local também **não** comprova identidade institucional nem fecha AC01/AC02
+ou AT03. Provedor definitivo, atributos, provisionamento e desligamento dependem de
+decisão e teste com a TI. **A Fase 0 não está homologada sem prova institucional e
 aceite TI/AE.**
 
-**Responsável / até a fase:** TI; prova na Fase 0, dependência da Fase 1.
+**Responsável / até a fase:** TI/AE; decisão e prova institucional pendentes da
+Fase 0, dependência da Fase 1.
 
 **Evidência:** PRD §E01 e §23.2; especificação §6; roteiro F0–F1; decisão do
-solicitante nesta Fase 0; [contrato e pendências](AUTENTICACAO_GOOGLE.md) e
-[QA técnico](QA.md).
+solicitante de 26/09/2026; [contrato provisório](AUTENTICACAO_LOCAL.md),
+[registro histórico da prova Google](AUTENTICACAO_GOOGLE.md) e [QA técnico](QA.md).
 
 ## D22 — Acesso a dados, retenção, descarte e objetivos de recuperação; proteção transversal.
 

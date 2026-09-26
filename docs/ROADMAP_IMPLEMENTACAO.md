@@ -14,11 +14,12 @@ proposta na seção 22.3 do PRD, sem retirar funcionalidades.
 ## Ponto de partida e modo de entrega
 
 O repositório tem um protótipo Angular navegável em `frontend/`. Seus cadastros e fluxos
-operacionais usam serviços em memória; o acesso usa seleção de perfil em `sessionStorage`;
-a assinatura é simulada; relatórios e ranking usam dados de exemplo. A prova mínima
-Google OIDC em `backend/` foi adicionada na Fase 0; ainda não há `infra/` nem integração
-do Angular com a API. As telas existentes são a base visual e funcional a integrar, não
-evidência de regras persistidas ou de autenticação real.
+operacionais usam serviços em memória; a demonstração usa seleção de perfil em
+`sessionStorage`; a assinatura é simulada; relatórios e ranking usam dados de exemplo.
+Em 26/09/2026, o solicitante substituiu a antiga prova Google OIDC por login local
+provisório em `backend/`, limitado a desenvolvimento e teste. O login foi integrado
+ao Angular; ainda não há `infra/`. As telas existentes são a base visual e
+funcional para as próximas fatias, sem regras de domínio persistidas.
 
 A arquitetura de referência é o monólito modular Spring Boot com PostgreSQL/Flyway,
 sessão e autorização no servidor, Angular e API na mesma origem, arquivos privados e
@@ -43,9 +44,9 @@ responsividade e ajuda) acompanha as fases e é fechado na Fase 7.
    demais antes das fases que dependem delas.
 2. Confirmar versões exatas de Java, Spring Boot, PostgreSQL, Angular e bibliotecas; fixar
    estratégia de lockfiles, Maven Wrapper e ambientes com dados sintéticos.
-3. Fazer prova de integração com o mecanismo institucional informado pela TI; documentar
-   identificador estável, atributos, perfis, desligamento e política de sessão. OIDC é a
-   preferência técnica, sujeita ao protocolo real.
+3. Fazer prova de integração com o mecanismo institucional que a TI definir; documentar
+   identificador estável, atributos, perfis, desligamento e política de sessão. O login
+   local provisório não substitui essa prova nem determina o provedor definitivo.
 4. Validar com a instituição acesso, modalidade, identidade e custos da assinatura, além dos
    requisitos da conta Meta/WhatsApp. Definir quais adaptadores terão sandbox utilizável.
 5. Concordar no primeiro contrato vertical de API, erros, datas, autorização e dicionário
@@ -56,12 +57,17 @@ definidas, prova do login institucional documentada e responsáveis indicados pa
 integrações externas. Ausência de credenciais ou contratação não paralisa módulos
 independentes, mas mantém a homologação dessas integrações pendente.
 
-**Estado em 25/09/2026:** os [registros da Fase 0](fase-0/README.md) documentam versões,
-contrato de Google OIDC, integrações e D01–D26. O JDK 21 foi instalado e o daemon Docker
-verificado, com limitação de reinício registrada no QA. Uma
-[prova técnica local](../backend/README.md) foi implementada e passou em testes sintéticos
-com PostgreSQL e HTTP reais. A prova com contas institucionais, confirmação do cliente
-OAuth/Workspace e aceite TI/AE ainda faltam; portanto, **a Fase 0 não está homologada**.
+**Estado em 26/09/2026:** os [registros da Fase 0](fase-0/README.md) documentam versões,
+integrações e D01–D26. O JDK 21 foi instalado; a falha de reinício do Docker Desktop
+4.91.0, o reinício e a partida fria bem-sucedidos após a atualização 4.92.0 estão
+registrados no QA.
+A antiga prova Google passou em testes sintéticos, mas
+foi [descontinuada](fase-0/AUTENTICACAO_GOOGLE.md). O
+[login local provisório](fase-0/AUTENTICACAO_LOCAL.md) foi integrado ao backend e
+ao Angular, com [aceite técnico local](fase-0/QA.md) para desenvolvimento e teste.
+O provedor institucional, a prova
+com contas autorizadas e o aceite TI/AE permanecem pendentes; **a Fase 0 não está
+homologada**.
 
 ### Fase 1 — Fundação técnica e primeira fatia real
 
@@ -70,15 +76,17 @@ implantação da Fase 7.
 
 1. Criar `backend/` com Maven Wrapper, Spring MVC, validação, Spring Security, Spring
    Session JDBC, PostgreSQL, Flyway, perfis de ambiente, erros padronizados e OpenAPI.
-2. Implementar identidade institucional confirmada, perfis locais explícitos, sessão,
-   `/api/v1/auth/me`, CSRF, logout e autorização por endpoint **e** por registro. O login
-   simulado só pode iniciar em desenvolvimento/teste; produção falha ao detectar esse perfil.
+2. Integrar o login local provisório somente em desenvolvimento/teste, com contas
+   criadas por operador, perfis locais explícitos, sessão, `/api/v1/auth/me`, CSRF e
+   logout. Fora do perfil local, o backend falha fechado até existir identidade
+   institucional confirmada. Implementar autorização por endpoint **e** por registro
+   nas fatias reais, a partir da matriz D01 aprovada.
 3. Criar auditoria transacional e observabilidade básica. Definir UUID, datas, paginação,
    controle de versão e conflitos como convenções da API.
 4. Integrar uma primeira fatia protegida de cadastro/consulta de residente ao Angular,
    usando `HttpClient` e banco real. Unificar o identificador do residente entre gestão e
    operações antes de expandir os módulos. A fatia cadastral depende da decisão D02 sobre
-   origem e validação da matrícula; não inferir matrícula do login Google.
+   origem e validação da matrícula; não inferir matrícula do login provisório.
 5. Criar pipeline de build, testes Java/Angular e migração em PostgreSQL de teste, sem dados
    reais nem segredos no repositório.
 
@@ -96,8 +104,8 @@ sensíveis.
 
 1. Persistir residentes, matrícula, condição etária, responsáveis ativos e vínculos;
    proteger informações médicas em recurso e permissão separados.
-2. Integrar cadastro e edição de supervisores ao gestor autenticado, sem criar senha local
-   paralela à identidade institucional.
+2. Integrar cadastro e edição de supervisores ao gestor autenticado; as contas locais
+   usadas em desenvolvimento não substituem o futuro provisionamento institucional.
 3. Persistir blocos, pisos, quartos e vínculos de ocupação; implementar o mapa com situação,
    nota existente, legenda e atualização após gravação.
 4. Trocar os serviços demonstrativos de gestão por serviços de API; garantir que operações
