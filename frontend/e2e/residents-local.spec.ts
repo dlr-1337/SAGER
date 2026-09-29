@@ -32,6 +32,12 @@ function mockRegistry(initial: ResidentRecord[] = []) {
   let failList = false;
   let failNextWrite = false;
   async function attach(page: Page) {
+    await page.route('**/api/v1/alocacoes**', (route) => route.fulfill({ json: [] }));
+    await page.route('**/api/v1/quartos/mapa', (route) =>
+      route.fulfill({
+        json: { accommodations: [], units: [], rooms: [] },
+      }),
+    );
     await page.route('**/api/v1/responsaveis**', (route) => {
       const path = new URL(route.request().url()).pathname;
       return route.fulfill(path.endsWith('/responsaveis') ? { json: [] } : { status: 404 });

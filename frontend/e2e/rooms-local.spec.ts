@@ -10,8 +10,8 @@ interface RoomRecord {
   floor: string | null;
   capacity: number | null;
   situation: string;
-  occupancy: null;
-  vacancies: null;
+  occupancy: number;
+  vacancies: number | null;
   cleaningScore: null;
   version: number;
 }
@@ -35,7 +35,7 @@ const original: RoomRecord = {
   floor: null,
   capacity: null,
   situation: 'Disponível',
-  occupancy: null,
+  occupancy: 0,
   vacancies: null,
   cleaningScore: null,
   version: 0,
@@ -62,6 +62,8 @@ async function mockSession(context: BrowserContext, profile = 'gestor'): Promise
 
 async function mockRooms(context: BrowserContext, records: RoomRecord[]) {
   const writes: { method: string; csrf: string | undefined; body: Record<string, unknown> }[] = [];
+  await context.route('**/api/v1/alocacoes**', (route) => route.fulfill({ json: [] }));
+  await context.route('**/api/v1/residentes**', (route) => route.fulfill({ json: [] }));
   await context.route('**/api/v1/quartos**', (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
@@ -94,14 +96,20 @@ async function mockRooms(context: BrowserContext, records: RoomRecord[]) {
       if (!existing) return route.fulfill({ status: 404, json: { code: 'not_found' } });
       if (body['version'] !== existing.version)
         return route.fulfill({ status: 409, json: { code: 'stale_version' } });
-      Object.assign(existing, body, { version: existing.version + 1 });
+      Object.assign(existing, body, {
+        version: existing.version + 1,
+        vacancies:
+          body['capacity'] === null
+            ? null
+            : Math.max(0, Number(body['capacity']) - existing.occupancy),
+      });
       return route.fulfill({ json: existing });
     }
     const record = {
       ...body,
       id: `00000000-0000-0000-0000-${(records.length + 310).toString().padStart(12, '0')}`,
-      occupancy: null,
-      vacancies: null,
+      occupancy: 0,
+      vacancies: body['capacity'] === null ? null : body['capacity'],
       cleaningScore: null,
       version: 0,
     } as RoomRecord;
@@ -145,9 +153,11 @@ test('cadastro local preserva 01, nulos, capacidade editável e mapa após recar
   expect(writes).toHaveLength(0);
   await page.getByRole('spinbutton', { name: 'Capacidade (opcional)' }).fill('');
   await page.getByRole('button', { name: 'Salvar quarto' }).click();
-  await expect(page.getByRole('status')).toContainText('Quarto salvo no ambiente local de teste.');
+  await expect(page.locator('.mg-success')).toContainText(
+    'Quarto salvo no ambiente local de teste.',
+  );
   await expect(page.getByRole('heading', { name: 'Quarto 01' })).toBeVisible();
-  await expect(page.getByText('Capacidade não definida', { exact: true })).toBeVisible();
+  await expect(page.getByText('Capacidade não definida', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Ana Luísa Ribeiro')).toHaveCount(0);
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Quarto 01' })).toBeVisible();
@@ -201,7 +211,7 @@ test('duplicidade e conflito em duas abas não apagam a edição nem anunciam su
   await expect(page).toHaveURL(/\/quartos\/novo$/);
   await page.getByRole('combobox', { name: 'Alojamento *' }).selectOption(secondAccommodationId);
   await page.getByRole('button', { name: 'Salvar quarto' }).click();
-  await expect(page.getByRole('status')).toContainText('Quarto salvo');
+  await expect(page.locator('.mg-success')).toContainText('Quarto salvo');
 
   const secondPage = await context.newPage();
   await page.goto(`/quartos/${original.id}/editar`);
@@ -263,6 +273,7 @@ test('mapa e formulário locais são acessíveis no desktop e no celular, com te
       code: 'TESTE-Q02',
       number: '02',
       capacity: 4,
+      vacancies: 4,
       unitId,
     },
   ]);
