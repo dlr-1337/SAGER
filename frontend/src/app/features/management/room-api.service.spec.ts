@@ -12,7 +12,7 @@ const room: RoomRecord = {
   floor: null,
   capacity: null,
   situation: 'Disponível',
-  occupancy: null,
+  occupancy: 0,
   vacancies: null,
   cleaningScore: null,
   version: 0,
@@ -117,8 +117,9 @@ describe('RoomApiService', () => {
 
   it.each([
     { ...room, capacity: 1.5 },
-    { ...room, occupancy: 0 },
+    { ...room, occupancy: -1 },
     { ...room, vacancies: 3 },
+    { ...room, capacity: 2, occupancy: 1, vacancies: 2 },
     { ...room, number: 1 },
     { ...room, version: -1 },
   ])('rejeita contrato inválido sem sucesso falso: %j', async (record) => {
