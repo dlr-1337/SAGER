@@ -123,3 +123,52 @@ inferência. O login provisório não homologa D21 nem substitui aprovação da 
   passou com **39/39** jornadas. A captura visual foi excluída porque sobrescreve
   imagens rastreadas. O backend não foi alterado nesta revisão; sua verificação
   anterior de 38/38 testes permanece registrada acima.
+
+## Terceira fatia — cadastro local de residentes
+
+**Data:** 29/09/2026. **Escopo:** cadastro provisório por digitação no perfil
+`local`, com conta de gestor e estudante sintéticos. O resultado é **aceite
+técnico para desenvolvimento**, sem homologação da origem institucional da
+matrícula ou das permissões da AE/TI.
+
+| Verificação               | Comando ou cenário                                                                                   | Resultado                                                                                                                                                                                                                         |
+| ------------------------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Banco vazio e atualização | `ResidentMigrationIntegrationTest` com PostgreSQL 17.11/Testcontainers                               | Flyway V1–V7 aplicado em banco vazio e V7 sobre V1–V6; tabela e índice de matrícula sem diferenciar maiúsculas/minúsculas conferidos.                                                                                             |
+| API e segurança           | `ResidentApiIntegrationTest` com conta local e PostgreSQL real                                       | Criação, edição, matrícula obrigatória/duplicada, opcionais nulos, nascimento inválido/futuro, versão obsoleta, leitura por gestor/supervisor, escrita só por gestor, anônimo, CSRF, conta desativada e bloqueio fora de `local`. |
+| Backend completo          | `backend/`: `./mvnw.cmd -B -ntp verify` com JDK 21                                                   | **45/45 testes**, 0 falhas, 0 erros; JAR empacotado.                                                                                                                                                                              |
+| Angular                   | `frontend/`: `npm test -- --watch=false` e `npm run build`                                           | **78/78 testes** em 17 arquivos e build de produção aprovados.                                                                                                                                                                    |
+| Jornadas focadas          | `npx playwright test e2e/residents-local.spec.ts`                                                    | **4/4**: cadastro, consulta, edição, recarga, conflito em duas abas, erro sem dados demonstrativos, supervisor, demonstração offline e layout celular.                                                                            |
+| Regressão no navegador    | `$env:SAGER_E2E_PORT='4319'; npx playwright test --grep-invert 'captura telas centrais' --workers=1` | **43/43 passaram.** A primeira execução paralela ao preparo do banco teve 41/43 e dois timeouts em auditorias globais; elas passaram isoladas (2/2) e na repetição completa serial, sem alteração de código.                      |
+| Inspeção visual           | Impeccable `detect --json`, Axe e capturas desktop/celular da prova real                             | Detector retornou `[]`; Axe sem violações sérias/críticas nas telas reais; detalhe móvel a 375 px sem rolagem horizontal.                                                                                                         |
+
+### Prova integrada sem API simulada
+
+PostgreSQL 17.11 descartável foi publicado apenas em `127.0.0.1:15435`. O
+backend local rodou em `127.0.0.1:8080`, e o Angular em `127.0.0.1:4316` com
+proxy de `/api`. A CLI criou uma conta de gestor sintética, com senha inserida
+no console oculto. Pelo navegador, o gestor entrou, encontrou a lista vazia,
+cadastrou “Estudante Sintético QA” com matrícula `SAGER-QA-2026-001` e sem
+nascimento ou curso, e recebeu um UUID e versão `0`. O detalhe mostrou os
+campos ausentes como “Não informado” e não apresentou quarto ou situação
+inventados. O cookie de sessão tinha `HttpOnly`.
+
+Duas abas abriram a edição. A primeira acrescentou “Curso Sintético QA” e
+recebeu versão `1`; a segunda tentou gravar sobre versão `0`, apresentou
+conflito e carregou explicitamente a versão atual. Após reiniciar o processo
+do backend mantendo o mesmo banco, a sessão e o cadastro continuaram
+acessíveis no navegador. A consulta HTTP confirmou matrícula, curso, nascimento
+`null` e versão `1`; SQL confirmou V7 e o mesmo registro. A captura
+[anterior na demonstração](../../.impeccable/reviews/pr-residentes-before-demo-desktop.png)
+mostra a tela em `main`; as capturas [desktop](../../.impeccable/reviews/pr-residentes-after-desktop.png) e
+[celular](../../.impeccable/reviews/pr-residentes-after-mobile.png) mostram
+somente dados sintéticos.
+
+Ao concluir a prova, os processos de backend e Angular usados nela foram
+encerrados, o contêiner descartável foi removido e os arquivos temporários
+com senha e sessão foram apagados. Nenhum volume ou contêiner preexistente foi
+alterado.
+
+**Limites:** importação, integração institucional, formato definitivo da
+matrícula, responsáveis legais, alocação, acesso médico e operações ficam
+pendentes na D01/D02/D15/D19/D22. Nascimento ausente não estabelece
+maioridade. Este aceite não homologa a Fase 2.
