@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import {
   FormControl,
@@ -319,6 +326,7 @@ export class RoomFormComponent {
   private readonly session = inject(DemoSessionService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
   readonly editId = this.route.snapshot.paramMap.get('id');
   readonly isDemo = this.session.active;
   readonly canEdit = computed(() => this.session.hasRole('gestor'));
@@ -497,6 +505,7 @@ export class RoomFormComponent {
         input,
         this.editId && existing ? { id: existing.id, version: existing.version } : undefined,
       );
+      if (this.destroyRef.destroyed) return;
       await this.router.navigate(['/quartos', saved.id], { queryParams: { saved: '1' } });
     } catch (error) {
       const stale =

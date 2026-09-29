@@ -193,3 +193,48 @@ test('alojamentos são utilizáveis na demonstração offline e acessíveis em d
   await expect(page.getByRole('status')).toContainText('Alojamento salvo nesta demonstração');
   await expect(page.getByRole('heading', { name: 'Alojamento Fictício' })).toBeVisible();
 });
+
+test('cancelar um salvamento pendente não redireciona a página após sair do formulário', async ({
+  page,
+}) => {
+  await mockSession(page);
+  const record = {
+    id: firstId,
+    code: 'TESTE-A',
+    name: 'Alojamento Sintético',
+    version: 0,
+  };
+  let releaseSave!: () => void;
+  let announceSave!: () => void;
+  const heldSave = new Promise<void>((resolve) => (releaseSave = resolve));
+  const saveStarted = new Promise<void>((resolve) => (announceSave = resolve));
+  await page.route('**/api/v1/alojamentos**', async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (route.request().method() === 'POST') {
+      announceSave();
+      await heldSave;
+      return route.fulfill({ status: 201, json: record });
+    }
+    return route.fulfill({ json: path.endsWith('/alojamentos') ? [] : record });
+  });
+
+  await page.goto('/alojamentos/novo');
+  await page.getByRole('textbox', { name: /Código do alojamento/ }).fill(record.code);
+  await page.getByRole('textbox', { name: /Nome do alojamento/ }).fill(record.name);
+  await page.getByRole('button', { name: 'Salvar alojamento' }).click();
+  await saveStarted;
+  await page.getByRole('link', { name: 'Cancelar', exact: true }).click();
+  await expect(page).toHaveURL(/\/alojamentos$/);
+
+  const redirected = page.waitForURL(new RegExp(`/alojamentos/${firstId}`), { timeout: 1000 }).then(
+    () => true,
+    () => false,
+  );
+  const response = page.waitForResponse(
+    (item) => item.url().endsWith('/api/v1/alojamentos') && item.request().method() === 'POST',
+  );
+  releaseSave();
+  await response;
+  expect(await redirected).toBe(false);
+  await expect(page).toHaveURL(/\/alojamentos$/);
+});

@@ -278,6 +278,30 @@ describe('Quartos em sessão local', () => {
     expect(TestBed.inject(Router).navigate).not.toHaveBeenCalled();
   });
 
+  it('não redireciona quando um salvamento pendente termina após sair do formulário', async () => {
+    const fixture = TestBed.createComponent(RoomFormComponent);
+    await fixture.whenStable();
+    fixture.componentInstance.localForm.setValue({
+      code: 'TESTE-Q03',
+      number: '03',
+      accommodationId: room.accommodationId,
+      unitId: '',
+      floor: '',
+      capacity: null,
+      situation: 'Disponível',
+    });
+    let resolveSave!: (value: RoomRecord) => void;
+    api.save.mockImplementation(
+      () => new Promise<RoomRecord>((resolve) => (resolveSave = resolve)),
+    );
+    const saving = fixture.componentInstance.save();
+    expect(api.save).toHaveBeenCalledOnce();
+    fixture.destroy();
+    resolveSave({ ...room, id: 'quarto-3', code: 'TESTE-Q03', number: '03' });
+    await saving;
+    expect(TestBed.inject(Router).navigate).not.toHaveBeenCalled();
+  });
+
   it.each([401, 403, 404])(
     'detalhe com status %s mostra erro sem cadastro demonstrativo',
     async (status) => {

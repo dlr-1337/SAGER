@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
@@ -115,6 +122,7 @@ export class AccommodationFormComponent {
   private readonly data = inject(AccommodationDataService);
   private readonly session = inject(DemoSessionService);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
   readonly editId = inject(ActivatedRoute).snapshot.paramMap.get('id');
   readonly canEdit = computed(() => this.session.hasRole('gestor'));
   readonly existing = signal<Accommodation | null>(null);
@@ -185,7 +193,9 @@ export class AccommodationFormComponent {
     this.saving.set(true);
     try {
       const item = await this.data.save(input, this.existing() ?? undefined);
-      await this.router.navigate(['/alojamentos', item.id], { queryParams: { saved: '1' } });
+      if (!this.destroyRef.destroyed) {
+        await this.router.navigate(['/alojamentos', item.id], { queryParams: { saved: '1' } });
+      }
     } catch (error) {
       this.conflict.set(error instanceof AccommodationApiError && error.code === 'stale_version');
       this.error.set(accommodationErrorMessage(error));
