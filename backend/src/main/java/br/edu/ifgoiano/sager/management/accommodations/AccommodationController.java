@@ -42,7 +42,7 @@ public class AccommodationController {
 
     @PostMapping
     public ResponseEntity<Accommodation> create(@RequestBody CreateRequest request) {
-        Accommodation created = service.create(request.code(), request.name());
+        Accommodation created = service.create(text(request.code(), "code"), text(request.name(), "name"));
         return ResponseEntity.created(URI.create("/api/v1/alojamentos/" + created.id()))
                 .cacheControl(CacheControl.noStore()).body(created);
     }
@@ -51,7 +51,7 @@ public class AccommodationController {
     public ResponseEntity<Accommodation> update(@PathVariable UUID id,
             @RequestBody UpdateRequest request) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.update(id,
-                request.code(), request.name(), version(request.version())));
+                text(request.code(), "code"), text(request.name(), "name"), version(request.version())));
     }
 
     @GetMapping("/{id}/unidades")
@@ -67,7 +67,7 @@ public class AccommodationController {
     @PostMapping("/{id}/unidades")
     public ResponseEntity<AccommodationUnit> createUnit(@PathVariable UUID id,
             @RequestBody CreateRequest request) {
-        AccommodationUnit created = service.createUnit(id, request.code(), request.name());
+        AccommodationUnit created = service.createUnit(id, text(request.code(), "code"), text(request.name(), "name"));
         return ResponseEntity.created(URI.create("/api/v1/alojamentos/" + id + "/unidades/" + created.id()))
                 .cacheControl(CacheControl.noStore()).body(created);
     }
@@ -76,7 +76,7 @@ public class AccommodationController {
     public ResponseEntity<AccommodationUnit> updateUnit(@PathVariable UUID id, @PathVariable UUID unitId,
             @RequestBody UpdateRequest request) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.updateUnit(id,
-                unitId, request.code(), request.name(), version(request.version())));
+                unitId, text(request.code(), "code"), text(request.name(), "name"), version(request.version())));
     }
 
     @ExceptionHandler(AccommodationApiException.class)
@@ -91,6 +91,17 @@ public class AccommodationController {
                 .body(new ApiError("invalid_input", "Corpo JSON ou ID inválido."));
     }
 
+    private String text(JsonNode value, String field) {
+        if (value == null || value.isNull()) {
+            return null;
+        }
+        if (!value.isString()) {
+            throw new AccommodationApiException(HttpStatus.BAD_REQUEST, "invalid_input",
+                    field + " deve ser texto JSON.");
+        }
+        return value.stringValue();
+    }
+
     private long version(JsonNode value) {
         if (value == null || !value.isIntegralNumber() || !value.canConvertToLong()
                 || value.asLong() < 0 || value.asLong() == Long.MAX_VALUE) {
@@ -100,10 +111,10 @@ public class AccommodationController {
         return value.asLong();
     }
 
-    public record CreateRequest(String code, String name) {
+    public record CreateRequest(JsonNode code, JsonNode name) {
     }
 
-    public record UpdateRequest(String code, String name, JsonNode version) {
+    public record UpdateRequest(JsonNode code, JsonNode name, JsonNode version) {
     }
 
     public record ApiError(String code, String message) {

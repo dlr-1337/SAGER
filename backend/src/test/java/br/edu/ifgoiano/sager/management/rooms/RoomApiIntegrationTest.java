@@ -11,6 +11,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -329,6 +330,37 @@ class RoomApiIntegrationTest {
     }
 
     @Test
+    void rejectsNonTextRoomFieldsWithoutPersistingOrIncrementingVersion() throws Exception {
+        gestorAccount();
+        try (HttpClient client = browser()) {
+            login(client, "gestor");
+            String accommodation = accommodation(client, "DEMO-TEXT");
+            String base = room("DEMO-TEXT-01", "01", accommodation, null, null, 4, "Disponível");
+            for (String field : new String[] { "code", "number", "floor", "situation" }) {
+                for (Object invalid : new Object[] { 2, false, List.of("texto"), Map.of("text", "texto") }) {
+                    assertError(post(client, PATH, replaceField(base, field, invalid), csrf(client)),
+                            400, "invalid_input");
+                }
+            }
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_room", Integer.class)).isZero();
+            String id = createRoom(client, base);
+            for (String field : new String[] { "code", "number", "floor", "situation" }) {
+                for (Object invalid : new Object[] { 2, false, List.of("texto"), Map.of("text", "texto") }) {
+                    assertError(put(client, PATH + "/" + id,
+                            replaceField(edit(base, 0), field, invalid), csrf(client)), 400, "invalid_input");
+                }
+            }
+            JsonNode persisted = json.readTree(get(client, PATH + "/" + id).body());
+            assertThat(persisted.path("code").asText()).isEqualTo("DEMO-TEXT-01");
+            assertThat(persisted.path("number").asText()).isEqualTo("01");
+            assertThat(persisted.path("floor").isNull()).isTrue();
+            assertThat(persisted.path("situation").asText()).isEqualTo("Disponível");
+            assertThat(persisted.path("version").asLong()).isZero();
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_room", Integer.class)).isEqualTo(1);
+        }
+    }
+
+    @Test
     void backendRestartPreservesEditedCapacityMapAndJdbcSession() throws Exception {
         gestorAccount();
         try (HttpClient client = browser()) {
@@ -422,6 +454,12 @@ class RoomApiIntegrationTest {
         var value = (tools.jackson.databind.node.ObjectNode) json.readTree(body);
         value.set("version", json.valueToTree(version));
         return json.writeValueAsString(value);
+    }
+
+    private String replaceField(String body, String field, Object value) {
+        var changed = (tools.jackson.databind.node.ObjectNode) json.readTree(body);
+        changed.set(field, json.valueToTree(value));
+        return json.writeValueAsString(changed);
     }
 
     private void login(HttpClient client, String profile) throws Exception {

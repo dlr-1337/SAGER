@@ -10,6 +10,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -212,6 +213,51 @@ class AccommodationApiIntegrationTest {
     }
 
     @Test
+    void rejectsNonTextFieldsInCreateAndUpdateWithoutChangingVersion() throws Exception {
+        provisioning.create("gestor@example.invalid", "Gestor", "gestor", PASSWORD.toCharArray());
+        try (HttpClient client = browser()) {
+            login(client, "gestor");
+            String base = input("DEMO-TEXT", "Residência Sintética");
+            for (String field : new String[] { "code", "name" }) {
+                for (Object invalid : new Object[] { 1, false, List.of("texto"), Map.of("text", "texto") }) {
+                    assertError(post(client, PATH, replaceField(base, field, invalid), csrf(client)),
+                            400, "invalid_input");
+                }
+            }
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_accommodation", Integer.class)).isZero();
+            String id = create(client, "DEMO-TEXT", "Residência Sintética");
+            String units = PATH + "/" + id + "/unidades";
+            String unitBase = input("CASA-TEXT", "Casa Sintética");
+            for (String field : new String[] { "code", "name" }) {
+                for (Object invalid : new Object[] { 1, false, List.of("texto"), Map.of("text", "texto") }) {
+                    assertError(post(client, units, replaceField(unitBase, field, invalid), csrf(client)),
+                            400, "invalid_input");
+                    assertError(put(client, PATH + "/" + id,
+                            replaceField(update("DEMO-TEXT", "Residência Alterada", 0), field, invalid), csrf(client)),
+                            400, "invalid_input");
+                }
+            }
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_accommodation_unit", Integer.class)).isZero();
+            String unitId = json.readTree(post(client, units, unitBase, csrf(client)).body()).path("id").asText();
+            for (String field : new String[] { "code", "name" }) {
+                for (Object invalid : new Object[] { 1, false, List.of("texto"), Map.of("text", "texto") }) {
+                    assertError(put(client, units + "/" + unitId,
+                            replaceField(update("CASA-TEXT", "Casa Alterada", 0), field, invalid), csrf(client)),
+                            400, "invalid_input");
+                }
+            }
+            JsonNode accommodation = json.readTree(get(client, PATH + "/" + id).body());
+            assertThat(accommodation.path("name").asText()).isEqualTo("Residência Sintética");
+            assertThat(accommodation.path("code").asText()).isEqualTo("DEMO-TEXT");
+            assertThat(accommodation.path("version").asLong()).isZero();
+            JsonNode unit = json.readTree(get(client, units + "/" + unitId).body());
+            assertThat(unit.path("name").asText()).isEqualTo("Casa Sintética");
+            assertThat(unit.path("code").asText()).isEqualTo("CASA-TEXT");
+            assertThat(unit.path("version").asLong()).isZero();
+        }
+    }
+
+    @Test
     void supervisorReadsButOnlyGestorWritesAndBothRequireActiveSession() throws Exception {
         for (String profile : new String[] { "gestor", "supervisor", "residente" }) {
             provisioning.create(profile + "@example.invalid", profile, profile, PASSWORD.toCharArray());
@@ -296,6 +342,12 @@ class AccommodationApiIntegrationTest {
 
     private String update(String code, String name, long version) {
         return json.writeValueAsString(Map.of("code", code, "name", name, "version", version));
+    }
+
+    private String replaceField(String body, String field, Object value) {
+        var changed = (tools.jackson.databind.node.ObjectNode) json.readTree(body);
+        changed.set(field, json.valueToTree(value));
+        return json.writeValueAsString(changed);
     }
 
     private void assertError(HttpResponse<String> response, int status, String code) {

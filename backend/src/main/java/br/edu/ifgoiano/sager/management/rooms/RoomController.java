@@ -47,8 +47,9 @@ public class RoomController {
 
     @PostMapping
     public ResponseEntity<RoomRecord> create(@RequestBody CreateRequest request) {
-        RoomRecord created = service.create(request.code(), request.number(), request.accommodationId(),
-                request.unitId(), request.floor(), capacity(request.capacity()), request.situation());
+        RoomRecord created = service.create(text(request.code(), "code"), text(request.number(), "number"),
+                request.accommodationId(), request.unitId(), text(request.floor(), "floor"),
+                capacity(request.capacity()), text(request.situation(), "situation"));
         return ResponseEntity.created(URI.create("/api/v1/quartos/" + created.id()))
                 .cacheControl(CacheControl.noStore()).body(created);
     }
@@ -56,8 +57,9 @@ public class RoomController {
     @PutMapping("/{id}")
     public ResponseEntity<RoomRecord> update(@PathVariable UUID id, @RequestBody UpdateRequest request) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.update(id,
-                request.code(), request.number(), request.accommodationId(), request.unitId(), request.floor(),
-                capacity(request.capacity()), request.situation(), version(request.version())));
+                text(request.code(), "code"), text(request.number(), "number"), request.accommodationId(),
+                request.unitId(), text(request.floor(), "floor"), capacity(request.capacity()),
+                text(request.situation(), "situation"), version(request.version())));
     }
 
     @ExceptionHandler(RoomApiException.class)
@@ -70,6 +72,17 @@ public class RoomController {
     public ResponseEntity<ApiError> malformedRequest(Exception error) {
         return ResponseEntity.badRequest().cacheControl(CacheControl.noStore())
                 .body(new ApiError("invalid_input", "Corpo JSON ou ID inválido."));
+    }
+
+    private String text(JsonNode value, String field) {
+        if (value == null || value.isNull()) {
+            return null;
+        }
+        if (!value.isString()) {
+            throw new RoomApiException(HttpStatus.BAD_REQUEST, "invalid_input",
+                    field + " deve ser texto JSON.");
+        }
+        return value.stringValue();
     }
 
     private Integer capacity(JsonNode value) {
@@ -92,12 +105,12 @@ public class RoomController {
         return value.asLong();
     }
 
-    public record CreateRequest(String code, String number, UUID accommodationId, UUID unitId,
-            String floor, JsonNode capacity, String situation) {
+    public record CreateRequest(JsonNode code, JsonNode number, UUID accommodationId, UUID unitId,
+            JsonNode floor, JsonNode capacity, JsonNode situation) {
     }
 
-    public record UpdateRequest(String code, String number, UUID accommodationId, UUID unitId,
-            String floor, JsonNode capacity, String situation, JsonNode version) {
+    public record UpdateRequest(JsonNode code, JsonNode number, UUID accommodationId, UUID unitId,
+            JsonNode floor, JsonNode capacity, JsonNode situation, JsonNode version) {
     }
 
     public record ApiError(String code, String message) {
