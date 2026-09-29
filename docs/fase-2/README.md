@@ -88,6 +88,35 @@ obsoleta. Sessão inválida retorna `401`; perfil sem permissão ou CSRF ausente
 retorna `403`. Esses erros são apresentados sem carregar dados de demonstração
 no fluxo local.
 
+## Terceira fatia: cadastro local de residentes
+
+No ambiente de desenvolvimento, o gestor pode cadastrar e editar residentes
+manualmente; gestor e supervisor podem consultar. A matrícula identifica o
+registro do estudante, mas não é obtida do login. A escolha da fonte institucional
+(planilha, sistema do IF ou outra) e sua validação definitiva continuam abertas
+na [D02](../fase-0/DECISOES.md). O cadastro local é provisório e não provisiona
+conta de acesso ao SAGER.
+
+O contrato oferece `GET/POST /api/v1/residentes` e
+`GET/PUT /api/v1/residentes/{id}`. Cada resposta inclui `id` (UUID), `name`,
+`enrollment`, `birthDate`, `course` e `version`. O banco mantém também as
+datas de criação e alteração. Nome e matrícula são obrigatórios. A matrícula é
+única sem diferenciar maiúsculas/minúsculas depois de retirar espaços das pontas;
+não há regra provisória para quantidade de dígitos ou composição. Nascimento e
+curso podem ser `null`; nascimento informado deve ser uma data válida e não futura.
+O `PUT` exige a versão conhecida. Entrada inválida retorna `400`, matrícula
+duplicada ou versão obsoleta retornam `409`, e ID ausente retorna `404`.
+Sessão local e CSRF protegem as alterações; fora do perfil `local`, a API
+permanece fechada.
+
+Lista, formulário e detalhe no acesso local consultam a API e não recorrem
+a dados da demonstração quando ela falha. Campos opcionais ausentes aparecem
+como “Não informado”. Idade, quarto e situação não são inferidos; responsáveis,
+histórico e termos ainda não estão integrados. A demonstração pública continua
+com seus próprios registros fictícios em memória. A migração V7 preserva V1–V6
+e não cria vínculos com quartos, responsáveis ou dados de saúde. Nascimento
+ausente não comprova maioridade para fluxos futuros.
+
 ### Referências recebidas e divergências abertas
 
 Em 29/09/2026 foram recebidos o PDF
@@ -136,5 +165,6 @@ dependem dessas regras, da integração das demais telas e de testes com persist
 permissões e concorrência.
 
 Também continuam abertas entregas da Fase 1: erros padronizados para toda a API,
-OpenAPI, auditoria, observabilidade, pipeline de CI e a primeira fatia persistida
-de residente. Esta entrega de supervisores não fecha a Fase 1 nem a Fase 2.
+OpenAPI, auditoria, observabilidade e pipeline de CI. A fatia persistida de
+residentes recebe apenas aceite técnico local; responsáveis, alocação,
+permissões institucionais e dados médicos impedem a homologação da Fase 2.
