@@ -1,7 +1,8 @@
 # Registro de decisões D01–D26
 
 **Registro inicial:** 25/09/2026. **Revisão do login:** 26/09/2026.
-**Informações preliminares da Fase 2:** 26/09/2026. **Base funcional:**
+**Informações preliminares da Fase 2:** 26/09/2026. **Estrutura dos alojamentos e
+anexos recebidos:** 29/09/2026. **Base funcional:**
 [PRD v2.0, seção 23](../../SAGER_PRD_v2.0_Angular_SpringBoot.md). **Base de
 implementação:**
 [Especificação Técnica v2.0](../../SAGER_Especificacao_Tecnica_v2.0.md) e
@@ -40,7 +41,9 @@ dados e vínculo, sem inventar matrícula ou regra de validação. O IF Goiano i
 que a matrícula é usada como identificador de acesso ao SUAP; isso não define
 como ela será obtida pelo SAGER. O solicitante relatou exemplos numéricos
 mascarados com 16 e 17 posições, sem confirmação de formato universal ou da
-composição dos blocos. Origem, validação, unicidade e ciclo permanecem abertos.
+composição dos blocos. Os anexos de alojamentos recebidos em 29/09/2026 não
+contêm matrícula nem data de nascimento e não estabelecem uma fonte de cadastro.
+Origem, validação, unicidade e ciclo permanecem abertos.
 
 **Responsável / até a fase:** AE/TI; antes da fatia cadastral da Fase 1 e da
 Fase 2.
@@ -171,7 +174,9 @@ ativo, autorização e destinatário antes do envio ao responsável. O solicitan
 esclareceu que um residente pode ter como responsáveis legais quem detém sua
 guarda, pai e mãe, apenas a mãe, apenas o pai ou outra configuração legalmente
 válida. A regra para quantidade, comprovação do vínculo, prioridade e escolha
-do destinatário ainda depende da planilha anunciada e de confirmação da AE/TI.
+do destinatário ainda depende de confirmação da AE/TI. Os anexos recebidos em
+29/09/2026 não contêm responsáveis legais ou seus telefones e não resolvem essas
+regras.
 
 **Responsável / até a fase:** AE/TI; Fases 2 e 4.
 
@@ -210,18 +215,57 @@ alertas internos sigilosos; não presumir envio por e-mail.
 
 **Evidência:** PRD §E11 e §23.2; roteiro F5.
 
-## D19 — Unicidade, capacidade, alocação e estados dos quartos; E04, UC16.
+## D19 — Estrutura, código global, número local, capacidade, alocação e estados dos quartos; E04, AC14, UC16.
 
-**Estado atual e encaminhamento:** **Institucional pendente.** O número único
-exigido pelo UC16 não resolve sozinho ocupação parcial nem movimentação de
-residentes. O solicitante informou que possui uma planilha com regras e dados
-para essa definição, mas ainda não a disponibilizou. Capacidade, alocação,
-ocupação e transições continuam sem regra implementável.
+**Estado atual e encaminhamento:** **Escolha de projeto para desenvolvimento
+local; homologação institucional pendente.** Em 29/09/2026, o solicitante
+autorizou alojamentos com código e nome, unidades internas opcionais (casas/blocos)
+e quartos com piso opcional. Cada quarto tem código globalmente único e número
+local textual, preservando valores como `01`. O número pode se repetir em
+localizações diferentes, mas não na mesma combinação de alojamento, unidade e
+piso. Duplicidades desconsideram espaços nas extremidades e diferenças de
+maiúsculas/minúsculas; valores ausentes de unidade e piso representam a mesma
+localização ausente. A unidade informada deve pertencer ao alojamento do quarto.
 
-**Responsável / até a fase:** AE; antes da Fase 2.
+Capacidade é editável, inteira positiva ou ausente (`null`), sem assumir zero.
+Disponível, Ocupado, Manutenção e Indisponível são situações manuais. Ocupação,
+vagas livres e nota de limpeza permanecem desconhecidas (`null`) até suas
+integrações; a situação manual não determina essas medidas. O mapa local inicia
+vazio. A demonstração e os testes usam registros sintéticos, sem importar
+residentes dos anexos. O gestor local cadastra e edita; gestor e supervisor
+consultam, com sessão, CSRF nas alterações e controle de versão. Este contrato
+não substitui a matriz institucional da D01.
 
-**Evidência:** PRD §E04 e §23.2; roteiro F2; informação do solicitante em
-26/09/2026 sobre planilha ainda não recebida.
+Foram recebidos um PDF de controle de vagas e um ZIP contendo **sete abas em
+HTML, sem XLSX**. O solicitante confirmou que os **300 lugares do PDF representam
+capacidade total**, não vagas livres. Os documentos oferecem referência parcial
+de estrutura e ocupação; não incluem matrícula, nascimento, responsáveis legais
+ou telefones. As diferenças abaixo ficam para revisão da AE, sem escolher uma
+fonte ou alterar capacidades silenciosamente:
+
+| Referência   | Divergência para conferência                                     |
+| ------------ | ---------------------------------------------------------------- |
+| Residência 4 | PDF: 64; soma das capacidades no ZIP: 66.                        |
+| Laticínio    | PDF: 8; soma das capacidades no ZIP: 10.                         |
+| Residência 3 | PDF: 12 quartos; ZIP: 5 quartos listados.                        |
+| R4-21        | ZIP: 5 ocupantes listados para capacidade indicada de 4.         |
+| Zootecnia 3  | PDF: descrição de 3 quartos com 2 lugares, mas total indicado 8. |
+
+Alocação, transferência, limites de ocupação, reserva de vaga, bloqueios em
+manutenção e transições automáticas continuam pendentes. Não há aceite nominal
+da AE/TI nem homologação da Fase 2.
+
+**Responsável / até a fase:** AE; revisão das capacidades e regras antes de
+alocação e da homologação da Fase 2. A estrutura local autorizada foi implementada
+e recebeu [aceite técnico local](../fase-2/QA.md) em 29/09/2026. A prova pelo
+navegador em PostgreSQL verificou cadastro, capacidade editável, conflito entre
+duas abas e preservação da estrutura e sessão após reinício; não é aceite da AE/TI.
+
+**Evidência:** PRD §E04, AC14 e §23.2; [fatia estrutural da Fase 2](../fase-2/README.md);
+plano aprovado pelo solicitante em 29/09/2026; anexos privados
+`Controle de Vagas das Residências Estudantis 2026.xlsx - Vagas Residências Est. 2026.pdf`
+e `RESIDÊNCIAS ESTUDANTIS 2026_1.xlsx.zip`, recebidos na conversa e usados como
+referência, sem nomes ou dados pessoais reproduzidos neste registro.
 
 ## D20 — Exportações por perfil, dados sensíveis, colunas e filtros; E14, RF011/UC11.
 
@@ -262,7 +306,8 @@ profissionais de saúde poderão acessar dados sensíveis, respeitando o sigilo
 próprio de cada profissão, como no atendimento psicológico. Isso não define
 acesso irrestrito entre profissionais de saúde: categorias de dados, escopo por
 profissão e por vínculo de atendimento, operações permitidas e trilha de acesso
-precisam da planilha anunciada e de confirmação da AE/TI. Até lá, não conceder
+precisam de confirmação da AE/TI. Os anexos de alojamentos recebidos em
+29/09/2026 não especificam essas permissões. Até lá, não conceder
 acesso médico pelo perfil geral de gestor ou supervisor.
 
 **Responsável / até a fase:** AE/TI; entrada sensível da Fase 1 e Fase 7.

@@ -11,13 +11,15 @@ Módulo único de Assistência Estudantil
 **Status:** requisitos de produto para homologação pela AE/TI; Angular e Java/Spring Boot confirmados pelo solicitante; decisões técnicas complementares consolidadas nesta revisão.  
 **Documento-base:** SAGER_Corrigido(1).docx, SRS-SAGER-001, versão 2.1, datada de 26/04/2026, com 55 páginas na representação analisada.
 
+**Revisão da estrutura local de alojamentos:** 29/09/2026.
+
 ### Como interpretar este PRD
 
-Os requisitos sem marcador especial são derivados do documento-base. Os critérios de aceite transformam essas regras em resultados verificáveis, sem atribuir aprovação institucional a este PRD. **[U] Definido pelo solicitante** identifica Angular e Java com Spring Boot. **[T] Decisão técnica** identifica escolhas de implementação feitas nesta revisão por delegação do solicitante. **[P] Proposta** identifica regras ou processos sugeridos que ainda precisam de validação. **[A] A definir** identifica informação institucional ausente, contraditória ou insuficiente na fonte.
+Os requisitos sem marcador especial são derivados do documento-base. Os critérios de aceite transformam essas regras em resultados verificáveis, sem atribuir aprovação institucional a este PRD. **[U] Definido pelo solicitante** identifica Angular e Java com Spring Boot e as escolhas locais datadas neste documento. **[T] Decisão técnica** identifica escolhas de implementação feitas nesta revisão por delegação do solicitante. **[P] Proposta** identifica regras ou processos sugeridos que ainda precisam de validação. **[A] A definir** identifica informação institucional ausente, contraditória ou insuficiente na fonte. **[U/T]** combina uma escolha autorizada pelo solicitante com sua delimitação técnica local.
 
 A divisão em épicos E01–E15 é uma organização deste PRD. Os identificadores RF, UC, RN e RNF-WA da SRS foram preservados; não foram inventados casos de uso para preencher lacunas de numeração. As referências de página apontam para a representação de 55 páginas do arquivo, não para a paginação desatualizada do sumário original.
 
-**Escopo deste material:** produto completo descrito na SRS, com os 15 épicos e os 72 critérios de aceite funcionais preservados. A revisão acrescenta as decisões tecnológicas da conversa de 24/09/2026. As regras institucionais pendentes continuam na seção 23. O áudio OGG anexado originalmente não foi transcrito; não se presume conteúdo adicional dele.
+**Escopo deste material:** produto completo descrito na SRS, com os 15 épicos e os 72 critérios de aceite funcionais preservados. A revisão acrescenta as decisões tecnológicas da conversa de 24/09/2026 e a estrutura local de alojamentos autorizada em 29/09/2026. As regras institucionais pendentes continuam na seção 23. O áudio OGG anexado originalmente não foi transcrito; não se presume conteúdo adicional dele.
 
 ### Guia de leitura
 
@@ -213,15 +215,15 @@ O gestor administra os dados de responsáveis legais. Para uma saída longa, dev
 
 <!-- pagebreak -->
 
-# 6. Quartos e Mapa de Blocos
+# 6. Quartos e mapa dos alojamentos
 
 ## E04 — Gerenciar quartos
 
 **Necessidade do gestor:** identificar rapidamente situação, ocupação e limpeza dos quartos, sem depender de tabelas complexas como visualização principal.
 
-O sistema deve apresentar um **Mapa de Blocos visual**, com quartos agrupados por bloco e piso. O gestor seleciona um quarto no mapa para consultar ou editar seus dados, ou inicia um cadastro. Após validação e gravação, o mapa deve refletir a informação atualizada.
+O sistema deve apresentar um **mapa visual dos alojamentos**, com quartos agrupados por alojamento, unidade interna opcional (casa/bloco) e piso conhecido. O gestor seleciona um quarto no mapa para consultar ou editar seus dados, ou inicia um cadastro. Após validação e gravação, o mapa deve refletir a informação atualizada. O cadastro de alojamentos e unidades internas será acessível pelo mapa; a unidade selecionada deve pertencer ao alojamento informado.
 
-Cada quarto deve apresentar identificação, ocupação, situação e nota de limpeza. O número do quarto deve ser único, conforme o UC16. Campos obrigatórios devem ser validados. A situação precisa ser comunicada por texto ou ícone, além da cor.
+Cada quarto deve apresentar identificação, ocupação, situação e nota de limpeza. **[U/T] Decisão de projeto de 29/09/2026:** distinguir o **código globalmente único** do **número local como texto**, preservando números como `01`. O número local pode se repetir em localizações diferentes, mas não na mesma combinação de alojamento, unidade opcional e piso opcional. Para detectar duplicidade, desconsiderar espaços nas extremidades e diferenças de maiúsculas/minúsculas; a ausência da unidade ou do piso representa a mesma localização ausente. Esta interpretação da identificação no UC16 é uma escolha técnica local autorizada pelo solicitante, sem homologação institucional da AE/TI. Campos obrigatórios devem ser validados. A situação precisa ser comunicada por texto ou ícone, além da cor.
 
 | Situação     | Cor determinada na SRS | Exibição                                  |
 | ------------ | ---------------------- | ----------------------------------------- |
@@ -230,23 +232,27 @@ Cada quarto deve apresentar identificação, ocupação, situação e nota de li
 | Manutenção   | Amarelo                | Identificação clara da manutenção.        |
 | Indisponível | Vermelho               | Identificação clara da indisponibilidade. |
 
-A legenda deve permanecer visível. A Figura 12 apresenta busca e filtros por bloco, andar e ocupação; a navegação por esses agrupamentos deve ser compatível com o mapa. O texto do UC16 usa “piso”; a nomenclatura final da interface deve permanecer consistente.
+A legenda deve permanecer visível. A Figura 12 apresenta busca e filtros por bloco, andar e ocupação; a navegação por esses agrupamentos deve ser compatível com o mapa. No fluxo local, alojamentos e casas/blocos vêm do cadastro, sem opções fixas de “Bloco A/B”. O texto do UC16 usa “piso”; a nomenclatura final da interface deve permanecer consistente.
+
+**[U/T] Fatia local de estrutura, autorizada em 29/09/2026:** o mapa inicia vazio e as capacidades são editáveis, com inteiro positivo ou ausência de definição. Apresentar **“Capacidade não definida”** quando ausente e identificar somatórios incompletos como parciais. Os quatro estados descritos são informados manualmente. Até integrar residentes e avaliações, ocupação, vagas livres e nota de limpeza são desconhecidas (`null`), com **“Ocupação ainda não integrada”** e **“Sem avaliação”** na interface; a situação manual não determina nenhuma dessas medidas.
 
 ## Critérios de aceite
 
-| ID   | Verificação                               | Resultado esperado                                                                         |
-| ---- | ----------------------------------------- | ------------------------------------------------------------------------------------------ |
-| AC11 | Gestor abre a gestão de quartos           | Mapa principal agrupado por bloco/piso, com legenda visível.                               |
-| AC12 | Usuário observa qualquer quarto           | Identificação, ocupação, situação e nota de limpeza compreensíveis sem depender só da cor. |
-| AC13 | Gestor seleciona, edita e salva um quarto | Detalhes corretos e mapa atualizado com os dados persistidos.                              |
-| AC14 | Cadastro com número já existente          | Duplicidade rejeitada, conforme regra de unicidade do UC16.                                |
-| AC15 | Campo obrigatório inválido                | Erro indicado; alteração inválida não concluída.                                           |
+| ID   | Verificação                                                                        | Resultado esperado                                                                                                                        |
+| ---- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| AC11 | Gestor abre a gestão de quartos                                                    | Mapa principal agrupado por alojamento, unidade opcional e piso conhecido, com legenda visível.                                           |
+| AC12 | Usuário observa qualquer quarto                                                    | Identificação, ocupação, situação e nota de limpeza compreensíveis sem depender só da cor.                                                |
+| AC13 | Gestor seleciona, edita e salva um quarto                                          | Detalhes corretos e mapa atualizado com os dados persistidos.                                                                             |
+| AC14 | Cadastro com código global existente ou número local repetido na mesma localização | Duplicidade rejeitada; número local repetido em alojamento, unidade ou piso diferente é permitido, preservando sua representação textual. |
+| AC15 | Campo obrigatório inválido                                                         | Erro indicado; alteração inválida não concluída.                                                                                          |
 
 ## Decisões operacionais
 
-**[A]** A SRS não define cadastro independente de blocos/pisos, capacidade máxima, reserva de vaga, movimentação de residentes ou bloqueio de alocação em manutenção. Também não define quando um quarto parcialmente ocupado é “Disponível” ou “Ocupado”. A unicidade global do número precisa ser conciliada com identificações por bloco presentes no protótipo.
+**[A]** A SRS não define capacidade máxima, reserva de vaga, movimentação de residentes ou bloqueio de alocação em manutenção. Também não define quando um quarto parcialmente ocupado é “Disponível” ou “Ocupado”. A estrutura e a unicidade acima são escolhas de projeto para desenvolvimento local; a política de alocação, as transições automáticas e as capacidades institucionais ainda dependem da AE. Os anexos recebidos em 29/09/2026 são referências parciais de estrutura e ocupação, com divergências documentadas na [D19](docs/fase-0/DECISOES.md); não são dados de carga do sistema.
 
 **[P]** Não derivar automaticamente a situação do quarto somente pela quantidade de ocupantes até a AE aprovar a regra. Em ausência de avaliação, apresentar ausência de nota, em vez de atribuir uma nota fictícia.
+
+**[T]** Para esta fatia, gestor e supervisor locais consultam a estrutura; somente gestor cadastra e edita, com sessão, CSRF e controle de versão no servidor. A demonstração pública usa dados sintéticos em memória; uma falha da API local não pode preencher o mapa com registros demonstrativos. A estrutura foi implementada e recebeu [aceite técnico local](docs/fase-2/QA.md) em 29/09/2026, com prova pelo navegador em PostgreSQL, conflito entre duas abas e persistência após reinício. Esse aceite não encerra E04, a Fase 2 ou as decisões institucionais D01/D02/D15/D19/D22.
 
 **Fonte:** SRS, RF003, p. 7; UC16, p. 31; Figura 12, p. 43.
 
@@ -653,20 +659,20 @@ O supervisor deve conseguir acessar chamada, saídas, limpeza, notificações, r
 
 ## Inventário funcional de interfaces
 
-| Área                      | Conteúdo mínimo                                                               |
-| ------------------------- | ----------------------------------------------------------------------------- |
-| Acesso e supervisores     | Autenticação institucional; lista e formulário de supervisores.               |
-| Residentes                | Listagem, cadastro/edição, informações autorizadas e histórico individual.    |
-| Responsáveis              | Dados vinculados ao residente e necessários ao envio/assinatura.              |
-| Quartos                   | Mapa por bloco/piso, legenda, situação, ocupação, nota e detalhes.            |
-| Chamada                   | Menores de idade, marcações, justificativa por autorização e confirmação.     |
-| Saídas do residente       | Solicitação curta/longa, edição pendente, status e microtextos.               |
-| Saídas do supervisor      | Lista, detalhes, linha do tempo, revisão da decisão, reenvio e retorno curto. |
-| Assinatura externa        | Página segura do documento, assinatura e resultado no fluxo configurado.      |
-| Ocorrências e comunicação | Painel interno, advertência manual, abas de avisos/advertências e ciência.    |
-| Limpeza e ranking         | Avaliação, feedback imediato e classificação por período.                     |
-| Relatórios                | Filtros combináveis, exportações visíveis e evolução individual.              |
-| Ajuda                     | Manual integrado, tutoriais por funcionalidade e FAQ.                         |
+| Área                      | Conteúdo mínimo                                                                                                               |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Acesso e supervisores     | Autenticação institucional; lista e formulário de supervisores.                                                               |
+| Residentes                | Listagem, cadastro/edição, informações autorizadas e histórico individual.                                                    |
+| Responsáveis              | Dados vinculados ao residente e necessários ao envio/assinatura.                                                              |
+| Quartos                   | Cadastro de alojamentos e unidades opcionais; mapa por alojamento/unidade/piso, legenda, situação, ocupação, nota e detalhes. |
+| Chamada                   | Menores de idade, marcações, justificativa por autorização e confirmação.                                                     |
+| Saídas do residente       | Solicitação curta/longa, edição pendente, status e microtextos.                                                               |
+| Saídas do supervisor      | Lista, detalhes, linha do tempo, revisão da decisão, reenvio e retorno curto.                                                 |
+| Assinatura externa        | Página segura do documento, assinatura e resultado no fluxo configurado.                                                      |
+| Ocorrências e comunicação | Painel interno, advertência manual, abas de avisos/advertências e ciência.                                                    |
+| Limpeza e ranking         | Avaliação, feedback imediato e classificação por período.                                                                     |
+| Relatórios                | Filtros combináveis, exportações visíveis e evolução individual.                                                              |
+| Ajuda                     | Manual integrado, tutoriais por funcionalidade e FAQ.                                                                         |
 
 O inventário agrupa superfícies de interação; não exige uma rota de URL para cada linha. **[P]** A localização da área de Termos de Compromisso no histórico do residente e a organização do cadastro de responsáveis dentro do residente são propostas de navegação, não telas prescritas pela SRS.
 
@@ -720,25 +726,26 @@ Uma saída longa não pode ser aprovada sem assinatura válida e documento assin
 
 **[T] Modelo conceitual para implementação.** Os objetos abaixo organizam informações e relações exigidas pelos fluxos. O banco escolhido é PostgreSQL; a persistência usará Spring Data JPA/Hibernate e migrações Flyway. O modelo físico inicial está no documento técnico. A modelagem antiga dos diagramas não é tomada como definitiva, e campos/regras institucionais pendentes seguem identificados.
 
-| Objeto conceitual              | Conteúdo necessário ao produto                                                                                                  |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| Usuário/perfil                 | Identificação institucional, vínculo ao perfil e permissões autorizadas.                                                        |
-| Supervisor                     | Dados cadastrais validados e vínculo às operações e decisões realizadas.                                                        |
-| Residente                      | Identificação, vínculo de matrícula, condição etária, quarto, dados pessoais e históricos previstos.                            |
-| Informação médica              | Dados sensíveis do residente com acesso restrito ao conjunto autorizado.                                                        |
-| Responsável legal/vínculo      | Identificação, vínculo/autorização, telefone pré-cadastrado e condição ativa.                                                   |
-| Quarto                         | Identificação única conforme regra aprovada, bloco, piso, ocupação, situação e referência de limpeza.                           |
-| Chamada/participação           | Data/horário, residente, presença/ausência, justificativa, supervisor e indicação de registro tardio.                           |
-| Solicitação de saída           | Residente, tipo, período, motivo, observações, estado, decisões e histórico de eventos.                                         |
-| Retorno curto                  | Solicitação, horário real, supervisor e observação obrigatória quando houver atraso.                                            |
-| Documento/assinatura           | Conteúdo da autorização, versão do termo, responsável, data/hora, status, hash ou identificador, arquivo assinado e evidências. |
-| Envio de WhatsApp              | Solicitação/documento, destinatário, identificador de mensagem/API, tentativas, estados de entrega/leitura/falha e erros.       |
-| Ocorrência/notificação interna | Origem, motivo, data, evidências, residentes impactados, estado e decisão de análise.                                           |
-| Advertência                    | Residente, origem quando houver, descrição, data, gravidade, justificativa e supervisor.                                        |
-| Aviso/leitura/ciência          | Item e destinatário; leitura distinta de ciência; data/hora da confirmação explícita.                                           |
-| Termo de Compromisso           | Residente, ocorrências motivadoras, documento, decisão, supervisor, data e ciência/assinatura.                                  |
-| Avaliação/ranking              | Quarto, critérios e resultado, data, avaliação anterior, posição e período segundo fórmula a definir.                           |
-| Auditoria                      | Evento, objeto relacionado, data, hora, usuário e origem; evidência da ação relevante.                                          |
+| Objeto conceitual              | Conteúdo necessário ao produto                                                                                                                         |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Usuário/perfil                 | Identificação institucional, vínculo ao perfil e permissões autorizadas.                                                                               |
+| Supervisor                     | Dados cadastrais validados e vínculo às operações e decisões realizadas.                                                                               |
+| Residente                      | Identificação, vínculo de matrícula, condição etária, quarto, dados pessoais e históricos previstos.                                                   |
+| Informação médica              | Dados sensíveis do residente com acesso restrito ao conjunto autorizado.                                                                               |
+| Responsável legal/vínculo      | Identificação, vínculo/autorização, telefone pré-cadastrado e condição ativa.                                                                          |
+| Alojamento/unidade interna     | Código e nome do alojamento; casas/blocos opcionais vinculados a ele.                                                                                  |
+| Quarto                         | Código globalmente único, número local textual, alojamento, unidade e piso opcionais, capacidade editável, ocupação, situação e referência de limpeza. |
+| Chamada/participação           | Data/horário, residente, presença/ausência, justificativa, supervisor e indicação de registro tardio.                                                  |
+| Solicitação de saída           | Residente, tipo, período, motivo, observações, estado, decisões e histórico de eventos.                                                                |
+| Retorno curto                  | Solicitação, horário real, supervisor e observação obrigatória quando houver atraso.                                                                   |
+| Documento/assinatura           | Conteúdo da autorização, versão do termo, responsável, data/hora, status, hash ou identificador, arquivo assinado e evidências.                        |
+| Envio de WhatsApp              | Solicitação/documento, destinatário, identificador de mensagem/API, tentativas, estados de entrega/leitura/falha e erros.                              |
+| Ocorrência/notificação interna | Origem, motivo, data, evidências, residentes impactados, estado e decisão de análise.                                                                  |
+| Advertência                    | Residente, origem quando houver, descrição, data, gravidade, justificativa e supervisor.                                                               |
+| Aviso/leitura/ciência          | Item e destinatário; leitura distinta de ciência; data/hora da confirmação explícita.                                                                  |
+| Termo de Compromisso           | Residente, ocorrências motivadoras, documento, decisão, supervisor, data e ciência/assinatura.                                                         |
+| Avaliação/ranking              | Quarto, critérios e resultado, data, avaliação anterior, posição e período segundo fórmula a definir.                                                  |
+| Auditoria                      | Evento, objeto relacionado, data, hora, usuário e origem; evidência da ação relevante.                                                                 |
 
 ## Vínculos e integridade
 
@@ -880,20 +887,20 @@ Este registro não retira requisitos documentados. Identifica as decisões neces
 
 ## 23.2 Integração, dados e governança
 
-| ID  | Lacuna ou divergência identificada                                                                                                           | Decisão necessária / encaminhamento                                                                                                                                                     |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D15 | Responsáveis não têm cardinalidade, prioridade de contato ou verificação de identidade definida.                                             | AE/TI: vínculo, autorização, escolha do destinatário e validação do telefone.                                                                                                           |
-| D16 | Modalidade aceita e contratação do serviço de assinatura não homologadas.                                                                    | [T] Referência técnica: Clicksign API 3.0 com adaptador. AE/TI: aprovar método, identidade, serviço, custos e compatibilidade com D25 antes da ativação.                                |
-| D17 | Expiração do link, reenvio ao responsável e recusa não definidos institucionalmente.                                                         | AE/TI: aprovar essas políticas. [T] Versões imutáveis, callbacks idempotentes e bloqueio durante falha de armazenamento já definidos no documento técnico.                              |
-| D18 | UC08 permite consultar avisos, mas não detalha autoria, publicação, segmentação ou revisão. UC04 mistura trechos de e-mail ao fluxo interno. | AE: definir gestão de avisos e canais de notificação, preservando o sigilo dos alertas internos.                                                                                        |
-| D19 | UC16 exige número único; mapa usa bloco/piso e quatro estados sem regra de ocupação parcial.                                                 | AE: unicidade da identificação, capacidade, alocação e transição entre situações.                                                                                                       |
-| D20 | UC11/RF011 permitem relatórios para supervisor/gestor; Figura 9 indica exportação somente para gestor.                                       | AE: confirmar exportações por perfil, dados sensíveis e colunas/filtros de cada relatório.                                                                                              |
-| D21 | Autenticação institucional obrigatória; protocolo, atributos e ciclo da conta desconhecidos.                                                 | [T] Spring Security + sessão JDBC; preferência por OIDC. TI: informar o mecanismo real, atributos, credenciais e política de desligamento. LDAP/SAML exigem o adaptador correspondente. |
-| D22 | Retenção, descarte e objetivos de recuperação não definidos na SRS.                                                                          | AE/TI: aprovar governança, acessos, retenção e destino externo. [T] Backup de PostgreSQL e arquivos com restauração ensaiada definido no documento técnico.                             |
-| D23 | “Relatórios offline” aparece apenas como exemplo de degradação.                                                                              | AE/TI: escolher escopo e forma da contingência; não presumir sistema inteiro offline.                                                                                                   |
-| D24 | Metas de resposta/capacidade existem sem cenário de teste; 250 residentes não fixa concorrência.                                             | TI: carga, métricas, condições de medição e validação na VPS definida.                                                                                                                  |
-| D25 | “Código aberto interno”, uso exclusivo e ausência de licenças comerciais coexistem com serviços externos obrigatórios.                       | Instituição/TI: esclarecer licença, contratação, orçamento e compatibilidade das dependências.                                                                                          |
-| D26 | Diagramas antigos contêm penalidades e não representam integralmente responsáveis, mensagens, assinaturas, ciência e termos.                 | AE/TI: atualizar diagramas e modelo físico a partir dos fluxos homologados.                                                                                                             |
+| ID  | Lacuna ou divergência identificada                                                                                                           | Decisão necessária / encaminhamento                                                                                                                                                                                                                 |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D15 | Responsáveis não têm cardinalidade, prioridade de contato ou verificação de identidade definida.                                             | AE/TI: vínculo, autorização, escolha do destinatário e validação do telefone.                                                                                                                                                                       |
+| D16 | Modalidade aceita e contratação do serviço de assinatura não homologadas.                                                                    | [T] Referência técnica: Clicksign API 3.0 com adaptador. AE/TI: aprovar método, identidade, serviço, custos e compatibilidade com D25 antes da ativação.                                                                                            |
+| D17 | Expiração do link, reenvio ao responsável e recusa não definidos institucionalmente.                                                         | AE/TI: aprovar essas políticas. [T] Versões imutáveis, callbacks idempotentes e bloqueio durante falha de armazenamento já definidos no documento técnico.                                                                                          |
+| D18 | UC08 permite consultar avisos, mas não detalha autoria, publicação, segmentação ou revisão. UC04 mistura trechos de e-mail ao fluxo interno. | AE: definir gestão de avisos e canais de notificação, preservando o sigilo dos alertas internos.                                                                                                                                                    |
+| D19 | UC16 exige número único; anexos de 2026 mostram alojamentos e unidades com divergências de capacidade e ocupação.                            | [U/T] Em 29/09/2026, distinguir código global e número local único por alojamento/unidade/piso, capacidade positiva ou ausente e situação manual. AE: revisar divergências, capacidades, alocação e transições; homologação institucional pendente. |
+| D20 | UC11/RF011 permitem relatórios para supervisor/gestor; Figura 9 indica exportação somente para gestor.                                       | AE: confirmar exportações por perfil, dados sensíveis e colunas/filtros de cada relatório.                                                                                                                                                          |
+| D21 | Autenticação institucional obrigatória; protocolo, atributos e ciclo da conta desconhecidos.                                                 | [T] Spring Security + sessão JDBC; preferência por OIDC. TI: informar o mecanismo real, atributos, credenciais e política de desligamento. LDAP/SAML exigem o adaptador correspondente.                                                             |
+| D22 | Retenção, descarte e objetivos de recuperação não definidos na SRS.                                                                          | AE/TI: aprovar governança, acessos, retenção e destino externo. [T] Backup de PostgreSQL e arquivos com restauração ensaiada definido no documento técnico.                                                                                         |
+| D23 | “Relatórios offline” aparece apenas como exemplo de degradação.                                                                              | AE/TI: escolher escopo e forma da contingência; não presumir sistema inteiro offline.                                                                                                                                                               |
+| D24 | Metas de resposta/capacidade existem sem cenário de teste; 250 residentes não fixa concorrência.                                             | TI: carga, métricas, condições de medição e validação na VPS definida.                                                                                                                                                                              |
+| D25 | “Código aberto interno”, uso exclusivo e ausência de licenças comerciais coexistem com serviços externos obrigatórios.                       | Instituição/TI: esclarecer licença, contratação, orçamento e compatibilidade das dependências.                                                                                                                                                      |
+| D26 | Diagramas antigos contêm penalidades e não representam integralmente responsáveis, mensagens, assinaturas, ciência e termos.                 | AE/TI: atualizar diagramas e modelo físico a partir dos fluxos homologados.                                                                                                                                                                         |
 
 ## 23.3 Delimitação da aprovação
 
@@ -946,9 +953,10 @@ O documento técnico não autoriza modificar as regras da SRS, resolver por cont
 
 ## 24.4 Histórico desta revisão
 
-| Versão | Alteração                                                                                         | Efeito                                                                                         |
-| ------ | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| 1.0    | Consolidação do escopo da SRS                                                                     | 15 épicos, 72 critérios de aceite e registro de lacunas.                                       |
-| 2.0    | Confirmação de Angular e Java/Spring Boot; seleção dos complementos; criação do documento técnico | Stack deixa de ser pendência. São preservados RF001–RF016, RN01–RN10, RNF-WA01–05 e AC01–AC72. |
+| Versão           | Alteração                                                                                         | Efeito                                                                                                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.0              | Consolidação do escopo da SRS                                                                     | 15 épicos, 72 critérios de aceite e registro de lacunas.                                                                                                                |
+| 2.0              | Confirmação de Angular e Java/Spring Boot; seleção dos complementos; criação do documento técnico | Stack deixa de ser pendência. São preservados RF001–RF016, RN01–RN10, RNF-WA01–05 e AC01–AC72.                                                                          |
+| 2.0 — 29/09/2026 | Decisão de projeto para a fatia local de alojamentos, unidades e quartos                          | E04/AC14 distinguem código global e número local; capacidade e situação manuais não simulam ocupação nem limpeza. Fase 2 e homologação institucional continuam abertas. |
 
 A proposta anterior de React/Django não integra a arquitetura vigente. Nenhum código de aplicação foi implementado ou testado por esta revisão documental. A homologação do produto e das integrações reais continua necessária.

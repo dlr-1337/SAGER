@@ -13,13 +13,15 @@ proposta na seção 22.3 do PRD, sem retirar funcionalidades.
 
 ## Ponto de partida e modo de entrega
 
-O repositório tem um protótipo Angular navegável em `frontend/`. Seus cadastros e fluxos
-operacionais usam serviços em memória; a demonstração usa seleção de perfil em
+O repositório tem uma aplicação Angular navegável em `frontend/`. As fatias ainda
+não integradas usam serviços em memória; a demonstração usa seleção de perfil em
 `sessionStorage`; a assinatura é simulada; relatórios e ranking usam dados de exemplo.
 Em 26/09/2026, o solicitante substituiu a antiga prova Google OIDC por login local
 provisório em `backend/`, limitado a desenvolvimento e teste. O login foi integrado
-ao Angular; ainda não há `infra/`. As telas existentes são a base visual e
-funcional para as próximas fatias, sem regras de domínio persistidas.
+ao Angular; ainda não há `infra/`. A primeira fatia de supervisores já persiste
+no PostgreSQL. As demais telas existentes são a base visual e funcional para
+as próximas fatias; a estrutura de alojamentos e quartos foi implementada
+conforme a decisão de projeto de 29/09/2026 e recebeu [aceite técnico local](fase-2/QA.md).
 
 A arquitetura de referência é o monólito modular Spring Boot com PostgreSQL/Flyway,
 sessão e autorização no servidor, Angular e API na mesma origem, arquivos privados e
@@ -106,8 +108,11 @@ sensíveis.
    proteger informações médicas em recurso e permissão separados.
 2. Integrar cadastro e edição de supervisores ao gestor autenticado; as contas locais
    usadas em desenvolvimento não substituem o futuro provisionamento institucional.
-3. Persistir blocos, pisos, quartos e vínculos de ocupação; implementar o mapa com situação,
-   nota existente, legenda e atualização após gravação.
+3. Persistir alojamentos, unidades internas opcionais (casas/blocos) e quartos com piso
+   opcional. Distinguir código globalmente único de número local textual único na mesma
+   localização; manter capacidade editável, positiva ou ausente, e situação manual.
+   Integrar o mapa por alojamento/unidade/piso, com legenda e atualização após gravação.
+   Implementar vínculos de ocupação em uma fatia posterior, após as regras de alocação.
 4. Trocar os serviços demonstrativos de gestão por serviços de API; garantir que operações
    posteriores usem os mesmos IDs e vínculos. Testar validações, unicidade, concorrência e
    acesso a registros de outros residentes.
@@ -118,11 +123,21 @@ as telas não apresentam ocupação ou nota inventada.
 
 **Decisões de entrada:** D01, D02, D15 e D19; D22 para retenção e acesso aos dados.
 
-**Estado em 26/09/2026:** a [primeira fatia de supervisores](fase-2/README.md) persiste
+**Estado em 29/09/2026:** a [primeira fatia de supervisores](fase-2/README.md) persiste
 o cadastro funcional no PostgreSQL, com API restrita ao gestor local e telas integradas;
-o [QA](fase-2/QA.md) registra testes e prova após reinício. Residentes,
-responsáveis e quartos continuam demonstrativos. A saída da Fase 2 depende das
-decisões da AE/TI indicadas acima e da implementação das demais fatias.
+o [QA](fase-2/QA.md) registra testes e prova após reinício. A fatia de alojamentos,
+unidades e quartos foi implementada, com mapa local inicialmente vazio,
+leitura por gestor/supervisor e gravação por gestor. O [aceite técnico local](fase-2/QA.md)
+registra cadastro e edição pelo navegador em PostgreSQL 17.11, conflito sem sobrescrita
+entre duas abas e preservação da estrutura, capacidade e sessão após reinício.
+Sem residentes e avaliações
+integrados, ocupação, vagas livres e nota de limpeza continuam desconhecidas, não
+zero; somatórios de capacidade incompletos devem ser identificados como parciais.
+Os anexos recebidos servem como referência privada, com divergências de estrutura
+e capacidade registradas na [D19](fase-0/DECISOES.md), sem carga de estudantes reais.
+Residentes e responsáveis continuam demonstrativos. D01/D02/D15/D19/D22 e a
+homologação institucional permanecem pendentes. O aceite técnico de cada fatia
+não encerra a Fase 2.
 
 ### Fase 3 — Chamada, saída curta, decisão e retorno
 

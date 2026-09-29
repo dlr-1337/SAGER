@@ -82,6 +82,19 @@ CSRF depois do login e logout. O Angular é servido em `http://localhost:4200/ac
 com proxy de `/api` para `127.0.0.1:8080`; `/demonstracao` permanece pública e
 usa dados fictícios sem conceder acesso à API.
 
+## Cadastros persistidos da Fase 2
+
+Supervisores, alojamentos, casas/blocos opcionais e quartos já possuem APIs e
+telas ligadas ao PostgreSQL. O [contrato da Fase 2](../docs/fase-2/README.md)
+descreve as rotas de supervisores, `/api/v1/alojamentos`, suas unidades e
+`/api/v1/quartos`, incluindo `/api/v1/quartos/mapa`, perfis, CSRF e erros.
+V5 e V6 preservam as migrações anteriores. As versões iniciam em `0`; a edição
+exige a versão conhecida e rejeita conflitos. Código global e número local são
+textuais; ocupação, vagas livres e limpeza ficam `null` nesta fatia.
+
+Use somente registros sintéticos no ambiente local. A demonstração permanece
+em memória e uma falha da API não a transforma em fonte de dados do cadastro.
+
 ## Limite do aceite
 
 Testes e prova manual com conta sintética receberam
@@ -89,5 +102,8 @@ Testes e prova manual com conta sintética receberam
 [D21](../docs/fase-0/DECISOES.md) e a Fase 0 continuam sem
 homologação institucional. Antes de produção, TI/AE devem decidir e comprovar o
 provedor, os perfis, o desligamento e a política de sessão com responsáveis, data e
-referência de aceite. Os dados e telas de domínio ainda são demonstrativos; não há
-autorização completa por operação e registro de residente.
+referência de aceite. As fatias persistidas da Fase 2 também receberam
+[aceite técnico local](../docs/fase-2/QA.md), com prova de cadastro, edição,
+conflito e persistência após reinício. Residentes, responsáveis e operações das
+próximas fatias continuam demonstrativos; não há autorização completa por
+operação e registro de residente, nem homologação institucional da Fase 2.
