@@ -7,6 +7,7 @@ import { Accommodation } from './housing.models';
 
 @Component({
   selector: 'app-accommodations',
+  styleUrl: './housing.scss',
   standalone: true,
   imports: [RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,

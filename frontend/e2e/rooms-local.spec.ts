@@ -318,3 +318,44 @@ test('demonstração de quartos funciona e mantém seus vínculos sem backend', 
   await expect(page.getByText('Ana Luísa Ribeiro')).toBeVisible();
   expect(roomCalls).toBe(0);
 });
+
+test('nomes e códigos no limite cadastrado não causam rolagem horizontal no celular', async ({
+  page,
+  context,
+}) => {
+  await mockSession(context);
+  const accommodation = { ...accommodations[0], name: 'A'.repeat(200) };
+  const unit = { ...units[0], name: 'U'.repeat(200) };
+  const room = { ...original, code: 'Q'.repeat(64), unitId, floor: 'P'.repeat(64) };
+  await mockRooms(context, [room]);
+  await context.route('**/api/v1/quartos/mapa', (route) =>
+    route.fulfill({
+      json: {
+        accommodations: [accommodation],
+        units: [unit],
+        rooms: [room],
+      },
+    }),
+  );
+  await context.route('**/api/v1/alojamentos**', (route) =>
+    route.fulfill({
+      json: route.request().url().includes('/unidades') ? [unit] : accommodation,
+    }),
+  );
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    for (const path of ['/quartos', `/quartos/${room.id}`, `/alojamentos/${accommodation.id}`]) {
+      await page.goto(path);
+      if (path === '/quartos') await expect(page.locator('.mg-room-tile')).toHaveCount(1);
+      else if (path.startsWith('/alojamentos'))
+        await expect(
+          page.getByRole('heading', { name: accommodation.name, exact: true }),
+        ).toBeVisible();
+      else
+        await expect(page.getByRole('heading', { name: 'Quarto 01', exact: true })).toBeVisible();
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true);
+    }
+  }
+});

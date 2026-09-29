@@ -7,6 +7,7 @@ import { RoomApiError, RoomApiService, roomLoadError } from './room-api.service'
 
 @Component({
   selector: 'app-room-detail',
+  styleUrl: './housing.scss',
   standalone: true,
   imports: [RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,

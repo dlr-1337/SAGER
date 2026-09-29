@@ -8,6 +8,7 @@ import { Accommodation } from './housing.models';
 
 @Component({
   selector: 'app-accommodation-form',
+  styleUrl: './housing.scss',
   standalone: true,
   imports: [ReactiveFormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,

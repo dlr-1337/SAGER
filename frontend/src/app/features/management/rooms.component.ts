@@ -33,6 +33,7 @@ interface RoomGroup {
 
 @Component({
   selector: 'app-rooms',
+  styleUrl: './housing.scss',
   standalone: true,
   imports: [ReactiveFormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,

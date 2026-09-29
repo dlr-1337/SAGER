@@ -25,6 +25,7 @@ const positiveInteger: ValidatorFn = (control) =>
 
 @Component({
   selector: 'app-room-form',
+  styleUrl: './housing.scss',
   standalone: true,
   imports: [ReactiveFormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
