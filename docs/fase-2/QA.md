@@ -172,3 +172,30 @@ alterado.
 matrícula, responsáveis legais, alocação, acesso médico e operações ficam
 pendentes na D01/D02/D15/D19/D22. Nascimento ausente não estabelece
 maioridade. Este aceite não homologa a Fase 2.
+
+### Correções após revisão do PR #3 — 29/09/2026
+
+- Matrículas recebidas diretamente pela API com espaços Unicode nas pontas,
+  incluindo U+00A0 e U+2003, agora são normalizadas antes
+  de criar ou editar. O mesmo tratamento vale para nome e curso opcional.
+  O teste reproduziu primeiro a falha, depois confirmou o valor gravado e
+  `409 duplicate_enrollment` em POST e PUT para a mesma matrícula sem diferenciar
+  maiúsculas de minúsculas. O curso composto só de espaços é salvo como `null`.
+- No detalhe de responsável com sessão local, o residente demonstrativo é
+  exibido como texto e identificado como vínculo ainda não integrado; ele não
+  abre mais um identificador fictício na API local. O link continua disponível
+  na demonstração. A jornada de navegador reproduziu a falha antes da correção
+  e passou depois.
+- Verificação final: `backend/` com JDK 21 e `./mvnw.cmd -B -ntp verify`
+  (**46/46** testes e JAR); `frontend/` com `npm test -- --watch=false`
+  (**78/78** testes), `npm run build` (aprovado) e
+  `$env:SAGER_E2E_PORT='4323'; npx playwright test --grep-invert 'captura telas centrais' --workers=1`
+  (**44/44** jornadas). A captura global foi excluída por sobrescrever imagens
+  de referência rastreadas. Depois do ajuste visual da nota, o build foi
+  repetido e a inspeção temporária passou em desktop e celular: sem rolagem
+  horizontal a 390 px, nome distinto da nota explicativa. Impeccable
+  `detect --json` retornou `[]`. Os arquivos temporários dessa inspeção foram
+  removidos.
+
+Essas correções preservam o aceite técnico local. A integração de responsáveis
+e a homologação institucional da Fase 2 continuam pendentes.
