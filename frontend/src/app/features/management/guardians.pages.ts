@@ -49,7 +49,7 @@ export class GuardiansPage {
       @if (guardian(); as item) {
         <header class="mg-heading"><div><a class="mg-back" routerLink="/responsaveis"><span class="material-symbols-rounded" aria-hidden="true">arrow_back</span> Responsáveis</a><h1>{{ item.name }}</h1><p>Responsável legal · {{ item.relationship }}</p></div><a class="btn mg-primary" [routerLink]="['/responsaveis', item.id, 'editar']"><span class="material-symbols-rounded" aria-hidden="true">edit</span> Editar responsável</a></header>
         @if (saved()) { <p class="mg-success" role="status"><span class="material-symbols-rounded" aria-hidden="true">check_circle</span> Responsável salvo nesta demonstração.</p> }
-        <section class="panel mg-panel" aria-labelledby="guardian-data-title"><h2 id="guardian-data-title">Dados e vínculo</h2><dl class="mg-details"><div><dt>Nome completo</dt><dd>{{ item.name }}</dd></div><div><dt>Vínculo</dt><dd>{{ item.relationship }}</dd></div><div><dt>Telefone</dt><dd>{{ item.phone }}</dd></div><div><dt>Residente vinculado</dt><dd><a [routerLink]="['/residentes', item.residentId]">{{ service.resident(item.residentId)?.name ?? 'Residente não encontrado' }}</a></dd></div><div><dt>Situação</dt><dd>{{ item.active ? 'Ativo' : 'Inativo' }}</dd></div><div><dt>Assinatura de saída longa</dt><dd>{{ item.authorized ? 'Autorizado' : 'Não autorizado' }}</dd></div></dl></section>
+        <section class="panel mg-panel" aria-labelledby="guardian-data-title"><h2 id="guardian-data-title">Dados e vínculo</h2><dl class="mg-details"><div><dt>Nome completo</dt><dd>{{ item.name }}</dd></div><div><dt>Vínculo</dt><dd>{{ item.relationship }}</dd></div><div><dt>Telefone</dt><dd>{{ item.phone }}</dd></div><div><dt>Residente vinculado</dt><dd>@if (isDemo()) { <a [routerLink]="['/residentes', item.residentId]">{{ service.resident(item.residentId)?.name ?? 'Residente não encontrado' }}</a> } @else { <span>{{ service.resident(item.residentId)?.name ?? 'Residente não encontrado' }}</span><br /><span class="mg-muted">Vínculo demonstrativo, ainda não integrado ao cadastro local.</span> }</dd></div><div><dt>Situação</dt><dd>{{ item.active ? 'Ativo' : 'Inativo' }}</dd></div><div><dt>Assinatura de saída longa</dt><dd>{{ item.authorized ? 'Autorizado' : 'Não autorizado' }}</dd></div></dl></section>
         <div class="mg-note"><span class="material-symbols-rounded" aria-hidden="true">info</span><p>Esta autorização é apenas um exemplo de cadastro. O procedimento e a validade da assinatura dependem de definição institucional.</p></div>
       } @else { <section class="mg-empty" role="alert"><h1>Responsável não encontrado</h1><p>O cadastro solicitado não está disponível nesta demonstração.</p><a class="btn mg-primary" routerLink="/responsaveis">Voltar aos responsáveis</a></section> }
     </main>
@@ -57,6 +57,7 @@ export class GuardiansPage {
 })
 export class GuardianDetailPage {
   readonly service = inject(ManagementDemoService);
+  readonly isDemo = inject(DemoSessionService).active;
   private readonly route = inject(ActivatedRoute);
   private readonly id = this.route.snapshot.paramMap.get('id') ?? '';
   readonly guardian = computed(() => this.service.guardian(this.id));

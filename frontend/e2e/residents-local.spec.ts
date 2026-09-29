@@ -249,3 +249,25 @@ test('formulário local mantém navegação acessível no celular', async ({ pag
     accessibility.violations.filter((item) => ['critical', 'serious'].includes(item.impact ?? '')),
   ).toEqual([]);
 });
+
+test('responsável demonstrativo não liga a um residente local inexistente', async ({ page }) => {
+  await mockSession(page);
+  await page.goto('/responsaveis/g-1');
+  await expect(page.getByRole('heading', { name: 'Mariana Ribeiro' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Ana Luísa Ribeiro' })).toHaveCount(0);
+  await expect(page.getByText('Ana Luísa Ribeiro')).toBeVisible();
+  await expect(
+    page.getByText('Vínculo demonstrativo, ainda não integrado ao cadastro local.'),
+  ).toBeVisible();
+
+  const demo = await page.context().newPage();
+  await demo.route('**/api/**', (route) => route.abort('failed'));
+  await demo.goto('/demonstracao');
+  await demo.getByRole('button', { name: /Entrar como gestor/i }).click();
+  await demo.goto('/responsaveis/g-1');
+  await expect(demo.getByRole('link', { name: 'Ana Luísa Ribeiro' })).toHaveAttribute(
+    'href',
+    '/residentes/r-ana',
+  );
+  await demo.close();
+});
