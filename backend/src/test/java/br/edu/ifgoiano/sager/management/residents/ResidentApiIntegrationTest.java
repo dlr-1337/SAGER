@@ -181,6 +181,32 @@ class ResidentApiIntegrationTest {
     }
 
     @Test
+    void normalizesUnicodeSpacesBeforePersistingAndCheckingEnrollment() throws Exception {
+        account("gestor");
+        try (HttpClient client = browser()) {
+            login(client, "gestor");
+            HttpResponse<String> created = post(client, PATH,
+                    body("\u00a0Estudante Sintético\u2003", "\u00a0DEMO-2026-A\u2003", null,
+                            "\u00a0\u2003", null), csrf(client));
+            assertThat(created.statusCode()).isEqualTo(201);
+            JsonNode value = json.readTree(created.body());
+            assertThat(value.path("name").asText()).isEqualTo("Estudante Sintético");
+            assertThat(value.path("enrollment").asText()).isEqualTo("DEMO-2026-A");
+            assertThat(value.path("course").isNull()).isTrue();
+
+            assertError(post(client, PATH,
+                    body("Outra Pessoa", "demo-2026-a\u00a0", null, null, null), csrf(client)),
+                    409, "duplicate_enrollment");
+            String otherId = create(client, "Estudante Segundo", "DEMO-2026-B");
+            assertError(put(client, PATH + "/" + otherId,
+                    body("Estudante Segundo", "\u2003demo-2026-a", null, null, 0), csrf(client)),
+                    409, "duplicate_enrollment");
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_resident", Integer.class))
+                    .isEqualTo(2);
+        }
+    }
+
+    @Test
     void enforcesProfilesCsrfAndRevokesDisabledAccounts() throws Exception {
         for (String profile : List.of("gestor", "supervisor", "residente")) {
             account(profile);

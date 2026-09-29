@@ -75,7 +75,7 @@ public class ResidentService {
         if (value == null) {
             throw invalidInput(field + " é obrigatório.");
         }
-        String checked = value.trim();
+        String checked = stripEdgeSpaces(value);
         if (checked.length() < minLength || checked.length() > maxLength
                 || checked.chars().anyMatch(Character::isISOControl)) {
             throw invalidInput(field + " tem formato ou tamanho inválido.");
@@ -87,7 +87,7 @@ public class ResidentService {
         if (value == null) {
             return null;
         }
-        String checked = value.trim();
+        String checked = stripEdgeSpaces(value);
         if (checked.isEmpty()) {
             return null;
         }
@@ -95,6 +95,30 @@ public class ResidentService {
             throw invalidInput(field + " tem formato ou tamanho inválido.");
         }
         return checked;
+    }
+
+    private String stripEdgeSpaces(String value) {
+        int start = 0;
+        int end = value.length();
+        while (start < end) {
+            int codePoint = value.codePointAt(start);
+            if (!isSpace(codePoint)) {
+                break;
+            }
+            start += Character.charCount(codePoint);
+        }
+        while (end > start) {
+            int codePoint = value.codePointBefore(end);
+            if (!isSpace(codePoint)) {
+                break;
+            }
+            end -= Character.charCount(codePoint);
+        }
+        return value.substring(start, end);
+    }
+
+    private boolean isSpace(int codePoint) {
+        return Character.isWhitespace(codePoint) || Character.isSpaceChar(codePoint);
     }
 
     private RuntimeException integrityError(DataIntegrityViolationException error) {
