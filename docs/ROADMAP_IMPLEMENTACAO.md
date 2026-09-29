@@ -86,9 +86,11 @@ implantação da Fase 7.
 3. Criar auditoria transacional e observabilidade básica. Definir UUID, datas, paginação,
    controle de versão e conflitos como convenções da API.
 4. Integrar uma primeira fatia protegida de cadastro/consulta de residente ao Angular,
-   usando `HttpClient` e banco real. Unificar o identificador do residente entre gestão e
-   operações antes de expandir os módulos. A fatia cadastral depende da decisão D02 sobre
-   origem e validação da matrícula; não inferir matrícula do login provisório.
+   usando um serviço de API e banco real. Unificar o identificador do residente entre gestão e
+   operações antes de expandir os módulos. A D02 autoriza digitação local provisória:
+   nome e matrícula obrigatórios, nascimento e curso opcionais, UUID interno estável
+   e matrícula única após retirar espaços nas pontas. Não inferir matrícula do login;
+   origem e validação institucionais continuam pendentes.
 5. Criar pipeline de build, testes Java/Angular e migração em PostgreSQL de teste, sem dados
    reais nem segredos no repositório.
 
@@ -130,12 +132,16 @@ unidades e quartos foi implementada, com mapa local inicialmente vazio,
 leitura por gestor/supervisor e gravação por gestor. O [aceite técnico local](fase-2/QA.md)
 registra cadastro e edição pelo navegador em PostgreSQL 17.11, conflito sem sobrescrita
 entre duas abas e preservação da estrutura, capacidade e sessão após reinício.
-Sem residentes e avaliações
-integrados, ocupação, vagas livres e nota de limpeza continuam desconhecidas, não
-zero; somatórios de capacidade incompletos devem ser identificados como parciais.
+A terceira fatia persiste o cadastro básico de residentes por digitação provisória
+do gestor local, com leitura para gestor e supervisor. Nome e matrícula são
+obrigatórios, nascimento e curso opcionais; a fonte institucional da matrícula
+continua pendente na D02. A demonstração conserva dados fictícios isolados.
+Sem alocação e avaliações integradas, ocupação, vagas livres e nota de limpeza
+continuam desconhecidas, não zero; somatórios de capacidade incompletos devem
+ser identificados como parciais.
 Os anexos recebidos servem como referência privada, com divergências de estrutura
 e capacidade registradas na [D19](fase-0/DECISOES.md), sem carga de estudantes reais.
-Residentes e responsáveis continuam demonstrativos. D01/D02/D15/D19/D22 e a
+Responsáveis, alocação e operações continuam demonstrativos. D01/D02/D15/D19/D22 e a
 homologação institucional permanecem pendentes. O aceite técnico de cada fatia
 não encerra a Fase 2.
 
