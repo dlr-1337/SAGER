@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -60,6 +61,12 @@ public class SecurityConfiguration {
                         .requestMatchers("/api/v1/auth/me", "/api/v1/auth/logout")
                         .authenticated()
                         .requestMatchers("/api/v1/supervisores", "/api/v1/supervisores/**")
+                        .hasRole("GESTOR")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/alojamentos", "/api/v1/alojamentos/**")
+                        .hasAnyRole("GESTOR", "SUPERVISOR")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/alojamentos", "/api/v1/alojamentos/**")
+                        .hasRole("GESTOR")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/alojamentos/**")
                         .hasRole("GESTOR")
                         .anyRequest().denyAll())
                 .authenticationProvider(provider)
