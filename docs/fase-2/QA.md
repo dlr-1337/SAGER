@@ -104,3 +104,22 @@ responsáveis legais, alocação, transferências, ocupação, avaliação de li
 dados de saúde continuam nas próximas fatias. As divergências de capacidade dos
 anexos permanecem na [D19](../fase-0/DECISOES.md); nenhuma fonte foi escolhida por
 inferência. O login provisório não homologa D21 nem substitui aprovação da AE/TI.
+
+### Correções após revisão — 29/09/2026
+
+- Detalhe e edição de quarto agora obtêm o quarto e sua localização do mesmo
+  snapshot de `/api/v1/quartos/mapa`. Um quarto ausente nesse snapshot produz
+  `404`, sem apresentar uma unidade errada ou aceitar edição em local inválido.
+  O teste usa respostas divergentes para a consulta individual e o mapa e
+  confirma que a tela usa somente o snapshot coerente, inclusive após conflito
+  de versão.
+- Os formulários de alojamento e quarto conferem se a tela ainda está ativa
+  após a resposta do salvamento. Ao cancelar durante uma requisição pendente,
+  a resposta tardia não redireciona para o detalhe. O caso foi reproduzido antes
+  da correção e coberto por testes de componente e por jornada no navegador.
+- Após as correções: `npm test -- --watch=false` passou com **66/66** testes em
+  15 arquivos; `npm run build` passou; e
+  `$env:SAGER_E2E_PORT='4302'; npx playwright test --grep-invert 'captura telas centrais'`
+  passou com **39/39** jornadas. A captura visual foi excluída porque sobrescreve
+  imagens rastreadas. O backend não foi alterado nesta revisão; sua verificação
+  anterior de 38/38 testes permanece registrada acima.
