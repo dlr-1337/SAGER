@@ -32,6 +32,10 @@ function mockRegistry(initial: ResidentRecord[] = []) {
   let failList = false;
   let failNextWrite = false;
   async function attach(page: Page) {
+    await page.route('**/api/v1/responsaveis**', (route) => {
+      const path = new URL(route.request().url()).pathname;
+      return route.fulfill(path.endsWith('/responsaveis') ? { json: [] } : { status: 404 });
+    });
     await page.route('**/api/v1/residentes**', (route) => {
       const request = route.request();
       const path = new URL(request.url()).pathname;
@@ -111,7 +115,7 @@ test('cadastro local cria, consulta, busca e edita após recarga, sem dados inve
     page.getByText('A ausência da data de nascimento não indica maioridade'),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Responsáveis' }).click();
-  await expect(page.getByRole('heading', { name: 'Ainda não integrado' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Nenhum responsável vinculado' })).toBeVisible();
   await expect(page.getByText('Mariana Ribeiro')).toHaveCount(0);
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Estudante Sintético' })).toBeVisible();
@@ -250,15 +254,15 @@ test('formulário local mantém navegação acessível no celular', async ({ pag
   ).toEqual([]);
 });
 
-test('responsável demonstrativo não liga a um residente local inexistente', async ({ page }) => {
+test('responsável demonstrativo não aparece no acesso local e segue na demonstração', async ({
+  page,
+}) => {
   await mockSession(page);
+  await page.route('**/api/v1/responsaveis/g-1', (route) => route.fulfill({ status: 404 }));
   await page.goto('/responsaveis/g-1');
-  await expect(page.getByRole('heading', { name: 'Mariana Ribeiro' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Responsável não encontrado' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Ana Luísa Ribeiro' })).toHaveCount(0);
-  await expect(page.getByText('Ana Luísa Ribeiro')).toBeVisible();
-  await expect(
-    page.getByText('Vínculo demonstrativo, ainda não integrado ao cadastro local.'),
-  ).toBeVisible();
+  await expect(page.getByText('Ana Luísa Ribeiro')).toHaveCount(0);
 
   const demo = await page.context().newPage();
   await demo.route('**/api/**', (route) => route.abort('failed'));

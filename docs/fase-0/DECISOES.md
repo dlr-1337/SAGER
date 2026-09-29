@@ -27,13 +27,14 @@ acessar dados não sensíveis. Esta orientação ainda precisa ser traduzida em 
 matriz de recursos e operações por perfil, com confirmação da AE/TI. Acesso a
 dados sensíveis segue a delimitação preliminar da D22. Para a fatia local de
 residentes, o solicitante escolheu leitura por gestor e supervisor e escrita
-somente por gestor; isso não aprova a matriz institucional.
+somente por gestor; o mesmo recorte será usado no cadastro local de responsáveis.
+Isso não aprova a matriz institucional.
 
 **Responsável / até a fase:** AE/TI; entrada da Fase 1.
 
 **Evidência:** PRD §2.2–2.3 e §23.1; roteiro F0–F1; informação do solicitante
-de 26/09/2026 e escolha de permissões locais para residentes em 29/09/2026,
-sem aceite institucional registrado.
+de 26/09/2026 e escolhas de permissões locais para residentes e responsáveis
+em 29/09/2026, sem aceite institucional registrado.
 
 ## D02 — Dicionário cadastral, campos, unicidade, matrícula, desligamento e maioridade; E02, RF002, UC015.
 
@@ -180,19 +181,24 @@ quantidade de reincidências nem modalidade de ciência/assinatura.
 
 ## D15 — Cardinalidade e prioridade dos responsáveis, identidade e telefone; E02/E09, RN03.
 
-**Estado atual e encaminhamento:** **Institucional pendente.** Definir vínculo
-ativo, autorização e destinatário antes do envio ao responsável. O solicitante
+**Estado atual e encaminhamento:** **Cadastro local provisório; decisão
+institucional pendente.** Para desenvolvimento, um residente poderá ter vários
+registros de responsáveis, cada um com nome, vínculo declarado, telefone
+opcional e estado ativo informado pelo gestor. Esse cadastro não comprova guarda
+ou autoriza assinatura. Prioridade, autorização e destinatário precisam ser
+definidos pela AE/TI antes de qualquer envio ao responsável. O solicitante
 esclareceu que um residente pode ter como responsáveis legais quem detém sua
 guarda, pai e mãe, apenas a mãe, apenas o pai ou outra configuração legalmente
-válida. A regra para quantidade, comprovação do vínculo, prioridade e escolha
-do destinatário ainda depende de confirmação da AE/TI. Os anexos recebidos em
+válida. A regra institucional para quantidade, comprovação do vínculo,
+identidade e telefone válido ainda depende de confirmação da AE/TI. Os anexos recebidos em
 29/09/2026 não contêm responsáveis legais ou seus telefones e não resolvem essas
 regras.
 
 **Responsável / até a fase:** AE/TI; Fases 2 e 4.
 
 **Evidência:** PRD §E02, §E09 e §23.2; roteiro F2/F4; esclarecimento do
-solicitante em 26/09/2026, sem aceite institucional registrado.
+solicitante em 26/09/2026 e autorização para a próxima fatia local em 29/09/2026,
+sem aceite institucional registrado.
 
 ## D16 — Modalidade, identidade, serviço e contratação da assinatura; E09, RF015/RF016.
 

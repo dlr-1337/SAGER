@@ -1,7 +1,15 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
+import { GuardianApiService, GuardianRecord } from './guardian-api.service';
 import { LegalGuardian } from './management.models';
 import { ManagementDemoService } from './management-demo.service';
 import { ageFromBirthDate, formattedDate } from './management.utils';
@@ -140,6 +148,74 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
                   profissionais e de definição institucional.
                 </p>
               </div>
+            </section>
+          } @else if (tab() === 'responsaveis') {
+            <section class="panel mg-panel" aria-labelledby="local-guardians-heading">
+              <div class="mg-section-heading">
+                <div>
+                  <h2 id="local-guardians-heading">Responsáveis legais</h2>
+                  <p>Vínculos cadastrados no ambiente local de teste.</p>
+                </div>
+                @if (canEdit()) {
+                  <a
+                    class="btn mg-primary"
+                    [routerLink]="['/responsaveis/novo']"
+                    [queryParams]="{ residente: item.id }"
+                  >
+                    <span class="material-symbols-rounded" aria-hidden="true">person_add</span>
+                    Vincular responsável
+                  </a>
+                }
+              </div>
+              @if (guardiansLoading()) {
+                <div class="mg-empty mg-empty-inline" role="status">
+                  <h3>Carregando responsáveis</h3>
+                  <p>Consultando os vínculos deste residente.</p>
+                </div>
+              } @else if (guardiansError()) {
+                <div class="mg-empty mg-empty-inline" role="alert">
+                  <h3>Não foi possível carregar responsáveis</h3>
+                  <p>Confira a conexão com o backend local e tente novamente.</p>
+                  <button type="button" class="btn mg-primary" (click)="loadLocalGuardians()">
+                    Tentar novamente
+                  </button>
+                </div>
+              } @else if (localGuardians().length) {
+                <div class="mg-list">
+                  @for (guardian of localGuardians(); track guardian.id) {
+                    <article class="mg-row mg-guardian-row">
+                      <div class="mg-avatar" aria-hidden="true">
+                        {{ guardian.name.slice(0, 1) }}
+                      </div>
+                      <div class="mg-row-main">
+                        <h3>{{ guardian.name }}</h3>
+                        <p>
+                          {{ guardian.relationship }} · Telefone
+                          {{ guardian.phone || 'não informado' }}
+                        </p>
+                      </div>
+                      <div class="mg-row-detail">
+                        <strong>{{ guardian.active ? 'Ativo' : 'Inativo' }}</strong
+                        ><span>Assinatura pendente de definição institucional</span>
+                      </div>
+                      <a class="mg-row-link" [routerLink]="['/responsaveis', guardian.id]"
+                        >Ver detalhes
+                        <span class="material-symbols-rounded" aria-hidden="true"
+                          >arrow_forward</span
+                        ></a
+                      >
+                    </article>
+                  }
+                </div>
+              } @else {
+                <div class="mg-empty mg-empty-inline" role="status">
+                  <h3>Nenhum responsável vinculado</h3>
+                  <p>O cadastro do residente ainda não tem vínculos de responsáveis.</p>
+                </div>
+              }
+              <p class="mg-muted">
+                A autorização de saída e a assinatura válida dependem de definição institucional.
+              </p>
             </section>
           } @else {
             <section class="panel mg-panel" aria-labelledby="resident-pending-heading">
@@ -457,6 +533,8 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
 export class ResidentDetailComponent {
   readonly service = inject(ManagementDemoService);
   private readonly api = inject(ResidentApiService);
+  private readonly guardianApi = inject(GuardianApiService);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly session = inject(DemoSessionService);
   private readonly route = inject(ActivatedRoute);
   readonly id = this.route.snapshot.paramMap.get('id') ?? '';
@@ -469,6 +547,9 @@ export class ResidentDetailComponent {
   readonly loadError = signal('');
   readonly missing = signal(false);
   readonly guardians = computed(() => this.service.guardiansFor(this.id));
+  readonly localGuardians = signal<GuardianRecord[]>([]);
+  readonly guardiansLoading = signal(false);
+  readonly guardiansError = signal(false);
   readonly history = computed(() =>
     this.service.history().filter((entry) => entry.residentId === this.id),
   );
@@ -504,6 +585,7 @@ export class ResidentDetailComponent {
     this.missing.set(false);
     try {
       this.localResident.set(await this.api.get(this.id));
+      if (!this.destroyRef.destroyed) void this.loadLocalGuardians();
     } catch (error) {
       this.localResident.set(null);
       this.missing.set(error instanceof ResidentApiError && error.status === 404);
@@ -514,6 +596,23 @@ export class ResidentDetailComponent {
       );
     } finally {
       this.loading.set(false);
+    }
+  }
+
+  async loadLocalGuardians(): Promise<void> {
+    if (this.isDemo() || !this.canView()) return;
+    this.guardiansLoading.set(true);
+    this.guardiansError.set(false);
+    try {
+      const all = await this.guardianApi.list();
+      if (this.destroyRef.destroyed) return;
+      this.localGuardians.set(all.filter((item) => item.residentId === this.id));
+    } catch {
+      if (this.destroyRef.destroyed) return;
+      this.localGuardians.set([]);
+      this.guardiansError.set(true);
+    } finally {
+      if (!this.destroyRef.destroyed) this.guardiansLoading.set(false);
     }
   }
 

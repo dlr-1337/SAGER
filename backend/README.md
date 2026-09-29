@@ -84,18 +84,23 @@ usa dados fictícios sem conceder acesso à API.
 
 ## Cadastros persistidos da Fase 2
 
-Supervisores, alojamentos, casas/blocos opcionais, quartos e residentes já
+Supervisores, alojamentos, casas/blocos opcionais, quartos, residentes e responsáveis já
 possuem APIs e telas ligadas ao PostgreSQL. O
 [contrato da Fase 2](../docs/fase-2/README.md)
 descreve as rotas de supervisores, `/api/v1/alojamentos`, suas unidades e
-`/api/v1/quartos`, incluindo `/api/v1/quartos/mapa`, e `/api/v1/residentes`,
-com perfis, CSRF e erros. V5–V7 preservam as migrações anteriores. As versões
+`/api/v1/quartos`, incluindo `/api/v1/quartos/mapa`, `/api/v1/residentes` e
+`/api/v1/responsaveis`, com perfis, CSRF e erros. V5–V8 preservam as migrações anteriores. As versões
 iniciam em `0`; a edição exige a versão conhecida e rejeita conflitos. Código
 global e número local são textuais; ocupação, vagas livres e limpeza ficam
 `null` nesta fatia.
 No cadastro provisório de residentes, nome e matrícula são obrigatórios;
 nascimento e curso são opcionais. Gestor local grava, gestor e supervisor locais
 consultam. A fonte institucional da matrícula ainda depende de decisão da AE/TI.
+No cadastro local de responsáveis, nome, vínculo e residente associado são
+obrigatórios; telefone é opcional. O estado ativo cadastral não comprova
+autorização legal ou assinatura. Gestor local grava, gestor e supervisor locais
+consultam. Prioridade, comprovação de guarda e destinatário de saída longa
+dependem de decisão da AE/TI.
 
 Use somente registros sintéticos no ambiente local. A demonstração permanece
 em memória e uma falha da API não a transforma em fonte de dados do cadastro.
@@ -109,6 +114,6 @@ homologação institucional. Antes de produção, TI/AE devem decidir e comprova
 provedor, os perfis, o desligamento e a política de sessão com responsáveis, data e
 referência de aceite. As fatias persistidas da Fase 2 também receberam
 [aceite técnico local](../docs/fase-2/QA.md), com prova de cadastro, edição,
-conflito e persistência após reinício. Responsáveis e operações das próximas
-fatias continuam demonstrativos; não há autorização completa por
+conflito e persistência após reinício. Alocação e operações das próximas
+fatias continuam demonstrativas; não há autorização completa por
 operação e registro de residente, nem homologação institucional da Fase 2.
