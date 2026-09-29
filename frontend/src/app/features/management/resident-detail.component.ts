@@ -9,11 +9,19 @@ import {
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
+import {
+  AllocationApiError,
+  AllocationApiService,
+  AllocationRecord,
+  allocationErrorMessage,
+} from './allocation-api.service';
 import { GuardianApiService, GuardianRecord } from './guardian-api.service';
+import { HousingMap, RoomRecord } from './housing.models';
 import { LegalGuardian } from './management.models';
 import { ManagementDemoService } from './management-demo.service';
 import { ageFromBirthDate, formattedDate } from './management.utils';
 import { ResidentApiError, ResidentApiService, ResidentRecord } from './resident-api.service';
+import { RoomApiService } from './room-api.service';
 
 type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
 
@@ -132,10 +140,123 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
                 </div>
               </dl>
             </section>
+            <section class="panel mg-panel" aria-labelledby="resident-allocation-heading">
+              <div class="mg-section-heading">
+                <div>
+                  <h2 id="resident-allocation-heading">Quarto do residente</h2>
+                  <p>Vínculo local provisório. A situação do quarto é registrada separadamente.</p>
+                </div>
+              </div>
+              @if (allocationLoading()) {
+                <p class="mg-muted" role="status">Carregando alocação e quartos...</p>
+              } @else if (allocationLoadError()) {
+                <div class="mg-empty mg-empty-inline" role="alert">
+                  <h3>Não foi possível carregar a alocação</h3>
+                  <p>{{ allocationLoadError() }}</p>
+                  <button type="button" class="btn mg-secondary" (click)="loadAllocations()">
+                    Tentar novamente
+                  </button>
+                </div>
+              } @else {
+                @if (activeAllocation(); as allocation) {
+                  <p class="mg-muted">Alocado desde {{ allocationDate(allocation.startedAt) }}.</p>
+                  <p>
+                    <a [routerLink]="['/quartos', allocation.roomId]">{{
+                      roomName(allocation.roomId)
+                    }}</a>
+                  </p>
+                } @else {
+                  <p class="mg-muted">Nenhum quarto ativo vinculado a este residente.</p>
+                }
+                @if (canEdit()) {
+                  <form class="mg-inline-form" (submit)="$event.preventDefault(); saveAllocation()">
+                    <label class="field mg-field"
+                      >{{ activeAllocation() ? 'Transferir para' : 'Alocar em' }}
+                      <select [formControl]="selectedRoom" required>
+                        <option value="">Selecione um quarto</option>
+                        @for (room of allocationMap().rooms; track room.id) {
+                          <option
+                            [value]="room.id"
+                            [disabled]="
+                              !roomCanReceive(room) || room.id === activeAllocation()?.roomId
+                            "
+                          >
+                            {{ roomName(room.id) }} · {{ roomAvailability(room) }}
+                          </option>
+                        }
+                      </select>
+                    </label>
+                    <div class="action-row mg-actions">
+                      <button
+                        type="submit"
+                        class="btn mg-primary"
+                        [disabled]="allocationSaving() || !selectedRoom.value"
+                      >
+                        {{
+                          allocationSaving()
+                            ? 'Salvando...'
+                            : activeAllocation()
+                              ? 'Transferir residente'
+                              : 'Alocar residente'
+                        }}
+                      </button>
+                      @if (activeAllocation() && !confirmEnd()) {
+                        <button
+                          type="button"
+                          class="btn mg-secondary"
+                          [disabled]="allocationSaving()"
+                          (click)="confirmEnd.set(true)"
+                        >
+                          Encerrar alocação
+                        </button>
+                      }
+                    </div>
+                  </form>
+                  @if (confirmEnd()) {
+                    <div
+                      class="mg-note"
+                      role="group"
+                      aria-label="Confirmar encerramento da alocação"
+                    >
+                      <span class="material-symbols-rounded" aria-hidden="true">info</span>
+                      <div>
+                        <p>
+                          Encerrar libera a vaga e preserva o histórico. Confirme para continuar.
+                        </p>
+                        <div class="action-row mg-actions">
+                          <button
+                            type="button"
+                            class="btn mg-primary"
+                            [disabled]="allocationSaving()"
+                            (click)="endAllocation()"
+                          >
+                            Confirmar encerramento
+                          </button>
+                          <button
+                            type="button"
+                            class="btn mg-secondary"
+                            (click)="confirmEnd.set(false)"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  }
+                  @if (allocationActionError()) {
+                    <p class="mg-alert" role="alert">{{ allocationActionError() }}</p>
+                  }
+                }
+                <p class="mg-muted">
+                  Capacidade definida limita novas alocações; quartos em manutenção ou indisponíveis
+                  bloqueiam entrada. Regra local provisória, sujeita à AE.
+                </p>
+              }
+            </section>
             <div class="mg-note">
               <span class="material-symbols-rounded" aria-hidden="true">info</span>
               <p>
-                Quarto e situação ainda não estão integrados a este cadastro. A ausência da data de
+                A situação do quarto é manual e não define sua ocupação. A ausência da data de
                 nascimento não indica maioridade.
               </p>
             </div>
@@ -216,6 +337,45 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
               <p class="mg-muted">
                 A autorização de saída e a assinatura válida dependem de definição institucional.
               </p>
+            </section>
+          } @else if (tab() === 'historico') {
+            <section class="panel mg-panel" aria-labelledby="allocation-history-heading">
+              <h2 id="allocation-history-heading">Histórico de quartos</h2>
+              @if (allocationLoading()) {
+                <p role="status">Carregando histórico...</p>
+              } @else if (allocationLoadError()) {
+                <p role="alert">{{ allocationLoadError() }}</p>
+                <button type="button" class="btn mg-secondary" (click)="loadAllocations()">
+                  Tentar novamente
+                </button>
+              } @else if (allocations().length) {
+                <ol class="mg-timeline">
+                  @for (allocation of allocations(); track allocation.id) {
+                    <li>
+                      <time>{{ allocationDate(allocation.startedAt) }}</time>
+                      <div>
+                        <strong>{{ roomName(allocation.roomId) }}</strong>
+                        <p>
+                          {{
+                            allocation.endedAt
+                              ? (allocation.endReason === 'TRANSFER'
+                                  ? 'Transferido'
+                                  : 'Encerrado') +
+                                ' em ' +
+                                allocationDate(allocation.endedAt)
+                              : 'Alocação ativa'
+                          }}
+                        </p>
+                      </div>
+                    </li>
+                  }
+                </ol>
+              } @else {
+                <div class="mg-empty mg-empty-inline" role="status">
+                  <h3>Sem alocações</h3>
+                  <p>Nenhum quarto foi vinculado a este residente.</p>
+                </div>
+              }
             </section>
           } @else {
             <section class="panel mg-panel" aria-labelledby="resident-pending-heading">
@@ -534,6 +694,8 @@ export class ResidentDetailComponent {
   readonly service = inject(ManagementDemoService);
   private readonly api = inject(ResidentApiService);
   private readonly guardianApi = inject(GuardianApiService);
+  private readonly allocationApi = inject(AllocationApiService);
+  private readonly roomApi = inject(RoomApiService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly session = inject(DemoSessionService);
   private readonly route = inject(ActivatedRoute);
@@ -550,6 +712,17 @@ export class ResidentDetailComponent {
   readonly localGuardians = signal<GuardianRecord[]>([]);
   readonly guardiansLoading = signal(false);
   readonly guardiansError = signal(false);
+  readonly allocations = signal<AllocationRecord[]>([]);
+  readonly allocationMap = signal<HousingMap>({ accommodations: [], units: [], rooms: [] });
+  readonly allocationLoading = signal(false);
+  readonly allocationLoadError = signal('');
+  readonly allocationActionError = signal('');
+  readonly allocationSaving = signal(false);
+  readonly confirmEnd = signal(false);
+  readonly selectedRoom = new FormControl('', { nonNullable: true });
+  readonly activeAllocation = computed(
+    () => this.allocations().find((item) => item.endedAt === null) ?? null,
+  );
   readonly history = computed(() =>
     this.service.history().filter((entry) => entry.residentId === this.id),
   );
@@ -586,6 +759,7 @@ export class ResidentDetailComponent {
     try {
       this.localResident.set(await this.api.get(this.id));
       if (!this.destroyRef.destroyed) void this.loadLocalGuardians();
+      if (!this.destroyRef.destroyed) void this.loadAllocations();
     } catch (error) {
       this.localResident.set(null);
       this.missing.set(error instanceof ResidentApiError && error.status === 404);
@@ -596,6 +770,99 @@ export class ResidentDetailComponent {
       );
     } finally {
       this.loading.set(false);
+    }
+  }
+
+  async loadAllocations(): Promise<void> {
+    if (this.isDemo() || !this.canView()) return;
+    this.allocationLoading.set(true);
+    this.allocationLoadError.set('');
+    try {
+      const [allocations, map] = await Promise.all([
+        this.allocationApi.byResident(this.id),
+        this.roomApi.map(),
+      ]);
+      if (this.destroyRef.destroyed) return;
+      this.allocations.set(allocations);
+      this.allocationMap.set(map);
+      this.selectedRoom.setValue('');
+      this.confirmEnd.set(false);
+    } catch (error) {
+      if (this.destroyRef.destroyed) return;
+      this.allocations.set([]);
+      this.allocationMap.set({ accommodations: [], units: [], rooms: [] });
+      this.allocationLoadError.set(allocationErrorMessage(error));
+    } finally {
+      if (!this.destroyRef.destroyed) this.allocationLoading.set(false);
+    }
+  }
+
+  roomName(roomId: string): string {
+    const map = this.allocationMap();
+    const room = map.rooms.find((item) => item.id === roomId);
+    if (!room) return 'Quarto não encontrado';
+    const accommodation =
+      map.accommodations.find((item) => item.id === room.accommodationId)?.name ?? 'Alojamento';
+    const unit = map.units.find((item) => item.id === room.unitId)?.name;
+    return `Quarto ${room.number} · ${accommodation}${unit ? ` · ${unit}` : ''}`;
+  }
+
+  roomCanReceive(room: RoomRecord): boolean {
+    return (
+      !['Manutenção', 'Indisponível'].includes(room.situation) &&
+      room.capacity !== null &&
+      room.vacancies !== null &&
+      room.vacancies > 0
+    );
+  }
+
+  roomAvailability(room: RoomRecord): string {
+    if (['Manutenção', 'Indisponível'].includes(room.situation)) return room.situation;
+    if (room.capacity === null) return 'capacidade não definida';
+    if (room.vacancies === 0) return 'lotado';
+    return `${room.vacancies} ${room.vacancies === 1 ? 'vaga livre' : 'vagas livres'}`;
+  }
+
+  allocationDate(value: string): string {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? 'Data não informada'
+      : new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(date);
+  }
+
+  async saveAllocation(): Promise<void> {
+    if (!this.canEdit() || this.allocationSaving() || this.allocationLoadError()) return;
+    const roomId = this.selectedRoom.value;
+    const room = this.allocationMap().rooms.find((item) => item.id === roomId);
+    if (!room || !this.roomCanReceive(room) || roomId === this.activeAllocation()?.roomId) return;
+    this.allocationSaving.set(true);
+    this.allocationActionError.set('');
+    try {
+      const current = this.activeAllocation();
+      if (current) await this.allocationApi.transfer(current.id, roomId, current.version);
+      else await this.allocationApi.create(this.id, roomId);
+      await this.loadAllocations();
+    } catch (error) {
+      this.allocationActionError.set(allocationErrorMessage(error));
+      if (error instanceof AllocationApiError && error.status === 409) await this.loadAllocations();
+    } finally {
+      this.allocationSaving.set(false);
+    }
+  }
+
+  async endAllocation(): Promise<void> {
+    const current = this.activeAllocation();
+    if (!this.canEdit() || !current || this.allocationSaving()) return;
+    this.allocationSaving.set(true);
+    this.allocationActionError.set('');
+    try {
+      await this.allocationApi.end(current.id, current.version);
+      await this.loadAllocations();
+    } catch (error) {
+      this.allocationActionError.set(allocationErrorMessage(error));
+      if (error instanceof AllocationApiError && error.status === 409) await this.loadAllocations();
+    } finally {
+      this.allocationSaving.set(false);
     }
   }
 

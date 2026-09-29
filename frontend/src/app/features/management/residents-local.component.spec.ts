@@ -3,12 +3,19 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DemoScenario, DemoSessionService, Role } from '../../core/demo-session.service';
+import {
+  AllocationApiError,
+  AllocationApiService,
+  AllocationRecord,
+} from './allocation-api.service';
 import { GuardianApiService, GuardianRecord } from './guardian-api.service';
+import { HousingMap } from './housing.models';
 import { ManagementDemoService } from './management-demo.service';
 import { ResidentApiError, ResidentApiService, ResidentRecord } from './resident-api.service';
 import { ResidentDetailComponent } from './resident-detail.component';
 import { ResidentFormComponent } from './resident-form.component';
 import { ResidentsComponent } from './residents.component';
+import { RoomApiService } from './room-api.service';
 
 const resident: ResidentRecord = {
   id: '00000000-0000-0000-0000-000000000041',
@@ -27,6 +34,35 @@ const guardian: GuardianRecord = {
   active: true,
   version: 0,
 };
+const roomId = '00000000-0000-0000-0000-000000000301';
+const secondRoomId = '00000000-0000-0000-0000-000000000302';
+const allocation: AllocationRecord = {
+  id: '00000000-0000-0000-0000-000000000401',
+  residentId: resident.id,
+  roomId,
+  startedAt: '2026-09-29T12:00:00Z',
+  endedAt: null,
+  endReason: null,
+  version: 0,
+};
+const map: HousingMap = {
+  accommodations: [{ id: 'a1', code: 'A1', name: 'Alojamento Sintético', version: 0 }],
+  units: [],
+  rooms: [roomId, secondRoomId].map((id, index) => ({
+    id,
+    code: `Q${index + 1}`,
+    number: `0${index + 1}`,
+    accommodationId: 'a1',
+    unitId: null,
+    floor: null,
+    capacity: 2,
+    situation: 'Disponível',
+    occupancy: index,
+    vacancies: 2 - index,
+    cleaningScore: null,
+    version: 0,
+  })),
+};
 
 describe('Residentes em sessão local', () => {
   const active = signal(false);
@@ -41,6 +77,13 @@ describe('Residentes em sessão local', () => {
     save: ReturnType<typeof vi.fn>;
   };
   let guardianApi: { list: ReturnType<typeof vi.fn> };
+  let allocationApi: {
+    byResident: ReturnType<typeof vi.fn>;
+    create: ReturnType<typeof vi.fn>;
+    transfer: ReturnType<typeof vi.fn>;
+    end: ReturnType<typeof vi.fn>;
+  };
+  let roomApi: { map: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     active.set(false);
@@ -54,6 +97,13 @@ describe('Residentes em sessão local', () => {
       save: vi.fn().mockResolvedValue(structuredClone(resident)),
     };
     guardianApi = { list: vi.fn().mockResolvedValue([structuredClone(guardian)]) };
+    allocationApi = {
+      byResident: vi.fn().mockResolvedValue([]),
+      create: vi.fn().mockResolvedValue(structuredClone(allocation)),
+      transfer: vi.fn().mockResolvedValue(structuredClone(allocation)),
+      end: vi.fn().mockResolvedValue(structuredClone(allocation)),
+    };
+    roomApi = { map: vi.fn().mockResolvedValue(structuredClone(map)) };
     await TestBed.configureTestingModule({
       imports: [ResidentsComponent, ResidentFormComponent, ResidentDetailComponent],
       providers: [
@@ -61,6 +111,8 @@ describe('Residentes em sessão local', () => {
         { provide: ActivatedRoute, useValue: route },
         { provide: ResidentApiService, useValue: api },
         { provide: GuardianApiService, useValue: guardianApi },
+        { provide: AllocationApiService, useValue: allocationApi },
+        { provide: RoomApiService, useValue: roomApi },
         {
           provide: DemoSessionService,
           useValue: {
@@ -148,6 +200,49 @@ describe('Residentes em sessão local', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Responsável Sintético');
     expect(fixture.componentInstance.guardiansError()).toBe(false);
+  });
+
+  it('aloca, transfere e encerra vínculo com versão do servidor, preservando histórico', async () => {
+    route.snapshot.paramMap = convertToParamMap({ id: resident.id });
+    const fixture = TestBed.createComponent(ResidentDetailComponent);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Nenhum quarto ativo');
+    fixture.componentInstance.selectedRoom.setValue(roomId);
+    await fixture.componentInstance.saveAllocation();
+    expect(allocationApi.create).toHaveBeenCalledWith(resident.id, roomId);
+    allocationApi.byResident.mockResolvedValue([structuredClone(allocation)]);
+    await fixture.componentInstance.loadAllocations();
+    fixture.componentInstance.selectedRoom.setValue(secondRoomId);
+    await fixture.componentInstance.saveAllocation();
+    expect(allocationApi.transfer).toHaveBeenCalledWith(allocation.id, secondRoomId, 0);
+    await fixture.componentInstance.endAllocation();
+    expect(allocationApi.end).toHaveBeenCalledWith(allocation.id, 0);
+  });
+
+  it('conflito de transferência informa o motivo, atualiza dados e não mostra sucesso falso', async () => {
+    route.snapshot.paramMap = convertToParamMap({ id: resident.id });
+    allocationApi.byResident.mockResolvedValue([structuredClone(allocation)]);
+    allocationApi.transfer.mockRejectedValue(new AllocationApiError(409, 'room_full'));
+    const fixture = TestBed.createComponent(ResidentDetailComponent);
+    await fixture.whenStable();
+    fixture.componentInstance.selectedRoom.setValue(secondRoomId);
+    await fixture.componentInstance.saveAllocation();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('atingiu a capacidade');
+    expect(fixture.componentInstance.activeAllocation()?.roomId).toBe(roomId);
+  });
+
+  it('supervisor consulta alocação, sem controles para alterá-la', async () => {
+    role.set('supervisor');
+    route.snapshot.paramMap = convertToParamMap({ id: resident.id });
+    allocationApi.byResident.mockResolvedValue([structuredClone(allocation)]);
+    const fixture = TestBed.createComponent(ResidentDetailComponent);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Quarto 01');
+    expect(fixture.nativeElement.textContent).not.toContain('Transferir residente');
+    expect(fixture.nativeElement.textContent).not.toContain('Encerrar alocação');
   });
 
   it('salva campos opcionais como null, preserva matrícula textual e bloqueia data futura', async () => {
