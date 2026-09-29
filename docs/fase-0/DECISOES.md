@@ -246,12 +246,23 @@ localização ausente. A unidade informada deve pertencer ao alojamento do quart
 
 Capacidade é editável, inteira positiva ou ausente (`null`), sem assumir zero.
 Disponível, Ocupado, Manutenção e Indisponível são situações manuais. Ocupação,
-vagas livres e nota de limpeza permanecem desconhecidas (`null`) até suas
-integrações; a situação manual não determina essas medidas. O mapa local inicia
+vagas livres e nota de limpeza permaneceram desconhecidas (`null`) na fatia
+estrutural; a situação manual não determina essas medidas. O mapa local inicia
 vazio. A demonstração e os testes usam registros sintéticos, sem importar
 residentes dos anexos. O gestor local cadastra e edita; gestor e supervisor
 consultam, com sessão, CSRF nas alterações e controle de versão. Este contrato
 não substitui a matriz institucional da D01.
+
+**Regra adicional provisória de 29/09/2026:** o solicitante autorizou, apenas
+para desenvolvimento local, um quarto ativo por residente e histórico de
+alocações, transferências e encerramentos. Nova alocação exige capacidade
+definida e vaga dentro desse limite; quartos em Manutenção ou Indisponível não
+recebem novos residentes. Alterar a capacidade para ausente ou abaixo da
+ocupação ativa deve ser recusado. A ocupação passa a ser a contagem dos vínculos
+ativos e vagas livres são `capacidade - ocupação` somente quando a capacidade é
+conhecida. A situação do quarto continua manual: não é alterada pela ocupação.
+Nota de limpeza continua sem integração. Essas regras não corrigem nem importam
+as divergências dos anexos privados.
 
 Foram recebidos um PDF de controle de vagas e um ZIP contendo **sete abas em
 HTML, sem XLSX**. O solicitante confirmou que os **300 lugares do PDF representam
@@ -268,18 +279,21 @@ fonte ou alterar capacidades silenciosamente:
 | R4-21        | ZIP: 5 ocupantes listados para capacidade indicada de 4.         |
 | Zootecnia 3  | PDF: descrição de 3 quartos com 2 lugares, mas total indicado 8. |
 
-Alocação, transferência, limites de ocupação, reserva de vaga, bloqueios em
-manutenção e transições automáticas continuam pendentes. Não há aceite nominal
-da AE/TI nem homologação da Fase 2.
+O fluxo provisório local não define reserva de vaga, exceções a lotação,
+correção de histórico, migração de ocupantes existentes ou transições
+automáticas. Essas políticas e as capacidades oficiais continuam pendentes da
+AE. Não há aceite nominal da AE/TI nem homologação da Fase 2.
 
-**Responsável / até a fase:** AE; revisão das capacidades e regras antes de
-alocação e da homologação da Fase 2. A estrutura local autorizada foi implementada
-e recebeu [aceite técnico local](../fase-2/QA.md) em 29/09/2026. A prova pelo
-navegador em PostgreSQL verificou cadastro, capacidade editável, conflito entre
-duas abas e preservação da estrutura e sessão após reinício; não é aceite da AE/TI.
+**Responsável / até a fase:** AE; revisão das capacidades e regras antes da
+homologação da Fase 2. A estrutura e o fluxo provisório de alocação receberam
+[aceite técnico local](../fase-2/QA.md) em 29/09/2026. As provas pelo navegador
+em PostgreSQL verificaram cadastro, capacidade editável, vínculo ativo,
+transferência, encerramento, conflitos e persistência após reinício; não são
+aceite da AE/TI.
 
 **Evidência:** PRD §E04, AC14 e §23.2; [fatia estrutural da Fase 2](../fase-2/README.md);
-plano aprovado pelo solicitante em 29/09/2026; anexos privados
+plano estrutural e regra provisória de alocação autorizados pelo solicitante em
+29/09/2026; anexos privados
 `Controle de Vagas das Residências Estudantis 2026.xlsx - Vagas Residências Est. 2026.pdf`
 e `RESIDÊNCIAS ESTUDANTIS 2026_1.xlsx.zip`, recebidos na conversa e usados como
 referência, sem nomes ou dados pessoais reproduzidos neste registro.
