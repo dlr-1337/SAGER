@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:17.11
+    environment:
+      POSTGRES_DB: sager
+      POSTGRES_USER: sager
+      POSTGRES_PASSWORD: ${SAGER_DB_PASSWORD:?SAGER_DB_PASSWORD must be set outside Git}
+    ports:
+      - '127.0.0.1:${SAGER_DB_PORT:-5432}:5432'
+    volumes:
+      - sager_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U sager -d sager']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  sager_postgres_data:

@@ -1,6 +1,11 @@
 import { expect, test } from '@playwright/test';
+import { enterDemo } from './demo-session';
 
-test('detalhe de saída mantém próxima etapa visível e reordena sem rolagem horizontal', async ({ page }) => {
+test.beforeEach(async ({ page }) => enterDemo(page));
+
+test('detalhe de saída mantém próxima etapa visível e reordena sem rolagem horizontal', async ({
+  page,
+}) => {
   for (const width of [1440, 800, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/saidas/S-1048');
@@ -11,7 +16,9 @@ test('detalhe de saída mantém próxima etapa visível e reordena sem rolagem h
     await expect(page.getByRole('heading', { name: 'Assinatura pendente' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Ações do supervisor' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Aprovar' })).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Registrar providência e reenviar' })).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Registrar providência e reenviar' }),
+    ).toHaveCount(0);
 
     const documentWidth = await page.evaluate(() => document.documentElement.scrollWidth);
     expect(documentWidth).toBeLessThanOrEqual(width + 1);
@@ -39,5 +46,7 @@ test('detalhe de saída mantém próxima etapa visível e reordena sem rolagem h
 test('reenvio só é oferecido após falha demonstrativa', async ({ page }) => {
   await page.goto('/saidas/S-1046');
   await expect(page.getByText('O envio simulado falhou.')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Registrar providência e reenviar' })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Registrar providência e reenviar' }),
+  ).toBeVisible();
 });

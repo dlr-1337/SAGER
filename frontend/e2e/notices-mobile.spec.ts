@@ -1,4 +1,7 @@
 import { expect, test } from '@playwright/test';
+import { enterDemo } from './demo-session';
+
+test.beforeEach(async ({ page }) => enterDemo(page, 'Residente'));
 
 test('aviso abre uma vista móvel com retorno e ciência explícita', async ({ page }) => {
   await page.addInitScript(() => window.sessionStorage.setItem('sager.demo.role', 'residente'));
@@ -17,7 +20,8 @@ test('aviso abre uma vista móvel com retorno e ciência explícita', async ({ p
   await expect(detail.getByRole('button', { name: 'Marcar como ciente' })).toBeVisible();
 
   const detailWidth = (await detail.boundingBox())?.width ?? 0;
-  const actionWidth = (await detail.getByRole('button', { name: 'Marcar como ciente' }).boundingBox())?.width ?? 0;
+  const actionWidth =
+    (await detail.getByRole('button', { name: 'Marcar como ciente' }).boundingBox())?.width ?? 0;
   expect(actionWidth).toBeGreaterThan(detailWidth - 48);
 
   await detail.getByRole('button', { name: 'Voltar à lista' }).click();
@@ -34,7 +38,9 @@ test('aviso abre uma vista móvel com retorno e ciência explícita', async ({ p
   await detail.getByRole('button', { name: 'Confirmar ciência' }).click();
   await expect(detail.getByRole('status')).toContainText('Ciente');
 
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - window.innerWidth,
+  );
   expect(overflow).toBeLessThanOrEqual(1);
 });
 

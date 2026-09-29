@@ -1,0 +1,66 @@
+import { TestBed } from '@angular/core/testing';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { LocalAuthService } from './local-auth.service';
+
+const principal = {
+  id: '00000000-0000-0000-0000-000000000001',
+  nome: 'Operadora Exemplo',
+  email: 'operadora@example.test',
+  fotoUrl: null,
+  perfis: ['gestor' as const],
+};
+
+describe('LocalAuthService', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('envia formulário com CSRF e aceita o perfil devolvido por /me', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ headerName: 'X-CSRF-TOKEN', token: 'csrf-test' }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(principal), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const auth = TestBed.inject(LocalAuthService);
+
+    expect(await auth.login(principal.email, 'senha de teste')).toBe('success');
+    expect(auth.principal()?.perfis).toEqual(['gestor']);
+    const [url, request] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(url).toBe('/api/v1/auth/login');
+    expect(request.credentials).toBe('same-origin');
+    expect(request.headers).toMatchObject({ 'X-CSRF-TOKEN': 'csrf-test' });
+    expect(new URLSearchParams(request.body as string).get('email')).toBe(principal.email);
+    expect(new URLSearchParams(request.body as string).get('password')).toBe('senha de teste');
+  });
+
+  it('não conserva principal quando /me nega a sessão', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 401 })));
+    const auth = TestBed.inject(LocalAuthService);
+    auth.principal.set(principal);
+
+    expect(await auth.refresh()).toBeNull();
+    expect(auth.principal()).toBeNull();
+  });
+
+  it('encerra a sessão com CSRF e limpa o principal após resposta bem-sucedida', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ headerName: 'X-CSRF-TOKEN', token: 'csrf-test' }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const auth = TestBed.inject(LocalAuthService);
+    auth.principal.set(principal);
+
+    await auth.logout();
+    expect(auth.principal()).toBeNull();
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/v1/auth/logout');
+    expect(fetchMock.mock.calls[1][1].headers).toMatchObject({ 'X-CSRF-TOKEN': 'csrf-test' });
+  });
+});
