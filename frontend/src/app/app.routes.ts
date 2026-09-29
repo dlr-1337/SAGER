@@ -15,9 +15,14 @@ const accessGuard: CanActivateFn = async (route) => {
 };
 
 const managementRoutes: Routes = MANAGEMENT_ROUTES.map((route) => {
-  const roles: Role[] = ['residentes', 'residentes/:id', 'quartos', 'quartos/:id'].includes(
-    route.path ?? '',
-  )
+  const roles: Role[] = [
+    'alojamentos',
+    'alojamentos/:id',
+    'residentes',
+    'residentes/:id',
+    'quartos',
+    'quartos/:id',
+  ].includes(route.path ?? '')
     ? ['gestor', 'supervisor']
     : ['gestor'];
   return { ...route, canActivate: [accessGuard], data: { ...route.data, roles } };
