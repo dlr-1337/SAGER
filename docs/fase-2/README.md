@@ -111,11 +111,37 @@ permanece fechada.
 
 Lista, formulário e detalhe no acesso local consultam a API e não recorrem
 a dados da demonstração quando ela falha. Campos opcionais ausentes aparecem
-como “Não informado”. Idade, quarto e situação não são inferidos; responsáveis,
-histórico e termos ainda não estão integrados. A demonstração pública continua
+como “Não informado”. Idade, quarto e situação não são inferidos; histórico e
+termos ainda não estão integrados. O vínculo de responsáveis é tratado na quarta
+fatia abaixo. A demonstração pública continua
 com seus próprios registros fictícios em memória. A migração V7 preserva V1–V6
 e não cria vínculos com quartos, responsáveis ou dados de saúde. Nascimento
 ausente não comprova maioridade para fluxos futuros.
+
+## Quarta fatia: cadastro local de responsáveis
+
+O gestor local cadastra e edita nome, vínculo declarado, telefone opcional e
+estado ativo de responsáveis associados a residentes persistidos. Cada registro
+tem UUID e versão próprios; um residente pode ter vários responsáveis, sem um
+limite ou uma ordem presumidos. A migração V8 cria os registros e a chave
+estrangeira para residentes sem alterar V1–V7. O estado ativo é cadastral: não
+comprova guarda, autorização para saída ou validade de assinatura.
+
+O contrato oferece `GET/POST /api/v1/responsaveis` e
+`GET/PUT /api/v1/responsaveis/{id}`. O JSON expõe `id`, `residentId`, `name`,
+`relationship`, `phone`, `active` e `version`. Telefone pode ser `null`; não há
+regra provisória de validade para WhatsApp. A edição exige a versão consultada.
+Entrada inválida retorna `400/invalid_input`, residente ausente no vínculo
+retorna `422/invalid_reference`, responsável ausente retorna `404/not_found` e
+versão obsoleta retorna `409/stale_version`. Gestor e supervisor locais podem
+consultar; só gestor grava. Sessão, CSRF e bloqueio fora de `local` permanecem.
+
+Lista, formulário, detalhe e vínculo no detalhe do residente consultam a API
+no acesso local. A demonstração mantém seus próprios registros fictícios em
+memória; uma falha da API local não os apresenta como dados persistidos.
+Prioridade, autorização, comprovação do vínculo, destinatário e assinatura
+continuam pendentes na [D15](../fase-0/DECISOES.md) e na D16. Nenhum envio ou
+decisão de saída longa é ativado por esta fatia.
 
 ### Referências recebidas e divergências abertas
 
@@ -165,6 +191,7 @@ dependem dessas regras, da integração das demais telas e de testes com persist
 permissões e concorrência.
 
 Também continuam abertas entregas da Fase 1: erros padronizados para toda a API,
-OpenAPI, auditoria, observabilidade e pipeline de CI. A fatia persistida de
-residentes recebe apenas aceite técnico local; responsáveis, alocação,
-permissões institucionais e dados médicos impedem a homologação da Fase 2.
+OpenAPI, auditoria, observabilidade e pipeline de CI. Os cadastros persistidos
+recebem apenas aceite técnico local; comprovação e autorização institucional dos
+responsáveis, alocação, permissões institucionais e dados médicos impedem a
+homologação da Fase 2.

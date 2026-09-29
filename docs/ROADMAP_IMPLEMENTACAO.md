@@ -136,12 +136,17 @@ A terceira fatia persiste o cadastro básico de residentes por digitação provi
 do gestor local, com leitura para gestor e supervisor. Nome e matrícula são
 obrigatórios, nascimento e curso opcionais; a fonte institucional da matrícula
 continua pendente na D02. A demonstração conserva dados fictícios isolados.
+A quarta fatia persiste responsáveis vinculados aos residentes, permitindo
+vários registros por estudante, com nome, vínculo declarado, telefone opcional
+e estado ativo. Gestor local grava; gestor e supervisor consultam. O vínculo
+aparece no detalhe do residente; autorização, prioridade, comprovação legal e
+destinatário de saída longa continuam pendentes na D15.
 Sem alocação e avaliações integradas, ocupação, vagas livres e nota de limpeza
 continuam desconhecidas, não zero; somatórios de capacidade incompletos devem
 ser identificados como parciais.
 Os anexos recebidos servem como referência privada, com divergências de estrutura
 e capacidade registradas na [D19](fase-0/DECISOES.md), sem carga de estudantes reais.
-Responsáveis, alocação e operações continuam demonstrativos. D01/D02/D15/D19/D22 e a
+Alocação e operações continuam demonstrativas. D01/D02/D15/D19/D22 e a
 homologação institucional permanecem pendentes. O aceite técnico de cada fatia
 não encerra a Fase 2.
 

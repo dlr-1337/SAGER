@@ -197,5 +197,51 @@ maioridade. Este aceite não homologa a Fase 2.
   `detect --json` retornou `[]`. Os arquivos temporários dessa inspeção foram
   removidos.
 
-Essas correções preservam o aceite técnico local. A integração de responsáveis
-e a homologação institucional da Fase 2 continuam pendentes.
+Essas correções preservaram o aceite técnico local. Naquela revisão, a integração
+de responsáveis e a homologação institucional da Fase 2 ainda estavam pendentes.
+
+## Quarta fatia — responsáveis vinculados a residentes
+
+**Data:** 29/09/2026. **Escopo:** cadastro persistido e consulta de responsáveis
+no perfil `local`, com dados sintéticos. O resultado é **aceite técnico para
+desenvolvimento**; não comprova guarda, autorização para saída longa ou assinatura.
+
+| Verificação | Comando ou cenário | Resultado |
+| --- | --- | --- |
+| Migração | `GuardianMigrationIntegrationTest` em PostgreSQL 17.11/Testcontainers | V8 aplicada em banco vazio e sobre V1–V7; registros de residentes preservados, chave estrangeira e campos obrigatórios conferidos. |
+| API e segurança | `GuardianApiIntegrationTest` com HTTP real, sessão e PostgreSQL | Múltiplos responsáveis por residente, vínculo válido, campos opcionais, edição, versão obsoleta, entrada inválida, leitura por gestor/supervisor, escrita só por gestor, anônimo, CSRF, conta desativada e bloqueio fora de `local`. |
+| Backend completo | `backend/`: `./mvnw.cmd -B -ntp verify` com JDK 21 | **53/53 testes**, sem falhas; JAR gerado. |
+| Angular | `frontend/`: `npm test -- --watch=false` e `npm run build` | **83/83 testes** em 18 arquivos; build de produção aprovado. O teste antigo da aba de responsáveis foi atualizado para a consulta real, inclusive erro e nova tentativa sem dados da demonstração. |
+| Jornadas no navegador | `$env:SAGER_E2E_PORT='4331'; npx playwright test --grep-invert 'captura telas centrais' --workers=1` | **49/49 passaram**. Cobrem cadastro, edição, recarga, conflito em duas abas, perfis, falha da API, demonstração offline, validação de campos aparados, teclado, layout celular e acessibilidade. A captura global foi excluída porque sobrescreve imagens de referência rastreadas. |
+| Revisão visual | Impeccable `detect --json`, Axe e capturas desktop/celular | Detector retornou `[]`; formulário a 320 px sem transbordamento nem violações Axe sérias/críticas. Na prova real, não houve erro JavaScript ou transbordamento a 375 px. |
+
+### Prova integrada sem API simulada
+
+Um PostgreSQL 17.11 descartável foi publicado apenas em `127.0.0.1:15436` e
+recebeu V1–V8. O JAR Spring Boot local rodou em `127.0.0.1:8080`, e o Angular
+em `127.0.0.1:4330` com proxy de `/api`. Uma conta gestora sintética foi criada
+pela CLI local. Pelo Chromium, a conta entrou, cadastrou um residente e dois
+responsáveis sintéticos e editou o telefone de um deles. O detalhe do residente
+mostrou ambos os vínculos antes e depois da recarga. Após reiniciar somente o
+backend, a sessão e os dois vínculos continuaram acessíveis; a API retornou as
+versões `1` e `0`, respectivamente, ligadas ao mesmo residente. Não houve API
+simulada nessa prova. Os processos e o contêiner descartáveis foram encerrados;
+os demais contêineres permaneceram intactos.
+
+A tela [anterior da demonstração](../../.impeccable/reviews/responsaveis-desktop.png)
+mostrava vínculos fictícios e uma autorização demonstrativa. As capturas do
+cadastro local [desktop](../../.impeccable/reviews/pr-guardians-after-desktop.png)
+e [celular](../../.impeccable/reviews/pr-guardians-after-mobile.png) mostram
+somente dados sintéticos e indicam que a assinatura depende de definição
+institucional. O estado `active` é apenas cadastral; telefone informado não é
+validado como número de WhatsApp.
+
+A revisão de código encontrou um erro na validação visual de nome e vínculo:
+espaços nas pontas podiam fazer um valor curto parecer válido. O formulário
+passou a medir o valor aparado antes de enviar; a jornada reproduz o caso e
+confirma que não ocorre gravação indevida.
+
+**Limites:** prioridade, identidade e comprovação legal, autorização, telefone
+válido para envio e assinatura dependem da D15/D16 e de aceite da AE/TI.
+Alocação, permissões institucionais, dados de saúde e homologação da Fase 2
+continuam pendentes. Nenhum dado pessoal real ou credencial foi incluído no Git.
