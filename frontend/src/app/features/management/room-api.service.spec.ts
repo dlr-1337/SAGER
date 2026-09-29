@@ -1,0 +1,169 @@
+import { TestBed } from '@angular/core/testing';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { HousingMap, RoomRecord, RoomRecordInput } from './housing.models';
+import { RoomApiError, RoomApiService } from './room-api.service';
+
+const room: RoomRecord = {
+  id: 'quarto-01',
+  code: 'TESTE-Q01',
+  number: '01',
+  accommodationId: 'alojamento-1',
+  unitId: null,
+  floor: null,
+  capacity: null,
+  situation: 'Disponível',
+  occupancy: null,
+  vacancies: null,
+  cleaningScore: null,
+  version: 0,
+};
+const input: RoomRecordInput = {
+  code: room.code,
+  number: room.number,
+  accommodationId: room.accommodationId,
+  unitId: null,
+  floor: null,
+  capacity: null,
+  situation: room.situation,
+};
+const map: HousingMap = {
+  accommodations: [
+    { id: 'alojamento-1', code: 'TESTE-A01', name: 'Alojamento Fictício', version: 0 },
+  ],
+  units: [
+    {
+      id: 'unidade-1',
+      accommodationId: 'alojamento-1',
+      code: 'TESTE-U01',
+      name: 'Casa Fictícia',
+      version: 0,
+    },
+  ],
+  rooms: [room],
+};
+const csrf = { headerName: 'X-CSRF-TOKEN', token: 'csrf-test' };
+
+describe('RoomApiService', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('aceita mapa inicial com versão zero de alojamento, unidade e quarto', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(map)));
+    vi.stubGlobal('fetch', fetchMock);
+    expect(await TestBed.inject(RoomApiService).map()).toEqual(map);
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/quartos/mapa', {
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+    });
+  });
+
+  it('aceita criação na versão zero, preservando número textual e nulos com CSRF', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(csrf)))
+      .mockResolvedValueOnce(new Response(JSON.stringify(room), { status: 201 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const saved = await TestBed.inject(RoomApiService).save(input);
+    expect(saved.number).toBe('01');
+    expect(saved.version).toBe(0);
+    const [url, request] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(url).toBe('/api/v1/quartos');
+    expect(request.method).toBe('POST');
+    expect(request.credentials).toBe('same-origin');
+    expect(request.headers).toMatchObject({
+      'Content-Type': 'application/json',
+      'X-CSRF-TOKEN': 'csrf-test',
+    });
+    expect(JSON.parse(request.body as string)).toEqual(input);
+  });
+
+  it('envia versão zero na primeira edição e recebe versão incrementada', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(csrf)))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ...room, version: 1 })));
+    vi.stubGlobal('fetch', fetchMock);
+    expect(
+      (await TestBed.inject(RoomApiService).save(input, { id: room.id, version: 0 })).version,
+    ).toBe(1);
+    const [url, request] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(url).toBe('/api/v1/quartos/quarto-01');
+    expect(request.method).toBe('PUT');
+    expect(JSON.parse(request.body as string)).toEqual({ ...input, version: 0 });
+  });
+
+  it.each(['duplicate_code', 'duplicate_location', 'invalid_location', 'stale_version'])(
+    'propaga %s sem anunciar salvamento',
+    async (code) => {
+      vi.stubGlobal(
+        'fetch',
+        vi
+          .fn()
+          .mockResolvedValueOnce(new Response(JSON.stringify(csrf)))
+          .mockResolvedValueOnce(new Response(JSON.stringify({ code }), { status: 409 })),
+      );
+      await expect(TestBed.inject(RoomApiService).save(input)).rejects.toEqual(
+        new RoomApiError(409, code),
+      );
+    },
+  );
+
+  it('não envia mutação quando CSRF é recusado e preserva o status mesmo sem JSON', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('Acesso negado', { status: 403 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(TestBed.inject(RoomApiService).save(input)).rejects.toEqual(new RoomApiError(403));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    { ...room, capacity: 1.5 },
+    { ...room, occupancy: 0 },
+    { ...room, vacancies: 3 },
+    { ...room, number: 1 },
+    { ...room, version: -1 },
+  ])('rejeita contrato inválido sem sucesso falso: %j', async (record) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(record))));
+    await expect(TestBed.inject(RoomApiService).get(room.id)).rejects.toThrow(
+      'O quarto recebido é inválido.',
+    );
+  });
+
+  it('rejeita mapa com unidade pertencente a outro alojamento', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            accommodations: [
+              ...map.accommodations,
+              { id: 'alojamento-2', code: 'A2', name: 'Outro Alojamento Fictício', version: 1 },
+            ],
+            units: [
+              {
+                id: 'unidade-2',
+                accommodationId: 'alojamento-2',
+                code: 'U2',
+                name: 'Casa Fictícia',
+                version: 1,
+              },
+            ],
+            rooms: [{ ...room, unitId: 'unidade-2' }],
+          }),
+        ),
+      ),
+    );
+    await expect(TestBed.inject(RoomApiService).map()).rejects.toThrow(
+      'Os vínculos do mapa recebido são inválidos.',
+    );
+  });
+
+  it('rejeita mapa sem os três arrays exigidos', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ rooms: [room] }))),
+    );
+    await expect(TestBed.inject(RoomApiService).map()).rejects.toThrow(
+      'O mapa recebido é inválido.',
+    );
+  });
+});
