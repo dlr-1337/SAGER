@@ -25,33 +25,44 @@ domínio do e-mail nem presume acesso do gestor a dados médicos. O solicitante
 informou que os servidores da GAE, inclusive os profissionais de saúde, poderão
 acessar dados não sensíveis. Esta orientação ainda precisa ser traduzida em uma
 matriz de recursos e operações por perfil, com confirmação da AE/TI. Acesso a
-dados sensíveis segue a delimitação preliminar da D22.
+dados sensíveis segue a delimitação preliminar da D22. Para a fatia local de
+residentes, o solicitante escolheu leitura por gestor e supervisor e escrita
+somente por gestor; isso não aprova a matriz institucional.
 
 **Responsável / até a fase:** AE/TI; entrada da Fase 1.
 
 **Evidência:** PRD §2.2–2.3 e §23.1; roteiro F0–F1; informação do solicitante
-de 26/09/2026, sem aceite institucional registrado.
+de 26/09/2026 e escolha de permissões locais para residentes em 29/09/2026,
+sem aceite institucional registrado.
 
 ## D02 — Dicionário cadastral, campos, unicidade, matrícula, desligamento e maioridade; E02, RF002, UC015.
 
-**Estado atual e encaminhamento:** **Adiada a origem da matrícula pelo
-solicitante; homologação pendente.** O login local provisório não fornece nem
-valida matrícula. A fatia de cadastro de residente da Fase 1 deve aguardar decisão de
-dados e vínculo, sem inventar matrícula ou regra de validação. O IF Goiano informa
-que a matrícula é usada como identificador de acesso ao SUAP; isso não define
-como ela será obtida pelo SAGER. O solicitante relatou exemplos numéricos
-mascarados com 16 e 17 posições, sem confirmação de formato universal ou da
-composição dos blocos. Os anexos de alojamentos recebidos em 29/09/2026 não
-contêm matrícula nem data de nascimento e não estabelecem uma fonte de cadastro.
-Origem, validação, unicidade e ciclo permanecem abertos.
+**Estado atual e encaminhamento:** **Digitação provisória para desenvolvimento
+autorizada pelo solicitante; homologação institucional pendente.** O gestor local
+poderá cadastrar nome e matrícula, ambos obrigatórios. A matrícula será tratada
+como texto, sem inferir quantidade de dígitos ou composição; espaços nas pontas
+serão retirados e a unicidade não distinguirá maiúsculas de minúsculas. Nascimento
+e curso serão opcionais. A ausência de nascimento não implica maioridade nem
+autoriza operações que dependam da idade. O cadastro receberá um UUID local
+estável, independente do login e da matrícula. Esta regra viabiliza apenas a
+fatia local de cadastro e consulta; a fonte futura poderá ser planilha,
+integração institucional ou outro processo a definir com a AE/TI.
 
-**Responsável / até a fase:** AE/TI; antes da fatia cadastral da Fase 1 e da
-Fase 2.
+O login local não fornece nem valida matrícula. O IF Goiano informa que ela é
+usada como identificador de acesso ao SUAP, o que não define sua obtenção no
+SAGER. Os exemplos mascarados relatados pelo solicitante têm 16 e 17 posições,
+sem confirmação de formato universal. Os anexos de alojamentos recebidos em
+29/09/2026 não contêm matrícula nem nascimento. Origem definitiva, validação
+institucional, correções, desligamento e ciclo do vínculo permanecem abertos.
 
-**Evidência:** PRD §E02 e §23.1; roteiro F1–F2; decisão do solicitante nesta
-Fase 0; [infográfico do IF Goiano](https://ifgoiano.edu.br/pdf/infografico_email.pdf)
-para uso da matrícula no SUAP; relato do solicitante em 26/09/2026 para os
-exemplos de comprimento, ainda sem confirmação de regra institucional.
+**Responsável / até a fase:** AE/TI; antes da homologação e da integração
+institucional do cadastro.
+
+**Evidência:** PRD §E02 e §23.1; roteiro F1–F2; escolha do solicitante em
+29/09/2026 por digitação provisória, matrícula obrigatória e única e nascimento/
+curso opcionais; [infográfico do IF Goiano](https://ifgoiano.edu.br/pdf/infografico_email.pdf)
+para uso da matrícula no SUAP; relato de 26/09/2026 sobre comprimento, sem
+confirmação de regra institucional.
 
 ## D03 — Referência temporal para envio da saída preenchida com “agora”; E06, UC06.
 

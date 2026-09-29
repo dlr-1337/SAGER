@@ -1,8 +1,47 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
+import {
+  AbstractControl,
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+  Validators,
+} from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { ManagementDemoService } from './management-demo.service';
+import {
+  ResidentApiError,
+  ResidentApiService,
+  ResidentPayload,
+  ResidentRecord,
+} from './resident-api.service';
+
+function localToday(): string {
+  const now = new Date();
+  return [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
+function optionalBirthDate(control: AbstractControl): { invalidDate: true } | null {
+  const value = String(control.value ?? '');
+  if (!value) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value > localToday()) return { invalidDate: true };
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
+    ? null
+    : { invalidDate: true };
+}
 
 @Component({
   selector: 'app-resident-form',
@@ -12,35 +51,164 @@ import { ManagementDemoService } from './management-demo.service';
   template: `
     <main class="page mg-page mg-narrow">
       @if (!canEdit()) {
-        <section class="mg-empty" role="alert"><span class="material-symbols-rounded" aria-hidden="true">lock</span><h1>Acesso restrito</h1><p>O cadastro de residentes está disponível ao gestor nesta demonstração. A permissão de edição do supervisor depende de definição da AE/TI.</p><a class="btn mg-primary" routerLink="/residentes">Voltar aos residentes</a></section>
+        <section class="mg-empty" role="alert">
+          <span class="material-symbols-rounded" aria-hidden="true">lock</span>
+          <h1>Acesso restrito</h1>
+          <p>
+            O cadastro de residentes está disponível ao gestor
+            {{ isDemo() ? 'nesta demonstração' : 'no ambiente local de teste' }}. A permissão de
+            edição do supervisor depende de definição da AE/TI.
+          </p>
+          <a class="btn mg-primary" routerLink="/residentes">Voltar aos residentes</a>
+        </section>
+      } @else if (loading()) {
+        <section class="mg-empty" role="status" aria-live="polite">
+          <span class="material-symbols-rounded mg-loading-icon" aria-hidden="true"
+            >progress_activity</span
+          >
+          <h1>Carregando residente</h1>
+          <p>Consultando o cadastro local de teste.</p>
+        </section>
+      } @else if (loadError()) {
+        <section class="mg-empty" role="alert">
+          <h1>
+            {{ missing() ? 'Residente não encontrado' : 'Não foi possível carregar o residente' }}
+          </h1>
+          <p>{{ loadError() }}</p>
+          @if (!missing()) {
+            <button type="button" class="btn mg-primary" (click)="load()">Tentar novamente</button>
+          }
+          <a class="btn mg-secondary" routerLink="/residentes">Voltar aos residentes</a>
+        </section>
       } @else if (editId && !resident()) {
-        <section class="mg-empty" role="alert"><h1>Residente não encontrado</h1><p>O cadastro solicitado não está disponível nesta demonstração.</p><a class="btn mg-primary" routerLink="/residentes">Voltar aos residentes</a></section>
+        <section class="mg-empty" role="alert">
+          <h1>Residente não encontrado</h1>
+          <p>
+            O cadastro solicitado não está disponível
+            {{ isDemo() ? 'nesta demonstração' : 'no ambiente local de teste' }}.
+          </p>
+          <a class="btn mg-primary" routerLink="/residentes">Voltar aos residentes</a>
+        </section>
       } @else {
-        <header class="mg-heading"><div><a class="mg-back" routerLink="/residentes"><span class="material-symbols-rounded" aria-hidden="true">arrow_back</span> Residentes</a><h1>{{ editId ? 'Editar residente' : 'Cadastrar residente' }}</h1><p>Preencha os dados de identificação e vínculo acadêmico.</p></div></header>
+        <header class="mg-heading">
+          <div>
+            <a class="mg-back" routerLink="/residentes"
+              ><span class="material-symbols-rounded" aria-hidden="true">arrow_back</span>
+              Residentes</a
+            >
+            <h1>{{ editId ? 'Editar residente' : 'Cadastrar residente' }}</h1>
+            <p>Preencha os dados de identificação e vínculo acadêmico.</p>
+          </div>
+        </header>
         <form class="panel mg-panel mg-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
           <h2>Dados do residente</h2>
-          <p class="mg-muted">Campos marcados com * são obrigatórios. Estes dados são fictícios e ficam somente nesta demonstração.</p>
+          <p class="mg-muted">
+            Campos marcados com * são obrigatórios. Use somente dados fictícios
+            {{ isDemo() ? 'nesta demonstração' : 'no ambiente local de teste' }}.
+          </p>
           <div class="form-grid mg-form-grid">
-            <label class="field mg-field mg-span-2" [class.mg-invalid]="form.controls.name.invalid && form.controls.name.touched">Nome completo *
-              <input formControlName="name" autocomplete="name" aria-describedby="resident-name-error" />
-              @if (form.controls.name.invalid && form.controls.name.touched) { <span class="mg-field-error" id="resident-name-error">Informe o nome completo com pelo menos 3 caracteres.</span> }
+            <label
+              class="field mg-field mg-span-2"
+              [class.mg-invalid]="form.controls.name.invalid && form.controls.name.touched"
+              >Nome completo *
+              <input
+                formControlName="name"
+                autocomplete="name"
+                maxlength="200"
+                aria-describedby="resident-name-error"
+              />
+              @if (form.controls.name.invalid && form.controls.name.touched) {
+                <span class="mg-field-error" id="resident-name-error"
+                  >Informe o nome completo com 3 a 200 caracteres.</span
+                >
+              }
             </label>
-            <label class="field mg-field" [class.mg-invalid]="form.controls.enrollment.invalid && form.controls.enrollment.touched">Matrícula *
-              <input formControlName="enrollment" autocomplete="off" aria-describedby="resident-enrollment-error" />
-              @if (form.controls.enrollment.invalid && form.controls.enrollment.touched) { <span class="mg-field-error" id="resident-enrollment-error">Informe a matrícula vinculada ao residente.</span> }
+            <label
+              class="field mg-field"
+              [class.mg-invalid]="
+                form.controls.enrollment.invalid && form.controls.enrollment.touched
+              "
+              >Matrícula *
+              <input
+                formControlName="enrollment"
+                autocomplete="off"
+                maxlength="64"
+                aria-describedby="resident-enrollment-error"
+              />
+              @if (form.controls.enrollment.invalid && form.controls.enrollment.touched) {
+                <span class="mg-field-error" id="resident-enrollment-error"
+                  >Informe a matrícula vinculada ao residente, com até 64 caracteres.</span
+                >
+              }
             </label>
-            <label class="field mg-field" [class.mg-invalid]="form.controls.birthDate.invalid && form.controls.birthDate.touched">Data de nascimento *
-              <input type="date" formControlName="birthDate" [max]="today" aria-describedby="resident-birth-error" />
-              @if (form.controls.birthDate.invalid && form.controls.birthDate.touched) { <span class="mg-field-error" id="resident-birth-error">Informe uma data de nascimento válida.</span> }
+            <label
+              class="field mg-field"
+              [class.mg-invalid]="
+                form.controls.birthDate.invalid && form.controls.birthDate.touched
+              "
+              >Data de nascimento {{ isDemo() ? '*' : '(opcional)' }}
+              <input
+                type="date"
+                formControlName="birthDate"
+                [max]="today"
+                aria-describedby="resident-birth-error"
+              />
+              @if (form.controls.birthDate.invalid && form.controls.birthDate.touched) {
+                <span class="mg-field-error" id="resident-birth-error"
+                  >Informe uma data de nascimento válida.</span
+                >
+              }
             </label>
-            <label class="field mg-field mg-span-2" [class.mg-invalid]="form.controls.course.invalid && form.controls.course.touched">Curso *
-              <input formControlName="course" autocomplete="off" aria-describedby="resident-course-error" />
-              @if (form.controls.course.invalid && form.controls.course.touched) { <span class="mg-field-error" id="resident-course-error">Informe o curso do residente.</span> }
+            <label
+              class="field mg-field mg-span-2"
+              [class.mg-invalid]="form.controls.course.invalid && form.controls.course.touched"
+              >Curso {{ isDemo() ? '*' : '(opcional)' }}
+              <input
+                formControlName="course"
+                autocomplete="off"
+                maxlength="200"
+                aria-describedby="resident-course-error"
+              />
+              @if (form.controls.course.invalid && form.controls.course.touched) {
+                <span class="mg-field-error" id="resident-course-error">{{
+                  isDemo()
+                    ? 'Informe o curso do residente.'
+                    : 'O curso pode ter até 200 caracteres.'
+                }}</span>
+              }
             </label>
           </div>
-          <div class="mg-note"><span class="material-symbols-rounded" aria-hidden="true">info</span><p>A alocação ou transferência entre quartos depende das regras da AE. Responsáveis legais podem ser vinculados depois de salvar o residente. Dados médicos não são exibidos neste protótipo.</p></div>
-          @if (error()) { <p class="mg-alert" role="alert">{{ error() }}</p> }
-          <div class="action-row mg-actions"><a class="btn mg-secondary" [routerLink]="editId ? ['/residentes', editId] : ['/residentes']">Cancelar</a><button class="btn mg-primary" type="submit"><span class="material-symbols-rounded" aria-hidden="true">save</span> Salvar residente</button></div>
+          <div class="mg-note">
+            <span class="material-symbols-rounded" aria-hidden="true">info</span>
+            <p>
+              @if (isDemo()) {
+                A alocação ou transferência entre quartos depende das regras da AE. Responsáveis
+                legais podem ser vinculados depois de salvar o residente. Dados médicos não são
+                exibidos neste protótipo.
+              } @else {
+                A origem e validação definitiva da matrícula, responsáveis, alocação e dados
+                sensíveis ainda dependem de decisão institucional.
+              }
+            </p>
+          </div>
+          @if (error()) {
+            <p class="mg-alert" role="alert">{{ error() }}</p>
+          }
+          @if (conflict()) {
+            <button type="button" class="btn mg-secondary" (click)="reloadLatest()">
+              Carregar versão atual do cadastro
+            </button>
+          }
+          <div class="action-row mg-actions">
+            <a
+              class="btn mg-secondary"
+              [routerLink]="editId ? ['/residentes', editId] : ['/residentes']"
+              >Cancelar</a
+            ><button class="btn mg-primary" type="submit" [disabled]="saving()">
+              <span class="material-symbols-rounded" aria-hidden="true">save</span>
+              {{ saving() ? 'Salvando…' : 'Salvar residente' }}
+            </button>
+          </div>
         </form>
       }
     </main>
@@ -48,39 +216,173 @@ import { ManagementDemoService } from './management-demo.service';
 })
 export class ResidentFormComponent {
   private readonly service = inject(ManagementDemoService);
+  private readonly api = inject(ResidentApiService);
   private readonly session = inject(DemoSessionService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
   readonly editId = this.route.snapshot.paramMap.get('id');
+  readonly isDemo = this.session.active;
   readonly canEdit = computed(() => this.session.hasRole('gestor'));
-  readonly resident = computed(() => this.editId ? this.service.resident(this.editId) : undefined);
+  readonly localResident = signal<ResidentRecord | null>(null);
+  readonly resident = computed(() =>
+    this.editId
+      ? this.isDemo()
+        ? this.service.resident(this.editId)
+        : (this.localResident() ?? undefined)
+      : undefined,
+  );
+  readonly loading = signal(false);
+  readonly loadError = signal('');
+  readonly missing = signal(false);
   readonly error = signal('');
-  readonly today = new Date().toISOString().slice(0, 10);
+  readonly conflict = signal(false);
+  readonly saving = signal(false);
+  readonly today = localToday();
   readonly form = new FormGroup({
-    name: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.minLength(3)] }),
-    enrollment: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    name: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, Validators.minLength(3), Validators.maxLength(200)],
+    }),
+    enrollment: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, Validators.maxLength(64)],
+    }),
     birthDate: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     course: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
   });
 
   constructor() {
-    const existing = this.resident();
-    if (existing) this.form.setValue({ name: existing.name, enrollment: existing.enrollment, birthDate: existing.birthDate, course: existing.course });
+    if (this.isDemo()) {
+      const existing = this.resident();
+      if (existing) this.setFields(existing);
+    } else {
+      this.form.controls.birthDate.setValidators(optionalBirthDate);
+      this.form.controls.birthDate.updateValueAndValidity({ emitEvent: false });
+      this.form.controls.course.setValidators(Validators.maxLength(200));
+      this.form.controls.course.updateValueAndValidity({ emitEvent: false });
+      if (this.editId && this.canEdit()) void this.load();
+    }
   }
 
-  save(): void {
+  async load(): Promise<void> {
+    if (!this.editId || this.isDemo()) return;
+    this.loading.set(true);
+    this.loadError.set('');
+    this.missing.set(false);
+    try {
+      const item = await this.api.get(this.editId);
+      if (this.destroyRef.destroyed) return;
+      this.localResident.set(item);
+      this.setFields(item);
+    } catch (error) {
+      if (this.destroyRef.destroyed) return;
+      this.localResident.set(null);
+      this.missing.set(error instanceof ResidentApiError && error.status === 404);
+      this.loadError.set(
+        this.missing()
+          ? 'O cadastro solicitado não está disponível no ambiente local de teste.'
+          : 'Confira a conexão com o backend local e tente novamente.',
+      );
+    } finally {
+      if (!this.destroyRef.destroyed) this.loading.set(false);
+    }
+  }
+
+  async reloadLatest(): Promise<void> {
+    this.conflict.set(false);
     this.error.set('');
-    if (!this.canEdit()) return;
+    await this.load();
+  }
+
+  async save(): Promise<void> {
+    if (!this.canEdit() || this.saving()) return;
+    this.error.set('');
+    this.conflict.set(false);
+    const fields = this.form.getRawValue();
+    this.form.patchValue(
+      {
+        name: fields.name.trim(),
+        enrollment: fields.enrollment.trim(),
+        course: fields.course.trim(),
+      },
+      { emitEvent: false },
+    );
     if (this.form.invalid || this.form.controls.birthDate.value > this.today) {
       this.form.markAllAsTouched();
-      if (this.form.controls.birthDate.value > this.today) this.form.controls.birthDate.setErrors({ future: true });
+      if (this.form.controls.birthDate.value > this.today)
+        this.form.controls.birthDate.setErrors({ future: true });
       return;
     }
-    try {
-      const saved = this.service.saveResident(this.form.getRawValue(), this.editId ?? undefined);
-      void this.router.navigate(['/residentes', saved.id], { queryParams: { saved: '1' } });
-    } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'Não foi possível salvar o residente. Tente novamente.');
+    if (this.isDemo()) {
+      try {
+        const saved = this.service.saveResident(this.form.getRawValue(), this.editId ?? undefined);
+        void this.router.navigate(['/residentes', saved.id], { queryParams: { saved: '1' } });
+      } catch (error) {
+        this.error.set(
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível salvar o residente. Tente novamente.',
+        );
+      }
+      return;
     }
+    const current = this.localResident();
+    if (this.editId && !current) return;
+    const { name, enrollment, birthDate, course } = this.form.getRawValue();
+    const input: ResidentPayload = {
+      name,
+      enrollment,
+      birthDate: birthDate || null,
+      course: course || null,
+    };
+    this.saving.set(true);
+    try {
+      const saved = await this.api.save(
+        input,
+        this.editId && current ? { id: current.id, version: current.version } : undefined,
+      );
+      if (this.destroyRef.destroyed) return;
+      await this.router.navigate(['/residentes', saved.id], { queryParams: { saved: '1' } });
+    } catch (error) {
+      if (this.destroyRef.destroyed) return;
+      if (error instanceof ResidentApiError && error.status === 409) {
+        const stale = !!this.editId && error.code === 'stale_version';
+        this.conflict.set(stale);
+        this.error.set(
+          stale
+            ? 'Este cadastro foi alterado por outra sessão. Carregue a versão atual antes de salvar novamente.'
+            : 'Já existe um cadastro com esta matrícula. Confira os dados.',
+        );
+      } else if (error instanceof ResidentApiError && error.status === 400) {
+        this.error.set('Os dados foram recusados. Confira os campos e tente novamente.');
+      } else if (error instanceof ResidentApiError && error.status === 404) {
+        this.error.set('O cadastro não existe mais. Volte à lista de residentes.');
+      } else if (error instanceof ResidentApiError && error.status === 401) {
+        this.error.set('A sessão expirou. Entre novamente para salvar.');
+      } else if (error instanceof ResidentApiError && error.status === 403) {
+        this.error.set('Seu perfil não tem permissão para salvar este cadastro.');
+      } else {
+        this.error.set(
+          'Não foi possível salvar. Confira a conexão com o backend local e tente novamente.',
+        );
+      }
+    } finally {
+      if (!this.destroyRef.destroyed) this.saving.set(false);
+    }
+  }
+
+  private setFields(item: {
+    name: string;
+    enrollment: string;
+    birthDate: string | null;
+    course: string | null;
+  }): void {
+    this.form.setValue({
+      name: item.name,
+      enrollment: item.enrollment,
+      birthDate: item.birthDate ?? '',
+      course: item.course ?? '',
+    });
   }
 }
