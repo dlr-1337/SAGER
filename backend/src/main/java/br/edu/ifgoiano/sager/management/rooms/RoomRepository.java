@@ -13,8 +13,9 @@ import org.springframework.stereotype.Repository;
 @Repository
 @Profile("local")
 public class RoomRepository {
-    private static final String COLUMNS =
-            "id, code, number, accommodation_id, unit_id, floor, capacity, situation, version";
+    private static final String COLUMNS = "id, code, number, accommodation_id, unit_id, floor,"
+            + " capacity, situation, version, (SELECT COUNT(*)::integer FROM sager_room_allocation"
+            + " WHERE room_id = sager_room.id AND ended_at IS NULL) AS occupancy";
     private final JdbcTemplate jdbc;
 
     public RoomRepository(JdbcTemplate jdbc) {
@@ -30,6 +31,17 @@ public class RoomRepository {
     public Optional<RoomRecord> findById(UUID id) {
         return jdbc.query("SELECT " + COLUMNS + " FROM sager_room WHERE id = ?",
                 (result, row) -> map(result), id).stream().findFirst();
+    }
+
+    public Optional<RoomRecord> findByIdForUpdate(UUID id) {
+        List<UUID> locked = jdbc.query("SELECT id FROM sager_room WHERE id = ? FOR UPDATE",
+                (result, row) -> result.getObject(1, UUID.class), id);
+        return locked.isEmpty() ? Optional.empty() : findById(id);
+    }
+
+    public int activeCount(UUID id) {
+        return jdbc.queryForObject("SELECT COUNT(*)::integer FROM sager_room_allocation"
+                + " WHERE room_id = ? AND ended_at IS NULL", Integer.class, id);
     }
 
     public void insert(UUID id, String code, String number, UUID accommodationId, UUID unitId,
@@ -51,10 +63,12 @@ public class RoomRepository {
     }
 
     private RoomRecord map(ResultSet result) throws SQLException {
+        Integer capacity = result.getObject("capacity", Integer.class);
+        int occupancy = result.getInt("occupancy");
         return new RoomRecord(result.getObject("id", UUID.class), result.getString("code"),
                 result.getString("number"), result.getObject("accommodation_id", UUID.class),
                 result.getObject("unit_id", UUID.class), result.getString("floor"),
-                result.getObject("capacity", Integer.class), result.getString("situation"),
-                null, null, null, result.getLong("version"));
+                capacity, result.getString("situation"), occupancy,
+                capacity == null ? null : capacity - occupancy, null, result.getLong("version"));
     }
 }

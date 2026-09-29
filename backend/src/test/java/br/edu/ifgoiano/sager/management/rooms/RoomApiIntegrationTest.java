@@ -77,7 +77,7 @@ class RoomApiIntegrationTest {
     }
 
     @Test
-    void gestorPersistsLeadingZeroNumberAndOptionalFieldsWithoutInferringOccupancy() throws Exception {
+    void gestorPersistsLeadingZeroNumberAndOptionalFieldsWithZeroOccupancy() throws Exception {
         gestorAccount();
         try (HttpClient client = browser()) {
             login(client, "gestor");
@@ -96,9 +96,10 @@ class RoomApiIntegrationTest {
             assertThat(value.path("situation").asText()).isEqualTo("Ocupado");
             assertThat(value.path("version").asLong()).isZero();
             assertThat(value.size()).isEqualTo(12);
-            for (String field : new String[] { "unitId", "floor", "capacity", "occupancy", "vacancies", "cleaningScore" }) {
+            for (String field : new String[] { "unitId", "floor", "capacity", "vacancies", "cleaningScore" }) {
                 assertThat(value.path(field).isNull()).as(field).isTrue();
             }
+            assertThat(value.path("occupancy").asInt()).isZero();
             assertThat(json.readTree(get(client, PATH).body()).size()).isEqualTo(1);
             assertThat(get(client, PATH + "/" + id).statusCode()).isEqualTo(200);
             String unit = unit(client, accommodation, "CASA");
@@ -113,7 +114,8 @@ class RoomApiIntegrationTest {
             assertThat(changedValue.path("unitId").asText()).isEqualTo(unit);
             assertThat(changedValue.path("floor").asText()).isEqualTo("Térreo");
             assertThat(changedValue.path("situation").asText()).isEqualTo("Manutenção");
-            assertThat(changedValue.path("vacancies").isNull()).isTrue();
+            assertThat(changedValue.path("occupancy").asInt()).isZero();
+            assertThat(changedValue.path("vacancies").asInt()).isEqualTo(6);
             assertThat(jdbc.queryForObject("SELECT number FROM sager_room WHERE id = ?",
                     String.class, UUID.fromString(id))).isEqualTo("01");
             assertThat(jdbc.queryForObject("SELECT capacity FROM sager_room WHERE id = ?",
@@ -261,7 +263,7 @@ class RoomApiIntegrationTest {
             assertThat(value.path("id").asText()).isEqualTo(id);
             assertThat(value.path("unitId").asText()).isEqualTo(unit);
             assertThat(value.path("capacity").isNull()).isTrue();
-            assertThat(value.path("occupancy").isNull()).isTrue();
+            assertThat(value.path("occupancy").asInt()).isZero();
             assertThat(value.path("vacancies").isNull()).isTrue();
             assertThat(value.path("cleaningScore").isNull()).isTrue();
         }
@@ -383,7 +385,8 @@ class RoomApiIntegrationTest {
                 JsonNode value = json.readTree(read.body());
                 assertThat(value.path("capacity").asInt()).isEqualTo(8);
                 assertThat(value.path("version").asLong()).isEqualTo(1);
-                assertThat(value.path("vacancies").isNull()).isTrue();
+                assertThat(value.path("occupancy").asInt()).isZero();
+                assertThat(value.path("vacancies").asInt()).isEqualTo(8);
                 JsonNode map = json.readTree(get(client, PATH + "/mapa").body());
                 assertThat(map.path("rooms").get(0).path("id").asText()).isEqualTo(roomId);
                 assertThat(map.path("rooms").get(0).path("capacity").asInt()).isEqualTo(8);

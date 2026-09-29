@@ -50,15 +50,27 @@ public class RoomService {
         } catch (DataIntegrityViolationException error) {
             throw integrityError(error);
         }
-        return record(id, checked, accommodationId, unitId, capacity, 0);
+        return get(id);
     }
 
+    @Transactional
     public RoomRecord update(UUID id, String code, String number, UUID accommodationId, UUID unitId,
             String floor, Integer capacity, String situation, long version) {
         if (version < 0 || version == Long.MAX_VALUE) {
             throw invalidInput("version deve ser um inteiro não negativo válido.");
         }
         CheckedInput checked = checked(code, number, accommodationId, unitId, floor, capacity, situation);
+        RoomRecord current = repository.findByIdForUpdate(id).orElseThrow(() ->
+                new RoomApiException(HttpStatus.NOT_FOUND, "not_found", "Quarto não encontrado."));
+        if (current.version() != version) {
+            throw new RoomApiException(HttpStatus.CONFLICT, "stale_version",
+                    "O quarto foi alterado. Recarregue o registro antes de salvar.");
+        }
+        int active = repository.activeCount(id);
+        if (active > 0 && (capacity == null || capacity < active)) {
+            throw new RoomApiException(HttpStatus.CONFLICT, "capacity_below_occupancy",
+                    "A capacidade não pode ser removida nem ficar abaixo da ocupação ativa.");
+        }
         int updated;
         try {
             updated = repository.update(id, checked.code(), checked.number(), accommodationId, unitId,
@@ -71,7 +83,7 @@ public class RoomService {
             throw new RoomApiException(HttpStatus.CONFLICT, "stale_version",
                     "O quarto foi alterado. Recarregue o registro antes de salvar.");
         }
-        return record(id, checked, accommodationId, unitId, capacity, version + 1);
+        return get(id);
     }
 
     private CheckedInput checked(String code, String number, UUID accommodationId, UUID unitId,
@@ -122,12 +134,6 @@ public class RoomService {
             throw invalidInput("floor tem formato ou tamanho inválido.");
         }
         return checked;
-    }
-
-    private RoomRecord record(UUID id, CheckedInput checked, UUID accommodationId, UUID unitId,
-            Integer capacity, long version) {
-        return new RoomRecord(id, checked.code(), checked.number(), accommodationId, unitId,
-                checked.floor(), capacity, checked.situation(), null, null, null, version);
     }
 
     private RuntimeException integrityError(DataIntegrityViolationException error) {
