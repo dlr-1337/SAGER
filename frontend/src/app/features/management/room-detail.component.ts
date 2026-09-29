@@ -271,7 +271,9 @@ export class RoomDetailComponent {
     this.missing.set(false);
     this.sessionRequired.set(false);
     try {
-      const [item, map] = await Promise.all([this.api.get(this.id), this.api.map()]);
+      const map = await this.api.map();
+      const item = map.rooms.find((room) => room.id === this.id);
+      if (!item) throw new RoomApiError(404);
       this.localRoom.set(item);
       this.localMap.set(map);
     } catch (error) {

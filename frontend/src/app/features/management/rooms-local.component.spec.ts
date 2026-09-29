@@ -135,6 +135,45 @@ describe('Quartos em sessão local', () => {
     expect(residents).not.toHaveBeenCalled();
   });
 
+  it('detalhe e edição usam o quarto e a unidade do mesmo mapa, incluindo a versão', async () => {
+    route.snapshot.paramMap = convertToParamMap({ id: room.id });
+    const movedRoom: RoomRecord = { ...room, unitId: 'unidade-2', capacity: 6, version: 1 };
+    api.map.mockResolvedValue({
+      ...structuredClone(map),
+      units: [
+        ...structuredClone(map.units),
+        {
+          id: 'unidade-2',
+          accommodationId: room.accommodationId,
+          code: 'TESTE-U2',
+          name: 'Nova Casa Fictícia',
+          version: 0,
+        },
+      ],
+      rooms: [movedRoom],
+    });
+    api.get.mockResolvedValue({ ...room, version: 0 });
+
+    const detail = TestBed.createComponent(RoomDetailComponent);
+    await detail.whenStable();
+    detail.detectChanges();
+    expect(detail.componentInstance.localRoom()).toEqual(movedRoom);
+    expect(detail.nativeElement.textContent).toContain('Nova Casa Fictícia');
+
+    const form = TestBed.createComponent(RoomFormComponent);
+    await form.whenStable();
+    form.detectChanges();
+    expect(form.componentInstance.localRoom()).toEqual(movedRoom);
+    expect(form.componentInstance.localForm.controls.unitId.value).toBe('unidade-2');
+    expect(form.componentInstance.localForm.controls.capacity.value).toBe(6);
+    await form.componentInstance.save();
+    expect(api.save).toHaveBeenCalledWith(
+      expect.objectContaining({ unitId: 'unidade-2', capacity: 6 }),
+      { id: room.id, version: 1 },
+    );
+    expect(api.get).not.toHaveBeenCalled();
+  });
+
   it('supervisor consulta mapa sem ações de edição e formulário nega acesso', async () => {
     role.set('supervisor');
     const fixture = TestBed.createComponent(RoomsComponent);
@@ -193,7 +232,10 @@ describe('Quartos em sessão local', () => {
     expect(fixture.componentInstance.localForm.controls.capacity.value).toBe(8);
     expect(fixture.componentInstance.conflict()).toBe(true);
     expect(fixture.componentInstance.localRoom()?.version).toBe(0);
-    api.get.mockResolvedValue({ ...room, version: 1, capacity: 6 });
+    api.map.mockResolvedValue({
+      ...structuredClone(map),
+      rooms: [{ ...room, version: 1, capacity: 6 }],
+    });
     await fixture.componentInstance.reloadLatest();
     expect(fixture.componentInstance.localForm.controls.capacity.value).toBe(6);
     expect(fixture.componentInstance.localRoom()?.version).toBe(1);
@@ -205,7 +247,7 @@ describe('Quartos em sessão local', () => {
     const fixture = TestBed.createComponent(RoomFormComponent);
     await fixture.whenStable();
     fixture.componentInstance.localForm.controls.capacity.setValue(8);
-    api.get.mockRejectedValue(new Error('offline'));
+    api.map.mockRejectedValue(new Error('offline'));
     await fixture.componentInstance.reloadLatest();
     expect(fixture.componentInstance.localForm.controls.capacity.value).toBe(8);
     expect(fixture.componentInstance.localRoom()?.version).toBe(0);
@@ -240,13 +282,18 @@ describe('Quartos em sessão local', () => {
     'detalhe com status %s mostra erro sem cadastro demonstrativo',
     async (status) => {
       route.snapshot.paramMap = convertToParamMap({ id: room.id });
-      api.get.mockRejectedValue(new RoomApiError(status));
+      if (status === 404) {
+        api.map.mockResolvedValue({ ...structuredClone(map), rooms: [] });
+      } else {
+        api.map.mockRejectedValue(new RoomApiError(status));
+      }
       const fixture = TestBed.createComponent(RoomDetailComponent);
       await fixture.whenStable();
       fixture.detectChanges();
       expect(fixture.nativeElement.querySelector('[role="alert"]')).not.toBeNull();
       expect(fixture.componentInstance.localRoom()).toBeNull();
       expect(fixture.componentInstance.sessionRequired()).toBe(status !== 404);
+      expect(fixture.componentInstance.missing()).toBe(status === 404);
     },
   );
 });

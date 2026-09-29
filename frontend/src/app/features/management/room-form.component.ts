@@ -400,10 +400,9 @@ export class RoomFormComponent {
     this.missing.set(false);
     this.sessionRequired.set(false);
     try {
-      const [map, room] = await Promise.all([
-        this.api.map(),
-        this.editId ? this.api.get(this.editId) : Promise.resolve(null),
-      ]);
+      const map = await this.api.map();
+      const room = this.editId ? (map.rooms.find((item) => item.id === this.editId) ?? null) : null;
+      if (this.editId && !room) throw new RoomApiError(404);
       this.localMap.set(map);
       this.localRoom.set(room);
       if (room) this.setFields(room);
