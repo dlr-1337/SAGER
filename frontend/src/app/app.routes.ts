@@ -20,6 +20,8 @@ const managementRoutes: Routes = MANAGEMENT_ROUTES.map((route) => {
     'alojamentos/:id',
     'residentes',
     'residentes/:id',
+    'responsaveis',
+    'responsaveis/:id',
     'quartos',
     'quartos/:id',
   ].includes(route.path ?? '')

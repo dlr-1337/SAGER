@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DemoScenario, DemoSessionService, Role } from '../../core/demo-session.service';
+import { GuardianApiService, GuardianRecord } from './guardian-api.service';
 import { ManagementDemoService } from './management-demo.service';
 import { ResidentApiError, ResidentApiService, ResidentRecord } from './resident-api.service';
 import { ResidentDetailComponent } from './resident-detail.component';
@@ -15,6 +16,15 @@ const resident: ResidentRecord = {
   enrollment: 'TESTE-001',
   birthDate: null,
   course: null,
+  version: 0,
+};
+const guardian: GuardianRecord = {
+  id: '00000000-0000-0000-0000-000000000051',
+  residentId: resident.id,
+  name: 'Responsável Sintético',
+  relationship: 'pessoa com guarda',
+  phone: null,
+  active: true,
   version: 0,
 };
 
@@ -30,6 +40,7 @@ describe('Residentes em sessão local', () => {
     get: ReturnType<typeof vi.fn>;
     save: ReturnType<typeof vi.fn>;
   };
+  let guardianApi: { list: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     active.set(false);
@@ -42,12 +53,14 @@ describe('Residentes em sessão local', () => {
       get: vi.fn().mockResolvedValue(structuredClone(resident)),
       save: vi.fn().mockResolvedValue(structuredClone(resident)),
     };
+    guardianApi = { list: vi.fn().mockResolvedValue([structuredClone(guardian)]) };
     await TestBed.configureTestingModule({
       imports: [ResidentsComponent, ResidentFormComponent, ResidentDetailComponent],
       providers: [
         provideRouter([]),
         { provide: ActivatedRoute, useValue: route },
         { provide: ResidentApiService, useValue: api },
+        { provide: GuardianApiService, useValue: guardianApi },
         {
           provide: DemoSessionService,
           useValue: {
@@ -95,7 +108,7 @@ describe('Residentes em sessão local', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Cadastrar residente');
   });
 
-  it('detalhe local trata campos ausentes sem inventar idade ou vínculos', async () => {
+  it('detalhe local mostra responsáveis da API sem inventar idade ou autorização', async () => {
     route.snapshot.paramMap = convertToParamMap({ id: resident.id });
     const guardians = vi.spyOn(TestBed.inject(ManagementDemoService), 'guardiansFor');
     const fixture = TestBed.createComponent(ResidentDetailComponent);
@@ -109,9 +122,32 @@ describe('Residentes em sessão local', () => {
     expect(fixture.nativeElement.textContent).not.toContain('anos');
     fixture.componentInstance.tab.set('responsaveis');
     fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('Ainda não integrado');
+    expect(fixture.nativeElement.textContent).toContain('Responsável Sintético');
+    expect(fixture.nativeElement.textContent).toContain('Telefone não informado');
+    expect(fixture.nativeElement.textContent).toContain(
+      'Assinatura pendente de definição institucional',
+    );
     expect(fixture.nativeElement.textContent).not.toContain('Mariana Ribeiro');
+    expect(fixture.nativeElement.textContent).not.toContain('Autorizado para assinatura');
+    expect(guardianApi.list).toHaveBeenCalledOnce();
     expect(guardians).not.toHaveBeenCalled();
+  });
+
+  it('falha ao consultar responsáveis não preenche vínculos demonstrativos e permite repetir', async () => {
+    route.snapshot.paramMap = convertToParamMap({ id: resident.id });
+    guardianApi.list.mockRejectedValueOnce(new Error('offline'));
+    const fixture = TestBed.createComponent(ResidentDetailComponent);
+    await fixture.whenStable();
+    fixture.componentInstance.tab.set('responsaveis');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Não foi possível carregar responsáveis');
+    expect(fixture.nativeElement.textContent).not.toContain('Mariana Ribeiro');
+    expect(fixture.componentInstance.localGuardians()).toEqual([]);
+
+    await fixture.componentInstance.loadLocalGuardians();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Responsável Sintético');
+    expect(fixture.componentInstance.guardiansError()).toBe(false);
   });
 
   it('salva campos opcionais como null, preserva matrícula textual e bloqueia data futura', async () => {
