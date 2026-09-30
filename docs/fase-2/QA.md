@@ -372,3 +372,56 @@ O commit posterior de documentação será verificado novamente pelos checks do 
 validam a interface; os testes de backend usam PostgreSQL real. A prova
 integrada de navegador, banco e API está registrada na quinta fatia acima.
 O CI não homologa D01/D02/D15/D19/D21/D22 nem conclui as Fases 0–2.
+
+## Revisão das regras informadas em 30/09/2026
+
+O solicitante confirmou autoridade de gestão do supervisor, cadastro manual,
+nascimento obrigatório e login próprio, além das regras futuras de assinatura,
+compartilhamento de saúde e retenção permanente da auditoria. Essas respostas
+foram registradas como decisões do projeto, sem criar aprovação institucional.
+O PRD, a especificação e o pacote AE/TI foram alinhados às respostas; a planilha
+do ZIP prevalece nas capacidades divergentes de R4 e Laticínio. Não houve carga
+dos registros pessoais dos anexos.
+
+**Mudanças implementadas:** gestor e supervisor podem consultar, cadastrar e editar
+todos os recursos atuais de gestão, incluindo supervisores, e movimentar alocações.
+Perfis de residente e anônimo continuam bloqueados; CSRF, sessão desativada e
+controle de versão permanecem exigidos. Nome, matrícula e nascimento são
+obrigatórios em novas gravações e edições de residentes. A migração V10 usa
+`CHECK (birth_date IS NOT NULL) NOT VALID`: registros antigos sem nascimento
+continuam legíveis, mas precisam da data para serem editados; nenhum nascimento
+foi inventado.
+
+| Verificação                       | Comando ou evidência                                                                                            | Resultado observado                                                                                                                             |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend e migrações               | `mvnw.cmd -B -ntp verify`, JDK 21 e PostgreSQL Testcontainers                                                   | 62 testes, nenhuma falha, erro ou teste ignorado; `BUILD SUCCESS`.                                                                              |
+| Angular                           | `npm test -- --watch=false`                                                                                     | 98 testes passaram.                                                                                                                             |
+| Produção Angular                  | `npm run build`, repetido depois da correção do aviso                                                           | Compilação e templates aprovados.                                                                                                               |
+| Navegador, regressão completa     | `SAGER_E2E_PORT=4336`, `npx playwright test --grep-invert 'captura telas centrais' --workers=1 --reporter=line` | Primeira execução: 51/52; o aviso de nascimento ausente aparecia também em residente com data preenchida.                                       |
+| Correção e jornadas de residentes | `SAGER_E2E_PORT=4337`, `npx playwright test e2e/residents-local.spec.ts --workers=1 --reporter=line`            | 5/5 passaram após condicionar o aviso à ausência da data. Inclui cadastro, edição legada por supervisor, conflitos e acessibilidade em celular. |
+| Revisão visual e Impeccable       | Capturas agrupadas em 1440 px e 320 px; `impeccable detect --json`                                              | Formulário obrigatório, erro associado ao campo e ações de gestão visíveis ao supervisor; nenhuma rolagem horizontal; detector `[]`.            |
+| Revisão de código                 | Inspeção independente das permissões, validação e migração                                                      | Nenhuma regressão encontrada nas alterações; a inspeção não substitui os testes.                                                                |
+
+A revisão independente dos documentos corrigiu uma ampliação indevida do acesso
+operacional do gestor no rascunho do PRD. A versão final concede ao supervisor
+as permissões dos recursos de gestão integrados e mantém as permissões anteriores
+dos fluxos de chamada, limpeza e decisões de saída. Prettier e `git diff --check`
+passaram; 96 links locais nos 13 documentos alterados foram conferidos sem quebra.
+
+Capturas sintéticas do resultado: [formulário desktop](../../.impeccable/reviews/pr-regras-residente-desktop.png),
+[formulário 320 px](../../.impeccable/reviews/pr-regras-residente-mobile.png) e
+[gestão por supervisor](../../.impeccable/reviews/pr-regras-supervisor-desktop.png).
+A [captura histórica da navegação do supervisor](../../.impeccable/reviews/inicio-supervisor-desktop.png)
+permite comparar a inclusão de Responsáveis, Supervisores e Quartos.
+
+As jornadas de navegador interceptam as APIs e verificam a interface; os testes
+Java verificam PostgreSQL e autorização reais em bancos descartáveis. Não foi
+repetida uma prova manual integrada com servidor persistente nesta revisão.
+O login próprio continua disponível somente no perfil local e em loopback;
+assinatura operacional, recurso médico compartilhado e auditoria permanente
+ainda exigem implementação nas respectivas fases. A retenção permanente se aplica
+à auditoria, sem estender a regra a todos os dados médicos ou backups.
+
+O CI executará novamente a suíte completa no commit publicado. As limitações de
+cota de artefatos e proteção de branch do plano GitHub estão registradas em
+[CI](../CI.md); os testes e builds continuam obrigatórios na execução.
