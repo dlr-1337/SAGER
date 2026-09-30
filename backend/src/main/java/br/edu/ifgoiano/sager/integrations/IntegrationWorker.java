@@ -20,7 +20,7 @@ import java.io.IOException;
 import java.util.UUID;
 
 @Component
-@Profile("local")
+@Profile({ "local", "production" })
 public class IntegrationWorker {
     private static final Logger LOG = LoggerFactory.getLogger(IntegrationWorker.class);
     private final IntegrationTransactions transactions;

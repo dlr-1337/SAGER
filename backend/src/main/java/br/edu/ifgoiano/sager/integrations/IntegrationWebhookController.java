@@ -37,7 +37,7 @@ import javax.crypto.spec.SecretKeySpec;
 
 /** Webhooks only persist authenticated notifications; API verification runs in the worker. */
 @RestController
-@Profile("local")
+@Profile({ "local", "production" })
 public class IntegrationWebhookController {
     private static final int MAX_BODY = 1048576;
     private final JdbcTemplate jdbc;

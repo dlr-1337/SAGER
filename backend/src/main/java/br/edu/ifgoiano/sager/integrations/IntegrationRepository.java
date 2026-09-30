@@ -18,7 +18,7 @@ import java.util.Set;
 import java.util.UUID;
 
 @Repository
-@Profile("local")
+@Profile({ "local", "production" })
 public class IntegrationRepository {
     private final JdbcTemplate jdbc;
 

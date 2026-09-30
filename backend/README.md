@@ -1,8 +1,8 @@
-# Backend SAGER — login próprio e API local
+# Backend SAGER — contas próprias e API persistida
 
 O solicitante escolheu em 30/09/2026 o login próprio do SAGER por e-mail e senha.
-A implementação atual atende somente desenvolvimento e teste no perfil `local`.
-Um operador cria as contas e atribui um perfil local; não há cadastro público.
+Os perfis `local` e `production` atendem a API persistida com contas próprias.
+Um operador cria as contas e atribui um perfil; não há cadastro público.
 O [roteiro](../docs/ROADMAP_IMPLEMENTACAO.md) e o
 [contrato de autenticação](../docs/fase-0/AUTENTICACAO_LOCAL.md) registram os limites.
 A antiga prova Google OIDC está [arquivada como evidência](../docs/fase-0/AUTENTICACAO_GOOGLE.md);
@@ -15,9 +15,9 @@ integrações com Google e SUAP ficaram para avaliação futura.
 - `SAGER_DB_PASSWORD` definido no ambiente local por meio seguro. Nunca registre a
   senha em argumento, `.env` rastreado, captura de tela, issue ou chat.
 - Banco e aplicação de desenvolvimento executados somente no computador local.
-  O perfil `local` vincula o backend a `127.0.0.1:8080`; fora dele, o login local
-  fica desabilitado e o acesso falha fechado até existir configuração segura de
-  implantação do login próprio, com provisionamento e proteção operacional testados.
+  O perfil `local` vincula o backend a `127.0.0.1:8080`. Produção exige a
+  [configuração operacional](../infra/production/README.md), HTTPS e role própria
+  de execução; qualquer perfil desconhecido mantém a API fechada.
 
 No PowerShell, selecione o JDK apenas para o terminal do projeto:
 
@@ -92,7 +92,9 @@ aceita somente perfil `residente`; `link-supervisor` aceita `gestor` ou
 registro pode pertencer a somente uma conta. Vincular não altera o perfil.
 `unlink` exige o UUID do vínculo atual; também pode liberar o registro de uma
 conta desativada, sem reativá-la. Todos esses comandos exigem somente o perfil
-`local` e não iniciam um servidor HTTP.
+`local` ou `production` isolado e não iniciam um servidor HTTP. Em produção,
+execute no serviço backend pelo Compose, com seus segredos externos; o
+[manual operacional](../infra/production/README.md) descreve a preparação.
 
 Alterar ou remover um vínculo revoga as sessões da conta. Repetir o mesmo vínculo
 é uma operação sem alteração e preserva as sessões. A cada requisição, o servidor
@@ -244,7 +246,9 @@ cascata para contas ou cadastros. A retenção permanente vale para a auditoria;
 não se estende aos demais dados. A configuração local ainda não separa a role
 da aplicação da role proprietária de migrações: owner ou superusuário podem
 alterar as proteções. Separação de roles, backup e controles operacionais de
-retenção precisam ser implementados e verificados antes de produção.
+retenção são implementados na configuração de produção e verificados no
+[QA de F7](../docs/fase-7/QA.md). O operador da infraestrutura conserva autoridade
+sobre migrações e restauração; a proteção de runtime não restringe um administrador.
 
 ## Comunicações e disciplina
 
@@ -268,15 +272,15 @@ de relatório têm raiz própria e expiram sem apagar documentos permanentes.
 Testes e prova manual com conta sintética receberam
 [aceite técnico local](../docs/fase-0/QA.md) para desenvolvimento. A
 [D21](../docs/fase-0/DECISOES.md) registra o login próprio escolhido e a Fase 0
-continua sem homologação operacional. Antes de produção, é necessário implementar
-e verificar configuração HTTPS/cookie seguro, provisionamento e recuperação de
-contas, permissões por registro, desligamento e política de sessão, com aceite
-TI/AE datado. A prova local anterior não certifica essas condições. As fatias
+continua sem homologação operacional. F7 entrega configuração HTTPS/cookie seguro,
+provisionamento e recuperação de contas, permissões por registro, desligamento,
+política de sessão e backup coordenado. O [QA](../docs/fase-7/QA.md) registra
+verificações técnicas; liberação institucional exige aceite TI/AE datado. As fatias
 persistidas da Fase 2 também receberam
 [aceite técnico local](../docs/fase-2/QA.md), com prova de cadastro, edição,
-conflito e persistência após reinício. As demais operações das próximas
-fatias continuam demonstrativas; não há autorização completa por
-operação e registro de residente, nem homologação operacional da Fase 2.
+conflito e persistência após reinício. As operações persistidas de F3–F6 têm
+autorização por operação/registro e provas próprias; sua homologação institucional
+permanece distinta da evidência técnica.
 
 O [CI](../docs/CI.md) executa o `verify` em Ubuntu com JDK 21 e Docker,
 sem credenciais da aplicação. O [pacote AE/TI](../docs/fase-2/PACOTE_AE_TI.md)

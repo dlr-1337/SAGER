@@ -8,7 +8,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
-@Profile("local")
+@Profile({ "local", "production" })
 @ConditionalOnProperty(
         name = "sager.operations.expiry.enabled",
         havingValue = "true",

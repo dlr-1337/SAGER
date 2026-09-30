@@ -349,6 +349,15 @@ automática, aprovação longa sem evidências ou acesso indevido a dados privad
 operação real. Falha de requisito não funcional é registrada com o cenário medido, sem
 substituir a meta do PRD por outra métrica.
 
+**Estado técnico em 30/09/2026:** F7 entrega Compose com Nginx/HTTPS, conta própria
+e sessão persistida, migrações por role separada, segredos externos, execução
+restrita e recuperação coordenada com criptografia. Ajuda, [manual por perfil](fase-7/MANUAL.md)
+e [roteiro de homologação](fase-7/HOMOLOGACAO.md) estão disponíveis. O
+[QA final](fase-7/QA.md) registra 257 testes de backend, 191 de frontend, jornadas
+de navegador e resultados reais de carga/recuperação. A liberação institucional,
+as integrações externas e a medição na VPS definitiva permanecem externas ao
+aceite técnico local. Não há afirmação de treinamento ou piloto realizados.
+
 ## Regra comum para marcar uma entrega como concluída
 
 - Identificar RF/UC/RN, épico e AC afetados; manter exemplos de sucesso e erro no contrato

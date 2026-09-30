@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 
 @Service
-@Profile("local")
+@Profile({ "local", "production" })
 public class CommunicationService {
     private final JdbcTemplate jdbc;
     private final DisciplineActor actor;

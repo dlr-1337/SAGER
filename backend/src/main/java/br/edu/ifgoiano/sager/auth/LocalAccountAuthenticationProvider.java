@@ -14,23 +14,25 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 @Component
-@Profile("local")
+@Profile({ "local", "production" })
 public class LocalAccountAuthenticationProvider implements AuthenticationProvider {
     private final LocalAccountRepository accounts;
     private final PasswordEncoder passwords;
+    private final String dummyPasswordHash;
 
     public LocalAccountAuthenticationProvider(LocalAccountRepository accounts, PasswordEncoder passwords) {
         this.accounts = accounts;
         this.passwords = passwords;
+        this.dummyPasswordHash = passwords.encode(java.util.UUID.randomUUID().toString());
     }
 
     @Override
     public Authentication authenticate(Authentication authentication) throws AuthenticationException {
         String email = authentication.getName().trim().toLowerCase(Locale.ROOT);
         String password = String.valueOf(authentication.getCredentials());
-        LocalAccount account = accounts.findByEmail(email)
-                .orElseThrow(() -> new BadCredentialsException("Credenciais invalidas"));
-        if (!account.active() || !passwords.matches(password, account.passwordHash())) {
+        LocalAccount account = accounts.findByEmail(email).orElse(null);
+        boolean valid = passwords.matches(password, account == null ? dummyPasswordHash : account.passwordHash());
+        if (account == null || !account.active() || !valid) {
             throw new BadCredentialsException("Credenciais invalidas");
         }
         LocalAccountPrincipal principal = new LocalAccountPrincipal(account.id(), account.email(),

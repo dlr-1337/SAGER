@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
@@ -22,6 +23,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CsrfException;
+import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.session.web.http.CookieSerializer;
 import org.springframework.session.web.http.DefaultCookieSerializer;
 
@@ -42,7 +44,7 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    @Profile("local")
+    @Profile({ "local", "production" })
     @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
     FilterRegistrationBean<LocalAccountStatusFilter> accountStatusFilterRegistration(
             LocalAccountStatusFilter filter) {
@@ -52,13 +54,22 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    @Profile("local")
+    @Profile({ "local", "production" })
     @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
     SecurityFilterChain localSecurityFilterChain(HttpSecurity http, Environment environment,
             LocalAccountAuthenticationProvider provider, LocalAccountStatusFilter accountStatusFilter,
-            ApiErrors apiErrors)
+            ApiErrors apiErrors, ObjectProvider<ProductionRequestFilter> productionRequests,
+            ObjectProvider<LoginRateLimitFilter> loginLimits, ObjectProvider<LoginRateLimiter> rateLimiter)
             throws Exception {
-        requireLoopbackOnly(environment);
+        boolean production = Arrays.asList(environment.getActiveProfiles()).contains("production");
+        if (production) ProductionModeGuard.requireProduction(environment);
+        else requireLoopbackOnly(environment);
+        if (production) {
+            http.addFilterBefore(productionRequests.getObject(), CsrfFilter.class)
+                    .addFilterBefore(loginLimits.getObject(), UsernamePasswordAuthenticationFilter.class);
+            http.authorizeHttpRequests(requests -> requests
+                    .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**").permitAll());
+        }
         http.authorizeHttpRequests(requests -> requests
                         .requestMatchers("/api/v1/auth/csrf", "/api/v1/auth/login", "/error")
                         .permitAll()
@@ -138,6 +149,7 @@ public class SecurityConfiguration {
                         .usernameParameter("email")
                         .passwordParameter("password")
                         .successHandler((request, response, authentication) -> {
+                            if (production) rateLimiter.getObject().succeeded(authentication.getName());
                             response.setHeader("Cache-Control", "no-store");
                             response.setStatus(HttpStatus.NO_CONTENT.value());
                         })
@@ -170,7 +182,7 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    @Profile("!local")
+    @Profile("!local & !production")
     @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
     SecurityFilterChain closedSecurityFilterChain(HttpSecurity http, ApiErrors apiErrors) throws Exception {
         http.authorizeHttpRequests(requests -> requests.anyRequest().denyAll())

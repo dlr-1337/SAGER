@@ -28,7 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@Profile("local")
+@Profile({ "local", "production" })
 public class ShortExitService {
     private static final Set<String> STATUSES = Set.of(ShortExit.PENDING, ShortExit.APPROVED,
             ShortExit.IN_PROGRESS, "REJEITADA", "CANCELADA", "EXPIRADA", "RETORNO_CONFIRMADO",

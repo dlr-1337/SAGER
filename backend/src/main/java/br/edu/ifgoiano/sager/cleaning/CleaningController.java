@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import tools.jackson.databind.JsonNode;
-@RestController @Profile("local") @RequestMapping("/api/v1")
+@RestController @Profile({ "local", "production" }) @RequestMapping("/api/v1")
 public class CleaningController {
  private final CleaningService service;public CleaningController(CleaningService service){this.service=service;}
  @GetMapping("/limpeza/politica") public ResponseEntity<Policy> policy(){return ok(service.policy());}

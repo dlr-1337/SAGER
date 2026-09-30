@@ -26,7 +26,7 @@ class AccountCommandApplicationIntegrationTest {
 
     @ParameterizedTest
     @ValueSource(strings = { "help", "disable" })
-    void rejectsAccountCommandsOutsideLocalWithExitTwoAndNoStackTrace(String command) throws Exception {
+    void rejectsAccountCommandsOutsideSupportedProfilesWithExitTwoAndNoStackTrace(String command) throws Exception {
         Path output = temporaryDirectory.resolve("command-output.log");
         String javaExecutable = Path.of(System.getProperty("java.home"), "bin", "java").toString();
         ProcessBuilder builder = new ProcessBuilder(javaExecutable, "-cp",
@@ -42,11 +42,11 @@ class AccountCommandApplicationIntegrationTest {
         try {
             assertThat(process.waitFor(45, TimeUnit.SECONDS)).isTrue();
             assertThat(process.exitValue()).isEqualTo(2);
-            assertThat(Files.readString(output)).contains("exige somente o perfil 'local'")
+            assertThat(Files.readString(output)).contains("somente o perfil 'local' ou 'production'")
                     .doesNotContain("Exception", "\tat ", "Conta local desativada", "Conta local criada");
             JdbcTemplate jdbc = new JdbcTemplate(new DriverManagerDataSource(POSTGRES.getJdbcUrl(),
                     POSTGRES.getUsername(), POSTGRES.getPassword()));
-            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_local_account", Integer.class))
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM pg_tables WHERE schemaname='public'", Integer.class))
                     .isZero();
         } finally {
             if (process.isAlive()) {

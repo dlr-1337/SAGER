@@ -9,7 +9,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 @Component
-@Profile("local")
+@Profile({ "local", "production" })
 public class DisciplineActor {
     private final LocalAccountRepository accounts;
     public DisciplineActor(LocalAccountRepository accounts) { this.accounts = accounts; }

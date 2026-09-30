@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 
 @Service
-@Profile("local")
+@Profile({ "local", "production" })
 public class ShortExitExpiryService {
     private final ShortExitRepository exits;
     private final OperationResidents residents;

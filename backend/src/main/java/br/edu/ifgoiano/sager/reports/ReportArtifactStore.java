@@ -12,7 +12,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 /** Transient UUID-addressed reports. It can never be configured over the permanent document root. */
-@Component @Profile("local")
+@Component @Profile({ "local", "production" })
 public class ReportArtifactStore {
  private final PrivateFileStore store;private final Path root;private final Object rootKey;private final FileTime rootCreated;private final Clock clock;
  public ReportArtifactStore(@Value("$"+"{sager.reports.private-root:}")String directory,

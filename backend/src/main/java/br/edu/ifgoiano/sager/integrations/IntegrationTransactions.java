@@ -36,7 +36,7 @@ import java.util.UUID;
 
 /** Each method commits before the worker performs external I/O. */
 @Service
-@Profile("local")
+@Profile({ "local", "production" })
 public class IntegrationTransactions {
     private final JdbcTemplate jdbc;
     private final IntegrationRepository repository;

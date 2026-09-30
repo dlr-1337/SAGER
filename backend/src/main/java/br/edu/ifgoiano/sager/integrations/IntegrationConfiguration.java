@@ -15,7 +15,7 @@ import java.time.Duration;
 import java.util.UUID;
 
 @Configuration
-@Profile("local")
+@Profile({ "local", "production" })
 public class IntegrationConfiguration {
     @Bean
     IntegrationProperties integrationProperties(Environment env) {

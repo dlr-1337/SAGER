@@ -227,9 +227,9 @@ class AuthFlowIntegrationTest {
     }
 
     @Test
-    void nonLocalProfileDoesNotExposeLoginOrCsrf() throws Exception {
+    void unknownProfileDoesNotExposeLoginOrCsrf() throws Exception {
         SpringApplication application = new SpringApplication(SagerApplication.class);
-        application.setAdditionalProfiles("production");
+        application.setAdditionalProfiles("closed");
         try (var context = application.run("--server.port=0",
                 "--spring.datasource.url=" + POSTGRES.getJdbcUrl(),
                 "--spring.datasource.username=" + POSTGRES.getUsername(),

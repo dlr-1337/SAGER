@@ -122,6 +122,9 @@ export const routes: Routes = [
   },
   {
     path: 'demonstracao',
+    canActivate: [
+      () => inject(DemoSessionService).demoAvailable || inject(Router).createUrlTree(['/acesso']),
+    ],
     data: { public: true },
     loadComponent: () => import('./features/portal/portal.pages').then((m) => m.DemoSelectorPage),
   },

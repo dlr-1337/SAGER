@@ -21,7 +21,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Service
-@Profile("local")
+@Profile({ "local", "production" })
 public class SignatureAccessService {
     private final JdbcTemplate jdbc;
     private final IntegrationRepository integrations;

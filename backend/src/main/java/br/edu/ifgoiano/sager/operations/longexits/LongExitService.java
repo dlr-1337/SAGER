@@ -46,7 +46,7 @@ import java.util.Set;
 import java.util.UUID;
 
 @Service
-@Profile("local")
+@Profile({ "local", "production" })
 public class LongExitService {
     private static final Set<String> STATUSES =
             Set.of(

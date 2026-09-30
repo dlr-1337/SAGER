@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 @Component
-@Profile("local")
+@Profile({ "local", "production" })
 public class LocalAccountStatusFilter extends OncePerRequestFilter {
     private final LocalAccountRepository accounts;
 

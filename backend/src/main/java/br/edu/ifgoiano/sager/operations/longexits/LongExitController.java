@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@Profile("local")
+@Profile({ "local", "production" })
 @RequestMapping("/api/v1/saidas-longas")
 public class LongExitController {
     private final LongExitService service;

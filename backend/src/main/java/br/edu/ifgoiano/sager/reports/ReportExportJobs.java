@@ -11,7 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
 /** No rendering or filesystem IO occurs in these short transactions. */
-@Service @Profile("local")
+@Service @Profile({ "local", "production" })
 public class ReportExportJobs {
  private final JdbcTemplate jdbc;private final ReportService reports;private final AuditService audit;private final Clock clock;private final ObjectMapper json;
  public ReportExportJobs(JdbcTemplate jdbc,ReportService reports,AuditService audit,Clock clock,ObjectMapper json){this.jdbc=jdbc;this.reports=reports;this.audit=audit;this.clock=clock;this.json=json;}

@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 import tools.jackson.databind.JsonNode;
 
 @RestController
-@Profile("local")
+@Profile({ "local", "production" })
 @RequestMapping("/api/v1")
 public class HealthController {
     private static final Pattern UUID_TEXT = Pattern.compile(

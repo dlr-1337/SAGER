@@ -25,7 +25,7 @@ import java.util.Set;
 import java.util.UUID;
 
 @Repository
-@Profile("local")
+@Profile({ "local", "production" })
 public class LongExitRepository implements AuthorizedExitLookup, ExitOccupancyLookup {
     private final JdbcTemplate jdbc;
     private final ObjectMapper json;

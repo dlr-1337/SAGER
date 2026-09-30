@@ -27,7 +27,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 @Service
-@Profile("local")
+@Profile({ "local", "production" })
 public class DisciplineService {
     public static final Set<String> CATEGORIES=Set.of("AUSENCIA","ATRASO_RETORNO","LIMPEZA","OUTRA");
     public static final Set<String> SEVERITIES=Set.of("LEVE","MODERADA","GRAVE");

@@ -6,7 +6,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
-@Component @Profile("local")
+@Component @Profile({ "local", "production" })
 public class CleaningEvidenceReader implements OccurrenceSourceReader {
  private final JdbcTemplate jdbc;private final ObjectMapper json;
  public CleaningEvidenceReader(JdbcTemplate jdbc,ObjectMapper json){this.jdbc=jdbc;this.json=json;}

@@ -14,7 +14,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
 @Component
-@Profile("local")
+@Profile({ "local", "production" })
 public class LocalAccountProvisioningRunner implements ApplicationRunner, ExitCodeGenerator {
     private static final Set<String> ACTIONS = Set.of("create", "reset", "disable", "link-resident",
             "link-supervisor", "unlink", "help");
@@ -49,8 +49,9 @@ public class LocalAccountProvisioningRunner implements ApplicationRunner, ExitCo
     }
 
     private void executeCommand(ApplicationArguments arguments) {
-        if (!Arrays.equals(environment.getActiveProfiles(), new String[] { "local" })) {
-            throw new IllegalStateException("O comando de contas exige somente o perfil 'local'.");
+        String[] profiles = environment.getActiveProfiles();
+        if (profiles.length != 1 || !Set.of("local", "production").contains(profiles[0])) {
+            throw new IllegalStateException("O comando de contas exige somente o perfil 'local' ou 'production'.");
         }
         String action = requiredOption(arguments, "sager-account");
         if (!ACTIONS.contains(action)) {
@@ -118,7 +119,7 @@ public class LocalAccountProvisioningRunner implements ApplicationRunner, ExitCo
 
     private static void printHelp() {
         System.out.println("""
-                Comandos administrativos de contas locais (somente perfil local):
+                Comandos administrativos de contas (somente perfil local ou production):
                   --sager-account=create --email=... --name=... --profile=gestor|supervisor|residente|saude
                   --sager-account=reset --email=...
                   --sager-account=disable --email=...

@@ -17,7 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.*;
 import tools.jackson.databind.*;
 
-@Service @Profile("local")
+@Service @Profile({ "local", "production" })
 public class CleaningService {
  public static final ZoneId ZONE=ZoneId.of("America/Sao_Paulo");
  public static final List<String> CRITERIA=List.of("PISO","SUPERFICIES","RESIDUOS","ORGANIZACAO");

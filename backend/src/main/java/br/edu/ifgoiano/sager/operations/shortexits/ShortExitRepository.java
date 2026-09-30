@@ -20,7 +20,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 @Repository
-@Profile("local")
+@Profile({ "local", "production" })
 public class ShortExitRepository implements AuthorizedExitLookup, ExitOccupancyLookup {
     private static final Set<String> MUTABLE_COLUMNS = Set.of("departure_mode", "requested_departure_at",
             "expected_return_at", "reason", "notes", "status", "decision", "decision_comment",

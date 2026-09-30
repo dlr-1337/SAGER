@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 
 @Component
-@Profile("local")
+@Profile({ "local", "production" })
 public class DisciplineIdempotency {
     private final JdbcTemplate jdbc;
     public DisciplineIdempotency(JdbcTemplate jdbc) { this.jdbc=jdbc; }

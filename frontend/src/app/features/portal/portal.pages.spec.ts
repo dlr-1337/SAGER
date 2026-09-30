@@ -3,7 +3,7 @@ import { provideRouter } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { LocalAuthService } from '../../core/local-auth.service';
 import { OperationsDemoService } from '../operations/operations-demo.service';
-import { HomePage, ProfilePage } from './portal.pages';
+import { HelpPage, HomePage, ProfilePage } from './portal.pages';
 
 describe('HomePage', () => {
   it('na conta local usa atividades autorizadas sem contagens demonstrativas', async () => {
@@ -130,5 +130,35 @@ describe('ProfilePage', () => {
     await fixture.whenStable();
     expect(fixture.nativeElement.textContent).toContain('Conta sem cadastro vinculado');
     expect(fixture.nativeElement.textContent).not.toContain(linked.residenteId);
+  });
+});
+
+describe('HelpPage', () => {
+  it('orienta a conta autenticada e limita os guias às tarefas do perfil', async () => {
+    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    TestBed.inject(DemoSessionService).deactivate();
+    const auth = TestBed.inject(LocalAuthService);
+    auth.principal.set({
+      id: '00000000-0000-0000-0000-000000000001',
+      nome: 'Residente Sintético',
+      email: 'residente@example.test',
+      fotoUrl: null,
+      perfis: ['residente'],
+      residenteId: '00000000-0000-0000-0000-000000000002',
+      supervisorId: null,
+    });
+    const fixture = TestBed.createComponent(HelpPage);
+    await fixture.whenStable();
+    const page = fixture.nativeElement as HTMLElement;
+    expect(page.textContent).toContain('Usar sua conta SAGER');
+    expect(page.querySelector('a[href="/demonstracao"]')).toBeNull();
+    expect(page.querySelector('a[href="/saidas"]')).not.toBeNull();
+    expect(page.querySelector('a[href="/chamada"]')).toBeNull();
+    expect(page.querySelector('a[href="/relatorios"]')).toBeNull();
+    expect(page.textContent).toContain('operador autorizado');
+    auth.principal.set({ ...auth.principal()!, perfis: ['supervisor'] });
+    await fixture.whenStable();
+    expect(page.querySelector('a[href="/chamada"]')).not.toBeNull();
+    expect(page.querySelector('a[href="/relatorios"]')).not.toBeNull();
   });
 });

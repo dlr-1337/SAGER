@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Repository
-@Profile("local")
+@Profile({ "local", "production" })
 public class LongExitGuardians {
     private final JdbcTemplate jdbc;
 

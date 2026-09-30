@@ -5,7 +5,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import tools.jackson.databind.JsonNode;
-@RestController @Profile("local") @RequestMapping("/api/v1/relatorios")
+@RestController @Profile({ "local", "production" }) @RequestMapping("/api/v1/relatorios")
 public class ReportController {
  private final ReportService service;public ReportController(ReportService service){this.service=service;}
  @GetMapping("/catalogo") public ResponseEntity<Catalog> catalog(){return ok(service.catalog());}

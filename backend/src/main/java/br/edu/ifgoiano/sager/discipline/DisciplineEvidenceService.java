@@ -18,7 +18,7 @@ import tools.jackson.databind.node.ObjectNode;
 import static br.edu.ifgoiano.sager.discipline.OccurrenceSourceReader.Evidence;
 
 @Service
-@Profile("local")
+@Profile({ "local", "production" })
 public class DisciplineEvidenceService implements OccurrenceEvidenceSink {
     private final JdbcTemplate jdbc;
     private final ObjectMapper json;

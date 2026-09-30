@@ -20,7 +20,7 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
 @Repository
-@Profile("local")
+@Profile({ "local", "production" })
 public class HealthRepository {
     private static final String GRANTS = """
             SELECT g.*, a.display_name AS account_name

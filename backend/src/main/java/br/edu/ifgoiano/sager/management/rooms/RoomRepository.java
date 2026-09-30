@@ -11,7 +11,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 @Repository
-@Profile("local")
+@Profile({ "local", "production" })
 public class RoomRepository {
     private static final String COLUMNS = "id, code, number, accommodation_id, unit_id, floor,"
             + " capacity, situation, version, (SELECT COUNT(*)::integer FROM sager_room_allocation"

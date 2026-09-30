@@ -5,7 +5,7 @@ import java.util.Set;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
-@Component @Profile("local")
+@Component @Profile({ "local", "production" })
 public class ReportingActor {
  private final DisciplineActor actor;
  public ReportingActor(DisciplineActor actor){this.actor=actor;}

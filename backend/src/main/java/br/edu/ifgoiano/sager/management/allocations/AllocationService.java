@@ -17,7 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@Profile("local")
+@Profile({ "local", "production" })
 public class AllocationService {
     private final AllocationRepository allocations;
     private final RoomRepository rooms;

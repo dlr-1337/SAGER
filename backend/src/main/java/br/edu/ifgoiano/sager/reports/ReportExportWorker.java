@@ -8,7 +8,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
-@Service @Profile("local")
+@Service @Profile({ "local", "production" })
 public class ReportExportWorker {
  private final ReportExportJobs jobs;private final ReportArtifactStore files;private final PdfTextRenderer pdf;private final Clock clock;
  public ReportExportWorker(ReportExportJobs jobs,ReportArtifactStore files,PdfTextRenderer pdf,Clock clock){this.jobs=jobs;this.files=files;this.pdf=pdf;this.clock=clock;}

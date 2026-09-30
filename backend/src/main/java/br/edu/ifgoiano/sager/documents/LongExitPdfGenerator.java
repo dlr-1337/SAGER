@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 
 /** Renders the immutable server snapshot for one long-exit document revision. */
 @Component
-@Profile("local")
+@Profile({ "local", "production" })
 public class LongExitPdfGenerator {
     public static final String TERM_VERSION = "SAGER-SAIDA-LONGA-LOCAL-v1";
     private static final DateTimeFormatter BIRTH_DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");

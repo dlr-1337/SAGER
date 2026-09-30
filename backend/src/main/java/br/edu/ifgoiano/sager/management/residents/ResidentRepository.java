@@ -12,7 +12,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 @Repository
-@Profile("local")
+@Profile({ "local", "production" })
 public class ResidentRepository {
     private static final String COLUMNS = "id, name, enrollment, birth_date, course, version";
     private final JdbcTemplate jdbc;

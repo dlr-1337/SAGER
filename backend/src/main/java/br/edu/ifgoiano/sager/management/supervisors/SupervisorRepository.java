@@ -9,7 +9,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 @Repository
-@Profile("local")
+@Profile({ "local", "production" })
 public class SupervisorRepository {
     private static final String COLUMNS = "id, name, institutional_id, email, version";
 

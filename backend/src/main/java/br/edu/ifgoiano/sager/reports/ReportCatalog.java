@@ -8,7 +8,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 /** Fixed projections only. No clinical table, invitation, credentials or internal analysis column. */
-@Component @Profile("local")
+@Component @Profile({ "local", "production" })
 public class ReportCatalog {
  private final JdbcTemplate jdbc;
  public ReportCatalog(JdbcTemplate jdbc){this.jdbc=jdbc;}

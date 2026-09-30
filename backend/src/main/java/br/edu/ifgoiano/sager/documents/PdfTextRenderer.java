@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
 
 /** Offline text renderer shared by document features. No host fonts or network access are used. */
 @Component
-@Profile("local")
+@Profile({ "local", "production" })
 public class PdfTextRenderer {
     private static final float MARGIN = 48;
     private static final float BODY_BOTTOM = 77;

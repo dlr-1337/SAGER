@@ -26,7 +26,7 @@ import org.springframework.stereotype.Component;
 
 /** Immutable UUID-addressed storage. The caller owns and closes the supplied input stream. */
 @Component
-@Profile("local")
+@Profile({ "local", "production" })
 public class PrivateFileStore {
     private static final int BUFFER_SIZE = 8192;
     private final Path root;

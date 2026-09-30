@@ -19,7 +19,7 @@ import java.util.Set;
 import java.util.UUID;
 
 @Service
-@Profile("local")
+@Profile({ "local", "production" })
 public class LongExitExpiryService {
     private final LongExitRepository exits;
     private final IntegrationRepository integrations;

@@ -14,7 +14,7 @@ import org.springframework.transaction.annotation.*;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.*;
 
-@Service @Profile("local")
+@Service @Profile({ "local", "production" })
 public class ReportService {
  private final JdbcTemplate jdbc;private final ReportingActor actor;private final ReportCatalog catalog;
  private final DisciplineIdempotency keys;private final Clock clock;private final AuditService audit;private final ObjectMapper json;private final ReportArtifactStore files;
