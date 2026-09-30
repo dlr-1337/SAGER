@@ -202,6 +202,41 @@ describe('Residentes em sessão local', () => {
     expect(fixture.componentInstance.guardiansError()).toBe(false);
   });
 
+  it('distingue quartos de mesmo número em pisos diferentes na seleção e no histórico', async () => {
+    route.snapshot.paramMap = convertToParamMap({ id: resident.id });
+    const repeatedNumbers = structuredClone(map);
+    repeatedNumbers.rooms[0].floor = 'Térreo';
+    repeatedNumbers.rooms[1].number = '01';
+    repeatedNumbers.rooms[1].floor = '1º piso';
+    roomApi.map.mockResolvedValue(repeatedNumbers);
+    allocationApi.byResident.mockResolvedValue([
+      structuredClone(allocation),
+      {
+        ...allocation,
+        id: '00000000-0000-0000-0000-000000000402',
+        roomId: secondRoomId,
+        endedAt: '2026-09-29T13:00:00Z',
+        endReason: 'TRANSFER',
+        version: 1,
+      },
+    ]);
+    const fixture = TestBed.createComponent(ResidentDetailComponent);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const firstOption = fixture.nativeElement.querySelector(`option[value="${roomId}"]`);
+    const secondOption = fixture.nativeElement.querySelector(`option[value="${secondRoomId}"]`);
+    expect(firstOption.textContent).toContain('Q1');
+    expect(firstOption.textContent).toContain('Térreo');
+    expect(secondOption.textContent).toContain('Q2');
+    expect(secondOption.textContent).toContain('1º piso');
+    fixture.componentInstance.tab.set('historico');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Q1');
+    expect(fixture.nativeElement.textContent).toContain('Térreo');
+    expect(fixture.nativeElement.textContent).toContain('Q2');
+    expect(fixture.nativeElement.textContent).toContain('1º piso');
+  });
+
   it('aloca, transfere e encerra vínculo com versão do servidor, preservando histórico', async () => {
     route.snapshot.paramMap = convertToParamMap({ id: resident.id });
     const fixture = TestBed.createComponent(ResidentDetailComponent);

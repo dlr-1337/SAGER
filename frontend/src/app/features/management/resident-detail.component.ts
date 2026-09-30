@@ -804,7 +804,7 @@ export class ResidentDetailComponent {
     const accommodation =
       map.accommodations.find((item) => item.id === room.accommodationId)?.name ?? 'Alojamento';
     const unit = map.units.find((item) => item.id === room.unitId)?.name;
-    return `Quarto ${room.number} · ${accommodation}${unit ? ` · ${unit}` : ''}`;
+    return `Quarto ${room.number} (código ${room.code}) · ${accommodation}${unit ? ` · ${unit}` : ''}${room.floor ? ` · ${room.floor}` : ''}`;
   }
 
   roomCanReceive(room: RoomRecord): boolean {

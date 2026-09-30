@@ -300,3 +300,18 @@ bloqueia novas entradas e deixa vagas livres desconhecidas. Reservas, exceções
 de lotação, correção de histórico, capacidades oficiais e permissões
 institucionais dependem da D19/D01 e da AE/TI. Esta entrega não homologa a
 Fase 2.
+
+### Revisão final do PR #5 — 29/09/2026
+
+O rótulo da alocação agora inclui código global e piso, permitindo distinguir
+quartos de mesmo número em pisos diferentes na seleção, no vínculo atual e no
+histórico. O teste reproduziu primeiro o rótulo ambíguo e passou após a correção.
+A verificação final executou `./mvnw.cmd -B -ntp verify` (**60/60**, após iniciar
+o Docker que estava parado), `npm test -- --watch=false` (**97/97**) e
+`npm run build` (aprovado). Impeccable `detect --json` retornou `[]`.
+
+Na suíte completa de navegador, 51/52 passaram e uma navegação foi cancelada
+por recarga do Vite durante uma edição concorrente de fonte. A execução
+posterior, com os arquivos estáveis, de `e2e/allocations-local.spec.ts` e
+`e2e/supervisors-local.spec.ts:31` passou **4/4**. O CI deve executar as
+jornadas sem edições concorrentes e sem recarga automática do servidor.
