@@ -1,5 +1,6 @@
 package br.edu.ifgoiano.sager.api;
 
+import br.edu.ifgoiano.sager.health.HealthApiException;
 import br.edu.ifgoiano.sager.management.accommodations.AccommodationApiException;
 import br.edu.ifgoiano.sager.management.allocations.AllocationApiException;
 import br.edu.ifgoiano.sager.management.guardians.GuardianApiException;
@@ -30,7 +31,7 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler({ SupervisorApiException.class, ResidentApiException.class,
             GuardianApiException.class, AccommodationApiException.class,
-            RoomApiException.class, AllocationApiException.class })
+            RoomApiException.class, AllocationApiException.class, HealthApiException.class })
     public ResponseEntity<ApiError> domainError(RuntimeException error, HttpServletRequest request) {
         DomainError details = switch (error) {
             case SupervisorApiException e -> new DomainError(e.status(), e.code(), e.getMessage());
@@ -39,6 +40,7 @@ public class ApiExceptionHandler {
             case AccommodationApiException e -> new DomainError(e.status(), e.code(), e.getMessage());
             case RoomApiException e -> new DomainError(e.status(), e.code(), e.getMessage());
             case AllocationApiException e -> new DomainError(e.status(), e.code(), e.getMessage());
+            case HealthApiException e -> new DomainError(e.status(), e.code(), e.getMessage());
             default -> throw new IllegalArgumentException("Tipo de erro de domínio não suportado.");
         };
         return ApiErrors.response(request, details.status(), details.code(), details.message());

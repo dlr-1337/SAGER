@@ -16,7 +16,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 public class AuditContextProvider {
     public static final String REQUEST_ID_ATTRIBUTE =
             "br.edu.ifgoiano.sager.audit.RequestCorrelationFilter.requestId";
-    private static final Set<String> PROFILES = Set.of("gestor", "supervisor", "residente");
+    private static final Set<String> PROFILES = Set.of("gestor", "supervisor", "residente", "saude");
 
     public Context requireContext() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

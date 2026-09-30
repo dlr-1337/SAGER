@@ -64,6 +64,8 @@ public class SecurityConfiguration {
                         .permitAll()
                         .requestMatchers("/api/v1/auth/me", "/api/v1/auth/logout")
                         .authenticated()
+                        .requestMatchers("/api/v1/saude/**", "/api/v1/minha-saude/**")
+                        .authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auditoria", "/api/v1/openapi",
                                 "/api/v1/openapi.yaml", "/actuator/health", "/actuator/metrics",
                                 "/actuator/metrics/**")

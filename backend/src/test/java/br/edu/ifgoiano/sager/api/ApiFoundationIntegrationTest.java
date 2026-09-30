@@ -9,6 +9,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Map;
+import java.util.List;
 import java.util.UUID;
 
 import br.edu.ifgoiano.sager.auth.LocalAccountProvisioningService;
@@ -126,6 +127,48 @@ class ApiFoundationIntegrationTest {
         try (HttpClient resident = browser()) {
             login(resident, "residente@example.test", PASSWORD, csrf(resident));
             assertError(get(resident, "/api/v1/openapi"), 403, "forbidden");
+        }
+    }
+
+    @Test
+    void openApiIncludesActualHealthPathsAndStrictDistinctRequestSchemas() throws Exception {
+        account("gestor");
+        try (HttpClient client = browser()) {
+            login(client, "gestor@example.test", PASSWORD, csrf(client));
+            HttpResponse<String> response = get(client, "/api/v1/openapi");
+            assertThat(response.statusCode()).isEqualTo(200);
+            JsonNode document = json.readTree(response.body());
+            JsonNode paths = document.path("paths");
+            for (String path : List.of("/api/v1/saude/me", "/api/v1/saude/contas",
+                    "/api/v1/saude/habilitacoes", "/api/v1/saude/habilitacoes/{id}/revogacao",
+                    "/api/v1/saude/vinculos", "/api/v1/saude/vinculos/{id}/encerramento",
+                    "/api/v1/saude/custodias", "/api/v1/saude/custodias/{id}/encerramento",
+                    "/api/v1/saude/residentes", "/api/v1/saude/residentes/{id}",
+                    "/api/v1/saude/residentes/{id}/profissionais", "/api/v1/saude/residentes/{id}/notas",
+                    "/api/v1/saude/notas/{id}", "/api/v1/saude/notas/{id}/historico",
+                    "/api/v1/saude/notas/{id}/correcoes", "/api/v1/saude/notas/{id}/partilhas",
+                    "/api/v1/saude/notas/{id}/partilhas/{shareId}/revogacao",
+                    "/api/v1/saude/residentes/{id}/exportacoes", "/api/v1/minha-saude/notas",
+                    "/api/v1/minha-saude/notas/{id}", "/api/v1/minha-saude/notas/{id}/historico",
+                    "/api/v1/minha-saude/exportacoes")) {
+                assertThat(paths.has(path)).as(path).isTrue();
+            }
+            assertThat(paths.path("/api/v1/saude/notas/{id}/partilhas").path("post")
+                    .path("requestBody").path("content").path("application/json").path("schema")
+                    .path("$ref").asText()).isEqualTo("#/components/schemas/HealthNoteShareRequest");
+            JsonNode schemas = document.path("components").path("schemas");
+            JsonNode grant = schemas.path("HealthGrantCreateRequest").path("properties");
+            assertThat(grant.path("registrationNumber").path("maxLength").asInt()).isEqualTo(100);
+            assertThat(grant.path("registrationRegion").path("enum").size()).isEqualTo(27);
+            JsonNode correction = schemas.path("HealthNoteCorrectionRequest").path("properties");
+            assertThat(correction.path("body").path("maxLength").asInt()).isEqualTo(4000);
+            assertThat(correction.path("reason").path("minLength").asInt()).isEqualTo(10);
+            assertThat(correction.path("version").path("type").asText()).isEqualTo("integer");
+            assertThat(schemas.path("HealthNoteShareRequest").path("properties")
+                    .path("recipientGrantIds").path("uniqueItems").asBoolean()).isTrue();
+            assertThat(paths.path("/api/v1/minha-saude/exportacoes").path("post")
+                    .path("responses").path("403").path("content").path("application/json")
+                    .path("schema").path("$ref").asText()).isEqualTo("#/components/schemas/ApiError");
         }
     }
 
