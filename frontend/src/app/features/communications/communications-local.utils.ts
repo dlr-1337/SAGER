@@ -38,6 +38,7 @@ export const sourceLabels: Record<string, string> = {
   SHORT_RETURN: 'Retorno de saída curta',
   LONG_RETURN: 'Retorno de saída longa',
   CLEANING: 'Avaliação de limpeza',
+  CLEANING_ASSESSMENT: 'Avaliação de limpeza',
   MANUAL: 'Análise manual do supervisor',
 };
 export const eventLabels: Record<string, string> = {
