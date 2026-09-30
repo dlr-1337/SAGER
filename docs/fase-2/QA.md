@@ -206,14 +206,14 @@ de responsáveis e a homologação institucional da Fase 2 ainda estavam pendent
 no perfil `local`, com dados sintéticos. O resultado é **aceite técnico para
 desenvolvimento**; não comprova guarda, autorização para saída longa ou assinatura.
 
-| Verificação | Comando ou cenário | Resultado |
-| --- | --- | --- |
-| Migração | `GuardianMigrationIntegrationTest` em PostgreSQL 17.11/Testcontainers | V8 aplicada em banco vazio e sobre V1–V7; registros de residentes preservados, chave estrangeira e campos obrigatórios conferidos. |
-| API e segurança | `GuardianApiIntegrationTest` com HTTP real, sessão e PostgreSQL | Múltiplos responsáveis por residente, vínculo válido, campos opcionais, edição, versão obsoleta, entrada inválida, leitura por gestor/supervisor, escrita só por gestor, anônimo, CSRF, conta desativada e bloqueio fora de `local`. |
-| Backend completo | `backend/`: `./mvnw.cmd -B -ntp verify` com JDK 21 | **53/53 testes**, sem falhas; JAR gerado. |
-| Angular | `frontend/`: `npm test -- --watch=false` e `npm run build` | **83/83 testes** em 18 arquivos; build de produção aprovado. O teste antigo da aba de responsáveis foi atualizado para a consulta real, inclusive erro e nova tentativa sem dados da demonstração. |
+| Verificação           | Comando ou cenário                                                                                   | Resultado                                                                                                                                                                                                                                                                           |
+| --------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Migração              | `GuardianMigrationIntegrationTest` em PostgreSQL 17.11/Testcontainers                                | V8 aplicada em banco vazio e sobre V1–V7; registros de residentes preservados, chave estrangeira e campos obrigatórios conferidos.                                                                                                                                                  |
+| API e segurança       | `GuardianApiIntegrationTest` com HTTP real, sessão e PostgreSQL                                      | Múltiplos responsáveis por residente, vínculo válido, campos opcionais, edição, versão obsoleta, entrada inválida, leitura por gestor/supervisor, escrita só por gestor, anônimo, CSRF, conta desativada e bloqueio fora de `local`.                                                |
+| Backend completo      | `backend/`: `./mvnw.cmd -B -ntp verify` com JDK 21                                                   | **53/53 testes**, sem falhas; JAR gerado.                                                                                                                                                                                                                                           |
+| Angular               | `frontend/`: `npm test -- --watch=false` e `npm run build`                                           | **83/83 testes** em 18 arquivos; build de produção aprovado. O teste antigo da aba de responsáveis foi atualizado para a consulta real, inclusive erro e nova tentativa sem dados da demonstração.                                                                                  |
 | Jornadas no navegador | `$env:SAGER_E2E_PORT='4331'; npx playwright test --grep-invert 'captura telas centrais' --workers=1` | **49/49 passaram**. Cobrem cadastro, edição, recarga, conflito em duas abas, perfis, falha da API, demonstração offline, validação de campos aparados, teclado, layout celular e acessibilidade. A captura global foi excluída porque sobrescreve imagens de referência rastreadas. |
-| Revisão visual | Impeccable `detect --json`, Axe e capturas desktop/celular | Detector retornou `[]`; formulário a 320 px sem transbordamento nem violações Axe sérias/críticas. Na prova real, não houve erro JavaScript ou transbordamento a 375 px. |
+| Revisão visual        | Impeccable `detect --json`, Axe e capturas desktop/celular                                           | Detector retornou `[]`; formulário a 320 px sem transbordamento nem violações Axe sérias/críticas. Na prova real, não houve erro JavaScript ou transbordamento a 375 px.                                                                                                            |
 
 ### Prova integrada sem API simulada
 
@@ -254,15 +254,15 @@ histórico e contagem de ocupação no perfil `local`. O resultado é **aceite
 técnico para desenvolvimento** conforme a regra provisória autorizada pelo
 solicitante; não é aprovação institucional da AE/TI.
 
-| Verificação | Comando ou cenário | Resultado |
-| --- | --- | --- |
-| Migração | `AllocationMigrationIntegrationTest` em PostgreSQL 17.11/Testcontainers | V9 aplicada em banco vazio e sobre V1–V8, preservando residentes, quartos e responsáveis. Índice impede dois vínculos ativos do mesmo residente; restrição exige motivo válido quando o vínculo termina. **2/2** testes passaram após corrigir o caso de motivo `NULL`. |
-| API e segurança | `AllocationApiIntegrationTest` e `RoomApiIntegrationTest` em PostgreSQL | Criação, transferência e encerramento; contagem e vagas no mapa; capacidade definida, lotação, manutenção, versão obsoleta, permissões de gestor/supervisor, anônimo, CSRF, conta desativada e concorrência por uma vaga. |
-| Backend completo | `backend/`: `./mvnw.cmd -B -ntp verify` com JDK 21 | **60/60 testes** e JAR aprovados. A correção posterior da restrição V9 recebeu execução focada da migração, **2/2**. |
-| Angular | `frontend/`: `npm test -- --watch=false` e `npm run build` | **96/96 testes** e build de produção aprovados. |
-| Jornadas focadas | `npx playwright test e2e/allocations-local.spec.ts --workers=1` e demais testes focados de quartos/residentes | **14/14** passaram, incluindo alocar, transferir, encerrar, recarga, conflito em duas abas, supervisor sem escrita, demonstração separada, Axe e celular. |
-| Navegador completo | `frontend/`: `$env:SAGER_E2E_PORT='4332'; npx playwright test --grep-invert 'captura telas centrais' --workers=1 --reporter=line` | **52/52** jornadas passaram na repetição isolada. A captura global foi excluída porque sobrescreve imagens de referência rastreadas. |
-| Revisão visual | Impeccable `detect --json`, capturas e viewport 390 × 844 | Detector retornou `[]`; mapa e histórico sem transbordamento horizontal na prova integrada, sem falhas de acessibilidade nas jornadas focadas. |
+| Verificação        | Comando ou cenário                                                                                                                | Resultado                                                                                                                                                                                                                                                               |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Migração           | `AllocationMigrationIntegrationTest` em PostgreSQL 17.11/Testcontainers                                                           | V9 aplicada em banco vazio e sobre V1–V8, preservando residentes, quartos e responsáveis. Índice impede dois vínculos ativos do mesmo residente; restrição exige motivo válido quando o vínculo termina. **2/2** testes passaram após corrigir o caso de motivo `NULL`. |
+| API e segurança    | `AllocationApiIntegrationTest` e `RoomApiIntegrationTest` em PostgreSQL                                                           | Criação, transferência e encerramento; contagem e vagas no mapa; capacidade definida, lotação, manutenção, versão obsoleta, permissões de gestor/supervisor, anônimo, CSRF, conta desativada e concorrência por uma vaga.                                               |
+| Backend completo   | `backend/`: `./mvnw.cmd -B -ntp verify` com JDK 21                                                                                | **60/60 testes** e JAR aprovados. A correção posterior da restrição V9 recebeu execução focada da migração, **2/2**.                                                                                                                                                    |
+| Angular            | `frontend/`: `npm test -- --watch=false` e `npm run build`                                                                        | **96/96 testes** e build de produção aprovados.                                                                                                                                                                                                                         |
+| Jornadas focadas   | `npx playwright test e2e/allocations-local.spec.ts --workers=1` e demais testes focados de quartos/residentes                     | **14/14** passaram, incluindo alocar, transferir, encerrar, recarga, conflito em duas abas, supervisor sem escrita, demonstração separada, Axe e celular.                                                                                                               |
+| Navegador completo | `frontend/`: `$env:SAGER_E2E_PORT='4332'; npx playwright test --grep-invert 'captura telas centrais' --workers=1 --reporter=line` | **52/52** jornadas passaram na repetição isolada. A captura global foi excluída porque sobrescreve imagens de referência rastreadas.                                                                                                                                    |
+| Revisão visual     | Impeccable `detect --json`, capturas e viewport 390 × 844                                                                         | Detector retornou `[]`; mapa e histórico sem transbordamento horizontal na prova integrada, sem falhas de acessibilidade nas jornadas focadas.                                                                                                                          |
 
 ### Prova integrada sem API simulada
 
@@ -315,3 +315,60 @@ por recarga do Vite durante uma edição concorrente de fonte. A execução
 posterior, com os arquivos estáveis, de `e2e/allocations-local.spec.ts` e
 `e2e/supervisors-local.spec.ts:31` passou **4/4**. O CI deve executar as
 jornadas sem edições concorrentes e sem recarga automática do servidor.
+
+## CI e pacote de decisões AE/TI — 29/09/2026
+
+O PR #5 foi revisado e mesclado em `main` no commit
+`7ece205ea306b14b2b37e1c2c5008315ef7ff0eb`. O
+[PR #6](https://github.com/dlr-1337/SAGER/pull/6) implementa o
+[workflow CI](../../.github/workflows/ci.yml) e o
+[pacote de revisão AE/TI](PACOTE_AE_TI.md). As regras provisórias continuam
+separadas das decisões institucionais, sem aprovação nominal ou data de
+homologação inventadas.
+
+### Primeira execução e correções
+
+A [execução 36657106828](https://github.com/dlr-1337/SAGER/actions/runs/36657106828),
+do commit `55eac5910fca6eab73c531454263f07449d6951c`, comprovou no Ubuntu 24.04:
+
+- Backend `./mvnw -B -ntp verify`: **60/60**, sem falhas, erros ou testes
+  ignorados, com PostgreSQL 17.11/Testcontainers e JAR gerado.
+- Angular `npm test -- --watch=false`: **97/97**; build de produção aprovado.
+- Playwright: **51/52**. A jornada de chamada leu `groups.count()` antes
+  da renderização do componente e encontrou zero grupos. O teste agora aguarda
+  a primeira marcação ficar visível antes de contar os residentes; não foram
+  adicionadas retentativas, sleeps ou aumento de timeout. A execução local
+  focada em `e2e/journeys.spec.ts:53`, com `--repeat-each=3`, passou **3/3**
+  após a correção.
+- Os dois uploads de relatórios falharam por **cota de armazenamento de
+  artefatos da conta GitHub**. A API listou zero artefatos neste repositório.
+  A publicação passou a ser auxiliar, com aviso no resumo se falhar; testes,
+  build e jornadas continuam obrigatórios. Enquanto a cota estiver esgotada,
+  os resultados são consultados nos logs das etapas.
+- A tentativa de exigir os dois checks na proteção de `main` recebeu `403`,
+  com exigência de upgrade de plano ou mudança para repositório público.
+  O repositório permanece privado e a proteção não foi aplicada. Os checks
+  continuam executando; o critério para mesclar esta entrega é conferir
+  manualmente ambos aprovados no commit final.
+
+O workflow e a configuração passaram em actionlint 1.7.12, Prettier,
+`git diff --check` e revisão independente. A listagem do navegador confirmou
+52 jornadas, excluindo somente a captura que sobrescreve referências visuais
+rastreadas. A documentação do pacote teve 36 links locais conferidos; a
+conferência conjunta dos documentos alterados validou **87 links locais**, sem
+destinos ausentes.
+
+### Execução após as correções
+
+A [execução 36657756253](https://github.com/dlr-1337/SAGER/actions/runs/36657756253),
+no commit `5bd414ed3d65518fa7ce86397b4720f102ac7f5e`, concluiu com os dois jobs
+**aprovados**. Os logs confirmaram **60/60** testes backend, **97/97** Angular,
+build de produção e **52/52** jornadas Chromium. Não houve testes ignorados no
+backend nem retentativas do navegador. A etapa de resumo executou após os
+uploads recusados pela cota, comprovando o aviso sem esconder falha de teste.
+O commit posterior de documentação será verificado novamente pelos checks do PR.
+
+**Limites:** o CI usa somente dados sintéticos. Jornadas com API interceptada
+validam a interface; os testes de backend usam PostgreSQL real. A prova
+integrada de navegador, banco e API está registrada na quinta fatia acima.
+O CI não homologa D01/D02/D15/D19/D21/D22 nem conclui as Fases 0–2.

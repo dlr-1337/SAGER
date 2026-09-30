@@ -19,9 +19,10 @@ não integradas usam serviços em memória; a demonstração usa seleção de pe
 Em 26/09/2026, o solicitante substituiu a antiga prova Google OIDC por login local
 provisório em `backend/`, limitado a desenvolvimento e teste. O login foi integrado
 ao Angular; ainda não há `infra/`. A primeira fatia de supervisores já persiste
-no PostgreSQL. As demais telas existentes são a base visual e funcional para
-as próximas fatias; a estrutura de alojamentos e quartos foi implementada
-conforme a decisão de projeto de 29/09/2026 e recebeu [aceite técnico local](fase-2/QA.md).
+no PostgreSQL, assim como residentes, responsáveis, alojamentos, quartos e
+alocações com histórico. Essas fatias receberam [aceite técnico local](fase-2/QA.md)
+em 29/09/2026. As demais telas existentes são a base visual e funcional para
+as próximas fatias.
 
 A arquitetura de referência é o monólito modular Spring Boot com PostgreSQL/Flyway,
 sessão e autorização no servidor, Angular e API na mesma origem, arquivos privados e
@@ -102,6 +103,13 @@ somente após prova com o provedor institucional.
 **Decisões de entrada:** D01, D02 e D21; D22 para acesso e tratamento inicial de dados
 sensíveis.
 
+**Estado em 29/09/2026:** backend, sessão local, migrações e fatias cadastrais
+persistidas estão implementados. O [CI](CI.md) verifica backend em PostgreSQL,
+Angular e jornadas Chromium no GitHub Actions; os resultados estão no
+[QA](fase-2/QA.md). Erros padronizados para toda a API, OpenAPI, auditoria,
+observabilidade e identidade institucional continuam pendentes. A Fase 1
+ainda não está completa nem homologada.
+
 ### Fase 2 — Residentes, responsáveis, supervisores e quartos
 
 **Cobertura:** E02–E04; AC04–AC08 e AC11–AC15. AC09/AC10 fecham com a saída longa.
@@ -152,6 +160,9 @@ e capacidade registradas na [D19](fase-0/DECISOES.md), sem carga de estudantes r
 As demais operações continuam demonstrativas. Reservas, exceções de lotação,
 correção de histórico, D01/D02/D15/D19/D22 e a homologação institucional
 permanecem pendentes. O aceite técnico de cada fatia não encerra a Fase 2.
+O [pacote de decisões e aceite AE/TI](fase-2/PACOTE_AE_TI.md) reúne as regras
+locais implementadas, as divergências conhecidas e os campos de aprovação que
+dependem de evidência institucional.
 
 ### Fase 3 — Chamada, saída curta, decisão e retorno
 

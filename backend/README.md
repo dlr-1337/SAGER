@@ -124,3 +124,7 @@ referência de aceite. As fatias persistidas da Fase 2 também receberam
 conflito e persistência após reinício. As demais operações das próximas
 fatias continuam demonstrativas; não há autorização completa por
 operação e registro de residente, nem homologação institucional da Fase 2.
+
+O [CI](../docs/CI.md) executa o `verify` em Ubuntu com JDK 21 e Docker,
+sem credenciais da aplicação. O [pacote AE/TI](../docs/fase-2/PACOTE_AE_TI.md)
+reúne as decisões necessárias para homologação.
