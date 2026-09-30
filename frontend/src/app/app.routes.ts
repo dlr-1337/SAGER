@@ -90,7 +90,7 @@ const operationRoutes: Routes = OPERATIONS_ROUTES.map((route) => {
   let roles: Role[] = ['supervisor'];
   if (route.path?.startsWith('saidas'))
     roles =
-      route.path === 'saidas/nova' || route.path?.endsWith('/editar')
+      route.path?.endsWith('/nova') || route.path?.endsWith('/editar')
         ? ['residente']
         : ['supervisor', 'residente'];
   if (route.path === 'ranking') roles = ['residente', 'supervisor', 'gestor'];
@@ -146,6 +146,12 @@ export const routes: Routes = [
     path: 'ajuda',
     data: { public: true },
     loadComponent: () => import('./features/portal/portal.pages').then((m) => m.HelpPage),
+  },
+  {
+    path: 'assinatura/acesso',
+    data: { public: true },
+    loadComponent: () =>
+      import('./features/signature/signature-access.page').then((m) => m.SignatureAccessPage),
   },
   {
     path: 'assinatura/:token',

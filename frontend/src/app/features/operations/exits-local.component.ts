@@ -1,10 +1,14 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { OperationsLocalApiService, operationsError } from './operations-local-api.service';
 import { ShortExit } from './operations-local.models';
 import { exitStatusLabels, formatOperationsTime } from './operations-local.utils';
+import { LongExitApiService } from './long-exit-api.service';
+import { LongExit } from './long-exit.models';
+import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
 
 @Component({
   standalone: true,
@@ -20,19 +24,41 @@ import { exitStatusLabels, formatOperationsTime } from './operations-local.utils
           <p>
             {{
               session.hasRole('residente')
-                ? 'Acompanhe suas solicitações de saída curta.'
+                ? 'Acompanhe suas solicitações e autorizações de saída.'
                 : 'Analise os pedidos e registre a partida e o retorno presenciais.'
             }}
           </p>
         </div>
         @if (session.hasRole('residente')) {
-          <a class="btn op-primary" routerLink="/saidas/nova">Solicitar saída curta</a>
+          <a
+            class="btn op-primary"
+            [routerLink]="longMode() ? '/saidas/longas/nova' : '/saidas/nova'"
+            >{{ longMode() ? 'Solicitar saída longa' : 'Solicitar saída curta' }}</a
+          >
         }
       </header>
       <p class="op-help">
-        Saídas curtas: até 3 horas. Os horários são apresentados no horário de Brasília. Saídas
-        longas ainda estão indisponíveis no ambiente local.
+        {{
+          longMode()
+            ? 'Saídas longas: mais de 3 horas, com assinatura de um responsável elegível antes da aprovação.'
+            : 'Saídas curtas: até 3 horas.'
+        }}
+        Os horários são apresentados no horário de Brasília.
       </p>
+      <nav class="exit-modalities" aria-label="Modalidade da saída">
+        <a
+          routerLink="/saidas"
+          [class.selected]="!longMode()"
+          [attr.aria-current]="!longMode() ? 'page' : null"
+          >Curtas</a
+        ><a
+          routerLink="/saidas"
+          [queryParams]="{ tipo: 'longa' }"
+          [class.selected]="longMode()"
+          [attr.aria-current]="longMode() ? 'page' : null"
+          >Longas</a
+        >
+      </nav>
       @if (!session.hasRole('supervisor', 'residente')) {
         <section class="op-empty" role="alert">
           <h2>Acesso restrito</h2>
@@ -56,7 +82,9 @@ import { exitStatusLabels, formatOperationsTime } from './operations-local.utils
         </section>
         <section class="op-section" aria-labelledby="local-exit-results">
           <div class="op-section-heading">
-            <h2 id="local-exit-results">Solicitações de saída curta</h2>
+            <h2 id="local-exit-results">
+              {{ longMode() ? 'Solicitações de saída longa' : 'Solicitações de saída curta' }}
+            </h2>
             @if (!loading() && !error()) {
               <p aria-live="polite">{{ items().length }} registro(s)</p>
             }
@@ -88,7 +116,10 @@ import { exitStatusLabels, formatOperationsTime } from './operations-local.utils
                 <article class="op-row">
                   <div class="op-row-main">
                     <h3>{{ exit.residentName }}</h3>
-                    <p>Matrícula {{ exit.enrollment }} · Saída curta</p>
+                    <p>
+                      Matrícula {{ exit.enrollment }} ·
+                      {{ longMode() ? 'Saída longa' : 'Saída curta' }}
+                    </p>
                     <p>
                       Saída solicitada {{ formatTime(exit.requestedDepartureAt) }} · Retorno
                       previsto {{ formatTime(exit.expectedReturnAt) }}
@@ -96,8 +127,14 @@ import { exitStatusLabels, formatOperationsTime } from './operations-local.utils
                   </div>
                   <div class="op-row-side">
                     <span class="op-status">{{ labels[exit.status] }}</span>
+                    @if (longExit(exit); as long) {
+                      <small>{{ signatures[long.signatureStatus] }}</small
+                      ><small>{{ messages[long.messageStatus] }}</small>
+                    }
                   </div>
-                  <a class="op-row-link" [routerLink]="['/saidas', exit.id]"
+                  <a
+                    class="op-row-link"
+                    [routerLink]="longMode() ? ['/saidas/longas', exit.id] : ['/saidas', exit.id]"
                     >Ver solicitação<span class="material-symbols-outlined" aria-hidden="true"
                       >arrow_forward</span
                     ></a
@@ -110,11 +147,47 @@ import { exitStatusLabels, formatOperationsTime } from './operations-local.utils
       }
     </main>
   `,
+  styles: [
+    `
+      :host {
+        display: block;
+      }
+      .exit-modalities {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 20px 0 24px;
+      }
+      .exit-modalities a {
+        min-height: 48px;
+        min-width: 90px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-control);
+        padding: 8px 20px;
+        color: var(--green-800);
+        font-weight: 700;
+        text-decoration: none;
+      }
+      .exit-modalities a.selected {
+        background: var(--green-900);
+        border-color: var(--green-900);
+        color: var(--white);
+      }
+    `,
+  ],
 })
 export class ExitsLocalComponent {
   readonly session = inject(DemoSessionService);
   private readonly api = inject(OperationsLocalApiService);
-  readonly items = signal<ShortExit[]>([]);
+  private readonly longApi = inject(LongExitApiService);
+  private readonly route = inject(ActivatedRoute);
+  readonly longMode = signal(false);
+  readonly items = signal<(ShortExit | LongExit)[]>([]);
+  readonly signatures = signatureStatusLabels;
+  readonly messages = messageStatusLabels;
   readonly loading = signal(false);
   readonly error = signal('');
   readonly labels = exitStatusLabels;
@@ -126,7 +199,14 @@ export class ExitsLocalComponent {
   });
   private sequence = 0;
   constructor() {
-    if (this.session.hasRole('supervisor', 'residente')) void this.load();
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
+      this.longMode.set(params.get('tipo') === 'longa');
+      this.filters.controls.status.setValue('');
+      if (this.session.hasRole('supervisor', 'residente')) void this.load();
+    });
+  }
+  longExit(exit: ShortExit | LongExit): LongExit | null {
+    return 'signatureStatus' in exit ? exit : null;
   }
   async load(): Promise<void> {
     if (!this.session.hasRole('supervisor', 'residente')) return;
@@ -136,7 +216,9 @@ export class ExitsLocalComponent {
     this.items.set([]);
     try {
       const value = this.filters.getRawValue();
-      const items = await this.api.exits(value.search.trim(), value.status);
+      const items = this.longMode()
+        ? await this.longApi.list(value.search.trim(), value.status)
+        : await this.api.exits(value.search.trim(), value.status);
       if (sequence === this.sequence) this.items.set(items);
     } catch (error) {
       if (sequence === this.sequence) this.error.set(operationsError(error));

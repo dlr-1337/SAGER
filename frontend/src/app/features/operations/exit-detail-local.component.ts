@@ -49,9 +49,7 @@ import {
         @if (saved()) {
           <p class="op-success" role="status">Solicitação salva.</p>
         }
-        <p class="op-help">
-          Horário de Brasília. Saídas longas ainda estão indisponíveis no ambiente local.
-        </p>
+        <p class="op-help">Horário de Brasília. Este pedido segue as regras de saída curta.</p>
         @if (exit.deadlineAt) {
           <p class="op-help">
             {{
