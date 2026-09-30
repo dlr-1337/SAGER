@@ -249,8 +249,8 @@ class GuardianApiIntegrationTest {
 
     private UUID resident(String enrollment) {
         UUID id = UUID.randomUUID();
-        jdbc.update("INSERT INTO sager_resident (id, name, enrollment) VALUES (?, ?, ?)",
-                id, "Estudante Sintético", enrollment);
+        jdbc.update("INSERT INTO sager_resident (id, name, enrollment, birth_date) VALUES (?, ?, ?, ?)",
+                id, "Estudante Sintético", enrollment, java.time.LocalDate.of(2006, 1, 2));
         return id;
     }
 

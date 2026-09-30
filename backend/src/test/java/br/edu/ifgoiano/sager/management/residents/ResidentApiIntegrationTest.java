@@ -38,6 +38,7 @@ import tools.jackson.databind.ObjectMapper;
 @ActiveProfiles("local")
 class ResidentApiIntegrationTest {
     private static final String PASSWORD = "Senha sintética 123!";
+    private static final String BIRTH_DATE = "2006-01-02";
     private static final String PATH = "/api/v1/residentes";
     private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17.11");
 
@@ -72,7 +73,7 @@ class ResidentApiIntegrationTest {
     }
 
     @Test
-    void gestorCreatesReadsAndUpdatesWithTrimmedValuesAndNullableFields() throws Exception {
+    void gestorCreatesReadsAndUpdatesWithRequiredBirthDateAndOptionalCourse() throws Exception {
         account("gestor");
         try (HttpClient client = browser()) {
             login(client, "gestor");
@@ -82,7 +83,8 @@ class ResidentApiIntegrationTest {
             assertThat(json.readTree(empty.body()).size()).isZero();
 
             HttpResponse<String> created = post(client, PATH,
-                    body("  Estudante Sintético  ", "  DEMO-2026-A  ", null, "  ", null), csrf(client));
+                    body("  Estudante Sintético  ", "  DEMO-2026-A  ", BIRTH_DATE, "  ", null),
+                    csrf(client));
             assertThat(created.statusCode()).isEqualTo(201);
             assertNoStore(created);
             JsonNode value = json.readTree(created.body());
@@ -93,7 +95,7 @@ class ResidentApiIntegrationTest {
             assertThat(value.size()).isEqualTo(6);
             assertThat(value.path("name").asText()).isEqualTo("Estudante Sintético");
             assertThat(value.path("enrollment").asText()).isEqualTo("DEMO-2026-A");
-            assertThat(value.path("birthDate").isNull()).isTrue();
+            assertThat(value.path("birthDate").asText()).isEqualTo(BIRTH_DATE);
             assertThat(value.path("course").isNull()).isTrue();
             assertThat(value.path("version").asLong()).isZero();
             assertThat(json.readTree(get(client, PATH).body()).size()).isEqualTo(1);
@@ -123,17 +125,20 @@ class ResidentApiIntegrationTest {
         account("gestor");
         try (HttpClient client = browser()) {
             login(client, "gestor");
-            for (String invalid : List.of("{}", "{", body("AB", "DEMO-A", null, null, null),
-                    body("Pessoa", " ", null, null, null),
-                    body("Pessoa", "A".repeat(65), null, null, null),
-                    body("N".repeat(201), "DEMO-A", null, null, null),
+            for (String invalid : List.of("{}", "{", body("Pessoa", "DEMO-A", null, null, null),
+                    body("Pessoa", "DEMO-A", "", null, null),
+                    body("Pessoa", "DEMO-A", "  ", null, null),
+                    body("AB", "DEMO-A", BIRTH_DATE, null, null),
+                    body("Pessoa", " ", BIRTH_DATE, null, null),
+                    body("Pessoa", "A".repeat(65), BIRTH_DATE, null, null),
+                    body("N".repeat(201), "DEMO-A", BIRTH_DATE, null, null),
                     body("Pessoa", "DEMO-A", "2026-02-30", null, null),
                     body("Pessoa", "DEMO-A", LocalDate.now().plusDays(1).toString(), null, null),
-                    body("Pessoa", "DEMO-A", null, "C".repeat(201), null),
-                    body(123, "DEMO-A", null, null, null),
-                    body("Pessoa", 123, null, null, null),
+                    body("Pessoa", "DEMO-A", BIRTH_DATE, "C".repeat(201), null),
+                    body(123, "DEMO-A", BIRTH_DATE, null, null),
+                    body("Pessoa", 123, BIRTH_DATE, null, null),
                     body("Pessoa", "DEMO-A", 20260101, null, null),
-                    body("Pessoa", "DEMO-A", null, false, null))) {
+                    body("Pessoa", "DEMO-A", BIRTH_DATE, false, null))) {
                 assertError(post(client, PATH, invalid, csrf(client)), 400, "invalid_input");
             }
             assertError(get(client, PATH + "/not-a-uuid"), 400, "invalid_input");
@@ -150,25 +155,36 @@ class ResidentApiIntegrationTest {
             String first = create(client, "Estudante Primeiro", "DEMO-2026-A");
             String second = create(client, "Estudante Segundo", "DEMO-2026-B");
             assertError(post(client, PATH,
-                    body("Estudante Duplicado", " demo-2026-a ", null, null, null), csrf(client)),
+                    body("Estudante Duplicado", " demo-2026-a ", BIRTH_DATE, null, null), csrf(client)),
                     409, "duplicate_enrollment");
             assertError(put(client, PATH + "/" + second,
-                    body("Estudante Segundo", "DEMO-2026-A", null, null, 0), csrf(client)),
+                    body("Estudante Segundo", "DEMO-2026-A", BIRTH_DATE, null, 0), csrf(client)),
                     409, "duplicate_enrollment");
-            String fresh = body("Estudante Primeiro Atualizado", "DEMO-2026-A", null, null, 0);
+            String fresh = body("Estudante Primeiro Atualizado", "DEMO-2026-A", BIRTH_DATE, null, 0);
             assertThat(put(client, PATH + "/" + first, fresh, csrf(client)).statusCode())
                     .isEqualTo(200);
             assertError(put(client, PATH + "/" + first,
-                    body("Alteração Perdida", "DEMO-2026-A", null, null, 0), csrf(client)),
+                    body("Alteração Perdida", "DEMO-2026-A", BIRTH_DATE, null, 0), csrf(client)),
                     409, "stale_version");
             for (Object invalidVersion : List.of(-1, 0.5, "0", Long.MAX_VALUE, true)) {
                 assertError(put(client, PATH + "/" + first,
-                        body("Estudante Primeiro", "DEMO-2026-A", null, null, invalidVersion),
+                        body("Estudante Primeiro", "DEMO-2026-A", BIRTH_DATE, null, invalidVersion),
                         csrf(client)), 400, "invalid_input");
             }
             assertError(put(client, PATH + "/" + first,
-                    body("Estudante Primeiro", "DEMO-2026-A", null, null, null), csrf(client)),
+                    body("Estudante Primeiro", "DEMO-2026-A", BIRTH_DATE, null, null), csrf(client)),
                     400, "invalid_input");
+            for (Object missingDate : List.of("", "   ")) {
+                assertError(put(client, PATH + "/" + first,
+                        body("Estudante Primeiro", "DEMO-2026-A", missingDate, null, 1),
+                        csrf(client)), 400, "invalid_input");
+            }
+            assertError(put(client, PATH + "/" + first,
+                    body("Estudante Primeiro", "DEMO-2026-A", null, null, 1), csrf(client)),
+                    400, "invalid_input");
+            assertError(put(client, PATH + "/" + first,
+                    "{\"name\":\"Estudante Primeiro\",\"enrollment\":\"DEMO-2026-A\",\"version\":1}",
+                    csrf(client)), 400, "invalid_input");
             assertError(put(client, PATH + "/" + UUID.randomUUID(), fresh, csrf(client)),
                     404, "not_found");
             JsonNode value = json.readTree(get(client, PATH + "/" + first).body());
@@ -186,7 +202,7 @@ class ResidentApiIntegrationTest {
         try (HttpClient client = browser()) {
             login(client, "gestor");
             HttpResponse<String> created = post(client, PATH,
-                    body("\u00a0Estudante Sintético\u2003", "\u00a0DEMO-2026-A\u2003", null,
+                    body("\u00a0Estudante Sintético\u2003", "\u00a0DEMO-2026-A\u2003", BIRTH_DATE,
                             "\u00a0\u2003", null), csrf(client));
             assertThat(created.statusCode()).isEqualTo(201);
             JsonNode value = json.readTree(created.body());
@@ -195,11 +211,11 @@ class ResidentApiIntegrationTest {
             assertThat(value.path("course").isNull()).isTrue();
 
             assertError(post(client, PATH,
-                    body("Outra Pessoa", "demo-2026-a\u00a0", null, null, null), csrf(client)),
+                    body("Outra Pessoa", "demo-2026-a\u00a0", BIRTH_DATE, null, null), csrf(client)),
                     409, "duplicate_enrollment");
             String otherId = create(client, "Estudante Segundo", "DEMO-2026-B");
             assertError(put(client, PATH + "/" + otherId,
-                    body("Estudante Segundo", "\u2003demo-2026-a", null, null, 0), csrf(client)),
+                    body("Estudante Segundo", "\u2003demo-2026-a", BIRTH_DATE, null, 0), csrf(client)),
                     409, "duplicate_enrollment");
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_resident", Integer.class))
                     .isEqualTo(2);
@@ -280,7 +296,7 @@ class ResidentApiIntegrationTest {
     }
 
     private String create(HttpClient client, String name, String enrollment) throws Exception {
-        HttpResponse<String> response = post(client, PATH, body(name, enrollment, null, null, null),
+        HttpResponse<String> response = post(client, PATH, body(name, enrollment, BIRTH_DATE, null, null),
                 csrf(client));
         assertThat(response.statusCode()).isEqualTo(201);
         return json.readTree(response.body()).path("id").asText();

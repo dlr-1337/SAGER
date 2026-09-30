@@ -256,8 +256,10 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
             <div class="mg-note">
               <span class="material-symbols-rounded" aria-hidden="true">info</span>
               <p>
-                A situação do quarto é manual e não define sua ocupação. A ausência da data de
-                nascimento não indica maioridade.
+                A situação do quarto é manual e não define sua ocupação.
+                @if (!item.birthDate) {
+                  A ausência da data de nascimento não indica maioridade.
+                }
               </p>
             </div>
             <section class="mg-note mg-sensitive" aria-labelledby="medical-title">

@@ -32,7 +32,7 @@ function localToday(): string {
   ].join('-');
 }
 
-function optionalBirthDate(control: AbstractControl): { invalidDate: true } | null {
+function validBirthDate(control: AbstractControl): { invalidDate: true } | null {
   const value = String(control.value ?? '');
   if (!value) return null;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value > localToday()) return { invalidDate: true };
@@ -146,17 +146,23 @@ function optionalBirthDate(control: AbstractControl): { invalidDate: true } | nu
               [class.mg-invalid]="
                 form.controls.birthDate.invalid && form.controls.birthDate.touched
               "
-              >Data de nascimento {{ isDemo() ? '*' : '(opcional)' }}
+              >Data de nascimento *
               <input
                 type="date"
                 formControlName="birthDate"
                 [max]="today"
+                required
+                [attr.aria-invalid]="
+                  form.controls.birthDate.invalid && form.controls.birthDate.touched ? 'true' : null
+                "
                 aria-describedby="resident-birth-error"
               />
               @if (form.controls.birthDate.invalid && form.controls.birthDate.touched) {
-                <span class="mg-field-error" id="resident-birth-error"
-                  >Informe uma data de nascimento válida.</span
-                >
+                <span class="mg-field-error" id="resident-birth-error">{{
+                  form.controls.birthDate.hasError('required')
+                    ? 'Informe a data de nascimento.'
+                    : 'Informe uma data de nascimento válida e não futura.'
+                }}</span>
               }
             </label>
             <label
@@ -248,7 +254,10 @@ export class ResidentFormComponent {
       nonNullable: true,
       validators: [Validators.required, Validators.maxLength(64)],
     }),
-    birthDate: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    birthDate: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, validBirthDate],
+    }),
     course: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
   });
 
@@ -257,8 +266,6 @@ export class ResidentFormComponent {
       const existing = this.resident();
       if (existing) this.setFields(existing);
     } else {
-      this.form.controls.birthDate.setValidators(optionalBirthDate);
-      this.form.controls.birthDate.updateValueAndValidity({ emitEvent: false });
       this.form.controls.course.setValidators(Validators.maxLength(200));
       this.form.controls.course.updateValueAndValidity({ emitEvent: false });
       if (this.editId && this.canEdit()) void this.load();
@@ -333,7 +340,7 @@ export class ResidentFormComponent {
     const input: ResidentPayload = {
       name,
       enrollment,
-      birthDate: birthDate || null,
+      birthDate,
       course: course || null,
     };
     this.saving.set(true);

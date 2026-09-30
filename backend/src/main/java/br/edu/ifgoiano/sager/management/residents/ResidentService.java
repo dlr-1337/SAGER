@@ -65,7 +65,10 @@ public class ResidentService {
         String checkedName = required(name, "name", 3, 200);
         String checkedEnrollment = required(enrollment, "enrollment", 1, 64);
         String checkedCourse = optional(course, "course", 200);
-        if (birthDate != null && birthDate.isAfter(LocalDate.now())) {
+        if (birthDate == null) {
+            throw invalidInput("birthDate é obrigatório.");
+        }
+        if (birthDate.isAfter(LocalDate.now())) {
             throw invalidInput("birthDate não pode ser futura.");
         }
         return new CheckedInput(checkedName, checkedEnrollment, checkedCourse);

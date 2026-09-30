@@ -280,7 +280,7 @@ describe('Residentes em sessão local', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Encerrar alocação');
   });
 
-  it('salva campos opcionais como null, preserva matrícula textual e bloqueia data futura', async () => {
+  it('exige nascimento, preserva matrícula textual e bloqueia data futura', async () => {
     const fixture = TestBed.createComponent(ResidentFormComponent);
     const form = fixture.componentInstance.form;
     form.setValue({
@@ -290,8 +290,17 @@ describe('Residentes em sessão local', () => {
       course: ' ',
     });
     await fixture.componentInstance.save();
+    expect(api.save).not.toHaveBeenCalled();
+    expect(form.controls.birthDate.hasError('required')).toBe(true);
+    form.controls.birthDate.setValue('2009-05-14');
+    await fixture.componentInstance.save();
     expect(api.save).toHaveBeenCalledWith(
-      { name: 'Estudante Sintético', enrollment: 'TESTE-A1', birthDate: null, course: null },
+      {
+        name: 'Estudante Sintético',
+        enrollment: 'TESTE-A1',
+        birthDate: '2009-05-14',
+        course: null,
+      },
       undefined,
     );
     expect(TestBed.inject(Router).navigate).toHaveBeenCalledWith(['/residentes', resident.id], {
@@ -312,6 +321,7 @@ describe('Residentes em sessão local', () => {
     route.snapshot.paramMap = convertToParamMap({ id: resident.id });
     const fixture = TestBed.createComponent(ResidentFormComponent);
     await fixture.whenStable();
+    fixture.componentInstance.form.controls.birthDate.setValue('2009-05-14');
     api.save.mockRejectedValueOnce(new ResidentApiError(409, 'duplicate_enrollment'));
     await fixture.componentInstance.save();
     expect(fixture.componentInstance.error()).toContain('Já existe um cadastro');
@@ -323,6 +333,8 @@ describe('Residentes em sessão local', () => {
     api.get.mockResolvedValueOnce({ ...resident, name: 'Versão Atual', version: 1 });
     await fixture.componentInstance.reloadLatest();
     expect(fixture.componentInstance.form.controls.name.value).toBe('Versão Atual');
+    expect(fixture.componentInstance.form.controls.birthDate.hasError('required')).toBe(true);
+    fixture.componentInstance.form.controls.birthDate.setValue('2009-05-14');
     await fixture.componentInstance.save();
     expect(api.save).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'Versão Atual' }), {
       id: resident.id,
@@ -339,7 +351,7 @@ describe('Residentes em sessão local', () => {
     fixture.componentInstance.form.setValue({
       name: 'Pessoa Sintética',
       enrollment: 'TESTE-002',
-      birthDate: '',
+      birthDate: '2009-05-14',
       course: '',
     });
     const saving = fixture.componentInstance.save();
