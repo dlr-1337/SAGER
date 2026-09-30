@@ -41,7 +41,9 @@ jobs:
       - name: Verify backend
         run: ./mvnw -B -ntp verify
       - name: Upload test results
+        id: backend-results
         if: ${{ always() }}
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: backend-test-results
@@ -50,6 +52,11 @@ jobs:
             backend/target/surefire-reports/*.txt
           if-no-files-found: ignore
           retention-days: 7
+      - name: Report unavailable backend artifacts
+        if: ${{ always() && steps.backend-results.outcome == 'failure' }}
+        run: |
+          echo '### Relatórios do backend indisponíveis' >> "$GITHUB_STEP_SUMMARY"
+          echo 'A publicação dos artefatos falhou. Consulte o erro desta etapa e os logs de Verify backend; o resultado dos testes continua obrigatório.' >> "$GITHUB_STEP_SUMMARY"
 
   frontend:
     name: Frontend · Chromium
@@ -82,7 +89,9 @@ jobs:
       - name: Browser journeys
         run: npx playwright test --grep-invert 'captura telas centrais' --workers=1 --reporter=line,html
       - name: Upload browser reports
+        id: browser-results
         if: ${{ always() }}
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: frontend-browser-results
@@ -91,3 +100,8 @@ jobs:
             frontend/test-results/
           if-no-files-found: ignore
           retention-days: 7
+      - name: Report unavailable browser artifacts
+        if: ${{ always() && steps.browser-results.outcome == 'failure' }}
+        run: |
+          echo '### Relatórios do navegador indisponíveis' >> "$GITHUB_STEP_SUMMARY"
+          echo 'A publicação dos artefatos falhou. Consulte o erro desta etapa e os logs de Browser journeys; o resultado dos testes continua obrigatório.' >> "$GITHUB_STEP_SUMMARY"
