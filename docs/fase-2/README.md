@@ -1,11 +1,13 @@
 # Fase 2 — cadastros e mapa
 
 O [roteiro](../ROADMAP_IMPLEMENTACAO.md) cobre residentes, responsáveis legais,
-supervisores e quartos. A primeira fatia técnica, o cadastro funcional de
-supervisores, foi implementada e [verificada](QA.md) com contas e dados sintéticos.
-Ela não depende de definir matrícula, responsável signatário ou capacidade de quarto.
-O cadastro funcional não provisiona uma conta de acesso. **A Fase 2 completa ainda
-está aberta.**
+supervisores e quartos. As cinco fatias locais estão implementadas e
+[verificadas](QA.md): supervisores; alojamentos, unidades e quartos; residentes;
+responsáveis; e alocação com histórico. Os testes usam contas e dados sintéticos.
+Os cadastros funcionais não provisionam contas de acesso. **A Fase 2 completa
+e sua homologação institucional ainda estão abertas.** O
+[pacote AE/TI](PACOTE_AE_TI.md) reúne as regras locais, as decisões pendentes e
+um formulário para registrar futura evidência institucional.
 
 ## Primeira fatia: supervisores
 
@@ -38,6 +40,10 @@ duas abas sem sobrescrita, reinício com estrutura e sessão preservadas e logou
 O aceite é para desenvolvimento local; não equivale à homologação da AE/TI,
 nem encerra E04 ou a Fase 2.
 
+Esta seção registra o contrato da entrega estrutural. Ocupação e vagas livres
+foram integradas depois, na quinta fatia; os valores `null` históricos abaixo
+não representam o contrato atual desses dois campos.
+
 - Alojamentos têm código e nome. Casas/blocos são unidades internas opcionais,
   vinculadas ao alojamento; quarto também pode ter piso, sem obrigá-lo.
 - Quarto tem código globalmente único e número local como texto, preservando
@@ -48,17 +54,20 @@ nem encerra E04 ou a Fase 2.
 - Capacidade é editável, inteira positiva ou `null`. A interface mostra
   **“Capacidade não definida”** quando ausente e identifica somatórios com
   capacidades ausentes como parciais.
-- Disponível, Ocupado, Manutenção e Indisponível são situações manuais. A API
-  mantém `occupancy`, `vacancies` e `cleaningScore` como `null`. A interface
-  mostra **“Ocupação ainda não integrada”** e **“Sem avaliação”**, sem calcular
-  vagas livres ou relacionar situação manual a ocupação.
+- Disponível, Ocupado, Manutenção e Indisponível são situações manuais. Na
+  entrega estrutural, a API mantinha `occupancy`, `vacancies` e `cleaningScore`
+  como `null`; a interface mostrava **“Ocupação ainda não integrada”** e
+  **“Sem avaliação”**. A quinta fatia passou a contar vínculos ativos e a
+  calcular vagas livres com capacidade conhecida. A nota de limpeza continua
+  `null`, e a situação manual continua independente da ocupação.
 - O mapa local começa vazio, agrupado por alojamento, unidade opcional e piso
   conhecido. A demonstração permanece independente do backend, com dados
   fictícios em memória. Falha da API local não carrega registros demonstrativos.
 - Gestor e supervisor locais consultam a estrutura; somente gestor cadastra e
   edita. Sessão, CSRF nas alterações e bloqueio fora de `local` são mantidos.
   A edição exige `version`; conflito deve ser apresentado sem sucesso falso.
-  Exclusão, alocação e transferência não integram esta fatia.
+  Exclusão permanece fora do escopo; alocação e transferência foram integradas
+  na quinta fatia.
 
 ### Contrato local de estrutura
 
@@ -69,8 +78,10 @@ nem encerra E04 ou a Fase 2.
 | Quarto                | `GET/POST /api/v1/quartos`; `GET/PUT /api/v1/quartos/{id}`                                         | `id`, `code`, `number`, `accommodationId`, `unitId`, `floor`, `capacity`, `situation`, `occupancy`, `vacancies`, `cleaningScore`, `version` |
 | Mapa                  | `GET /api/v1/quartos/mapa`                                                                         | Coleções de alojamentos, unidades e quartos, inclusive estruturas sem quartos                                                               |
 
-`unitId`, `floor` e `capacity` podem ser `null`; ocupação, vagas livres e nota
-são sempre `null` nesta fatia. O servidor rejeita unidade de outro alojamento,
+`unitId`, `floor` e `capacity` podem ser `null`; na entrega estrutural,
+ocupação, vagas livres e nota eram sempre `null`. No contrato atual, ocupação
+é a contagem dos vínculos ativos, vagas livres dependem de capacidade conhecida
+e somente a nota continua sem integração. O servidor rejeita unidade de outro alojamento,
 dados inválidos, duplicidade, ID inexistente e edição com versão obsoleta.
 A edição exige a versão do recurso consultado; uma falha não produz confirmação
 de gravação. As migrações V1–V4 são preservadas como histórico; V5 cria alojamentos
@@ -89,6 +100,10 @@ retorna `403`. Esses erros são apresentados sem carregar dados de demonstraçã
 no fluxo local.
 
 ## Terceira fatia: cadastro local de residentes
+
+**Estado: implementada, com aceite técnico local.** Esta seção descreve a
+entrega cadastral; quarto atual e histórico de alocações foram acrescentados
+na quinta fatia.
 
 No ambiente de desenvolvimento, o gestor pode cadastrar e editar residentes
 manualmente; gestor e supervisor podem consultar. A matrícula identifica o
@@ -111,14 +126,18 @@ permanece fechada.
 
 Lista, formulário e detalhe no acesso local consultam a API e não recorrem
 a dados da demonstração quando ela falha. Campos opcionais ausentes aparecem
-como “Não informado”. Idade, quarto e situação não são inferidos; histórico e
-termos ainda não estão integrados. O vínculo de responsáveis é tratado na quarta
+como “Não informado”. Idade e situação não são inferidas. Na entrega cadastral,
+quarto e histórico de alocações ainda não estavam integrados; agora são obtidos
+dos vínculos persistidos da quinta fatia. Histórico de chamadas e saídas e termos
+continuam sem integração. O vínculo de responsáveis é tratado na quarta
 fatia abaixo. A demonstração pública continua
 com seus próprios registros fictícios em memória. A migração V7 preserva V1–V6
 e não cria vínculos com quartos, responsáveis ou dados de saúde. Nascimento
 ausente não comprova maioridade para fluxos futuros.
 
 ## Quarta fatia: cadastro local de responsáveis
+
+**Estado: implementada, com aceite técnico local.**
 
 O gestor local cadastra e edita nome, vínculo declarado, telefone opcional e
 estado ativo de responsáveis associados a residentes persistidos. Cada registro
@@ -144,6 +163,10 @@ continuam pendentes na [D15](../fase-0/DECISOES.md) e na D16. Nenhum envio ou
 decisão de saída longa é ativado por esta fatia.
 
 ## Quinta fatia: alocação local e histórico de quartos
+
+**Estado: implementada, com aceite técnico local.** O [QA](QA.md) registra
+alocação, transferência, encerramento, limites de capacidade, permissões,
+concorrência e persistência após reinício com PostgreSQL e dados sintéticos.
 
 A migração V9 guarda cada vínculo entre residente e quarto, com início,
 encerramento, motivo do encerramento (`TRANSFER` ou `END`) e versão. O banco
@@ -203,13 +226,16 @@ responsáveis legais ou telefones e não resolvem cadastro de residentes,
 destinatários de assinatura ou acesso a dados de saúde. Os testes usam somente
 dados sintéticos; nomes e dados pessoais dos anexos não entram no Git.
 
-## Decisões para as demais fatias
+## Decisões para homologação
 
 A [D01](../fase-0/DECISOES.md) define a matriz de permissões; a [D02](../fase-0/DECISOES.md)
 define origem, validação e ciclo da matrícula; a [D15](../fase-0/DECISOES.md) define
 cardinalidade e prioridade dos responsáveis; a [D19](../fase-0/DECISOES.md) define
 capacidade, ocupação e transições dos quartos; e a [D22](../fase-0/DECISOES.md) define
-acesso e retenção de dados sensíveis. Elas ainda não têm aprovação registrada.
+acesso e retenção de dados sensíveis. A [D21](../fase-0/DECISOES.md) mantém
+pendentes o mecanismo e a prova de autenticação institucional. Essas decisões
+ainda não têm aprovação registrada; as questões para revisão estão no
+[pacote AE/TI](PACOTE_AE_TI.md).
 Em 26/09/2026, o solicitante esclareceu que todos os servidores da GAE, inclusive
 profissionais de saúde, devem acessar dados não sensíveis; que responsáveis legais
 podem ser detentores da guarda, ambos os pais ou apenas um deles; e que dados
@@ -222,13 +248,15 @@ vínculos de responsáveis ou acesso sensível. Esses pontos seguem abertos no
 [registro de decisões](../fase-0/DECISOES.md).
 
 Até lá, não se deve inferir matrícula do login local, conceder acesso médico,
-escolher signatário automaticamente, calcular ocupação a partir de capacidade não
-definida ou mostrar nota de limpeza inventada. A conclusão e homologação da Fase 2
-dependem dessas regras, da integração das demais telas e de testes com persistência,
-permissões e concorrência.
+escolher signatário automaticamente, calcular vagas livres com capacidade não
+definida ou mostrar nota de limpeza inventada. A ocupação atual é contada pelos
+vínculos ativos, inclusive quando a capacidade não está definida. Os testes das
+cinco fatias cobrem persistência, permissões e concorrência; a conclusão e
+homologação da Fase 2 dependem das regras institucionais e das entregas restantes.
 
 Também continuam abertas entregas da Fase 1: erros padronizados para toda a API,
-OpenAPI, auditoria, observabilidade e pipeline de CI. Os cadastros persistidos
+OpenAPI, auditoria e observabilidade. O [pipeline de CI](../CI.md) está implementado; seu
+estado de execução e as evidências estão no registro de QA. Os cadastros persistidos
 recebem apenas aceite técnico local; comprovação e autorização institucional dos
 responsáveis, regras institucionais de alocação, permissões institucionais e
 dados médicos impedem a homologação da Fase 2.
