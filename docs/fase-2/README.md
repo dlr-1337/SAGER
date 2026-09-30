@@ -6,7 +6,9 @@ supervisores e quartos. As cinco fatias locais estão implementadas e
 responsáveis; e alocação com histórico. Os testes usam contas e dados sintéticos.
 Os cadastros funcionais não provisionam contas de acesso. Há auditoria de suas
 alterações pela V11 e vínculo explícito, feito pelo operador, entre contas e
-cadastros pela V12. **A Fase 2 completa
+cadastros pela V12. A sexta fatia implementa a [área de saúde](SAUDE_CONTRATO.md)
+em recurso separado: habilitação e vínculo vigentes, notas privadas com partilha
+explícita, histórico imutável, custódia e acesso próprio do paciente. **A Fase 2 completa
 e sua homologação institucional ainda estão abertas.** O
 [pacote AE/TI](PACOTE_AE_TI.md) reúne as regras locais, as decisões pendentes e
 um formulário para registrar futura evidência institucional.

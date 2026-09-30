@@ -186,7 +186,14 @@ de R4 e Laticínio; o PDF complementa o inventário ausente, sem inferir quartos
 distribuições. Uma assinatura válida de qualquer responsável cadastrado e vinculado
 será suficiente na saída longa da Fase 4. Dados médicos terão compartilhamento entre
 profissionais de saúde, respeitado o sigilo profissional. Auditoria terá retenção
-permanente quando implementada. Exceções de lotação, correção de histórico,
+permanente na fundação já implementada. A área de saúde agora usa habilitações
+profissionais e vínculos assistenciais explícitos, notas privadas com partilha
+selecionada, revisões imutáveis, custódia e acesso próprio do paciente, conforme
+o [contrato local](fase-2/SAUDE_CONTRATO.md). Revogar bloqueia o acesso assistencial
+mesmo em sessões existentes;
+a renovação não recupera partilhas antigas. Essas escolhas técnicas foram
+delegadas pelo solicitante e não registram homologação institucional.
+Exceções de lotação, correção de histórico,
 comprovação de vínculos, detalhes do recurso médico e implantação continuam abertos;
 as perguntas já respondidas deixam de bloquear o projeto.
 
