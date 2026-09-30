@@ -69,6 +69,16 @@ public class SecurityConfiguration {
                         .permitAll()
                         .requestMatchers("/api/v1/auth/me", "/api/v1/auth/logout")
                         .authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/limpeza/ranking", "/api/v1/limpeza/politica")
+                        .hasAnyRole("GESTOR", "SUPERVISOR", "RESIDENTE")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/limpeza/**")
+                        .hasAnyRole("GESTOR", "SUPERVISOR")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/limpeza/avaliacoes", "/api/v1/limpeza/avaliacoes/*/corrigir")
+                        .hasRole("SUPERVISOR")
+                        .requestMatchers("/api/v1/me/limpeza/**")
+                        .hasRole("RESIDENTE")
+                        .requestMatchers("/api/v1/relatorios", "/api/v1/relatorios/**")
+                        .hasAnyRole("GESTOR", "SUPERVISOR")
                         .requestMatchers("/api/v1/ocorrencias", "/api/v1/ocorrencias/**",
                                 "/api/v1/notificacoes", "/api/v1/notificacoes/**",
                                 "/api/v1/advertencias", "/api/v1/advertencias/**",

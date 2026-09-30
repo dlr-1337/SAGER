@@ -309,6 +309,15 @@ ou arquivos de outro perfil; ausência de dados não produz números fictícios.
 
 **Decisões de entrada:** D10, D11 e D20; D13 para alertas de nota baixa.
 
+**Estado em 30/09/2026:** avaliações, participantes históricos, correções,
+ranking com empates e privacidade por perfil, indicadores com alternativa textual
+e consultas privadas com PDF/XLSX persistidos. Prévia e exportação usam o mesmo
+snapshot e as tarefas retomam por lease. O [contrato](fase-6/CONTRATO.md), a
+[jornada](fase-6/README.md) e o [QA](fase-6/QA.md) registram as regras delegadas,
+245 testes de backend, 189 de frontend, 97 jornadas e prova real com reinício.
+Não há pontuação moral de comportamento ou sanção automática. Homologação da AE
+e medição na infraestrutura operacional continuam externas.
+
 ### Fase 7 — Operação assistida e liberação do produto completo
 
 **Cobertura:** E15 e aceite final de E01–E14, AC01–AC72 e AT01–AT18.

@@ -118,6 +118,17 @@ export class App implements OnDestroy {
             { label: 'Avisos institucionais', path: '/comunicacoes/avisos', icon: 'campaign' },
           ]
         : [];
+    const cleaningItems: NavItem[] =
+      role === 'residente'
+        ? [{ label: 'Minha limpeza', path: '/minha-limpeza', icon: 'cleaning_services' }]
+        : role === 'gestor'
+          ? [
+              { label: 'Limpeza', path: '/limpeza', icon: 'cleaning_services' },
+              { label: 'Ranking', path: '/ranking', icon: 'leaderboard' },
+            ]
+          : role === 'supervisor'
+            ? [{ label: 'Ranking', path: '/ranking', icon: 'leaderboard' }]
+            : [];
     const healthItems: NavItem[] =
       role === 'gestor' || role === 'supervisor'
         ? [
@@ -130,6 +141,7 @@ export class App implements OnDestroy {
     return [
       ...localItems.slice(0, -1),
       ...communicationItems,
+      ...cleaningItems,
       ...healthItems,
       localItems[localItems.length - 1],
     ];

@@ -57,6 +57,12 @@ import { LocalAuthService } from '../../core/local-auth.service';
             <p>Consulte e exporte os registros de saúde vinculados ao seu cadastro.</p>
             <a class="btn" routerLink="/minha-saude">Consultar minha saúde</a>
           </article>
+          <article>
+            <h2>Minha limpeza</h2>
+            <p>Consulte as avaliações vinculadas ao seu quarto e acompanhe o período do ranking.</p>
+            <a class="btn" routerLink="/minha-limpeza">Consultar minhas avaliações</a>
+            <a class="btn secondary" routerLink="/ranking">Consultar ranking</a>
+          </article>
         } @else if (session.role() === 'saude') {
           <article>
             <h2>Atendimento de saúde</h2>
@@ -65,6 +71,17 @@ import { LocalAuthService } from '../../core/local-auth.service';
           </article>
         }
         @if (session.role() === 'gestor' || session.role() === 'supervisor') {
+          <article>
+            <h2>Avaliações de limpeza</h2>
+            <p>Confira as avaliações e seus participantes históricos. Veja a regra e o período.</p>
+            <a class="btn" routerLink="/limpeza">Consultar avaliações</a>
+            <a class="btn secondary" routerLink="/ranking">Consultar ranking</a>
+          </article>
+          <article>
+            <h2>Relatórios</h2>
+            <p>Escolha uma consulta e confira os mesmos dados na prévia e na exportação.</p>
+            <a class="btn" routerLink="/relatorios">Consultar relatórios</a>
+          </article>
           <article>
             <h2>Cadastros e alocações</h2>
             <p>Consulte residentes, responsáveis e vínculos de moradia.</p>
