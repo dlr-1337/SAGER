@@ -5,6 +5,8 @@
 **/.angular
 **/test-results
 **/playwright-report
+**/__pycache__
+**/*.pyc
 **/.env
 **/.env.*
 **/secrets
