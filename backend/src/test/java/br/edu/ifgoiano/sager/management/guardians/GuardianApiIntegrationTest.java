@@ -113,6 +113,8 @@ class GuardianApiIntegrationTest {
                     .isEqualTo("Pessoa Atualizada");
             assertThat(jdbc.queryForObject("SELECT created_at IS NOT NULL AND updated_at IS NOT NULL "
                     + "FROM sager_guardian WHERE id = ?", Boolean.class, UUID.fromString(id))).isTrue();
+            assertAudit(id, "CREATE", 0, "residentId", "name", "relationship", "phone", "active");
+            assertAudit(id, "UPDATE", 1, "residentId", "name", "relationship", "phone", "active");
         }
     }
 
@@ -299,6 +301,17 @@ class GuardianApiIntegrationTest {
         HttpResponse<String> response = get(client, "/api/v1/auth/csrf");
         assertThat(response.statusCode()).isEqualTo(200);
         return json.readTree(response.body()).path("token").asText();
+    }
+
+    private void assertAudit(String id, String action, long version, String... fields) {
+        assertThat(jdbc.queryForObject("SELECT to_regclass('sager_audit_event')", String.class)).isNotNull();
+        List<List<String>> recorded = jdbc.query("""
+                SELECT changed_fields FROM sager_audit_event
+                WHERE resource = 'GUARDIAN' AND resource_id = ? AND action = ? AND resulting_version = ?
+                """, (result, row) -> List.of((String[]) result.getArray(1).getArray()),
+                UUID.fromString(id), action, version);
+        assertThat(recorded).hasSize(1);
+        assertThat(recorded.getFirst()).containsExactlyInAnyOrder(fields);
     }
 
     private void assertError(HttpResponse<String> response, int status, String code) throws Exception {

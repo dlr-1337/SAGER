@@ -8,8 +8,6 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,7 +15,6 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import tools.jackson.databind.JsonNode;
 
 @RestController
@@ -55,18 +52,6 @@ public class GuardianController {
                 residentId(request.residentId()), text(request.name(), "name"),
                 text(request.relationship(), "relationship"), text(request.phone(), "phone"),
                 active(request.active()), version(request.version())));
-    }
-
-    @ExceptionHandler(GuardianApiException.class)
-    public ResponseEntity<ApiError> apiError(GuardianApiException error) {
-        return ResponseEntity.status(error.status()).cacheControl(CacheControl.noStore())
-                .body(new ApiError(error.code(), error.getMessage()));
-    }
-
-    @ExceptionHandler({ HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class })
-    public ResponseEntity<ApiError> malformedRequest(Exception error) {
-        return ResponseEntity.badRequest().cacheControl(CacheControl.noStore())
-                .body(new ApiError("invalid_input", "Corpo JSON ou ID inválido."));
     }
 
     private UUID residentId(JsonNode value) {
@@ -118,6 +103,4 @@ public class GuardianController {
             JsonNode phone, JsonNode active, JsonNode version) {
     }
 
-    public record ApiError(String code, String message) {
-    }
 }

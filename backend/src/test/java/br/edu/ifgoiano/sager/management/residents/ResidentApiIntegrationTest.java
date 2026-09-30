@@ -15,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 import br.edu.ifgoiano.sager.SagerApplication;
 import br.edu.ifgoiano.sager.auth.LocalAccountProvisioningService;
@@ -223,6 +224,127 @@ class ResidentApiIntegrationTest {
     }
 
     @Test
+    void auditsSuccessfulWritesWithNormalizedFieldNamesAndNoSensitiveValues() throws Exception {
+        assertThat(jdbc.queryForObject("SELECT to_regclass('sager_audit_event')", String.class)).isNotNull();
+        account("gestor");
+        UUID actor = jdbc.queryForObject("SELECT id FROM sager_local_account WHERE email = ?",
+                UUID.class, "gestor@example.invalid");
+        try (HttpClient client = browser()) {
+            login(client, "gestor");
+            UUID id = UUID.fromString(create(client, "Estudante Privado", "AUDIT-PRIVATE-2026"));
+            List<AuditRow> created = auditRows(id);
+            assertThat(created).hasSize(1);
+            AuditRow first = created.getFirst();
+            assertThat(first.resource()).isEqualTo("RESIDENT");
+            assertThat(first.action()).isEqualTo("CREATE");
+            assertThat(first.version()).isZero();
+            assertThat(first.fields()).containsExactlyInAnyOrder("name", "enrollment", "birthDate", "course");
+            assertThat(first.actorId()).isEqualTo(actor);
+            assertThat(first.profile()).isEqualTo("gestor");
+            assertThat(first.requestId()).isNotNull();
+            assertThat(jdbc.queryForObject("SELECT row_to_json(event)::text FROM sager_audit_event event "
+                    + "WHERE resource_id = ?", String.class, id))
+                    .doesNotContain("Estudante Privado", "AUDIT-PRIVATE-2026", BIRTH_DATE,
+                            "gestor@example.invalid", PASSWORD);
+
+            assertThat(get(client, PATH).statusCode()).isEqualTo(200);
+            assertThat(get(client, PATH + "/" + id).statusCode()).isEqualTo(200);
+            assertThat(auditRows(id)).hasSize(1);
+            assertThat(put(client, PATH + "/" + id,
+                    body("\u00a0Estudante Privado\u2003", "AUDIT-PRIVATE-2026", BIRTH_DATE,
+                            "  Curso Privado  ", 0), csrf(client)).statusCode()).isEqualTo(200);
+            List<AuditRow> updated = auditRows(id);
+            assertThat(updated).hasSize(2);
+            assertThat(updated.getLast().action()).isEqualTo("UPDATE");
+            assertThat(updated.getLast().version()).isEqualTo(1);
+            assertThat(updated.getLast().fields()).containsExactly("course");
+            assertThat(updated.getLast().requestId()).isNotEqualTo(first.requestId());
+
+            assertThat(put(client, PATH + "/" + id,
+                    body("Estudante Privado", "AUDIT-PRIVATE-2026", BIRTH_DATE,
+                            "Curso Privado", 1), csrf(client)).statusCode()).isEqualTo(200);
+            assertThat(auditRows(id).getLast().fields()).isEmpty();
+            assertThat(auditRows(id).getLast().version()).isEqualTo(2);
+            assertError(put(client, PATH + "/" + id,
+                    body("Outra Pessoa", "AUDIT-PRIVATE-2026", BIRTH_DATE, null, 1), csrf(client)),
+                    409, "stale_version");
+            assertError(put(client, PATH + "/" + id,
+                    body("AB", "AUDIT-PRIVATE-2026", BIRTH_DATE, null, 2), csrf(client)),
+                    400, "invalid_input");
+            assertError(post(client, PATH,
+                    body("Outra Pessoa", "AUDIT-PRIVATE-2026", BIRTH_DATE, null, null), csrf(client)),
+                    409, "duplicate_enrollment");
+            assertThat(auditRows(id)).hasSize(3);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_audit_event WHERE actor_id = ?",
+                    Integer.class, actor)).isEqualTo(3);
+        }
+    }
+
+    @Test
+    void auditFailureRollsBackResidentCreationAndUpdate() throws Exception {
+        assertThat(jdbc.queryForObject("SELECT to_regclass('sager_audit_event')", String.class)).isNotNull();
+        account("gestor");
+        UUID id = UUID.randomUUID();
+        jdbc.update("INSERT INTO sager_resident (id, name, enrollment, birth_date) VALUES (?, ?, ?, ?)",
+                id, "Estudante Original", "AUDIT-ROLLBACK-UPDATE", LocalDate.of(2006, 1, 2));
+        jdbc.execute("""
+                CREATE FUNCTION reject_test_resident_audit() RETURNS trigger LANGUAGE plpgsql AS $$
+                BEGIN
+                    IF NEW.resource = 'RESIDENT' THEN
+                        RAISE EXCEPTION 'synthetic audit insertion failure';
+                    END IF;
+                    RETURN NEW;
+                END
+                $$
+                """);
+        jdbc.execute("CREATE TRIGGER reject_test_resident_audit BEFORE INSERT ON sager_audit_event "
+                + "FOR EACH ROW EXECUTE FUNCTION reject_test_resident_audit()");
+        try (HttpClient client = browser()) {
+            login(client, "gestor");
+            assertThat(post(client, PATH,
+                    body("Estudante Novo", "AUDIT-ROLLBACK-CREATE", BIRTH_DATE, null, null), csrf(client))
+                    .statusCode()).isEqualTo(500);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_resident WHERE enrollment = ?",
+                    Integer.class, "AUDIT-ROLLBACK-CREATE")).isZero();
+            assertThat(put(client, PATH + "/" + id,
+                    body("Estudante Modificado", "AUDIT-ROLLBACK-UPDATE", BIRTH_DATE, null, 0), csrf(client))
+                    .statusCode()).isEqualTo(500);
+            assertThat(jdbc.queryForObject("SELECT name FROM sager_resident WHERE id = ?", String.class, id))
+                    .isEqualTo("Estudante Original");
+            assertThat(jdbc.queryForObject("SELECT version FROM sager_resident WHERE id = ?", Long.class, id))
+                    .isZero();
+            assertThat(auditRows(id)).isEmpty();
+        } finally {
+            jdbc.execute("DROP TRIGGER reject_test_resident_audit ON sager_audit_event");
+            jdbc.execute("DROP FUNCTION reject_test_resident_audit()");
+        }
+    }
+
+    @Test
+    void concurrentResidentUpdatesAuditOnlyTheSuccessfulVersionAndItsFields() throws Exception {
+        assertThat(jdbc.queryForObject("SELECT to_regclass('sager_audit_event')", String.class)).isNotNull();
+        account("gestor");
+        try (HttpClient one = browser(); HttpClient two = browser()) {
+            login(one, "gestor");
+            login(two, "gestor");
+            UUID id = UUID.fromString(create(one, "Estudante Original", "AUDIT-CONCURRENT"));
+            String tokenOne = csrf(one);
+            String tokenTwo = csrf(two);
+            CompletableFuture<Integer> nameChange = CompletableFuture.supplyAsync(() -> parallelUpdate(
+                    one, id, body("Estudante Atualizado", "AUDIT-CONCURRENT", BIRTH_DATE, null, 0), tokenOne));
+            CompletableFuture<Integer> courseChange = CompletableFuture.supplyAsync(() -> parallelUpdate(
+                    two, id, body("Estudante Original", "AUDIT-CONCURRENT", BIRTH_DATE, "Curso Novo", 0), tokenTwo));
+            assertThat(List.of(nameChange.join(), courseChange.join())).containsExactlyInAnyOrder(200, 409);
+            List<AuditRow> rows = auditRows(id);
+            assertThat(rows).hasSize(2);
+            assertThat(rows.getLast().action()).isEqualTo("UPDATE");
+            assertThat(rows.getLast().version()).isEqualTo(1);
+            assertThat(rows.getLast().fields()).containsExactly(nameChange.join() == 200 ? "name" : "course");
+            assertThat(json.readTree(get(one, PATH + "/" + id).body()).path("version").asLong()).isEqualTo(1);
+        }
+    }
+
+    @Test
     void enforcesProfilesCsrfAndRevokesDisabledAccounts() throws Exception {
         for (String profile : List.of("gestor", "supervisor", "residente")) {
             account(profile);
@@ -270,6 +392,12 @@ class ResidentApiIntegrationTest {
                     .statusCode()).isEqualTo(401);
         }
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_resident", Integer.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT to_regclass('sager_audit_event')", String.class)).isNotNull();
+        assertThat(auditRows(UUID.fromString(id))).hasSize(2);
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM sager_audit_event
+                WHERE resource = 'RESIDENT' AND actor_id IN (SELECT id FROM sager_local_account)
+                """, Integer.class)).isEqualTo(3);
     }
 
     @Test
@@ -293,6 +421,28 @@ class ResidentApiIntegrationTest {
     private void account(String profile) {
         provisioning.create(profile + "@example.invalid", "Pessoa Sintética", profile,
                 PASSWORD.toCharArray());
+    }
+
+    private int parallelUpdate(HttpClient client, UUID id, String body, String token) {
+        try {
+            return put(client, PATH + "/" + id, body, token).statusCode();
+        } catch (Exception error) {
+            throw new IllegalStateException(error);
+        }
+    }
+
+    private List<AuditRow> auditRows(UUID id) {
+        return jdbc.query("""
+                SELECT resource, action, resulting_version, changed_fields, actor_id, actor_profile, request_id
+                FROM sager_audit_event WHERE resource_id = ? ORDER BY sequence
+                """, (result, row) -> new AuditRow(result.getString("resource"), result.getString("action"),
+                result.getLong("resulting_version"), List.of((String[]) result.getArray("changed_fields").getArray()),
+                result.getObject("actor_id", UUID.class), result.getString("actor_profile"),
+                result.getObject("request_id", UUID.class)), id);
+    }
+
+    private record AuditRow(String resource, String action, long version, List<String> fields,
+            UUID actorId, String profile, UUID requestId) {
     }
 
     private String create(HttpClient client, String name, String enrollment) throws Exception {

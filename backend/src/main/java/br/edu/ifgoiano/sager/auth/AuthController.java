@@ -1,6 +1,7 @@
 package br.edu.ifgoiano.sager.auth;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 import org.springframework.http.CacheControl;
@@ -27,10 +28,12 @@ public class AuthController {
         }
         LocalAccount account = accounts.findById(principal.id())
                 .filter(value -> value.active() && value.email().equals(principal.email())
-                        && value.profile().equals(principal.profile()))
+                        && value.profile().equals(principal.profile())
+                        && Objects.equals(value.residentId(), principal.residentId())
+                        && Objects.equals(value.supervisorId(), principal.supervisorId()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
         MeResponse response = new MeResponse(account.id(), account.name(), account.email(),
-                null, List.of(account.profile()));
+                null, List.of(account.profile()), account.residentId(), account.supervisorId());
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(response);
     }
 
@@ -39,6 +42,7 @@ public class AuthController {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(token);
     }
 
-    public record MeResponse(UUID id, String nome, String email, String fotoUrl, List<String> perfis) {
+    public record MeResponse(UUID id, String nome, String email, String fotoUrl, List<String> perfis,
+            UUID residenteId, UUID supervisorId) {
     }
 }

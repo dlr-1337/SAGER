@@ -126,6 +126,10 @@ class AccommodationApiIntegrationTest {
                     .path("version").asLong()).isEqualTo(1);
             assertThat(jdbc.queryForObject("SELECT name FROM sager_accommodation_unit WHERE id = ?",
                     String.class, UUID.fromString(unitId))).isEqualTo("Casa Editada");
+            assertAudit(id, "ACCOMMODATION", "CREATE", 0, "code", "name");
+            assertAudit(id, "ACCOMMODATION", "UPDATE", 1, "name");
+            assertAudit(unitId, "ACCOMMODATION_UNIT", "CREATE", 0, "accommodationId", "code", "name");
+            assertAudit(unitId, "ACCOMMODATION_UNIT", "UPDATE", 1, "name");
         }
     }
 
@@ -358,6 +362,17 @@ class AccommodationApiIntegrationTest {
         var changed = (tools.jackson.databind.node.ObjectNode) json.readTree(body);
         changed.set(field, json.valueToTree(value));
         return json.writeValueAsString(changed);
+    }
+
+    private void assertAudit(String id, String resource, String action, long version, String... fields) {
+        assertThat(jdbc.queryForObject("SELECT to_regclass('sager_audit_event')", String.class)).isNotNull();
+        List<List<String>> recorded = jdbc.query("""
+                SELECT changed_fields FROM sager_audit_event
+                WHERE resource = ? AND resource_id = ? AND action = ? AND resulting_version = ?
+                """, (result, row) -> List.of((String[]) result.getArray(1).getArray()),
+                resource, UUID.fromString(id), action, version);
+        assertThat(recorded).hasSize(1);
+        assertThat(recorded.getFirst()).containsExactlyInAnyOrder(fields);
     }
 
     private void assertError(HttpResponse<String> response, int status, String code) {

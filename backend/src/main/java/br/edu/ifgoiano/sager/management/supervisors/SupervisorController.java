@@ -6,9 +6,8 @@ import java.util.UUID;
 
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.CacheControl;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,7 +15,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import tools.jackson.databind.JsonNode;
 
 @RestController
 @Profile("local")
@@ -40,8 +39,8 @@ public class SupervisorController {
 
     @PostMapping
     public ResponseEntity<Supervisor> create(@RequestBody CreateSupervisorRequest request) {
-        Supervisor created = service.create(request.name(), request.institutionalId(),
-                request.email());
+        Supervisor created = service.create(text(request.name(), "name"),
+                text(request.institutionalId(), "institutionalId"), text(request.email(), "email"));
         return ResponseEntity.created(URI.create("/api/v1/supervisores/" + created.id()))
                 .cacheControl(CacheControl.noStore()).body(created);
     }
@@ -50,29 +49,37 @@ public class SupervisorController {
     public ResponseEntity<Supervisor> update(@PathVariable UUID id,
             @RequestBody UpdateSupervisorRequest request) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.update(id,
-                request.name(), request.institutionalId(), request.email(), request.version()));
+                text(request.name(), "name"), text(request.institutionalId(), "institutionalId"),
+                text(request.email(), "email"), version(request.version())));
     }
 
-    @ExceptionHandler(SupervisorApiException.class)
-    public ResponseEntity<ApiError> apiError(SupervisorApiException error) {
-        return ResponseEntity.status(error.status()).cacheControl(CacheControl.noStore())
-                .body(new ApiError(error.code(), error.getMessage()));
+    private String text(JsonNode value, String field) {
+        if (value == null || value.isNull()) {
+            return null;
+        }
+        if (!value.isString()) {
+            throw invalidInput(field + " deve ser texto JSON.");
+        }
+        return value.stringValue();
     }
 
-    @ExceptionHandler({ HttpMessageNotReadableException.class,
-            MethodArgumentTypeMismatchException.class })
-    public ResponseEntity<ApiError> malformedRequest(Exception error) {
-        return ResponseEntity.badRequest().cacheControl(CacheControl.noStore())
-                .body(new ApiError("invalid_input", "Corpo JSON ou ID inválido."));
+    private long version(JsonNode value) {
+        if (value == null || !value.isIntegralNumber() || !value.canConvertToLong()
+                || value.asLong() < 0 || value.asLong() == Long.MAX_VALUE) {
+            throw invalidInput("version deve ser um inteiro não negativo válido.");
+        }
+        return value.asLong();
     }
 
-    public record CreateSupervisorRequest(String name, String institutionalId, String email) {
+    private SupervisorApiException invalidInput(String message) {
+        return new SupervisorApiException(HttpStatus.BAD_REQUEST, "invalid_input", message);
     }
 
-    public record UpdateSupervisorRequest(String name, String institutionalId, String email,
-            Long version) {
+    public record CreateSupervisorRequest(JsonNode name, JsonNode institutionalId, JsonNode email) {
     }
 
-    public record ApiError(String code, String message) {
+    public record UpdateSupervisorRequest(JsonNode name, JsonNode institutionalId, JsonNode email,
+            JsonNode version) {
     }
+
 }

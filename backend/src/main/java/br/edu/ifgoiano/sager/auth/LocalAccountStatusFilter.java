@@ -1,6 +1,7 @@
 package br.edu.ifgoiano.sager.auth;
 
 import java.io.IOException;
+import java.util.Objects;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -29,7 +30,9 @@ public class LocalAccountStatusFilter extends OncePerRequestFilter {
         if (authentication != null && authentication.getPrincipal() instanceof LocalAccountPrincipal principal) {
             boolean current = accounts.findById(principal.id())
                     .filter(account -> account.active() && account.email().equals(principal.email())
-                            && account.profile().equals(principal.profile()))
+                            && account.profile().equals(principal.profile())
+                            && Objects.equals(account.residentId(), principal.residentId())
+                            && Objects.equals(account.supervisorId(), principal.supervisorId()))
                     .isPresent();
             if (!current) {
                 SecurityContextHolder.clearContext();

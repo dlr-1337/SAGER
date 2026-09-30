@@ -4,6 +4,8 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Arrays;
 
+import br.edu.ifgoiano.sager.api.ApiErrors;
+
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -19,6 +21,7 @@ import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.session.web.http.CookieSerializer;
 import org.springframework.session.web.http.DefaultCookieSerializer;
 
@@ -52,7 +55,8 @@ public class SecurityConfiguration {
     @Profile("local")
     @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
     SecurityFilterChain localSecurityFilterChain(HttpSecurity http, Environment environment,
-            LocalAccountAuthenticationProvider provider, LocalAccountStatusFilter accountStatusFilter)
+            LocalAccountAuthenticationProvider provider, LocalAccountStatusFilter accountStatusFilter,
+            ApiErrors apiErrors)
             throws Exception {
         requireLoopbackOnly(environment);
         http.authorizeHttpRequests(requests -> requests
@@ -60,6 +64,10 @@ public class SecurityConfiguration {
                         .permitAll()
                         .requestMatchers("/api/v1/auth/me", "/api/v1/auth/logout")
                         .authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auditoria", "/api/v1/openapi",
+                                "/api/v1/openapi.yaml", "/actuator/health", "/actuator/metrics",
+                                "/actuator/metrics/**")
+                        .hasAnyRole("GESTOR", "SUPERVISOR")
                         .requestMatchers("/api/v1/supervisores", "/api/v1/supervisores/**")
                         .hasAnyRole("GESTOR", "SUPERVISOR")
                         .requestMatchers(HttpMethod.GET, "/api/v1/alojamentos", "/api/v1/alojamentos/**")
@@ -101,8 +109,8 @@ public class SecurityConfiguration {
                             response.setStatus(HttpStatus.NO_CONTENT.value());
                         })
                         .failureHandler((request, response, exception) -> {
-                            response.setHeader("Cache-Control", "no-store");
-                            response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                            apiErrors.write(request, response, 401, "invalid_credentials",
+                                    "E-mail ou senha inválidos.");
                         }))
                 .logout(logout -> logout.logoutUrl("/api/v1/auth/logout")
                         .logoutSuccessHandler((request, response, authentication) -> {
@@ -112,8 +120,15 @@ public class SecurityConfiguration {
                 .sessionManagement(session -> session.sessionFixation(fixation ->
                         fixation.changeSessionId()))
                 .addFilterAfter(accountStatusFilter, UsernamePasswordAuthenticationFilter.class)
-                .exceptionHandling(errors -> errors.authenticationEntryPoint((request, response, error) ->
-                        response.sendError(HttpStatus.UNAUTHORIZED.value())))
+                .exceptionHandling(errors -> errors
+                        .authenticationEntryPoint((request, response, error) ->
+                                apiErrors.write(request, response, 401, "unauthorized", ApiErrors.message(401)))
+                        .accessDeniedHandler((request, response, error) -> {
+                            boolean csrf = error instanceof CsrfException;
+                            apiErrors.write(request, response, 403, csrf ? "csrf_invalid" : "forbidden",
+                                    csrf ? "Proteção da sessão inválida. Recarregue a página e tente novamente."
+                                            : ApiErrors.message(403));
+                        }))
                 .csrf(Customizer.withDefaults())
                 .httpBasic(AbstractHttpConfigurer::disable);
         return http.build();
@@ -122,10 +137,15 @@ public class SecurityConfiguration {
     @Bean
     @Profile("!local")
     @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
-    SecurityFilterChain closedSecurityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain closedSecurityFilterChain(HttpSecurity http, ApiErrors apiErrors) throws Exception {
         http.authorizeHttpRequests(requests -> requests.anyRequest().denyAll())
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
+                .exceptionHandling(errors -> errors
+                        .authenticationEntryPoint((request, response, error) ->
+                                apiErrors.write(request, response, 401, "unauthorized", ApiErrors.message(401)))
+                        .accessDeniedHandler((request, response, error) ->
+                                apiErrors.write(request, response, 403, "forbidden", ApiErrors.message(403))))
                 .csrf(Customizer.withDefaults());
         return http.build();
     }
