@@ -1,28 +1,37 @@
-# Fase 0 — login local provisório
+# Fase 0 — contrato do login próprio do SAGER
 
-**Decisão de 26/09/2026:** usar e-mail e senha própria do SAGER somente para
-desenvolvimento e teste. O mecanismo institucional da [D21](DECISOES.md) permanece
-indefinido. Este contrato permite avaliar a integração Angular–Spring Boot e a sessão;
-não identifica servidor ou estudante institucional e não homologa AC01/AC02, AT03 nem
-a Fase 0. A [prova Google OIDC anterior](AUTENTICACAO_GOOGLE.md) é histórica.
+**Decisão atual, 30/09/2026:** o SAGER usará contas próprias com e-mail e senha.
+Integrações com Google e SUAP foram adiadas. A [D21](DECISOES.md) registra essa
+escolha e as condições ainda abertas para operação institucional. A
+[prova Google OIDC anterior](AUTENTICACAO_GOOGLE.md) permanece apenas como
+evidência histórica.
 
-## Contas e acesso
+**Estado da implementação:** existe um login próprio funcional para
+desenvolvimento/teste, ativado somente no perfil `local` e vinculado ao loopback.
+O ambiente fora de `local` nega o acesso. Para operação real, ainda faltam
+configuração segura de implantação, provisionamento e recuperação de contas,
+política de sessão e desligamento, autorização completa por registro, testes no
+ambiente de destino e aceite da TI/AE. A escolha do mecanismo próprio não comprova
+sozinha AC01/AC02, AT03 ou a homologação da Fase 0.
+
+## Contas e acesso implementados no ambiente local
 
 - Um operador cria, redefine a senha ou desativa contas pela linha de comando local.
   Não há cadastro público nem endpoint de concessão de perfil.
 - Cada conta tem UUID, nome, e-mail único normalizado, hash de senha, estado ativo e
-  um perfil de teste (`gestor`, `supervisor` ou `residente`). O e-mail é identificador
-  de login local, não atestado de vínculo institucional; seu domínio não concede acesso.
+  um perfil local (`gestor`, `supervisor` ou `residente`). O e-mail identifica a
+  conta SAGER; seu domínio não concede perfil nem comprova matrícula ou vínculo
+  acadêmico. Cadastro de residente e conta de acesso são processos separados.
 - A senha da conta provisionada é digitada de forma oculta e nunca entra em
   argumentos, arquivos do Git, logs ou respostas HTTP. As senhas sintéticas das
   fixtures de teste são apenas dados de teste. A aplicação armazena apenas o hash.
-  Desativar a conta deve
-  impedir novos logins e o uso de sessões existentes.
-- O perfil local só pode estar ativo no ambiente `local`, com o servidor vinculado a
-  `127.0.0.1`. Fora desse ambiente, o acesso falha fechado até ser definido e
-  implementado o provedor institucional. Dados de residentes reais não entram na prova.
+  A desativação impede novos logins e o uso das sessões locais existentes.
+- O perfil `local` exige `server.address` de loopback. Fora dele, a cadeia de
+  segurança nega todas as requisições até existir configuração de produção do
+  login próprio implementada e verificada. Não há exigência de provedor externo
+  para esta escolha, e nenhum dado real de residente participa da prova local.
 
-## Contrato HTTP
+## Contrato HTTP local
 
 | Operação                   | Requisição                                                                         | Resultado                                                                                                        |
 | -------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -43,32 +52,34 @@ Exemplo sintético de `/api/v1/auth/me`:
 }
 ```
 
-A sessão fica no PostgreSQL com Spring Session JDBC, dura 30 minutos de inatividade
+A sessão local fica no PostgreSQL com Spring Session JDBC, dura 30 minutos de inatividade
 por padrão e usa cookie `HttpOnly` e `SameSite=Lax`. `Secure=false` vale somente
 para HTTP no loopback local. O Angular obtém um novo token CSRF conforme necessário,
 consulta `/me` após o login e ao recarregar, e não guarda senha ou cookie em
-`localStorage`/`sessionStorage`. A autorização de recursos e registros de domínio
-ainda pertence às próximas fatias da Fase 1.
+`localStorage`/`sessionStorage`. A API local protege por perfil os recursos de
+gestão já integrados; gestor e supervisor possuem as mesmas operações nesses
+recursos. As regras futuras por vínculo e registro ainda precisam ser
+implementadas nas fatias correspondentes.
 
-## Demonstração e critérios de aceite técnico
+## Demonstração, prova técnica e saída para operação real
 
 `/acesso` apresenta o login local; `/demonstracao` continua pública e entra
-explicitamente no modo fictício, com seleção de perfil própria. As telas de domínio
-ainda usam registros de exemplo. A escolha de perfil da demonstração não concede
-acesso à API. Nas rotas internas, a interface exige sessão local válida ou entrada
-explícita na demonstração; o backend é a fonte do perfil de uma sessão autenticada.
+explicitamente no modo fictício, com seleção de perfil própria. A escolha de
+perfil da demonstração não concede acesso à API. Uma falha da API local não
+substitui registros persistidos por dados fictícios. As operações fora das fatias
+integradas continuam demonstrativas.
 
-O aceite técnico exige: migração aplicada em banco vazio e existente; criação, troca
-de senha e desativação de conta sintética; login válido e inválido; CSRF; `/me` antes
-e depois do logout; revogação após desativação; recarga da interface; modo de
-demonstração sem backend; build e testes automatizados. Registrar comandos e
-resultados em [QA.md](QA.md), sem senha, cookie, e-mail real ou dados pessoais.
+O [QA da Fase 0](QA.md) registra a prova técnica de 26/09/2026 com PostgreSQL,
+backend e navegador reais: provisionamento sintético, login, CSRF, `/me`, logout,
+desativação, recarga da interface e demonstração isolada. Essa prova é histórica
+e restrita ao ambiente local; as mudanças posteriores de permissões e cadastro
+têm sua própria validação.
 
-**Resultado em 26/09/2026:** a suíte automatizada e a prova manual integrada com
-PostgreSQL, backend e navegador reais passaram. O [QA](QA.md) registra os cenários,
-as limitações e o aceite técnico restrito a desenvolvimento/teste.
-
-Para fechar D21 e homologar a Fase 0, a TI/AE ainda precisarão escolher e aprovar o
-mecanismo institucional, confirmar atributos e provisionamento, definir sessão e
-desligamento, executar as jornadas reais e registrar aceite nominal com data e
-referência. O login provisório não substitui essas etapas.
+Para liberar o mecanismo escolhido fora de `local`, a equipe deve implementar
+configuração de implantação com HTTPS e cookie seguro, provisionamento e
+recuperação de acesso autorizados, política de senha e sessão, revogação de
+contas, permissões por recurso e registro, auditoria e procedimento operacional.
+Depois, deve testar login válido e inválido, CSRF, expiração, logout,
+desligamento e acesso indevido no ambiente de destino e registrar aceite da
+TI/AE com data e responsável. Google e SUAP podem ser avaliados futuramente,
+sem bloquear a conclusão desse mecanismo próprio.

@@ -1,11 +1,12 @@
-# Backend SAGER — login local provisório
+# Backend SAGER — login próprio e API local
 
-O login por e-mail e senha própria do SAGER atende somente desenvolvimento e teste.
-Um operador cria as contas e atribui um perfil de teste; não há cadastro público.
+O solicitante escolheu em 30/09/2026 o login próprio do SAGER por e-mail e senha.
+A implementação atual atende somente desenvolvimento e teste no perfil `local`.
+Um operador cria as contas e atribui um perfil local; não há cadastro público.
 O [roteiro](../docs/ROADMAP_IMPLEMENTACAO.md) e o
 [contrato de autenticação](../docs/fase-0/AUTENTICACAO_LOCAL.md) registram os limites.
 A antiga prova Google OIDC está [arquivada como evidência](../docs/fase-0/AUTENTICACAO_GOOGLE.md);
-nenhuma credencial Google é necessária para iniciar este backend.
+integrações com Google e SUAP ficaram para avaliação futura.
 
 ## Pré-requisitos
 
@@ -15,7 +16,8 @@ nenhuma credencial Google é necessária para iniciar este backend.
   senha em argumento, `.env` rastreado, captura de tela, issue ou chat.
 - Banco e aplicação de desenvolvimento executados somente no computador local.
   O perfil `local` vincula o backend a `127.0.0.1:8080`; fora dele, o login local
-  fica desabilitado e o acesso falha fechado até existir provedor institucional.
+  fica desabilitado e o acesso falha fechado até existir configuração segura de
+  implantação do login próprio, com provisionamento e proteção operacional testados.
 
 No PowerShell, selecione o JDK apenas para o terminal do projeto:
 
@@ -89,20 +91,31 @@ responsáveis e alocações locais possuem APIs e telas ligadas ao PostgreSQL. O
 [contrato da Fase 2](../docs/fase-2/README.md)
 descreve as rotas de supervisores, `/api/v1/alojamentos`, suas unidades e
 `/api/v1/quartos`, incluindo `/api/v1/quartos/mapa`, `/api/v1/residentes`,
-`/api/v1/responsaveis` e `/api/v1/alocacoes`, com perfis, CSRF e erros. V5–V9
+`/api/v1/responsaveis` e `/api/v1/alocacoes`, com perfis, CSRF e erros. V5–V10
 preservam as migrações anteriores. As versões iniciam em `0`; a edição e a
 movimentação exigem a versão conhecida e rejeitam conflitos. Código global e
 número local de quarto são textuais. Ocupação conta alocações ativas; vagas
 livres ficam `null` quando a capacidade não foi definida, e a nota de limpeza
 continua `null`.
-No cadastro provisório de residentes, nome e matrícula são obrigatórios;
-nascimento e curso são opcionais. Gestor local grava, gestor e supervisor locais
-consultam. A fonte institucional da matrícula ainda depende de decisão da AE/TI.
+Nos recursos de gestão já integrados, **gestor e supervisor locais podem consultar,
+cadastrar, editar e movimentar com as mesmas permissões**; isso inclui
+supervisores, alojamentos/unidades, quartos, residentes, responsáveis e alocações.
+O residente local não recebe acesso a essas APIs. Essas permissões não abrangem
+automaticamente futuras operações ou dados sensíveis.
+No cadastro manual de residentes, nome, matrícula e data de nascimento são
+obrigatórios em `POST` e `PUT`; nascimento deve ser válido e não futuro, e curso
+é opcional. A matrícula é única sem diferenciar maiúsculas/minúsculas após retirar
+espaços das pontas, mas sua conferência institucional ainda precisa de procedimento
+AE/TI. O login não fornece matrícula; a integração com SUAP foi adiada. A migração
+V10 acrescenta `CHECK (birth_date IS NOT NULL) NOT VALID`: preserva a leitura de
+linhas legadas sem nascimento e exige a data em novas inserções e atualizações.
+Registros legados sem data não devem ser tratados como maiores de idade.
 No cadastro local de responsáveis, nome, vínculo e residente associado são
 obrigatórios; telefone é opcional. O estado ativo cadastral não comprova
-autorização legal ou assinatura. Gestor local grava, gestor e supervisor locais
-consultam. Prioridade, comprovação de guarda e destinatário de saída longa
-dependem de decisão da AE/TI.
+autorização legal ou assinatura. Para a saída longa futura, basta **uma assinatura
+válida de qualquer responsável cadastrado e vinculado ao residente**, sem exigir
+ambos; a comprovação do vínculo/identidade e o serviço de assinatura ainda faltam.
+Essa regra de saída longa ainda não foi implementada.
 Na alocação provisória, um residente tem no máximo um quarto ativo. Entrada e
 transferência exigem capacidade definida com vaga e quarto fora de Manutenção
 e Indisponível. Encerramento e transferência preservam o histórico. A situação
@@ -116,14 +129,16 @@ em memória e uma falha da API não a transforma em fonte de dados do cadastro.
 
 Testes e prova manual com conta sintética receberam
 [aceite técnico local](../docs/fase-0/QA.md) para desenvolvimento. A
-[D21](../docs/fase-0/DECISOES.md) e a Fase 0 continuam sem
-homologação institucional. Antes de produção, TI/AE devem decidir e comprovar o
-provedor, os perfis, o desligamento e a política de sessão com responsáveis, data e
-referência de aceite. As fatias persistidas da Fase 2 também receberam
+[D21](../docs/fase-0/DECISOES.md) registra o login próprio escolhido e a Fase 0
+continua sem homologação operacional. Antes de produção, é necessário implementar
+e verificar configuração HTTPS/cookie seguro, provisionamento e recuperação de
+contas, permissões por registro, desligamento e política de sessão, com aceite
+TI/AE datado. A prova local anterior não certifica essas condições. As fatias
+persistidas da Fase 2 também receberam
 [aceite técnico local](../docs/fase-2/QA.md), com prova de cadastro, edição,
 conflito e persistência após reinício. As demais operações das próximas
 fatias continuam demonstrativas; não há autorização completa por
-operação e registro de residente, nem homologação institucional da Fase 2.
+operação e registro de residente, nem homologação operacional da Fase 2.
 
 O [CI](../docs/CI.md) executa o `verify` em Ubuntu com JDK 21 e Docker,
 sem credenciais da aplicação. O [pacote AE/TI](../docs/fase-2/PACOTE_AE_TI.md)
