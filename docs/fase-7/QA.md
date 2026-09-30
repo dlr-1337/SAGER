@@ -150,8 +150,9 @@ O pacote age tem 387.295 bytes e SHA256
 A etapa com backend parado, incluindo a coleta adicional dos fingerprints para
 esta prova, durou 90,58 segundos; a origem voltou a healthy.
 
-A restauração em `sager-f7-final-recovery-20260930`, inicialmente vazio e isolado,
-terminou em 11,50 segundos, incluindo a conferência posterior. Foram verificados:
+A chamada de restauração em `sager-f7-final-recovery-20260930`, inicialmente vazio
+e isolado, durou 11,50 segundos. As comparações externas abaixo ocorreram depois,
+fora desse tempo:
 
 - 54 tabelas: hashes e contagens exatos em 52; nas duas tabelas de sessão,
   descarte esperado de 24 sessões e 27 atributos para zero.
@@ -165,6 +166,8 @@ A recusa de volume documental ocupado foi verificada na prova baseline e nos nov
 testes do mesmo `recovery.py`. O destino final foi removido com conferência de
 containers e volumes; a origem permaneceu saudável após a prova. Os resultados
 brutos estão em `final-recovery/final-recovery-state.json`, na área privada de QA.
+Não houve jornada HTTP no destino recuperado. O runbook exige inicializar a role
+runtime e conferir os fluxos antes de direcionar tráfego operacional.
 
 Após arquivar a evidência, os dois stacks de origem usados nesta sessão foram
 removidos. A conferência por label Compose encontrou zero containers, volumes ou
@@ -175,7 +178,8 @@ preservados fora dos arquivos versionados.
 
 O workflow entrega três gates: Backend · PostgreSQL, Frontend · Chromium e
 Infrastructure · HTTPS. O terceiro compila as imagens e executa o smoke descartável
-do commit de integração. O PR registra o resultado da execução final antes da
+do commit de integração. O [PR de F7](https://github.com/dlr-1337/SAGER/pull/14)
+registra o resultado da execução final antes da
 mesclagem; nenhuma aprovação anterior substitui a conferência do commit final.
 
 ## Limites do aceite
