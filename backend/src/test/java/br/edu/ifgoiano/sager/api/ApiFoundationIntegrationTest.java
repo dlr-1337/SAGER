@@ -165,6 +165,42 @@ class ApiFoundationIntegrationTest {
     }
 
     @Test
+    void openApiIncludesLongExitBodiesCapabilityAndPrivatePdfContracts() throws Exception {
+        account("supervisor");
+        try (HttpClient client = browser()) {
+            login(client, "supervisor@example.test", PASSWORD, csrf(client));
+            HttpResponse<String> response = get(client, "/api/v1/openapi");
+            assertThat(response.statusCode()).isEqualTo(200);
+            JsonNode document = json.readTree(response.body());
+            JsonNode paths = document.path("paths");
+            for (String path : List.of("/api/v1/saidas-longas", "/api/v1/saidas-longas/elegibilidade",
+                    "/api/v1/saidas-longas/{id}", "/api/v1/saidas-longas/{id}/decisao",
+                    "/api/v1/saidas-longas/{id}/cancelamento", "/api/v1/saidas-longas/{id}/partida",
+                    "/api/v1/saidas-longas/{id}/retorno", "/api/v1/saidas-longas/{id}/reenvio",
+                    "/api/v1/saidas-longas/{id}/reconciliacao",
+                    "/api/v1/saidas-longas/{id}/documentos/{documentVersionId}/original",
+                    "/api/v1/saidas-longas/{id}/documentos/{documentVersionId}/assinado",
+                    "/api/v1/assinaturas/acesso", "/api/v1/assinaturas/documento")) {
+                assertThat(paths.has(path)).as(path).isTrue();
+            }
+            JsonNode schemas = document.path("components").path("schemas");
+            assertThat(schemas.path("LongExitCreateRequest").path("required").toString()).contains("guardianId");
+            assertThat(schemas.path("LongExitCreateRequest").path("additionalProperties").asBoolean(true)).isFalse();
+            assertThat(schemas.path("LongExitUpdateRequest").path("properties").path("version")
+                    .path("maximum").asLong()).isEqualTo(Long.MAX_VALUE - 1);
+            assertThat(paths.path("/api/v1/saidas-longas/{id}/decisao").path("post")
+                    .path("requestBody").path("content").path("application/json").path("schema")
+                    .path("$ref").asText()).isEqualTo("#/components/schemas/LongExitDecisionRequest");
+            assertThat(paths.path("/api/v1/assinaturas/acesso").path("get").path("security")
+                    .get(0).has("signatureCapability")).isTrue();
+            assertThat(paths.path("/api/v1/assinaturas/documento").path("get").path("responses")
+                    .path("200").path("content").has("application/pdf")).isTrue();
+            assertThat(document.path("components").path("securitySchemes").path("signatureCapability")
+                    .path("scheme").asText()).isEqualTo("bearer");
+        }
+    }
+
+    @Test
     void openApiIncludesActualHealthPathsAndStrictDistinctRequestSchemas() throws Exception {
         account("gestor");
         try (HttpClient client = browser()) {
