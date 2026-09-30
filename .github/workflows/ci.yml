@@ -105,3 +105,24 @@ jobs:
         run: |
           echo '### Relatórios do navegador indisponíveis' >> "$GITHUB_STEP_SUMMARY"
           echo 'A publicação dos artefatos falhou. Consulte o erro desta etapa e os logs de Browser journeys; o resultado dos testes continua obrigatório.' >> "$GITHUB_STEP_SUMMARY"
+
+  infrastructure:
+    name: Infrastructure · HTTPS
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout triggering commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Verify shell syntax
+        run: bash -n infra/production/smoke.sh infra/production/initialize-runtime.sh infra/production/start-gateway.sh
+      - name: Recovery unit tests
+        run: python3 -B -m unittest discover -s infra/production -p 'test_recovery.py' -v
+      - name: Verify Docker Compose
+        run: |
+          docker info > /dev/null
+          docker compose version
+      - name: Build and smoke synthetic production stack
+        run: bash infra/production/smoke.sh --build
