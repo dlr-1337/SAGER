@@ -699,6 +699,9 @@ test('páginas totais séries PDF e Excel compartilham snapshot, fila manual e d
       await page.getByRole('button', { name: 'Preparar Excel', exact: true }).click();
       await confirm(page, 'Solicitar preparação');
     }
+    await expect(
+      page.getByRole('button', { name: 'Consultar preparação de ' + title, exact: true }),
+    ).toBeVisible();
     const job = state.jobs.get(id)!;
     job.status = 'READY';
     job.document = { id: uuid(750), sha256: 'b'.repeat(64), size: 987, state: 'STORED' };
@@ -790,6 +793,7 @@ test('320px sem overflow e axe, teclado em revisão, papéis protegidos e demons
   await expect(page).toHaveURL(/acesso-negado$/);
   await page.goto('/demonstracao');
   await page.getByRole('button', { name: /Entrar como gestor/ }).click();
+  await expect(page).toHaveURL(/\/inicio$/);
   await page.goto('/relatorios');
   await expect(
     page.locator('.demo-tag').getByText('Dados fictícios', { exact: true }),
