@@ -21,6 +21,27 @@ A divisão em épicos E01–E15 é uma organização deste PRD. Os identificador
 
 **Escopo deste material:** produto completo descrito na SRS, com os 15 épicos e os 72 critérios de aceite funcionais preservados. A revisão acrescenta as decisões tecnológicas da conversa de 24/09/2026 e a estrutura local de alojamentos autorizada em 29/09/2026. As regras institucionais pendentes continuam na seção 23. O áudio OGG anexado originalmente não foi transcrito; não se presume conteúdo adicional dele.
 
+### Políticas locais delegadas em 30/09/2026
+
+**[U/T]** O solicitante delegou as escolhas operacionais ainda abertas para
+concluir a implementação. Na fase de desenvolvimento, o
+[contrato de operações](docs/fase-3/README.md) define a janela de chamada,
+alocação, partida física e expiração. O
+[contrato disciplinar](docs/fase-5/CONTRATO.md) define D12–D14 e D18:
+ausência sem justificativa em chamada fechada e retorno físico atrasado geram
+notificação interna, com análise humana antes de advertência. Cancelamento é
+arquivamento motivado; origem corrigida exige revisão. Duas advertências vigentes
+da mesma categoria e de origens distintas em 90 dias indicam possível
+reincidência, a confirmar pelo supervisor; não emitem termo automaticamente.
+Avisos têm destinatários UUID congelados e versões; leitura é distinta de ciência
+autenticada. O modelo local de termo v1 preserva PDF e evidência imutáveis.
+
+Essas políticas prevalecem no desenvolvimento sobre as passagens que deixam os
+mesmos parâmetros sem valor ou proíbem escolhê-los sem uma resposta específica.
+São escolhas autorizadas do projeto, identificadas e versionadas; não são dados
+de exemplo apresentados como métricas reais nem aprovação institucional da AE/TI.
+A homologação e as integrações externas reais continuam exigindo evidência própria.
+
 ### Guia de leitura
 
 **Stack definida:** Angular no frontend; Java com Spring Boot no backend. Complementos: Angular Material, PostgreSQL, Spring Security, Spring Data JPA, Flyway e Docker Compose. A seção 24 resume a arquitetura. O documento complementar **SAGER — Especificação Técnica e Arquitetura v2.0** detalha versões, bibliotecas, dados, API, segurança, testes e implantação.

@@ -73,11 +73,38 @@ public class SecurityConfiguration {
         http.authorizeHttpRequests(requests -> requests
                         .requestMatchers("/api/v1/auth/csrf", "/api/v1/auth/login", "/error")
                         .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/assinaturas/acesso", "/api/v1/assinaturas/documento",
+                                "/api/v1/webhooks/whatsapp")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/webhooks/clicksign", "/api/v1/webhooks/whatsapp")
+                        .permitAll()
                         .requestMatchers("/api/v1/auth/me", "/api/v1/auth/logout")
                         .authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/limpeza/ranking", "/api/v1/limpeza/politica")
+                        .hasAnyRole("GESTOR", "SUPERVISOR", "RESIDENTE")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/limpeza/**")
+                        .hasAnyRole("GESTOR", "SUPERVISOR")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/limpeza/avaliacoes", "/api/v1/limpeza/avaliacoes/*/corrigir")
+                        .hasRole("SUPERVISOR")
+                        .requestMatchers("/api/v1/me/limpeza/**")
+                        .hasRole("RESIDENTE")
+                        .requestMatchers("/api/v1/relatorios", "/api/v1/relatorios/**")
+                        .hasAnyRole("GESTOR", "SUPERVISOR")
+                        .requestMatchers("/api/v1/ocorrencias", "/api/v1/ocorrencias/**",
+                                "/api/v1/notificacoes", "/api/v1/notificacoes/**",
+                                "/api/v1/advertencias", "/api/v1/advertencias/**",
+                                "/api/v1/avisos", "/api/v1/avisos/**", "/api/v1/termos", "/api/v1/termos/**",
+                                "/api/v1/residentes/*/reincidencias", "/api/v1/residentes/*/termos")
+                        .hasRole("SUPERVISOR")
+                        .requestMatchers("/api/v1/me/avisos", "/api/v1/me/advertencias", "/api/v1/me/termos",
+                                "/api/v1/me/termos/**",
+                                "/api/v1/me/comunicacoes", "/api/v1/me/comunicacoes/**")
+                        .hasRole("RESIDENTE")
                         .requestMatchers("/api/v1/chamadas", "/api/v1/chamadas/**")
                         .hasRole("SUPERVISOR")
                         .requestMatchers("/api/v1/saidas-curtas", "/api/v1/saidas-curtas/**")
+                        .hasAnyRole("SUPERVISOR", "RESIDENTE")
+                        .requestMatchers("/api/v1/saidas-longas", "/api/v1/saidas-longas/**")
                         .hasAnyRole("SUPERVISOR", "RESIDENTE")
                         .requestMatchers("/api/v1/saude/**", "/api/v1/minha-saude/**")
                         .authenticated()
@@ -147,7 +174,9 @@ public class SecurityConfiguration {
                                     csrf ? "Proteção da sessão inválida. Recarregue a página e tente novamente."
                                             : ApiErrors.message(403));
                         }))
-                .csrf(Customizer.withDefaults())
+                .csrf(csrf -> csrf.ignoringRequestMatchers(request -> "POST".equals(request.getMethod())
+                        && ("/api/v1/webhooks/clicksign".equals(request.getServletPath())
+                            || "/api/v1/webhooks/whatsapp".equals(request.getServletPath()))))
                 .httpBasic(AbstractHttpConfigurer::disable);
         return http.build();
     }

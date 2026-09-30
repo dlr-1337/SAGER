@@ -87,6 +87,15 @@ class OperationsApiIntegrationTest {
     @BeforeEach
     void fixtures() {
         clock.set(START);
+        // F5 retains origin evidence after a source correction; clear only these test-owned
+        // child domains before deleting operation fixtures, never clinical/management parents.
+        if (jdbc.queryForObject("SELECT to_regclass('sager_occurrence') IS NOT NULL", Boolean.class)) {
+            jdbc.execute("TRUNCATE sager_communication_recipient, sager_communication,"
+                    + " sager_commitment_basis, sager_commitment_term, sager_warning,"
+                    + " sager_notification_event, sager_discipline_notification,"
+                    + " sager_occurrence_revision, sager_occurrence, sager_notice_draft_recipient,"
+                    + " sager_notice, sager_discipline_idempotency RESTART IDENTITY CASCADE");
+        }
         longExits.clear();
         for (String table : List.of("sager_night_call_mark_history", "sager_night_call_mark",
                 "sager_night_call", "sager_short_exit_history", "sager_short_exit")) {

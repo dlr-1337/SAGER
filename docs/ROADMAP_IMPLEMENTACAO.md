@@ -255,6 +255,12 @@ após autorização institucional e credenciais operacionais.
 **Decisões de entrada:** D07, D15–D17 e D25; confirmar termos do provedor e requisitos
 de segurança antes de ativar o fluxo real.
 
+**Estado em 30/09/2026:** implementação persistida de saídas longas, revisão/PDF
+privado, convite, outbox e webhooks autenticados, com interface ligada à API.
+O [contrato local](fase-4/CONTRATO.md) e o [registro técnico](fase-4/QA.md)
+distinguem testes sintéticos da homologação Clicksign/Meta, ainda pendente de
+credenciais e configuração institucional. Provedores ficam desativados por padrão.
+
 ### Fase 5 — Ocorrências, notificações, avisos e termos
 
 **Cobertura:** E10–E12 e AC21, AC45–AC60.
@@ -273,6 +279,15 @@ termo passam por API, banco e interface; nenhum limiar isolado aplica sanção o
 automaticamente; leitura não equivale a ciência.
 
 **Decisões de entrada:** D12–D14 e D18; D13 governa também o alerta derivado da chamada.
+
+**Estado em 30/09/2026:** evidências canônicas de chamada e retorno curto/longo,
+análise humana, advertências, avisos versionados e termos privados persistidos.
+Leitura e ciência são distintas e vinculadas à versão. Correção preserva decisões
+históricas e exige revisão humana. O [contrato](fase-5/CONTRATO.md), a
+[jornada](fase-5/README.md) e o [QA](fase-5/QA.md) registram regras delegadas,
+230 testes de backend, 172 de frontend, 87 jornadas e prova real com reinício.
+Limpeza entra na Fase 6; homologação do procedimento e assinatura real permanecem
+externas.
 
 ### Fase 6 — Limpeza, ranking, painéis e relatórios
 

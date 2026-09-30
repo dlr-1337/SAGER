@@ -18,6 +18,7 @@ import br.edu.ifgoiano.sager.audit.AuditService;
 import br.edu.ifgoiano.sager.auth.LocalAccountPrincipal;
 import br.edu.ifgoiano.sager.operations.AuthorizedExitLookup;
 import br.edu.ifgoiano.sager.operations.OperationResidents;
+import br.edu.ifgoiano.sager.operations.OccurrenceEvidenceSink;
 import br.edu.ifgoiano.sager.operations.OpsActor;
 import br.edu.ifgoiano.sager.operations.OpsApiException;
 import br.edu.ifgoiano.sager.operations.OpsInput;
@@ -38,14 +39,16 @@ public class NightCallService {
     private final AuditService audit;
     private final Clock clock;
     private final List<AuthorizedExitLookup> exitLookups;
+    private final List<OccurrenceEvidenceSink> evidenceSinks;
 
     public NightCallService(NightCallRepository calls, OpsActor actors, AuditService audit,
-            Clock clock, List<AuthorizedExitLookup> exitLookups) {
+            Clock clock, List<AuthorizedExitLookup> exitLookups, List<OccurrenceEvidenceSink> evidenceSinks) {
         this.calls = calls;
         this.actors = actors;
         this.audit = audit;
         this.clock = clock;
         this.exitLookups = List.copyOf(exitLookups);
+        this.evidenceSinks = List.copyOf(evidenceSinks);
     }
 
     @Transactional(readOnly = true)
@@ -136,6 +139,9 @@ public class NightCallService {
         if (!Objects.equals(previous.authorizedExitType(), changed.authorizedExitType())) fields.add("authorizedExitType");
         if (correction) fields.add("justification");
         audit.record(AuditResource.NIGHT_CALL_MARK, changed.id(), AuditAction.UPDATE, changed.version(), Set.copyOf(fields));
+        if (correction) {
+            evidenceSinks.forEach(sink -> sink.reconcile("NIGHT_CALL", changed.id(), changed.residentId()));
+        }
         return view(calls.find(id, false).orElseThrow(OpsInput::notFound));
     }
 
@@ -154,6 +160,8 @@ public class NightCallService {
         audit.record(AuditResource.NIGHT_CALL, id, AuditAction.END, closed.version(),
                 exceptional ? Set.of("status", "closedAt", "outsideWindowConfirmed", "justification")
                         : Set.of("status", "closedAt"));
+        calls.marks(id).forEach(mark -> evidenceSinks.forEach(sink ->
+                sink.reconcile("NIGHT_CALL", mark.id(), mark.residentId())));
         return view(closed);
     }
 

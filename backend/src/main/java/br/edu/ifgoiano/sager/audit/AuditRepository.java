@@ -61,7 +61,10 @@ public class AuditRepository {
                 SELECT * FROM sager_audit_event WHERE resource IN (
                     'SUPERVISOR','RESIDENT','GUARDIAN','ACCOMMODATION','ACCOMMODATION_UNIT','ROOM','ALLOCATION',
                     'HEALTH_GRANT','CARE_ASSIGNMENT','HEALTH_CUSTODY',
-                    'NIGHT_CALL','NIGHT_CALL_MARK','SHORT_EXIT'
+                    'NIGHT_CALL','NIGHT_CALL_MARK','SHORT_EXIT',
+                    'OCCURRENCE','DISCIPLINE_NOTIFICATION','WARNING','NOTICE','COMMUNICATION','COMMITMENT_TERM',
+                    'CLEANING_ASSESSMENT','REPORT_SNAPSHOT','REPORT_EXPORT',
+                    'LONG_EXIT','DOCUMENT_VERSION','SIGNATURE_BINDING','WHATSAPP_ATTEMPT','INTEGRATION_TASK'
                 )
                 """);
         List<Object> arguments = new ArrayList<>();

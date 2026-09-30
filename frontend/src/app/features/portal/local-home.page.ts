@@ -27,6 +27,17 @@ import { LocalAuthService } from '../../core/local-auth.service';
             <p>Analise as solicitações e registre a partida ou a chegada presencial.</p>
             <a class="btn" routerLink="/saidas">Consultar saídas</a>
           </article>
+          <article>
+            <h2>Notificações e advertências</h2>
+            <p>Confira a origem das ocorrências e registre a análise antes de uma decisão.</p>
+            <a class="btn" routerLink="/notificacoes">Analisar notificações</a>
+            <a class="btn secondary" routerLink="/advertencias">Consultar advertências</a>
+          </article>
+          <article>
+            <h2>Avisos institucionais</h2>
+            <p>Prepare avisos para os residentes selecionados e confira a versão publicada.</p>
+            <a class="btn" routerLink="/comunicacoes/avisos">Gerenciar avisos</a>
+          </article>
         } @else if (session.role() === 'residente') {
           <article>
             <h2>Minhas saídas</h2>
@@ -34,9 +45,23 @@ import { LocalAuthService } from '../../core/local-auth.service';
             <a class="btn" routerLink="/saidas">Ver minhas saídas</a>
           </article>
           <article>
+            <h2>Minhas comunicações</h2>
+            <p>
+              Acompanhe avisos, advertências e termos. Leitura e ciência são registradas
+              separadamente.
+            </p>
+            <a class="btn" routerLink="/avisos">Consultar comunicações</a>
+          </article>
+          <article>
             <h2>Minha saúde</h2>
             <p>Consulte e exporte os registros de saúde vinculados ao seu cadastro.</p>
             <a class="btn" routerLink="/minha-saude">Consultar minha saúde</a>
+          </article>
+          <article>
+            <h2>Minha limpeza</h2>
+            <p>Consulte as avaliações vinculadas ao seu quarto e acompanhe o período do ranking.</p>
+            <a class="btn" routerLink="/minha-limpeza">Consultar minhas avaliações</a>
+            <a class="btn secondary" routerLink="/ranking">Consultar ranking</a>
           </article>
         } @else if (session.role() === 'saude') {
           <article>
@@ -46,6 +71,17 @@ import { LocalAuthService } from '../../core/local-auth.service';
           </article>
         }
         @if (session.role() === 'gestor' || session.role() === 'supervisor') {
+          <article>
+            <h2>Avaliações de limpeza</h2>
+            <p>Confira as avaliações e seus participantes históricos. Veja a regra e o período.</p>
+            <a class="btn" routerLink="/limpeza">Consultar avaliações</a>
+            <a class="btn secondary" routerLink="/ranking">Consultar ranking</a>
+          </article>
+          <article>
+            <h2>Relatórios</h2>
+            <p>Escolha uma consulta e confira os mesmos dados na prévia e na exportação.</p>
+            <a class="btn" routerLink="/relatorios">Consultar relatórios</a>
+          </article>
           <article>
             <h2>Cadastros e alocações</h2>
             <p>Consulte residentes, responsáveis e vínculos de moradia.</p>

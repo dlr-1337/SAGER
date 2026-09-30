@@ -165,6 +165,42 @@ class ApiFoundationIntegrationTest {
     }
 
     @Test
+    void openApiIncludesLongExitBodiesCapabilityAndPrivatePdfContracts() throws Exception {
+        account("supervisor");
+        try (HttpClient client = browser()) {
+            login(client, "supervisor@example.test", PASSWORD, csrf(client));
+            HttpResponse<String> response = get(client, "/api/v1/openapi");
+            assertThat(response.statusCode()).isEqualTo(200);
+            JsonNode document = json.readTree(response.body());
+            JsonNode paths = document.path("paths");
+            for (String path : List.of("/api/v1/saidas-longas", "/api/v1/saidas-longas/elegibilidade",
+                    "/api/v1/saidas-longas/{id}", "/api/v1/saidas-longas/{id}/decisao",
+                    "/api/v1/saidas-longas/{id}/cancelamento", "/api/v1/saidas-longas/{id}/partida",
+                    "/api/v1/saidas-longas/{id}/retorno", "/api/v1/saidas-longas/{id}/reenvio",
+                    "/api/v1/saidas-longas/{id}/reconciliacao",
+                    "/api/v1/saidas-longas/{id}/documentos/{documentVersionId}/original",
+                    "/api/v1/saidas-longas/{id}/documentos/{documentVersionId}/assinado",
+                    "/api/v1/assinaturas/acesso", "/api/v1/assinaturas/documento")) {
+                assertThat(paths.has(path)).as(path).isTrue();
+            }
+            JsonNode schemas = document.path("components").path("schemas");
+            assertThat(schemas.path("LongExitCreateRequest").path("required").toString()).contains("guardianId");
+            assertThat(schemas.path("LongExitCreateRequest").path("additionalProperties").asBoolean(true)).isFalse();
+            assertThat(schemas.path("LongExitUpdateRequest").path("properties").path("version")
+                    .path("maximum").asLong()).isEqualTo(Long.MAX_VALUE - 1);
+            assertThat(paths.path("/api/v1/saidas-longas/{id}/decisao").path("post")
+                    .path("requestBody").path("content").path("application/json").path("schema")
+                    .path("$ref").asText()).isEqualTo("#/components/schemas/LongExitDecisionRequest");
+            assertThat(paths.path("/api/v1/assinaturas/acesso").path("get").path("security")
+                    .get(0).has("signatureCapability")).isTrue();
+            assertThat(paths.path("/api/v1/assinaturas/documento").path("get").path("responses")
+                    .path("200").path("content").has("application/pdf")).isTrue();
+            assertThat(document.path("components").path("securitySchemes").path("signatureCapability")
+                    .path("scheme").asText()).isEqualTo("bearer");
+        }
+    }
+
+    @Test
     void openApiIncludesActualHealthPathsAndStrictDistinctRequestSchemas() throws Exception {
         account("gestor");
         try (HttpClient client = browser()) {
@@ -203,6 +239,64 @@ class ApiFoundationIntegrationTest {
             assertThat(paths.path("/api/v1/minha-saude/exportacoes").path("post")
                     .path("responses").path("403").path("content").path("application/json")
                     .path("schema").path("$ref").asText()).isEqualTo("#/components/schemas/ApiError");
+        }
+    }
+
+    @Test
+    void reportingContractHasStrictScoringSnapshotFiltersAndActualDownloadFormats() throws Exception {
+        account("supervisor");
+        try (HttpClient client = browser()) {
+            login(client, "supervisor@example.test", PASSWORD, csrf(client));
+            JsonNode document = json.readTree(get(client, "/api/v1/openapi").body());
+            JsonNode paths = document.path("paths");
+            for (String path : List.of("/limpeza/politica", "/limpeza/avaliacoes", "/limpeza/avaliacoes/{id}/corrigir",
+                    "/limpeza/ranking", "/limpeza/indicadores", "/me/limpeza/avaliacoes/{id}",
+                    "/relatorios/catalogo", "/relatorios/consultas", "/relatorios/consultas/{id}/linhas",
+                    "/relatorios/consultas/{id}/exportacoes", "/relatorios/exportacoes/{id}/arquivo")) {
+                assertThat(paths.has("/api/v1" + path)).as(path).isTrue();
+            }
+            JsonNode schemas = document.path("components").path("schemas");
+            JsonNode criteria = schemas.path("CleaningAssessmentCreateRequest").path("properties").path("criteria");
+            assertThat(criteria.path("required").size()).isEqualTo(4);
+            assertThat(criteria.path("additionalProperties").asBoolean(true)).isFalse();
+            assertThat(criteria.path("properties").path("PISO").path("multipleOf").decimalValue()).isEqualByComparingTo("0.1");
+            assertThat(schemas.path("CleaningAssessmentCorrectionRequest").path("properties").path("reason").path("minLength").asInt()).isEqualTo(10);
+            JsonNode filters = schemas.path("ReportSnapshotCreateRequest").path("properties").path("filters");
+            assertThat(filters.path("additionalProperties").asBoolean(true)).isFalse();
+            assertThat(filters.path("properties").path("residentId").path("format").asText()).isEqualTo("uuid");
+            assertThat(schemas.path("ReportExportRequest").path("properties").path("format").path("enum").toString()).contains("PDF", "XLSX");
+            assertThat(paths.path("/api/v1/relatorios/exportacoes/{id}/arquivo").path("get").path("responses").path("200").path("content")
+                    .has("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")).isTrue();
+            assertThat(paths.path("/api/v1/relatorios/consultas").path("post").path("description").asText()).contains("10.000", "366", "24 horas");
+        }
+    }
+
+    @Test
+    void communicationsContractDocumentsHumanDecisionsVersionedAcknowledgementAndPrivatePdf() throws Exception {
+        account("supervisor");
+        try (HttpClient client = browser()) {
+            login(client, "supervisor@example.test", PASSWORD, csrf(client));
+            JsonNode document = json.readTree(get(client, "/api/v1/openapi").body());
+            JsonNode paths = document.path("paths");
+            for (String path : List.of("/notificacoes/contexto", "/ocorrencias", "/notificacoes/{id}/converter",
+                    "/advertencias", "/residentes/{id}/reincidencias", "/residentes/{id}/termos",
+                    "/avisos/{id}/revisar", "/me/comunicacoes/{id}/leitura", "/me/comunicacoes/{id}/ciencia",
+                    "/me/termos/{id}/documento")) {
+                assertThat(paths.has("/api/v1" + path)).as(path).isTrue();
+            }
+            JsonNode schemas = document.path("components").path("schemas");
+            assertThat(schemas.path("WarningCreateRequest").path("additionalProperties").asBoolean(true)).isFalse();
+            assertThat(schemas.path("WarningCreateRequest").path("properties").path("severity").path("enum").size()).isEqualTo(3);
+            assertThat(schemas.path("WarningCreateRequest").path("properties").path("justification").path("minLength").asInt()).isEqualTo(10);
+            assertThat(schemas.path("TermIssueRequest").path("properties").path("warningIds").path("minItems").asInt()).isEqualTo(2);
+            assertThat(schemas.path("TermIssueRequest").path("properties").path("confirmed").path("enum").get(0).asBoolean()).isTrue();
+            assertThat(schemas.path("CommunicationAcknowledgeRequest").path("properties").path("version").path("type").asText()).isEqualTo("integer");
+            assertThat(schemas.path("NoticeRevisionRequest").path("properties").has("residentIds")).isFalse();
+            assertThat(paths.path("/api/v1/me/termos/{id}/documento").path("get").path("responses")
+                    .path("200").path("content").has("application/pdf")).isTrue();
+            assertThat(paths.path("/api/v1/notificacoes/{id}/converter").path("post").path("responses")
+                    .path("409").path("content").path("application/json").path("schema").path("$ref").asText())
+                    .isEqualTo("#/components/schemas/ApiError");
         }
     }
 

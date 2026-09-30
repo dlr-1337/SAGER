@@ -48,4 +48,38 @@ describe('App', () => {
     expect(compiled.textContent).toContain('Dados fictícios');
     expect(compiled.querySelector('img[alt*="Instituto Federal Goiano"]')).toBeTruthy();
   });
+
+  it('oferece análise e avisos somente ao supervisor no acesso local', async () => {
+    TestBed.inject(DemoSessionService).deactivate();
+    const auth = TestBed.inject(LocalAuthService);
+    const account = {
+      id: '00000000-0000-0000-0000-000000000001',
+      nome: 'Supervisora Sintética',
+      email: 'supervisor@example.test',
+      fotoUrl: null,
+      perfis: ['supervisor' as const],
+      residenteId: null,
+      supervisorId: null,
+    };
+    auth.principal.set(account);
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    expect(fixture.componentInstance.navItems().map((item) => item.path)).toContain(
+      '/advertencias',
+    );
+    expect(fixture.componentInstance.navItems().map((item) => item.path)).toContain(
+      '/comunicacoes/avisos',
+    );
+    auth.principal.set({ ...account, perfis: ['gestor'] });
+    expect(fixture.componentInstance.navItems().map((item) => item.path)).toContain('/limpeza');
+    expect(fixture.componentInstance.navItems().map((item) => item.path)).not.toContain(
+      '/advertencias',
+    );
+    auth.principal.set({ ...account, perfis: ['residente'] });
+    const ownItems = fixture.componentInstance.navItems();
+    expect(ownItems.map((item) => item.path)).toContain('/minha-limpeza');
+    expect(ownItems.map((item) => item.path)).not.toContain('/limpeza');
+    expect(ownItems.find((item) => item.path === '/avisos')?.label).toBe('Minhas comunicações');
+    expect(ownItems.map((item) => item.path)).not.toContain('/comunicacoes/avisos');
+  });
 });

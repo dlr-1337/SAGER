@@ -19,6 +19,7 @@ import br.edu.ifgoiano.sager.auth.LocalAccountPrincipal;
 import br.edu.ifgoiano.sager.operations.AuthorizedExitLookup;
 import br.edu.ifgoiano.sager.operations.ExitOccupancyLookup;
 import br.edu.ifgoiano.sager.operations.OperationResidents;
+import br.edu.ifgoiano.sager.operations.OccurrenceEvidenceSink;
 import br.edu.ifgoiano.sager.operations.OperationResidents.Eligibility;
 import br.edu.ifgoiano.sager.operations.OpsActor;
 import br.edu.ifgoiano.sager.operations.OpsInput;
@@ -38,15 +39,18 @@ public class ShortExitService {
     private final AuditService audit;
     private final Clock clock;
     private final List<ExitOccupancyLookup> occupancies;
+    private final List<OccurrenceEvidenceSink> evidenceSinks;
 
     public ShortExitService(ShortExitRepository exits, OperationResidents residents, OpsActor actors,
-            AuditService audit, Clock clock, List<ExitOccupancyLookup> occupancies) {
+            AuditService audit, Clock clock, List<ExitOccupancyLookup> occupancies,
+            List<OccurrenceEvidenceSink> evidenceSinks) {
         this.exits = exits;
         this.residents = residents;
         this.actors = actors;
         this.audit = audit;
         this.clock = clock;
         this.occupancies = List.copyOf(occupancies);
+        this.evidenceSinks = List.copyOf(evidenceSinks);
     }
 
     @Transactional(readOnly = true)
@@ -197,6 +201,7 @@ public class ShortExitService {
         record(updated, "RETURN", now, returning, actor, request.justification(), AuditAction.END,
                 Objects.equals(current.lateObservation(), updated.lateObservation())
                         ? Set.of("status", "actualReturnAt") : Set.of("status", "actualReturnAt", "lateObservation"));
+        evidenceSinks.forEach(sink -> sink.reconcile("SHORT_RETURN", updated.id(), updated.residentId()));
         return view(updated, actor);
     }
 
