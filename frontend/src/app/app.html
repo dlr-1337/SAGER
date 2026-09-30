@@ -127,7 +127,9 @@
             <a
               [routerLink]="item.path"
               routerLinkActive="active"
-              [routerLinkActiveOptions]="{ exact: item.path === '/inicio' }"
+              [routerLinkActiveOptions]="{
+                exact: item.path === '/inicio' || (item.path === '/saude' && healthAccessPage()),
+              }"
               (click)="navigateFromMenu()"
             >
               <span class="material-symbols-rounded" aria-hidden="true">{{ item.icon }}</span>

@@ -99,6 +99,31 @@ describe('LocalAuthService', () => {
     }
   });
 
+  it('aceita o perfil de saúde sem atribuir vínculo de residente ou supervisor', async () => {
+    const healthPrincipal = { ...principal, perfis: ['saude'] };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(JSON.stringify(healthPrincipal))),
+    );
+    const auth = TestBed.inject(LocalAuthService);
+
+    expect(await auth.refresh()).toEqual(healthPrincipal);
+    expect(auth.principal()?.residenteId).toBeNull();
+    expect(auth.principal()?.supervisorId).toBeNull();
+  });
+
+  it('recusa vínculos cadastrais no perfil de saúde mesmo com UUID válido', async () => {
+    const auth = TestBed.inject(LocalAuthService);
+    for (const value of [
+      { ...principal, perfis: ['saude'], residenteId: '00000000-0000-0000-0000-000000000002' },
+      { ...principal, perfis: ['saude'], supervisorId: '00000000-0000-0000-0000-000000000003' },
+    ]) {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(value))));
+      expect(await auth.refresh()).toBeNull();
+      expect(auth.principal()).toBeNull();
+    }
+  });
+
   it('encerra a sessão com CSRF e limpa o principal após resposta bem-sucedida', async () => {
     const fetchMock = vi
       .fn()

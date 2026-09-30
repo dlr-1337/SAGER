@@ -16,7 +16,7 @@ interface CsrfToken {
   token: string;
 }
 
-const roles: Role[] = ['gestor', 'supervisor', 'residente'];
+const roles: Role[] = ['gestor', 'supervisor', 'residente', 'saude'];
 
 function nullableRecordId(value: unknown): value is string | null {
   return (
@@ -41,7 +41,7 @@ function validPrincipal(value: unknown): value is LocalPrincipal {
     nullableRecordId(principal.supervisorId) &&
     !(principal.residenteId && principal.supervisorId) &&
     (!principal.residenteId || principal.perfis[0] === 'residente') &&
-    (!principal.supervisorId || principal.perfis[0] !== 'residente')
+    (!principal.supervisorId || ['gestor', 'supervisor'].includes(principal.perfis[0]))
   );
 }
 
