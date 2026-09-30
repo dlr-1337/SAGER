@@ -16,6 +16,7 @@ import br.edu.ifgoiano.sager.integrations.WhatsAppProvider;
 import br.edu.ifgoiano.sager.operations.AuthorizedExitLookup;
 import br.edu.ifgoiano.sager.operations.ExitOccupancyLookup;
 import br.edu.ifgoiano.sager.operations.OperationResidents;
+import br.edu.ifgoiano.sager.operations.OccurrenceEvidenceSink;
 import br.edu.ifgoiano.sager.operations.OperationResidents.Eligibility;
 import br.edu.ifgoiano.sager.operations.OpsActor;
 import br.edu.ifgoiano.sager.operations.OpsInput;
@@ -64,6 +65,7 @@ public class LongExitService {
     private final AuditService audit;
     private final Clock clock;
     private final List<ExitOccupancyLookup> occupancies;
+    private final List<OccurrenceEvidenceSink> evidenceSinks;
     private final LongExitPdfGenerator pdf;
     private final PrivateFileStore files;
     private final IntegrationRepository integrations;
@@ -80,6 +82,7 @@ public class LongExitService {
             AuditService audit,
             Clock clock,
             List<ExitOccupancyLookup> occupancies,
+            List<OccurrenceEvidenceSink> evidenceSinks,
             LongExitPdfGenerator pdf,
             PrivateFileStore files,
             IntegrationRepository integrations,
@@ -94,6 +97,7 @@ public class LongExitService {
         this.audit = audit;
         this.clock = clock;
         this.occupancies = List.copyOf(occupancies);
+        this.evidenceSinks = List.copyOf(evidenceSinks);
         this.pdf = pdf;
         this.files = files;
         this.integrations = integrations;
@@ -383,6 +387,7 @@ public class LongExitService {
                 Objects.equals(current.lateObservation(), lateObservation)
                         ? Set.of("status", "actualReturnAt")
                         : Set.of("status", "actualReturnAt", "lateObservation"));
+        evidenceSinks.forEach(sink -> sink.reconcile("LONG_RETURN", updated.id(), updated.residentId()));
         return view(updated, a);
     }
 

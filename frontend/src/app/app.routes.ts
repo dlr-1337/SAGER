@@ -6,6 +6,7 @@ import { firstValueFrom } from 'rxjs';
 import { HealthApiService } from './features/health/health-api.service';
 import { MANAGEMENT_ROUTES } from './features/management/management.routes';
 import { OPERATIONS_ROUTES } from './features/operations/operations.routes';
+import { COMMUNICATION_ROUTES } from './features/communications/communications.routes';
 
 const accessGuard: CanActivateFn = async (route) => {
   const session = inject(DemoSessionService);
@@ -116,6 +117,7 @@ export const routes: Routes = [
   },
   ...managementRoutes,
   ...operationRoutes,
+  ...COMMUNICATION_ROUTES.map((route) => ({ ...route, canActivate: [accessGuard] })),
   ...healthRoutes,
   {
     path: 'avisos',

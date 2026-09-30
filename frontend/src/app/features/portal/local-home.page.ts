@@ -27,11 +27,30 @@ import { LocalAuthService } from '../../core/local-auth.service';
             <p>Analise as solicitações e registre a partida ou a chegada presencial.</p>
             <a class="btn" routerLink="/saidas">Consultar saídas</a>
           </article>
+          <article>
+            <h2>Notificações e advertências</h2>
+            <p>Confira a origem das ocorrências e registre a análise antes de uma decisão.</p>
+            <a class="btn" routerLink="/notificacoes">Analisar notificações</a>
+            <a class="btn secondary" routerLink="/advertencias">Consultar advertências</a>
+          </article>
+          <article>
+            <h2>Avisos institucionais</h2>
+            <p>Prepare avisos para os residentes selecionados e confira a versão publicada.</p>
+            <a class="btn" routerLink="/comunicacoes/avisos">Gerenciar avisos</a>
+          </article>
         } @else if (session.role() === 'residente') {
           <article>
             <h2>Minhas saídas</h2>
             <p>Solicite uma saída e acompanhe a decisão e o histórico.</p>
             <a class="btn" routerLink="/saidas">Ver minhas saídas</a>
+          </article>
+          <article>
+            <h2>Minhas comunicações</h2>
+            <p>
+              Acompanhe avisos, advertências e termos. Leitura e ciência são registradas
+              separadamente.
+            </p>
+            <a class="btn" routerLink="/avisos">Consultar comunicações</a>
           </article>
           <article>
             <h2>Minha saúde</h2>

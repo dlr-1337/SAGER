@@ -103,6 +103,9 @@ class IntegrationFlowIntegrationTest {
     void fixtures() {
         clock.value = START;
         server.clear();
+        // The integration with disciplinary evidence must not leave origin references in fixtures.
+        jdbc.execute("TRUNCATE sager_occurrence,sager_warning,sager_notice,sager_commitment_term,"
+                + "sager_communication,sager_discipline_idempotency RESTART IDENTITY CASCADE");
         for (String table :
                 List.of(
                         "sager_webhook_inbox",
@@ -263,6 +266,9 @@ class IntegrationFlowIntegrationTest {
                             200);
             assertThat(returned.path("status").asText()).isEqualTo("RETORNO_CONFIRMADO_COM_ATRASO");
             assertThat(returned.path("history").size()).isEqualTo(5);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_occurrence WHERE source_type='LONG_RETURN' AND source_id=? AND resident_id=? AND valid", Integer.class, id, resident)).isEqualTo(1);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_discipline_notification", Integer.class)).isEqualTo(1);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_warning", Integer.class)).isZero();
         }
     }
 

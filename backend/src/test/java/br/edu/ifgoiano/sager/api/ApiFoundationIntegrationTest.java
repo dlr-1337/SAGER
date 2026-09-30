@@ -243,6 +243,35 @@ class ApiFoundationIntegrationTest {
     }
 
     @Test
+    void communicationsContractDocumentsHumanDecisionsVersionedAcknowledgementAndPrivatePdf() throws Exception {
+        account("supervisor");
+        try (HttpClient client = browser()) {
+            login(client, "supervisor@example.test", PASSWORD, csrf(client));
+            JsonNode document = json.readTree(get(client, "/api/v1/openapi").body());
+            JsonNode paths = document.path("paths");
+            for (String path : List.of("/notificacoes/contexto", "/ocorrencias", "/notificacoes/{id}/converter",
+                    "/advertencias", "/residentes/{id}/reincidencias", "/residentes/{id}/termos",
+                    "/avisos/{id}/revisar", "/me/comunicacoes/{id}/leitura", "/me/comunicacoes/{id}/ciencia",
+                    "/me/termos/{id}/documento")) {
+                assertThat(paths.has("/api/v1" + path)).as(path).isTrue();
+            }
+            JsonNode schemas = document.path("components").path("schemas");
+            assertThat(schemas.path("WarningCreateRequest").path("additionalProperties").asBoolean(true)).isFalse();
+            assertThat(schemas.path("WarningCreateRequest").path("properties").path("severity").path("enum").size()).isEqualTo(3);
+            assertThat(schemas.path("WarningCreateRequest").path("properties").path("justification").path("minLength").asInt()).isEqualTo(10);
+            assertThat(schemas.path("TermIssueRequest").path("properties").path("warningIds").path("minItems").asInt()).isEqualTo(2);
+            assertThat(schemas.path("TermIssueRequest").path("properties").path("confirmed").path("enum").get(0).asBoolean()).isTrue();
+            assertThat(schemas.path("CommunicationAcknowledgeRequest").path("properties").path("version").path("type").asText()).isEqualTo("integer");
+            assertThat(schemas.path("NoticeRevisionRequest").path("properties").has("residentIds")).isFalse();
+            assertThat(paths.path("/api/v1/me/termos/{id}/documento").path("get").path("responses")
+                    .path("200").path("content").has("application/pdf")).isTrue();
+            assertThat(paths.path("/api/v1/notificacoes/{id}/converter").path("post").path("responses")
+                    .path("409").path("content").path("application/json").path("schema").path("$ref").asText())
+                    .isEqualTo("#/components/schemas/ApiError");
+        }
+    }
+
+    @Test
     void operationalHealthAndMetricsAreRestrictedAndHideDetails() throws Exception {
         account("gestor");
         account("residente");

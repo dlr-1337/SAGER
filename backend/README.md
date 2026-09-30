@@ -246,6 +246,15 @@ da aplicação da role proprietária de migrações: owner ou superusuário pode
 alterar as proteções. Separação de roles, backup e controles operacionais de
 retenção precisam ser implementados e verificados antes de produção.
 
+## Comunicações e disciplina
+
+Notificações, advertências, avisos versionados e termos usam API e banco reais
+no perfil local. O [contrato da Fase 5](../docs/fase-5/CONTRATO.md) e a
+[jornada](../docs/fase-5/README.md) descrevem análise humana, correção da origem,
+idempotência, propriedade do residente e ciência por versão. O
+[QA integrado](../docs/fase-5/QA.md) inclui PDF privado e reinício.
+Ciência não confirma assinatura e nenhuma ocorrência aplica sanção automática.
+
 ## Limite do aceite
 
 Testes e prova manual com conta sintética receberam
