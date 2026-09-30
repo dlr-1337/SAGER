@@ -65,8 +65,38 @@ java -jar .\target\sager-backend-0.1.0-SNAPSHOT.jar --spring.profiles.active=loc
 java -jar .\target\sager-backend-0.1.0-SNAPSHOT.jar --spring.profiles.active=local --sager-account=disable --email=pessoa@exemplo.invalid
 ```
 
-Não existe rota HTTP de criação, redefinição ou atribuição de perfis. A desativação
-deve impedir novos logins e revogar o uso de sessões existentes.
+Não existe rota HTTP de criação, redefinição ou atribuição de perfis. Redefinir a
+senha ou desativar a conta revoga suas sessões existentes; a desativação também
+impede novos logins.
+
+### Vínculo explícito com cadastros
+
+Criar um residente ou supervisor na API não cria credenciais. A migração V12
+permite que o operador vincule uma conta já provisionada ao UUID de um cadastro
+existente. Não há associação automática por nome, e-mail ou matrícula. Nos
+exemplos abaixo, substitua os UUIDs pelos IDs dos registros sintéticos consultados
+na API e use o e-mail da conta correspondente:
+
+```powershell
+java -jar .\target\sager-backend-0.1.0-SNAPSHOT.jar --spring.profiles.active=local --sager-account=link-resident --email=pessoa@exemplo.invalid --resident-id=00000000-0000-4000-8000-000000000002
+java -jar .\target\sager-backend-0.1.0-SNAPSHOT.jar --spring.profiles.active=local --sager-account=link-supervisor --email=supervisor@exemplo.invalid --supervisor-id=00000000-0000-4000-8000-000000000003
+java -jar .\target\sager-backend-0.1.0-SNAPSHOT.jar --spring.profiles.active=local --sager-account=unlink --email=pessoa@exemplo.invalid --record-id=00000000-0000-4000-8000-000000000002
+```
+
+Os comandos de vínculo exigem conta ativa e registro existente. `link-resident`
+aceita somente perfil `residente`; `link-supervisor` aceita `gestor` ou
+`supervisor`. Uma conta tem no máximo um vínculo, de um desses tipos, e cada
+registro pode pertencer a somente uma conta. Vincular não altera o perfil.
+`unlink` exige o UUID do vínculo atual; também pode liberar o registro de uma
+conta desativada, sem reativá-la. Todos esses comandos exigem somente o perfil
+`local` e não iniciam um servidor HTTP.
+
+Alterar ou remover um vínculo revoga as sessões da conta. Repetir o mesmo vínculo
+é uma operação sem alteração e preserva as sessões. A cada requisição, o servidor
+confere se a conta permanece ativa e se perfil e vínculo correspondem à sessão;
+uma sessão com vínculo antigo é recusada. Contas anteriores à V12 permanecem sem
+vínculo e podem fazer login local. O vínculo ainda não concede acesso às futuras
+operações por registro do residente.
 
 ## API e uso no navegador
 
@@ -74,7 +104,7 @@ deve impedir novos logins e revogar o uso de sessões existentes.
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GET /api/v1/auth/csrf`    | Retorna `headerName`, `parameterName` e `token`.                                                                                                                                             |
 | `POST /api/v1/auth/login`  | Formulário `application/x-www-form-urlencoded` com `email` e `password` e cabeçalho CSRF; `204` no sucesso, `401` genérico para conta inválida/desativada, `403` para CSRF ausente/inválido. |
-| `GET /api/v1/auth/me`      | Com sessão, retorna `id`, `nome`, `email`, `fotoUrl: null` e `perfis`; sem sessão válida, `401`.                                                                                             |
+| `GET /api/v1/auth/me`      | Com sessão, retorna `id`, `nome`, `email`, `fotoUrl: null`, `perfis`, `residenteId` e `supervisorId`; os IDs de cadastro são UUIDs ou `null`. Sem sessão válida, `401`.                      |
 | `POST /api/v1/auth/logout` | Requer CSRF, invalida a sessão e retorna `204`.                                                                                                                                              |
 
 A sessão fica em PostgreSQL por Spring Session JDBC. O cookie de HTTP local é
@@ -84,6 +114,26 @@ CSRF depois do login e logout. O Angular é servido em `http://localhost:4200/ac
 com proxy de `/api` para `127.0.0.1:8080`; `/demonstracao` permanece pública e
 usa dados fictícios sem conceder acesso à API.
 
+### Erros, OpenAPI e observabilidade locais
+
+As falhas da API e da segurança retornam JSON com `code`, `message` e `requestId`.
+Isso inclui `401/unauthorized` para sessão ausente ou inválida,
+`401/invalid_credentials` no login recusado, `403/forbidden` para perfil sem
+permissão e `403/csrf_invalid` para CSRF ausente ou inválido. O servidor gera um
+UUID por requisição e o envia em `X-Request-Id`; o mesmo ID aparece no corpo de
+erro e nos logs de correlação. Um ID enviado pelo cliente não substitui esse UUID.
+As respostas de erro não expõem SQL, stack trace nem valores dos campos enviados.
+
+`GET /api/v1/openapi` entrega o contrato JSON autenticado, incluindo cookie
+`SESSION`, cabeçalho `X-CSRF-TOKEN` nas mutações e respostas de erro. A rota e
+`GET /actuator/health`, `GET /actuator/metrics` e suas métricas individuais exigem
+sessão de gestor ou supervisor no perfil `local`. Saúde não expõe detalhes ou
+componentes; outros endpoints de Actuator não são publicados. Os logs estruturados
+da aplicação correlacionam eventos pelo `requestId`, sem registrar payloads,
+credenciais ou valores pessoais dos cadastros. O
+[contrato da fundação](../docs/fase-1/FUNDACAO.md) detalha essa implementação e
+seus limites de operação local.
+
 ## Cadastros persistidos da Fase 2
 
 Supervisores, alojamentos, casas/blocos opcionais, quartos, residentes,
@@ -91,7 +141,7 @@ responsáveis e alocações locais possuem APIs e telas ligadas ao PostgreSQL. O
 [contrato da Fase 2](../docs/fase-2/README.md)
 descreve as rotas de supervisores, `/api/v1/alojamentos`, suas unidades e
 `/api/v1/quartos`, incluindo `/api/v1/quartos/mapa`, `/api/v1/residentes`,
-`/api/v1/responsaveis` e `/api/v1/alocacoes`, com perfis, CSRF e erros. V5–V10
+`/api/v1/responsaveis` e `/api/v1/alocacoes`, com perfis, CSRF e erros. V5–V12
 preservam as migrações anteriores. As versões iniciam em `0`; a edição e a
 movimentação exigem a versão conhecida e rejeitam conflitos. Código global e
 número local de quarto são textuais. Ocupação conta alocações ativas; vagas
@@ -124,6 +174,35 @@ da AE; veja a [D19](../docs/fase-0/DECISOES.md).
 
 Use somente registros sintéticos no ambiente local. A demonstração permanece
 em memória e uma falha da API não a transforma em fonte de dados do cadastro.
+
+### Auditoria de alterações
+
+A migração V11 acrescenta auditoria das criações, edições e encerramentos dos
+cadastros integrados. Cada evento guarda UUID da conta e perfil do autor, origem
+`LOCAL_API`, UUID da requisição, recurso e UUID do registro, ação, data/hora,
+versão resultante e nomes dos campos alterados. Não armazena valores anteriores
+ou novos, cópias do cadastro, nomes, e-mails, telefones, senhas ou tokens. UUIDs
+de autoria e de registro continuam sendo metadados de acesso restrito.
+
+A gravação do cadastro e de seu evento ocorre na mesma transação: se o evento
+falhar, a alteração é revertida. Uma transferência registra o encerramento do
+vínculo anterior e a criação do novo com o mesmo `requestId`. Requisições recusadas
+por validação, conflito, perfil ou CSRF não geram eventos de alteração.
+
+`GET /api/v1/auditoria` é somente leitura para gestor e supervisor locais. Aceita
+filtros `resourceId`, `actorId`, `requestId` e `resource`; retorna `items` e
+`nextCursor` em ordem decrescente de `sequence`. `limit` tem padrão `50` e aceita
+de `1` a `100`; para a próxima página, envie o cursor em `beforeSequence`.
+Não há rota de edição ou exclusão de eventos nem preenchimento retroativo do
+histórico anterior à V11.
+
+O banco rejeita `UPDATE`, `DELETE` e `TRUNCATE` por triggers, e revoga essas
+permissões de `PUBLIC`. Eventos não têm chaves estrangeiras com exclusão em
+cascata para contas ou cadastros. A retenção permanente vale para a auditoria;
+não se estende aos demais dados. A configuração local ainda não separa a role
+da aplicação da role proprietária de migrações: owner ou superusuário podem
+alterar as proteções. Separação de roles, backup e controles operacionais de
+retenção precisam ser implementados e verificados antes de produção.
 
 ## Limite do aceite
 

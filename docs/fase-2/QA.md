@@ -425,3 +425,36 @@ ainda exigem implementação nas respectivas fases. A retenção permanente se a
 O CI executará novamente a suíte completa no commit publicado. As limitações de
 cota de artefatos e proteção de branch do plano GitHub estão registradas em
 [CI](../CI.md); os testes e builds continuam obrigatórios na execução.
+
+## Fundação da API, auditoria e vínculo de contas — 30/09/2026
+
+**Escopo:** [fundação técnica](../fase-1/FUNDACAO.md), migrações V11/V12,
+auditoria das 15 gravações atuais de gestão e perfil local vinculado.
+As regras de saúde e operações ainda não fazem parte desta entrega.
+
+| Verificação                   | Comando ou evidência                                                        | Resultado observado                                                                                                                                                                |
+| ----------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend consolidado final     | `mvnw.cmd -B -ntp verify`, JDK 21 e PostgreSQL 17.11/Testcontainers         | 108/108 testes, nenhuma falha, erro ou teste ignorado; BUILD SUCCESS e JAR executável aprovado.                                                                                    |
+| Regressões finais de contrato | `-Dtest=SupervisorApiIntegrationTest,ApiFoundationIntegrationTest verify`   | 16/16 passaram depois de corrigir tipos JSON de supervisor e documentar respostas 422; as falhas foram reproduzidas antes das correções.                                           |
+| CLI fora do perfil local      | Testes de subprocesso reais e execução do JAR sobre banco descartável       | Recusa com código 2 e mensagem curta, sem pilha nem mutação; ajuda local retorna 0. A falha anterior retornava 1 e pilha; teste RED antes da correção.                             |
+| Angular                       | `npm test -- --watch=false`                                                 | 101/101 testes passaram.                                                                                                                                                           |
+| Build Angular                 | `npm run build`                                                             | Produção e templates aprovados; bundle inicial de 487 kB.                                                                                                                          |
+| Navegador completo            | `SAGER_E2E_PORT=4340`, Playwright, um worker, sem a captura histórica       | 54/54 jornadas passaram, incluindo vínculos e revogação; APIs interceptadas nas jornadas locais.                                                                                   |
+| Impeccable e imagens          | Detector, capturas agrupadas em 1440 px e 320 px                            | Detector `[]`; perfil inspecionado em ambas as larguras; sem rolagem horizontal. A captura móvel foi repetida com a navegação já estabilizada.                                     |
+| Prova integrada real          | Angular 4341, API 8080 e PostgreSQL descartável somente em `127.0.0.1:5544` | Criação e edição de residente, criação de supervisor, correlação e privacidade dos dois eventos conferidas; vínculos explícitos, revogação e acesso de residente recusado com 403. |
+| Reinício real                 | Mesmos contextos de navegador mantidos em memória enquanto a API reiniciava | Sessões autenticadas, cadastro, vínculos e os mesmos eventos/correlações permaneceram válidos; nenhuma nova autenticação necessária.                                               |
+
+A prova não usou interceptação de API. Contas, registros e senha eram sintéticos;
+nenhuma sessão ou senha foi salva como arquivo. O contêiner descartável foi
+removido e as portas 8080/4341 foram liberadas ao final. Os eventos não contêm
+os nomes, a matrícula, a data de nascimento ou o curso usados no cadastro.
+As imagens estão na [fundação](../fase-1/FUNDACAO.md).
+
+Revisões independentes conferiram auditoria, transações, autorização e vínculos.
+As falhas concretas encontradas foram corrigidas e retestadas. A proteção
+SQL da auditoria foi provada contra operações comuns; um administrador com
+permissões de alterar o esquema permanece fora desse limite local.
+
+O CI verificará a suíte consolidada no commit publicado. Configuração de
+produção, habilitação assistencial e integrações externas permanecem nas fases
+seguintes; a prova técnica não registra aprovação institucional.
