@@ -439,7 +439,12 @@ test('origem corrigida exige revisão humana antes da conversão com gravidade e
   await page.getByRole('button', { name: 'Converter após análise humana' }).click();
   await fillWarning(page);
   await page.getByRole('button', { name: 'Revisar conversão em advertência' }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
   await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: 'Revisar conversão em advertência' }),
+  ).toBeFocused();
   expect(state.writes).toHaveLength(1);
   await page.getByRole('button', { name: 'Revisar conversão em advertência' }).click();
   await confirm(page, 'Confirmar emissão da advertência');
@@ -573,7 +578,10 @@ test('supervisor publica aviso por UUID, revisa preservando destinatários e ret
   await expect(page).toHaveURL('/comunicacoes/avisos/' + noticeId);
   expect(state.writes[0].body.residentIds).toEqual([residentId]);
   await page.getByRole('button', { name: 'Revisar publicação' }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
   await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Revisar publicação' })).toBeFocused();
   expect(state.writes).toHaveLength(1);
   await page.getByRole('button', { name: 'Revisar publicação' }).click();
   await confirm(page, 'Confirmar publicação');
@@ -621,7 +629,9 @@ test('residente consulta dados próprios e registra leitura e ciência separadas
   expect(state.own.acknowledgedAt).toBeNull();
   const trigger = page.getByRole('button', { name: 'Conferir e registrar ciência' });
   await trigger.click();
+  await expect(page.getByRole('dialog')).toBeVisible();
   await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(trigger).toBeFocused();
   expect(state.writes).toHaveLength(1);
   await trigger.click();
