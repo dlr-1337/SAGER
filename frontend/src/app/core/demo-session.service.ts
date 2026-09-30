@@ -1,7 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { LocalAuthService } from './local-auth.service';
 
-export type Role = 'gestor' | 'supervisor' | 'residente';
+export type Role = 'gestor' | 'supervisor' | 'residente' | 'saude';
 export type DemoScenario = 'padrao' | 'vazio' | 'erro' | 'carregando';
 
 const roleStorageKey = 'sager.demo.role';

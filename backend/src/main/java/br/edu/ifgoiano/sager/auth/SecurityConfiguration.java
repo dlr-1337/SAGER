@@ -68,6 +68,8 @@ public class SecurityConfiguration {
                         .hasRole("SUPERVISOR")
                         .requestMatchers("/api/v1/saidas-curtas", "/api/v1/saidas-curtas/**")
                         .hasAnyRole("SUPERVISOR", "RESIDENTE")
+                        .requestMatchers("/api/v1/saude/**", "/api/v1/minha-saude/**")
+                        .authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auditoria", "/api/v1/openapi",
                                 "/api/v1/openapi.yaml", "/actuator/health", "/actuator/metrics",
                                 "/actuator/metrics/**")

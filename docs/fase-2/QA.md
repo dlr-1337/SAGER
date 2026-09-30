@@ -1,5 +1,66 @@
 # QA da Fase 2
 
+## Sexta fatia — saúde e acesso próprio do paciente
+
+**Data:** 30/09/2026. **Resultado:** verificação técnica local, com contas e
+registros sintéticos. O [contrato](SAUDE_CONTRATO.md) registra as escolhas
+delegadas, as categorias, permissões, retenção e limites assistenciais.
+
+| Verificação | Execução e resultado |
+| --- | --- |
+| Backend completo | `.\mvnw.cmd -B -ntp verify`, JDK 21 e PostgreSQL 17.11: 132 testes, zero falhas/erros/skips; JAR produzido |
+| Backend focado | 50 casos de saúde, V13, auditoria, autenticação e OpenAPI passaram antes da regressão completa |
+| Angular final | `npm test -- --watch=false`: 128 testes passaram; `npm run build` passou |
+| Navegador | 58/58 jornadas da regressão; 4/4 jornadas de saúde repetidas após os ajustes finais, com teclado, Axe e 320 px |
+| Renovação | Teste da interface reproduziu destinatário oculto; correção compara habilitação e episódio assistencial; nova partilha/custódia exige nova autorização |
+| Permissões | Categorias, autoria, vínculo, conta vigente, IDOR, contagens, histórico, exportação própria, CSRF, revogação e renovação sem restaurar partilhas antigas verificados em HTTP/PostgreSQL |
+| Imutabilidade e auditoria | Revisões não são reescritas; correções concorrentes têm um vencedor; falha de auditoria impede a entrega de conteúdo/exportação; eventos protegidos são excluídos antes da paginação global |
+| Privacidade das datas | Atualização de nota psicológica invisível não altera as datas do cabeçalho exibido ao profissional sem acesso |
+| Revisão visual | Desktop e 320 px inspecionados; nenhuma rolagem horizontal; apenas um item do menu selecionado; episódios antigos exibem acesso indisponível na consulta |
+| Impeccable | Detector aplicado pelo responsável da interface retornou `[]`; capturas finais inspecionadas em duas rodadas |
+
+### Prova integrada e reinício
+
+Sem interceptação da API: Angular na porta 4341, backend empacotado na porta
+8080 e PostgreSQL descartável publicado somente em `127.0.0.1:5544`.
+Quatro contas sintéticas foram criadas pela CLI com entrada oculta de senha:
+administração, Medicina, Enfermagem e paciente. O vínculo da conta do paciente
+foi feito explicitamente pela CLI.
+
+O navegador criou uma nota privada e uma correção. O destinatário não recebeu
+a nota antes da partilha. Depois da partilha, consultou conteúdo e histórico
+sem receber ações de autoria. Encerrar seu vínculo bloqueou o conteúdo na sessão
+existente; renovar o vínculo não restaurou a partilha anterior. Uma nova seleção
+explícita do autor permitiu a nova partilha. Revogar a habilitação bloqueou o
+acesso na requisição seguinte e redirecionou a navegação para acesso negado.
+
+Administração permaneceu sem acesso ao conteúdo e seu GET global de auditoria
+não revelou eventos clínicos. O paciente leu suas versões e baixou JSON com
+UUID de exportação, referência da requisição e ambas as revisões. O texto não foi
+armazenado em `localStorage` ou `sessionStorage`.
+
+Após reiniciar o mesmo JAR sobre o mesmo banco, as três sessões mantidas apenas
+na memória do navegador permaneceram válidas. Conteúdo, versões, propriedade do
+paciente e revogação assistencial permaneceram iguais. Ao final, servidores e
+contêiner descartável foram parados e as portas liberadas; recursos existentes
+de outros projetos foram preservados.
+
+### Capturas
+
+- [Cadastro antes](../../.impeccable/reviews/pr-saude-before-residente-desktop.png)
+  e [depois](../../.impeccable/reviews/pr-saude-after-residente-desktop.png): o
+  mesmo registro sintético, frontend `main` anterior e frontend desta entrega.
+- [Administração de acessos](../../.impeccable/reviews/pr-saude-acessos-desktop.png).
+- [Nota e histórico](../../.impeccable/reviews/pr-saude-nota-desktop.png).
+- [Paciente em 320 px](../../.impeccable/reviews/pr-saude-paciente-mobile.png).
+
+**Limites:** os testes não representam verificação de conselho profissional,
+hipótese legal de tratamento, homologação institucional ou prontuário sem papel.
+O perfil continua `local` em loopback. Não há anexos, prescrição ou exclusão
+automática. Administrador/superusuário do PostgreSQL pode alterar estruturas ou
+desabilitar triggers; a produção exige separação de papéis e proteção operacional.
+A sessão válida não restaura permissões assistenciais revogadas.
+
 ## Primeira fatia — supervisores
 
 **Data:** 26/09/2026. **Escopo:** cadastro funcional de supervisores em ambiente

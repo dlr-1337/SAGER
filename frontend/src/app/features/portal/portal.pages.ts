@@ -704,6 +704,19 @@ export class DemoSelectorPage {
             </section>
           </aside>
         </div>
+      } @else if (session.role() === 'saude') {
+        <section class="feature-task" aria-labelledby="health-home-title">
+          <div class="task-icon">
+            <span class="material-symbols-outlined" aria-hidden="true">health_and_safety</span>
+          </div>
+          <div>
+            <h2 id="health-home-title">Atendimento de saúde</h2>
+            <p>
+              Consulte os residentes assistidos e os registros que você está autorizado a acessar.
+            </p>
+          </div>
+          <a class="btn" routerLink="/saude">Abrir área de saúde</a>
+        </section>
       } @else {
         <div class="home-columns">
           <section class="home-main">
@@ -1101,14 +1114,18 @@ export class HomePage {
       ? 'Olá, gestor'
       : this.session.role() === 'residente'
         ? 'Olá, residente'
-        : 'Olá, supervisora',
+        : this.session.role() === 'saude'
+          ? 'Saúde'
+          : 'Olá, supervisora',
   );
   readonly intro = computed(() =>
     this.session.role() === 'gestor'
       ? 'Acompanhe cadastros e informações da residência.'
       : this.session.role() === 'residente'
         ? 'Acompanhe o que precisa da sua atenção.'
-        : 'Veja o que precisa da sua atenção hoje.',
+        : this.session.role() === 'saude'
+          ? 'Acesso assistencial conforme sua habilitação e seus vínculos.'
+          : 'Veja o que precisa da sua atenção hoje.',
   );
 }
 
@@ -1336,25 +1353,33 @@ export class HelpPage {}
       </div>
     </section>
     @if (!session.active()) {
-      <section class="profile-link" aria-labelledby="profile-link-title">
-        <h2 id="profile-link-title">Vínculo cadastral</h2>
-        @if (auth.principal()?.residenteId; as recordId) {
-          <p>Cadastro de residente vinculado</p>
-          <details>
-            <summary>Referência do cadastro</summary>
-            <code>{{ recordId }}</code>
-          </details>
-        } @else if (auth.principal()?.supervisorId; as recordId) {
-          <p>Cadastro de supervisor vinculado</p>
-          <details>
-            <summary>Referência do cadastro</summary>
-            <code>{{ recordId }}</code>
-          </details>
-        } @else {
-          <p>Conta sem cadastro vinculado</p>
-          <p>Para associar sua conta ao cadastro, solicite o vínculo ao operador do SAGER.</p>
-        }
-      </section>
+      @if (auth.principal()?.perfis?.[0] === 'saude') {
+        <section class="profile-link" aria-labelledby="profile-health-title">
+          <h2 id="profile-health-title">Acesso assistencial</h2>
+          <p>Sua habilitação e os residentes assistidos são conferidos na área de saúde.</p>
+          <a routerLink="/saude">Abrir área de saúde</a>
+        </section>
+      } @else {
+        <section class="profile-link" aria-labelledby="profile-link-title">
+          <h2 id="profile-link-title">Vínculo cadastral</h2>
+          @if (auth.principal()?.residenteId; as recordId) {
+            <p>Cadastro de residente vinculado</p>
+            <details>
+              <summary>Referência do cadastro</summary>
+              <code>{{ recordId }}</code>
+            </details>
+          } @else if (auth.principal()?.supervisorId; as recordId) {
+            <p>Cadastro de supervisor vinculado</p>
+            <details>
+              <summary>Referência do cadastro</summary>
+              <code>{{ recordId }}</code>
+            </details>
+          } @else {
+            <p>Conta sem cadastro vinculado</p>
+            <p>Para associar sua conta ao cadastro, solicite o vínculo ao operador do SAGER.</p>
+          }
+        </section>
+      }
     }
     <div class="action-row">
       @if (session.active()) {
@@ -1453,7 +1478,7 @@ export class ProfilePage {
   readonly auth = inject(LocalAuthService);
   readonly localRoleLabel = computed(
     () =>
-      ({ gestor: 'Gestor', supervisor: 'Supervisor', residente: 'Residente' })[
+      ({ gestor: 'Gestor', supervisor: 'Supervisor', residente: 'Residente', saude: 'Saúde' })[
         this.auth.principal()?.perfis[0] ?? 'residente'
       ],
   );
@@ -1463,6 +1488,7 @@ export class ProfilePage {
         gestor: 'Gestor da Assistência Estudantil',
         supervisor: 'Supervisor da residência',
         residente: 'Residente',
+        saude: 'Profissional de saúde',
       })[this.session.role()],
   );
 }

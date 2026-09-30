@@ -6,6 +6,25 @@ import { OperationsDemoService } from '../operations/operations-demo.service';
 import { HomePage, ProfilePage } from './portal.pages';
 
 describe('HomePage', () => {
+  it('apresenta a jornada de saúde sem ações pessoais de residente', async () => {
+    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    TestBed.inject(DemoSessionService).deactivate();
+    TestBed.inject(LocalAuthService).principal.set({
+      id: '00000000-0000-0000-0000-000000000001',
+      nome: 'Profissional Sintética',
+      email: 'saude@example.test',
+      fotoUrl: null,
+      perfis: ['saude'],
+      residenteId: null,
+      supervisorId: null,
+    });
+    const fixture = TestBed.createComponent(HomePage);
+    await fixture.whenStable();
+    const page = fixture.nativeElement as HTMLElement;
+    expect(page.querySelector('a[href="/saude"]')).toBeTruthy();
+    expect(page.textContent).toContain('Atendimento de saúde');
+    expect(page.textContent).not.toContain('Minhas saídas');
+  });
   it('mostra contagens que acompanham os registros e não antecipa a análise de saída longa', () => {
     const home = TestBed.runInInjectionContext(() => new HomePage());
     const operations = TestBed.inject(OperationsDemoService);
@@ -41,6 +60,23 @@ describe('HomePage', () => {
 });
 
 describe('ProfilePage', () => {
+  it('explica a habilitação separada para a conta de saúde', async () => {
+    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    TestBed.inject(DemoSessionService).deactivate();
+    TestBed.inject(LocalAuthService).principal.set({
+      id: '00000000-0000-0000-0000-000000000001',
+      nome: 'Profissional Sintética',
+      email: 'saude@example.test',
+      fotoUrl: null,
+      perfis: ['saude'],
+      residenteId: null,
+      supervisorId: null,
+    });
+    const fixture = TestBed.createComponent(ProfilePage);
+    await fixture.whenStable();
+    expect(fixture.nativeElement.textContent).toContain('Acesso assistencial');
+    expect(fixture.nativeElement.textContent).not.toContain('Conta sem cadastro vinculado');
+  });
   it('apresenta o vínculo explícito da conta residente e informa quando ele está ausente', async () => {
     TestBed.configureTestingModule({ providers: [provideRouter([])] });
     TestBed.inject(DemoSessionService).deactivate();

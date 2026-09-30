@@ -154,6 +154,28 @@ class AuthFlowIntegrationTest {
     }
 
     @Test
+    void healthProfileRequiresIndependentProfessionalAccessAndCannotManageResidents() throws Exception {
+        provisioning.create("saude@example.invalid", "Profissional Sintetica", "saude",
+                PASSWORD.toCharArray());
+        try (HttpClient client = browser()) {
+            String csrf = csrfToken(client);
+            assertThat(login(client, "saude@example.invalid", PASSWORD, csrf).statusCode()).isEqualTo(204);
+            JsonNode principal = json.readTree(get(client, "/api/v1/auth/me").body());
+            assertThat(principal.path("perfis").get(0).asText()).isEqualTo("saude");
+            assertThat(principal.path("residenteId").isNull()).isTrue();
+            assertThat(principal.path("supervisorId").isNull()).isTrue();
+            assertThat(get(client, "/api/v1/residentes").statusCode()).isEqualTo(403);
+            assertThat(get(client, "/api/v1/auditoria").statusCode()).isEqualTo(403);
+            HttpResponse<String> response = get(client, "/api/v1/saude/me");
+            assertThat(response.statusCode()).isEqualTo(200);
+            JsonNode capacity = json.readTree(response.body());
+            assertThat(capacity.path("professionalGrant").isNull()).isTrue();
+            assertThat(capacity.path("canAdministerAccess").asBoolean()).isFalse();
+            assertThat(capacity.path("canAccessOwnRecord").asBoolean()).isFalse();
+        }
+    }
+
+    @Test
     void onlyOperatorAssignedProfilesAreExposed() throws Exception {
         for (String profile : List.of("gestor", "supervisor", "residente")) {
             String email = profile + "@example.invalid";

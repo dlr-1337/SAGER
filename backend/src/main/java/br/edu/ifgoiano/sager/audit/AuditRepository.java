@@ -57,7 +57,13 @@ public class AuditRepository {
 
     public List<AuditEvent> find(UUID resourceId, UUID actorId, UUID requestId,
             AuditResource resource, Long beforeSequence, int fetchLimit) {
-        StringBuilder sql = new StringBuilder("SELECT * FROM sager_audit_event WHERE TRUE");
+        StringBuilder sql = new StringBuilder("""
+                SELECT * FROM sager_audit_event WHERE resource IN (
+                    'SUPERVISOR','RESIDENT','GUARDIAN','ACCOMMODATION','ACCOMMODATION_UNIT','ROOM','ALLOCATION',
+                    'HEALTH_GRANT','CARE_ASSIGNMENT','HEALTH_CUSTODY',
+                    'NIGHT_CALL','NIGHT_CALL_MARK','SHORT_EXIT'
+                )
+                """);
         List<Object> arguments = new ArrayList<>();
         addFilter(sql, arguments, "resource_id", resourceId);
         addFilter(sql, arguments, "actor_id", actorId);
