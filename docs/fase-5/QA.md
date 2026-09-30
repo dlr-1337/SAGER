@@ -17,6 +17,12 @@ acessou o frontend compilado, o JAR e um PostgreSQL real, sem interceptações.
 O gate integrado inclui retorno longo tardio → evidência canônica F5, sem
 emissão automática de advertência.
 
+No primeiro CI, backend passou e três testes de teclado falharam: enviavam
+Escape antes de abrir os diálogos que conferem dados pela API. Os testes foram
+corrigidos para aguardar a abertura e verificar fechamento e retorno de foco.
+Os três casos dirigidos passaram localmente; o CI da revisão corrigida verifica
+novamente a seleção completa de 86 jornadas sem a captura central.
+
 ## Prova na aplicação real
 
 Ambiente descartável: PostgreSQL 17.11 em `127.0.0.1:5548`, JAR na porta 8084
