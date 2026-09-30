@@ -1,0 +1,107 @@
+@use './cleaning-local.shared.scss';
+.cleaning-score {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+.cleaning-criteria {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.cleaning-feedback {
+  border-top: 1px solid var(--line);
+  margin-top: 24px;
+  padding-top: 24px;
+}
+.cleaning-rank {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) minmax(100px, 0.7fr);
+  align-items: start;
+  gap: 16px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line);
+}
+.cleaning-rank p {
+  margin: 4px 0;
+}
+.cleaning-rank strong {
+  overflow-wrap: anywhere;
+}
+.cleaning-rank .cleaning-score {
+  font-size: var(--text-body);
+}
+.indicator-stack {
+  display: grid;
+  gap: 28px;
+  margin: 24px 0;
+}
+.indicator-series h3 {
+  margin: 0 0 12px;
+  font-size: var(--text-body);
+}
+.indicator-row {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr) 42px;
+  gap: 12px;
+  align-items: center;
+  min-height: 36px;
+  font-size: var(--text-meta);
+}
+.indicator-row time,
+.indicator-row strong {
+  font-variant-numeric: tabular-nums;
+}
+.indicator-row strong {
+  text-align: right;
+}
+.indicator-bar-slot {
+  height: 16px;
+  min-width: 0;
+  border-bottom: 1px solid var(--line);
+}
+.indicator-bar {
+  display: block;
+  height: 15px;
+  background: var(--green-800);
+}
+.indicator-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+  table-layout: fixed;
+}
+.indicator-table th,
+.indicator-table td {
+  border-bottom: 1px solid var(--line);
+  padding: 12px 8px;
+  text-align: left;
+  overflow-wrap: anywhere;
+  font-size: var(--text-meta);
+  vertical-align: top;
+}
+.indicator-table td {
+  font-variant-numeric: tabular-nums;
+}
+.indicator-table th {
+  color: var(--ink);
+}
+.indicator-table caption {
+  text-align: left;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+@media (max-width: 540px) {
+  .cleaning-criteria {
+    grid-template-columns: 1fr;
+  }
+  .cleaning-rank {
+    grid-template-columns: 60px minmax(0, 1fr);
+  }
+  .cleaning-rank > :last-child {
+    grid-column: 2;
+  }
+  .indicator-table th,
+  .indicator-table td {
+    padding: 10px 4px;
+  }
+}

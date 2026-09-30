@@ -1,9 +1,8 @@
-import { inject } from '@angular/core';
+import { Injector, inject } from '@angular/core';
 import { CanActivateFn, Router, Routes } from '@angular/router';
 import { DemoSessionService, Role } from './core/demo-session.service';
 import { LocalAuthService } from './core/local-auth.service';
 import { firstValueFrom } from 'rxjs';
-import { HealthApiService } from './features/health/health-api.service';
 import { MANAGEMENT_ROUTES } from './features/management/management.routes';
 import { OPERATIONS_ROUTES } from './features/operations/operations.routes';
 import { COMMUNICATION_ROUTES } from './features/communications/communications.routes';
@@ -26,11 +25,14 @@ const managementRoutes: Routes = MANAGEMENT_ROUTES.map((route) => ({
 const healthGuard: CanActivateFn = async (route) => {
   const session = inject(DemoSessionService);
   const auth = inject(LocalAuthService);
-  const api = inject(HealthApiService);
+  const injector = inject(Injector);
   const router = inject(Router);
   if (session.active()) return router.createUrlTree(['/acesso-negado']);
   if (!(await auth.refresh())) return router.createUrlTree(['/acesso']);
   try {
+    // Keep the health contract in its lazy feature; capture DI before awaiting.
+    const { HealthApiService } = await import('./features/health/health-api.service');
+    const api = injector.get(HealthApiService);
     const capabilities = await firstValueFrom(api.getMe());
     const access = route.data['healthAccess'] as 'admin' | 'professional' | 'own';
     const allowed =
@@ -95,6 +97,19 @@ const operationRoutes: Routes = OPERATIONS_ROUTES.map((route) => {
         ? ['residente']
         : ['supervisor', 'residente'];
   if (route.path === 'ranking') roles = ['residente', 'supervisor', 'gestor'];
+  if (route.path === 'limpeza') roles = ['supervisor', 'gestor'];
+  if (route.path === 'limpeza')
+    route = {
+      ...route,
+      loadComponent: () =>
+        import('./features/cleaning/cleaning-local.pages').then((m) => m.CleaningPage),
+    };
+  if (route.path === 'ranking')
+    route = {
+      ...route,
+      loadComponent: () =>
+        import('./features/cleaning/cleaning-local.pages').then((m) => m.RankingPage),
+    };
   return { ...route, canActivate: [accessGuard], data: { ...route.data, roles } };
 });
 
@@ -116,6 +131,41 @@ export const routes: Routes = [
     loadComponent: () => import('./features/portal/portal.pages').then((m) => m.HomePage),
   },
   ...managementRoutes,
+  {
+    path: 'limpeza/nova',
+    canActivate: [accessGuard],
+    data: { roles: ['supervisor'] satisfies Role[] },
+    loadComponent: () =>
+      import('./features/cleaning/cleaning-form-local.page').then((m) => m.CleaningFormLocalPage),
+  },
+  {
+    path: 'limpeza/:id/corrigir',
+    canActivate: [accessGuard],
+    data: { roles: ['supervisor'] satisfies Role[] },
+    loadComponent: () =>
+      import('./features/cleaning/cleaning-form-local.page').then((m) => m.CleaningFormLocalPage),
+  },
+  {
+    path: 'limpeza/:id',
+    canActivate: [accessGuard],
+    data: { roles: ['gestor', 'supervisor'] satisfies Role[] },
+    loadComponent: () =>
+      import('./features/cleaning/cleaning-local.pages').then((m) => m.CleaningDetailLocalPage),
+  },
+  {
+    path: 'minha-limpeza/:id',
+    canActivate: [accessGuard],
+    data: { roles: ['residente'] satisfies Role[], ownCleaning: true },
+    loadComponent: () =>
+      import('./features/cleaning/cleaning-local.pages').then((m) => m.CleaningDetailLocalPage),
+  },
+  {
+    path: 'minha-limpeza',
+    canActivate: [accessGuard],
+    data: { roles: ['residente'] satisfies Role[], ownCleaning: true },
+    loadComponent: () =>
+      import('./features/cleaning/cleaning-local.pages').then((m) => m.CleaningListLocalPage),
+  },
   ...operationRoutes,
   ...COMMUNICATION_ROUTES.map((route) => ({ ...route, canActivate: [accessGuard] })),
   ...healthRoutes,
@@ -125,6 +175,22 @@ export const routes: Routes = [
     data: { roles: ['residente'] satisfies Role[] },
     loadComponent: () =>
       import('./features/communications/notices.page').then((m) => m.NoticesPage),
+  },
+  {
+    path: 'relatorios/consultas/:id',
+    canActivate: [accessGuard],
+    data: { roles: ['gestor', 'supervisor'] satisfies Role[] },
+    loadComponent: () =>
+      import('./features/reports/reports-local.pages').then((m) => m.ReportSnapshotLocalPage),
+  },
+  {
+    path: 'relatorios/individual',
+    canActivate: [accessGuard],
+    data: { roles: ['gestor', 'supervisor'] satisfies Role[] },
+    loadComponent: () =>
+      import('./features/cleaning/cleaning-indicators-local.page').then(
+        (m) => m.CleaningIndicatorsLocalPage,
+      ),
   },
   {
     path: 'relatorios',

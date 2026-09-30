@@ -72,7 +72,11 @@ export interface CommunicationReviewResult {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h2 mat-dialog-title>{{ data.title }}</h2>
-    <mat-dialog-content>
+    <mat-dialog-content
+      [attr.tabindex]="hasFields() ? null : 0"
+      [attr.role]="hasFields() ? null : 'region'"
+      [attr.aria-label]="hasFields() ? null : 'Detalhes da revisão'"
+    >
       @if (data.warning) {
         <p class="comm-warning" role="alert">{{ data.warning }}</p>
       }
@@ -114,7 +118,13 @@ export interface CommunicationReviewResult {
       </p>
     </mat-dialog-content>
     <mat-dialog-actions align="end"
-      ><button class="btn-secondary" type="button" (click)="dialog.close()">Cancelar</button
+      ><button
+        class="btn-secondary"
+        type="button"
+        [attr.cdkFocusInitial]="hasFields() ? null : ''"
+        (click)="dialog.close()"
+      >
+        Cancelar</button
       ><button class="btn" type="button" (click)="confirm()">
         {{ data.action }}
       </button></mat-dialog-actions
@@ -123,6 +133,9 @@ export interface CommunicationReviewResult {
   styleUrl: './communications-local.scss',
 })
 export class CommunicationReviewDialogComponent {
+  hasFields(): boolean {
+    return !!(this.data.archive || this.data.requireReason || this.data.confirmation);
+  }
   readonly data = inject<CommunicationReviewData>(MAT_DIALOG_DATA);
   readonly dialog =
     inject<MatDialogRef<CommunicationReviewDialogComponent, CommunicationReviewResult>>(

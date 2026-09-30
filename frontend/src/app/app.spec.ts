@@ -71,11 +71,14 @@ describe('App', () => {
       '/comunicacoes/avisos',
     );
     auth.principal.set({ ...account, perfis: ['gestor'] });
+    expect(fixture.componentInstance.navItems().map((item) => item.path)).toContain('/limpeza');
     expect(fixture.componentInstance.navItems().map((item) => item.path)).not.toContain(
       '/advertencias',
     );
     auth.principal.set({ ...account, perfis: ['residente'] });
     const ownItems = fixture.componentInstance.navItems();
+    expect(ownItems.map((item) => item.path)).toContain('/minha-limpeza');
+    expect(ownItems.map((item) => item.path)).not.toContain('/limpeza');
     expect(ownItems.find((item) => item.path === '/avisos')?.label).toBe('Minhas comunicações');
     expect(ownItems.map((item) => item.path)).not.toContain('/comunicacoes/avisos');
   });
