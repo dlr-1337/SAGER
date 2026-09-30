@@ -89,7 +89,9 @@ indisponibilidade durante a pausa; combine a janela e acompanhe sua duração.
 Não copie arquivos reais para `/tmp` em disco aberto: o diretório temporário deve
 estar em filesystem criptografado e acessível apenas ao operador. A implementação
 usa transferência em blocos para não carregar todo o banco ou volume na RAM.
-Relatórios temporários não integram o ponto permanente e serão gerados novamente.
+Relatórios temporários não integram o ponto permanente. Após restaurar, prepare
+uma nova consulta para gerar arquivos; não reutilize um job restaurado cujo arquivo
+transitório não foi incluído no backup.
 
 Crie um **outro stack**, com nomes e volumes próprios, e inicie apenas seu banco.
 O restore recusa o mesmo nome do stack de origem, tabelas existentes, documentos
@@ -115,6 +117,19 @@ Registre data/hora, versão do software e schema, sequência de auditoria recupe
 duração, verificação dos fluxos e pessoa responsável. Guarde o relatório sem dados
 pessoais. A retenção de backups deve acompanhar a política institucional para os
 dados originais; auditoria e documentos permanentes não têm descarte automático.
+
+## Verificação técnica
+
+`bash infra/production/smoke.sh --build` cria um stack descartável com credenciais
+e CA sintéticas, compila as imagens do checkout e verifica migrações, role runtime,
+HTTPS, cookies, CSRF, cabeçalhos e limites públicos. O script exige Docker Compose,
+Python3.10+, OpenSSL e curl; remove somente seu próprio stack e diretório temporário.
+Em Windows/Schannel, usa `--ssl-revoke-best-effort` para a CA sintética sem CRL,
+preservando a validação da CA e do hostname. Não usa `-k`.
+
+Para usar imagens já compiladas, informe `--backend-image` e `--gateway-image`.
+O [QA de F7](../../docs/fase-7/QA.md) distingue smoke, prova funcional HTTPS,
+medição local sob limites e recuperação da versão completa.
 
 ## Fontes técnicas
 

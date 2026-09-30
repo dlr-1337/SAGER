@@ -1,6 +1,6 @@
 # SAGER — interface Angular
 
-Interface do SAGER no IF Goiano, Campus Urutaí, com demonstração pública e acesso local de desenvolvimento. A demonstração usa dados sintéticos em memória e perfil em `sessionStorage`. O solicitante escolheu login próprio do SAGER por e-mail e senha; a implementação atual funciona apenas no perfil `local`, com sessão do backend e PostgreSQL. Supervisores, residentes, responsáveis, alojamentos, quartos e alocações já usam a API local. As operações ainda não integradas continuam demonstrativas. A implantação segura do login próprio, WhatsApp e assinatura válida continuam pendentes; Google e SUAP foram adiados.
+Interface do SAGER no IF Goiano, Campus Urutaí. Desenvolvimento permite demonstração com dados sintéticos em memória e acesso a contas locais. Produção usa contas próprias de e-mail/senha, sessão do servidor e PostgreSQL, sem seletor de demonstração. Gestão, operações, comunicações, saúde, limpeza e relatórios usam a API persistida. A configuração HTTPS está em [F7](../docs/fase-7/README.md); Clicksign e WhatsApp exigem configuração e homologação externa. Google e SUAP foram adiados.
 
 ## Executar
 
@@ -21,6 +21,6 @@ npm run test:e2e
 
 As telas foram separadas por domínio em `src/app/features/management`, `operations`, `communications`, `reports`, `signature` e `portal`. Os dados de demonstração ficam nos serviços de cada domínio. `src/app/app.routes.ts` concentra as rotas; o backend aplica as permissões das fatias locais integradas. Uma falha da API local não carrega dados demonstrativos. Registros legados sem nascimento permanecem legíveis; editá-los exige informar a data. O cadastro manual de residente não cria uma conta de login.
 
-O [CI](../docs/CI.md) executa testes, build e jornadas de navegador sem alterar as capturas visuais de referência. O [contrato da Fase 2](../docs/fase-2/README.md) registra as funcionalidades persistidas e seus limites.
+O [CI](../docs/CI.md) executa testes, build e jornadas de navegador sem alterar as capturas visuais de referência. Os contratos e provas de F1–F7 estão em `docs/`; o [manual por perfil](../docs/fase-7/MANUAL.md) descreve as tarefas e o suporte.
 
 O [PRD](../SAGER_PRD_v2.0_Angular_SpringBoot.md), a [especificação técnica](../SAGER_Especificacao_Tecnica_v2.0.md) e a [direção visual](../DESIGN.md) são a referência para continuidade.
