@@ -280,6 +280,15 @@ automaticamente; leitura não equivale a ciência.
 
 **Decisões de entrada:** D12–D14 e D18; D13 governa também o alerta derivado da chamada.
 
+**Estado em 30/09/2026:** evidências canônicas de chamada e retorno curto/longo,
+análise humana, advertências, avisos versionados e termos privados persistidos.
+Leitura e ciência são distintas e vinculadas à versão. Correção preserva decisões
+históricas e exige revisão humana. O [contrato](fase-5/CONTRATO.md), a
+[jornada](fase-5/README.md) e o [QA](fase-5/QA.md) registram regras delegadas,
+230 testes de backend, 172 de frontend, 87 jornadas e prova real com reinício.
+Limpeza entra na Fase 6; homologação do procedimento e assinatura real permanecem
+externas.
+
 ### Fase 6 — Limpeza, ranking, painéis e relatórios
 
 **Cobertura:** E13–E14; AC61–AC72; ampliação de E15; AT13–AT14.
