@@ -15,7 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@Profile("local")
+@Profile({ "local", "production" })
 public class LocalAccountProvisioningService {
     private static final Set<String> PROFILES = Set.of("gestor", "supervisor", "residente", "saude");
 

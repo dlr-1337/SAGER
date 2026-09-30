@@ -23,7 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@Profile("local")
+@Profile({ "local", "production" })
 @Transactional
 public class HealthService {
     private final HealthRepository repository;

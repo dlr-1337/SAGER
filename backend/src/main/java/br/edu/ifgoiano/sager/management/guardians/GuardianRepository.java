@@ -11,7 +11,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 @Repository
-@Profile("local")
+@Profile({ "local", "production" })
 public class GuardianRepository {
     private static final String COLUMNS = "id, resident_id, name, relationship, phone, active, version";
     private final JdbcTemplate jdbc;

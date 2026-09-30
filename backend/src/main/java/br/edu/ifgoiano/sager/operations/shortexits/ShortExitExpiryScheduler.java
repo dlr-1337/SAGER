@@ -8,7 +8,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
-@Profile("local")
+@Profile({ "local", "production" })
 @ConditionalOnProperty(prefix = "sager.operations.expiry", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class ShortExitExpiryScheduler {
     private static final Logger LOG = LoggerFactory.getLogger(ShortExitExpiryScheduler.class);

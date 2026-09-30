@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@Profile("local")
+@Profile({ "local", "production" })
 @RequestMapping("/api/v1/auditoria")
 public class AuditController {
     private final AuditService service;

@@ -12,7 +12,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 @Component
-@Profile("local")
+@Profile({ "local", "production" })
 public class AuditContextProvider {
     public static final String REQUEST_ID_ATTRIBUTE =
             "br.edu.ifgoiano.sager.audit.RequestCorrelationFilter.requestId";

@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import tools.jackson.databind.JsonNode;
 
 @RestController
-@Profile("local")
+@Profile({ "local", "production" })
 @RequestMapping("/api/v1/alocacoes")
 public class AllocationController {
     private final AllocationService service;

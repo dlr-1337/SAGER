@@ -12,7 +12,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 @Repository
-@Profile("local")
+@Profile({ "local", "production" })
 public class OperationResidents {
     public static final ZoneId ZONE = ZoneId.of("America/Sao_Paulo");
     private final JdbcTemplate jdbc;

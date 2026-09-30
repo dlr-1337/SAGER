@@ -13,7 +13,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.context.request.RequestContextHolder;
 
 @Service
-@Profile("local")
+@Profile({ "local", "production" })
 public class AuditService {
     private final AuditRepository repository;
     private final AuditContextProvider contextProvider;

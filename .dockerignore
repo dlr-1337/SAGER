@@ -1,0 +1,17 @@
+**/.git
+**/node_modules
+**/target
+**/dist
+**/.angular
+**/test-results
+**/playwright-report
+**/.env
+**/.env.*
+**/secrets
+**/tls
+**/backups
+.impeccable/reviews
+*.docx
+*.pdf
+*.zip
+!backend/.mvn/wrapper/maven-wrapper.jar

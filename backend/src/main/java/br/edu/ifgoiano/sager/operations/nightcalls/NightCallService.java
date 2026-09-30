@@ -28,7 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@Profile("local")
+@Profile({ "local", "production" })
 public class NightCallService {
     private static final LocalTime WINDOW_START = LocalTime.of(22, 0);
     private static final LocalTime WINDOW_END = LocalTime.of(23, 30);

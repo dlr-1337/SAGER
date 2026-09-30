@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 @Component
-@Profile("local")
+@Profile({ "local", "production" })
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class RequestCorrelationFilter extends OncePerRequestFilter {
     public static final String REQUEST_ID_ATTRIBUTE = AuditContextProvider.REQUEST_ID_ATTRIBUTE;

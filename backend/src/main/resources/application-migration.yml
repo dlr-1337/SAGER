@@ -1,0 +1,9 @@
+spring:
+  flyway:
+    enabled: true
+    clean-disabled: true
+  main:
+    web-application-type: none
+springdoc:
+  api-docs:
+    enabled: false

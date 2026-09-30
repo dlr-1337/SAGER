@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { DemoSessionService } from './demo-session.service';
+import { DOCUMENT } from '@angular/common';
 
 describe('DemoSessionService', () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -57,5 +58,30 @@ describe('DemoSessionService', () => {
     reloaded.deactivate();
     expect(reloaded.active()).toBe(false);
     expect(values.has('sager.demo.active')).toBe(false);
+  });
+
+  it('produção recusa demonstração e apaga ativação antiga da mesma aba', () => {
+    const values = new Map([['sager.demo.active', 'true']]);
+    vi.stubGlobal('sessionStorage', {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => values.delete(key),
+    });
+    const document = TestBed.inject(DOCUMENT);
+    const meta = document.createElement('meta');
+    meta.name = 'sager-environment';
+    meta.content = 'production';
+    document.head.append(meta);
+    try {
+      const session = TestBed.runInInjectionContext(() => new DemoSessionService());
+      expect(session.production).toBe(true);
+      expect(session.demoAvailable).toBe(false);
+      expect(session.active()).toBe(false);
+      session.activate('gestor');
+      expect(session.active()).toBe(false);
+      expect(values.has('sager.demo.active')).toBe(false);
+    } finally {
+      meta.remove();
+    }
   });
 });

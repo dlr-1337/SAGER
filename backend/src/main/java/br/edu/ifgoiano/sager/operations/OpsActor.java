@@ -8,7 +8,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 @Component
-@Profile("local")
+@Profile({ "local", "production" })
 public class OpsActor {
     public LocalAccountPrincipal current() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

@@ -11,3 +11,9 @@
 /assets/plates/
 /.impeccable/build/*
 !/.impeccable/build/spec.json
+
+# Operator configuration, credentials and generated recovery data
+/infra/production/.env
+/infra/production/secrets/
+/infra/production/tls/
+/infra/production/backups/

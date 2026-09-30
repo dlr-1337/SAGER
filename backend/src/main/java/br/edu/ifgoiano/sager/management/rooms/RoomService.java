@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@Profile("local")
+@Profile({ "local", "production" })
 public class RoomService {
     private static final Set<String> SITUATIONS =
             Set.of("Disponível", "Ocupado", "Manutenção", "Indisponível");

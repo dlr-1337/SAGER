@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import tools.jackson.databind.JsonNode;
 
 @RestController
-@Profile("local")
+@Profile({ "local", "production" })
 @RequestMapping("/api/v1/chamadas")
 public class NightCallController {
     private final NightCallService service;

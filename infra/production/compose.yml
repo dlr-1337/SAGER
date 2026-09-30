@@ -1,0 +1,161 @@
+name: ${SAGER_STACK_NAME:-sager}
+services:
+  database:
+    image: postgres:17.11-bookworm@sha256:639ab7ceb90e13123085b741fb31ef493fba25463002f6da665352e7b534b652
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sager
+      POSTGRES_USER: sager_owner
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_owner_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=scram-sha-256
+    secrets:
+      - db_owner_password
+    volumes:
+      - database:/var/lib/postgresql/data
+    networks: [data]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U sager_owner -d sager']
+      interval: 10s
+      timeout: 3s
+      retries: 12
+    mem_limit: 512m
+    cpus: 0.25
+    shm_size: 128m
+    logging: &safe_logging
+      driver: json-file
+      options: {max-size: 10m, max-file: '3'}
+
+  migrate:
+    build: {context: ../.., dockerfile: infra/production/backend.Dockerfile}
+    image: ${SAGER_BACKEND_IMAGE:-sager-backend:local}
+    profiles: [maintenance]
+    command: [--sager-migrate]
+    user: '10001:10001'
+    environment:
+      SPRING_PROFILES_ACTIVE: migration
+      SPRING_CONFIG_IMPORT: configtree:/run/secrets/
+      SAGER_DB_URL: jdbc:postgresql://database:5432/sager
+      SAGER_DB_USER: sager_owner
+    secrets:
+      - source: db_owner_password
+        target: SAGER_DB_PASSWORD
+    depends_on:
+      database: {condition: service_healthy}
+    networks: [data]
+    read_only: true
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=64m']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 768m
+    cpus: 1
+    logging: *safe_logging
+
+  backend:
+    build: {context: ../.., dockerfile: infra/production/backend.Dockerfile}
+    image: ${SAGER_BACKEND_IMAGE:-sager-backend:local}
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: production
+      SPRING_CONFIG_IMPORT: configtree:/run/secrets/
+      SAGER_DB_URL: jdbc:postgresql://database:5432/sager
+      SAGER_DB_USER: sager_runtime
+      SAGER_PUBLIC_HOST: ${SAGER_PUBLIC_HOST:?Set the public DNS hostname}
+      SAGER_DOCUMENTS_PRIVATE_ROOT: /data/documents
+      SAGER_REPORTS_PRIVATE_ROOT: /data/reports
+    secrets:
+      - source: db_runtime_password
+        target: SAGER_DB_PASSWORD
+      - source: login_rate_secret
+        target: SAGER_RATE_LIMIT_SECRET
+    volumes:
+      - documents:/data/documents
+      - reports:/data/reports
+    depends_on:
+      database: {condition: service_healthy}
+    networks: [data, gateway, outbound]
+    read_only: true
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=64m']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 1024m
+    cpus: 0.65
+    healthcheck:
+      test: [CMD, bash, -c, 'exec 3<>/dev/tcp/127.0.0.1/8080; printf "GET /actuator/health/readiness HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3; head -n 1 <&3 | grep -q "^HTTP/1.1 200"']
+      start_period: 40s
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    logging: *safe_logging
+
+  initialize-runtime:
+    image: postgres:17.11-bookworm@sha256:639ab7ceb90e13123085b741fb31ef493fba25463002f6da665352e7b534b652
+    profiles: [maintenance]
+    user: '10001:10001'
+    entrypoint: [sh, /opt/sager/initialize-runtime.sh]
+    secrets: [db_owner_password, db_runtime_password]
+    volumes:
+      - ./initialize-runtime.sh:/opt/sager/initialize-runtime.sh:ro
+    depends_on:
+      database: {condition: service_healthy}
+    networks: [data]
+    read_only: true
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=16m']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 128m
+    cpus: 0.25
+    logging: *safe_logging
+
+  archive-files:
+    image: ${SAGER_BACKEND_IMAGE:-sager-backend:local}
+    profiles: [maintenance]
+    user: '10001:10001'
+    entrypoint: [tar]
+    volumes:
+      - documents:/data/documents
+    network_mode: none
+    read_only: true
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=16m']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 128m
+    cpus: 0.25
+
+  gateway:
+    build: {context: ../.., dockerfile: infra/production/gateway.Dockerfile}
+    image: ${SAGER_GATEWAY_IMAGE:-sager-gateway:local}
+    restart: unless-stopped
+    environment:
+      SAGER_PUBLIC_HOST: ${SAGER_PUBLIC_HOST:?Set the public DNS hostname}
+    depends_on:
+      backend: {condition: service_healthy}
+    ports:
+      - '${SAGER_HTTP_PORT:-80}:8080'
+      - '${SAGER_HTTPS_PORT:-443}:8443'
+    volumes:
+      - ${SAGER_TLS_DIR:?Set an external TLS directory}:/run/tls:ro
+      - ./sager-proxy.conf:/etc/nginx/sager-proxy.conf:ro
+    networks: [gateway]
+    read_only: true
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=32m']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 96m
+    cpus: 0.10
+    logging: *safe_logging
+
+networks:
+  data: {internal: true}
+  gateway: {internal: true}
+  outbound: {}
+volumes:
+  database: {}
+  documents: {}
+  reports: {}
+secrets:
+  db_owner_password:
+    file: ${SAGER_SECRETS_DIR:?Set an external secrets directory}/db_owner_password
+  db_runtime_password:
+    file: ${SAGER_SECRETS_DIR:?Set an external secrets directory}/db_runtime_password
+  login_rate_secret:
+    file: ${SAGER_SECRETS_DIR:?Set an external secrets directory}/login_rate_secret

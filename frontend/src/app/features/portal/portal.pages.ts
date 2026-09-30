@@ -27,10 +27,18 @@ import { LocalHomePage } from './local-home.page';
         </div>
       </section>
       <section class="access-card" aria-labelledby="access-card-title">
-        <span class="demo-label">Acesso local · desenvolvimento e testes</span>
+        <span class="demo-label">{{
+          session.production
+            ? 'Acesso à residência estudantil'
+            : 'Acesso local · desenvolvimento e testes'
+        }}</span>
         <h2 id="access-card-title">Acessar o SAGER</h2>
         <p>
-          Entre com a conta local fornecida pelo operador. As telas ainda mostram dados fictícios.
+          {{
+            session.production
+              ? 'Entre com a conta do SAGER fornecida pela instituição.'
+              : 'Entre com a conta local fornecida pelo operador. As telas usam dados sintéticos neste ambiente de teste.'
+          }}
         </p>
         <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
           <label for="login-email">E-mail</label>
@@ -56,18 +64,25 @@ import { LocalHomePage } from './local-home.page';
             {{ busy() ? 'Entrando...' : 'Entrar com e-mail e senha' }}
           </button>
         </form>
-        <div class="access-divider"><span>ou</span></div>
-        <p class="demo-intro">
-          Explore as telas sem conta. A demonstração é pública e usa somente exemplos fictícios.
-        </p>
-        <a class="btn" routerLink="/demonstracao"
-          ><span class="material-symbols-outlined" aria-hidden="true">explore</span>Explorar
-          demonstração</a
-        >
-        <div class="access-support">
-          <a routerLink="/ajuda">Como funciona a demonstração</a
-          ><span>Autenticação institucional a definir</span>
-        </div>
+        @if (session.demoAvailable) {
+          <div class="access-divider"><span>ou</span></div>
+          <p class="demo-intro">
+            Explore as telas sem conta. A demonstração é pública e usa somente exemplos fictícios.
+          </p>
+          <a class="btn" routerLink="/demonstracao"
+            ><span class="material-symbols-outlined" aria-hidden="true">explore</span>Explorar
+            demonstração</a
+          >
+          <div class="access-support">
+            <a routerLink="/ajuda">Como funciona a demonstração</a
+            ><span>Ambiente de desenvolvimento</span>
+          </div>
+        } @else {
+          <div class="access-support">
+            <a routerLink="/ajuda">Ajuda para acessar</a
+            ><span>Para recuperar sua conta, procure o operador do SAGER.</span>
+          </div>
+        }
       </section>
     </main>
   `,
@@ -252,7 +267,7 @@ import { LocalHomePage } from './local-home.page';
 })
 export class AccessPage {
   private readonly auth = inject(LocalAuthService);
-  private readonly session = inject(DemoSessionService);
+  readonly session = inject(DemoSessionService);
   private readonly router = inject(Router);
   readonly busy = signal(false);
   readonly error = signal('');
@@ -285,7 +300,11 @@ export class AccessPage {
       this.form.controls.password.reset();
       await this.router.navigateByUrl('/inicio');
     } catch {
-      this.error.set('O login local está indisponível. Você ainda pode explorar a demonstração.');
+      this.error.set(
+        this.session.production
+          ? 'Não foi possível acessar o SAGER. Tente novamente mais tarde.'
+          : 'O login local está indisponível. Você ainda pode explorar a demonstração.',
+      );
     } finally {
       this.busy.set(false);
     }
@@ -1144,7 +1163,6 @@ export class HomePage {
     <main class="page content-page">
       <header class="page-header">
         <div>
-          <span class="eyebrow">Suporte</span>
           <h1>Ajuda e perguntas frequentes</h1>
           <p>Encontre orientações para as tarefas mais comuns.</p>
         </div>
@@ -1152,40 +1170,89 @@ export class HomePage {
       <section class="help-intro panel">
         <div><span class="material-symbols-outlined" aria-hidden="true">support_agent</span></div>
         <div>
-          <h2>Como usar esta demonstração</h2>
-          <p>
-            Escolha um perfil para navegar. As informações das telas são fictícias e as ações ficam
-            apenas nesta sessão.
-          </p>
-          <a routerLink="/demonstracao">Escolher perfil de demonstração</a>
+          @if (session.active()) {
+            <h2>Como usar esta demonstração</h2>
+            <p>
+              Escolha um perfil para navegar. As informações das telas são fictícias e as ações
+              ficam apenas nesta sessão.
+            </p>
+            <a routerLink="/demonstracao">Escolher perfil de demonstração</a>
+          } @else {
+            <h2>Usar sua conta SAGER</h2>
+            <p>
+              Entre com o e-mail e a senha fornecidos pela instituição. Seu perfil determina as
+              tarefas disponíveis. Confira os dados antes de confirmar uma ação.
+            </p>
+            <a routerLink="/perfil">Consultar meu perfil e vínculo</a>
+          }
         </div>
       </section>
       <h2>Guias por tarefa</h2>
       <div class="guide-grid">
-        <a routerLink="/chamada"
-          ><span class="material-symbols-outlined" aria-hidden="true">fact_check</span
-          ><strong>Fazer a chamada</strong><span>Marque, revise e confirme a presença.</span></a
-        ><a routerLink="/saidas"
-          ><span class="material-symbols-outlined" aria-hidden="true">directions_walk</span
-          ><strong>Acompanhar saídas</strong><span>Entenda análise, assinatura e retorno.</span></a
-        ><a routerLink="/avisos"
-          ><span class="material-symbols-outlined" aria-hidden="true">campaign</span
-          ><strong>Ver avisos</strong><span>Saiba como registrar ciência explícita.</span></a
-        ><a routerLink="/relatorios"
-          ><span class="material-symbols-outlined" aria-hidden="true">monitoring</span
-          ><strong>Consultar relatórios</strong
-          ><span>Combine filtros e leia os resultados.</span></a
-        >
+        @if (session.hasRole('supervisor')) {
+          <a routerLink="/chamada"
+            ><span class="material-symbols-outlined" aria-hidden="true">fact_check</span
+            ><strong>Fazer a chamada</strong><span>Marque, revise e confirme a presença.</span></a
+          >
+        }
+        @if (session.hasRole('supervisor', 'residente')) {
+          <a routerLink="/saidas"
+            ><span class="material-symbols-outlined" aria-hidden="true">directions_walk</span
+            ><strong>Acompanhar saídas</strong
+            ><span>Entenda análise, assinatura e retorno.</span></a
+          >
+          <a
+            [routerLink]="
+              session.role() === 'residente' || session.active()
+                ? '/avisos'
+                : '/comunicacoes/avisos'
+            "
+            ><span class="material-symbols-outlined" aria-hidden="true">campaign</span
+            ><strong>Comunicações</strong
+            ><span>Confira o conteúdo e a ciência de cada versão.</span></a
+          >
+        }
+        @if (session.hasRole('gestor', 'supervisor')) {
+          <a routerLink="/relatorios"
+            ><span class="material-symbols-outlined" aria-hidden="true">monitoring</span
+            ><strong>Consultar relatórios</strong
+            ><span>Combine filtros e leia os resultados.</span></a
+          >
+        }
+        @if (session.hasRole('residente')) {
+          <a [routerLink]="session.active() ? '/ranking' : '/minha-limpeza'"
+            ><span class="material-symbols-outlined" aria-hidden="true">cleaning_services</span
+            ><strong>Minha limpeza</strong
+            ><span>Consulte avaliações, participantes e a posição do quarto.</span></a
+          >
+        }
+        @if (session.hasRole('saude')) {
+          <a routerLink="/saude"
+            ><span class="material-symbols-outlined" aria-hidden="true">health_and_safety</span
+            ><strong>Atendimento de saúde</strong
+            ><span>Consulte os atendimentos permitidos pelo seu vínculo.</span></a
+          >
+        }
       </div>
       <section class="faq" aria-labelledby="faq-title">
         <h2 id="faq-title">Perguntas frequentes</h2>
-        <details>
-          <summary>Esta demonstração usa dados reais?</summary>
-          <p>
-            Não. Todos os nomes e registros apresentados são sintéticos. As alterações não são
-            enviadas a serviços externos.
-          </p>
-        </details>
+        @if (session.active()) {
+          <details>
+            <summary>Esta demonstração usa dados reais?</summary>
+            <p>
+              Não. Todos os nomes e registros apresentados são sintéticos. As alterações não são
+              enviadas a serviços externos.
+            </p>
+          </details>
+        } @else {
+          <details>
+            <summary>Como recuperar ou alterar minha senha?</summary>
+            <p>
+              Procure o suporte da instituição. Um operador autorizado confere sua identidade e
+              redefine a senha. Use a nova senha para entrar novamente.
+            </p>
+          </details>
+        }
         <details>
           <summary>Quem confirma o retorno de uma saída curta?</summary>
           <p>
@@ -1196,8 +1263,13 @@ export class HomePage {
         <details>
           <summary>A saída longa pode ser aprovada antes da assinatura?</summary>
           <p>
-            Não. A jornada exige assinatura válida e documento armazenado antes da aprovação. Aqui,
-            a assinatura é apenas uma simulação sem validade jurídica.
+            Não. A jornada exige assinatura válida e documento armazenado antes da aprovação.
+            @if (session.active()) {
+              Nesta demonstração, a assinatura é uma simulação sem validade jurídica.
+            } @else {
+              Assinatura ou envio indisponível deve ser conferido pelo supervisor. A entrega da
+              mensagem não confirma a assinatura nem a partida física.
+            }
           </p>
         </details>
         <details>
@@ -1212,10 +1284,16 @@ export class HomePage {
           <p>Não. A ciência depende de um botão específico e de confirmação.</p>
         </details>
         <details>
-          <summary>O ranking e os relatórios já usam fórmulas definitivas?</summary>
+          <summary>Como são calculados o ranking e os relatórios?</summary>
           <p>
-            Não. Critérios, pesos e a métrica de comportamento dependem de definição da Assistência
-            Estudantil.
+            @if (session.active()) {
+              Os números da demonstração são sintéticos.
+            } @else {
+              A nota de limpeza é a média de quatro critérios com o mesmo peso. A tela informa a
+              regra e o período; quartos empatados têm a mesma posição. Sem avaliações, a tela
+              informa a ausência de dados. Prévia e exportação usam a mesma consulta salva. As
+              regras locais aguardam homologação da Assistência Estudantil.
+            }
           </p>
         </details>
       </section>
@@ -1332,7 +1410,9 @@ export class HomePage {
     `,
   ],
 })
-export class HelpPage {}
+export class HelpPage {
+  readonly session = inject(DemoSessionService);
+}
 
 @Component({
   standalone: true,
@@ -1342,7 +1422,15 @@ export class HelpPage {}
     <header class="page-header">
       <div>
         <h1>Meu perfil</h1>
-        <p>{{ session.active() ? 'Conta de demonstração' : 'Conta local de desenvolvimento' }}</p>
+        <p>
+          {{
+            session.active()
+              ? 'Conta de demonstração'
+              : session.production
+                ? 'Conta do SAGER'
+                : 'Conta local de desenvolvimento'
+          }}
+        </p>
       </div>
     </header>
     <section class="panel profile-panel">
@@ -1511,7 +1599,7 @@ export class ProfilePage {
       {{
         session.active()
           ? 'Esta área pertence a outra jornada da demonstração. Escolha um perfil compatível para continuar.'
-          : 'O perfil da sua conta local não permite esta área.'
+          : 'O perfil da sua conta não permite esta área.'
       }}
     </p>
     <div class="action-row">

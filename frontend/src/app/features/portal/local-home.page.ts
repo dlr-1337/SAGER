@@ -12,7 +12,7 @@ import { LocalAuthService } from '../../core/local-auth.service';
       <header class="page-header">
         <div>
           <h1>{{ heading() }}</h1>
-          <p>{{ auth.principal()?.nome }} · Acesso local</p>
+          <p>{{ auth.principal()?.nome }} · {{ session.production ? 'SAGER' : 'Acesso local' }}</p>
         </div>
       </header>
       <section class="tasks" aria-label="Atividades disponíveis">

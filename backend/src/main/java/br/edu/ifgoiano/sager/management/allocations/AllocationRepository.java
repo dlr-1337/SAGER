@@ -12,7 +12,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 @Repository
-@Profile("local")
+@Profile({ "local", "production" })
 public class AllocationRepository {
     private static final String COLUMNS =
             "id, resident_id, room_id, started_at, ended_at, end_reason, version";

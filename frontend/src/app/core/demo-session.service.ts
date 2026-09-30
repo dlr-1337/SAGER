@@ -1,4 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
 import { LocalAuthService } from './local-auth.service';
 
 export type Role = 'gestor' | 'supervisor' | 'residente' | 'saude';
@@ -29,12 +30,20 @@ function storedRole(): Role {
 @Injectable({ providedIn: 'root' })
 export class DemoSessionService {
   private readonly auth = inject(LocalAuthService);
-  readonly active = signal(storedActive());
+  readonly production =
+    inject(DOCUMENT).querySelector('meta[name="sager-environment"]')?.getAttribute('content') ===
+    'production';
+  readonly demoAvailable = !this.production;
+  readonly active = signal(this.demoAvailable && storedActive());
   private readonly demoRole = signal<Role>(storedRole());
   readonly role = computed<Role>(() =>
     this.active() ? this.demoRole() : (this.auth.principal()?.perfis[0] ?? this.demoRole()),
   );
   readonly scenario = signal<DemoScenario>('padrao');
+
+  constructor() {
+    if (!this.demoAvailable) this.deactivate();
+  }
 
   setRole(role: Role): void {
     this.demoRole.set(role);
@@ -46,6 +55,7 @@ export class DemoSessionService {
   }
 
   activate(role: Role): void {
+    if (!this.demoAvailable) return;
     this.setRole(role);
     this.auth.clearPrincipal();
     this.active.set(true);
