@@ -256,8 +256,10 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
             <div class="mg-note">
               <span class="material-symbols-rounded" aria-hidden="true">info</span>
               <p>
-                A situação do quarto é manual e não define sua ocupação. A ausência da data de
-                nascimento não indica maioridade.
+                A situação do quarto é manual e não define sua ocupação.
+                @if (!item.birthDate) {
+                  A ausência da data de nascimento não indica maioridade.
+                }
               </p>
             </div>
             <section class="mg-note mg-sensitive" aria-labelledby="medical-title">
@@ -631,8 +633,8 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
               <div class="mg-note">
                 <span class="material-symbols-rounded" aria-hidden="true">lock</span>
                 <p>
-                  Contatos e autorizações dos responsáveis ficam disponíveis apenas ao gestor nesta
-                  demonstração. A permissão operacional do supervisor depende de definição da AE/TI.
+                  Os contatos e autorizações demonstrativos são visíveis para gestor e supervisor.
+                  Nenhuma assinatura é emitida nesta demonstração.
                 </p>
               </div>
             }
@@ -702,7 +704,7 @@ export class ResidentDetailComponent {
   readonly id = this.route.snapshot.paramMap.get('id') ?? '';
   readonly isDemo = this.session.active;
   readonly canView = computed(() => this.session.hasRole('gestor', 'supervisor'));
-  readonly canEdit = computed(() => this.session.hasRole('gestor'));
+  readonly canEdit = computed(() => this.session.hasRole('gestor', 'supervisor'));
   readonly resident = computed(() => this.service.resident(this.id));
   readonly localResident = signal<ResidentRecord | null>(null);
   readonly loading = signal(false);

@@ -85,7 +85,7 @@ import { Accommodation } from './housing.models';
 export class AccommodationsComponent {
   private readonly data = inject(AccommodationDataService);
   private readonly session = inject(DemoSessionService);
-  readonly canEdit = computed(() => this.session.hasRole('gestor'));
+  readonly canEdit = computed(() => this.session.hasRole('gestor', 'supervisor'));
   readonly isDemo = this.session.active;
   readonly items = signal<Accommodation[]>([]);
   readonly loading = signal(false);

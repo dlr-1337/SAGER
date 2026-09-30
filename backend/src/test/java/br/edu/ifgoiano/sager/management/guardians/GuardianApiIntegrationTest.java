@@ -199,11 +199,16 @@ class GuardianApiIntegrationTest {
             assertThat(get(supervisor, PATH).statusCode()).isEqualTo(200);
             assertThat(get(supervisor, PATH + "/" + id).statusCode()).isEqualTo(200);
             assertThat(post(supervisor, PATH,
+                    body(resident, "Outra Pessoa", "Pai", null, true, null), null)
+                    .statusCode()).isEqualTo(403);
+            assertThat(post(supervisor, PATH,
                     body(resident, "Outra Pessoa", "Pai", null, true, null), csrf(supervisor))
-                    .statusCode()).isEqualTo(403);
+                    .statusCode()).isEqualTo(201);
             assertThat(put(supervisor, PATH + "/" + id,
-                    body(resident, "Pessoa", "Mãe", null, true, 0), csrf(supervisor))
-                    .statusCode()).isEqualTo(403);
+                    body(resident, "Pessoa Atualizada", "Mãe", null, true, 0), csrf(supervisor))
+                    .statusCode()).isEqualTo(200);
+            assertThat(json.readTree(get(supervisor, PATH + "/" + id).body())
+                    .path("name").asText()).isEqualTo("Pessoa Atualizada");
             provisioning.disable("supervisor@example.invalid");
             assertThat(get(supervisor, PATH).statusCode()).isEqualTo(401);
         }
@@ -226,7 +231,7 @@ class GuardianApiIntegrationTest {
                     body(resident, "Pessoa", "Mãe", null, true, 0), csrf(anonymous))
                     .statusCode()).isEqualTo(401);
         }
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_guardian", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_guardian", Integer.class)).isEqualTo(2);
     }
 
     @Test
@@ -249,8 +254,8 @@ class GuardianApiIntegrationTest {
 
     private UUID resident(String enrollment) {
         UUID id = UUID.randomUUID();
-        jdbc.update("INSERT INTO sager_resident (id, name, enrollment) VALUES (?, ?, ?)",
-                id, "Estudante Sintético", enrollment);
+        jdbc.update("INSERT INTO sager_resident (id, name, enrollment, birth_date) VALUES (?, ?, ?, ?)",
+                id, "Estudante Sintético", enrollment, java.time.LocalDate.of(2006, 1, 2));
         return id;
     }
 

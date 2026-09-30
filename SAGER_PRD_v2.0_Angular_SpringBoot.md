@@ -59,7 +59,7 @@ Não há aplicativo móvel próprio: o acesso pelo celular ocorre pela interface
 
 ## 1.5 Dependências e responsáveis
 
-A AE deve definir regras operacionais e homologar os fluxos. A TI deve disponibilizar infraestrutura, acesso à autenticação institucional e operação técnica. São dependências previstas: responsável legal ativo com telefone válido, autorização institucional para comunicação por WhatsApp, plataforma de mensagens e serviço de assinatura eletrônica disponíveis, além do treinamento inicial dos usuários.
+A AE deve definir regras operacionais e homologar os fluxos. A TI deve disponibilizar infraestrutura e operação técnica. O login próprio do SAGER foi definido pelo solicitante em 30/09/2026 para a fase atual; eventual integração com SUAP ou Google fica para decisão futura. São dependências previstas: responsável legal ativo com telefone válido, autorização institucional para comunicação por WhatsApp, plataforma de mensagens e serviço de assinatura eletrônica disponíveis, além do treinamento inicial dos usuários.
 
 **Fonte:** SRS, seções 1.1–1.3 e 2, pp. 4–6; restrições e propriedade intelectual, pp. 47–49; RN01–RN10, pp. 50–51.
 
@@ -69,39 +69,39 @@ A AE deve definir regras operacionais e homologar os fluxos. A TI deve disponibi
 
 ## 2.1 Atores do produto
 
-| Ator              | Responsabilidade prevista                                                                                                                                                    |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Gestor            | Administração de supervisores, residentes, quartos e responsáveis legais; relatórios estratégicos.                                                                           |
-| Supervisor        | Chamada noturna, limpeza, dados operacionais dos residentes, análise de notificações, advertências manuais, decisões sobre saídas e confirmação presencial de retorno curto. |
-| Residente         | Solicitação de saída quando menor de idade; acompanhamento das próprias solicitações; consulta de avisos, advertências e ranking; registro explícito de ciência.             |
-| Responsável legal | Acesso ao documento de saída longa pelo link enviado ao telefone pré-cadastrado; assinatura eletrônica conforme mecanismo configurado.                                       |
-| Sistema           | Geração de alertas e documentos, integração com mensagens e assinaturas, atualização de estados e auditoria. Não decide sanções.                                             |
-| Equipe de TI      | Suporte, manutenção e monitoramento. A SRS não define um perfil funcional próprio de administrador de TI.                                                                    |
+| Ator              | Responsabilidade prevista                                                                                                                                                                      |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Gestor            | Administração de supervisores, residentes, quartos e responsáveis legais; relatórios estratégicos e inclusão manual de residentes.                                                             |
+| Supervisor        | Administração operacional de supervisores, residentes, responsáveis e quartos; chamada, limpeza, notificações, advertências, saídas e retorno curto. Acesso médico segue restrito à profissão. |
+| Residente         | Solicitação de saída quando menor de idade; acompanhamento das próprias solicitações; consulta de avisos, advertências e ranking; registro explícito de ciência.                               |
+| Responsável legal | Acesso ao documento de saída longa pelo link enviado ao telefone pré-cadastrado; assinatura eletrônica conforme mecanismo configurado.                                                         |
+| Sistema           | Geração de alertas e documentos, integração com mensagens e assinaturas, atualização de estados e auditoria. Não decide sanções.                                                               |
+| Equipe de TI      | Suporte, manutenção e monitoramento. A SRS não define um perfil funcional próprio de administrador de TI.                                                                                      |
 
 ## 2.2 Matriz funcional de referência
 
-| Operação                                   | Gestor            | Supervisor                 | Residente / responsável                                 |
-| ------------------------------------------ | ----------------- | -------------------------- | ------------------------------------------------------- |
-| Cadastrar e editar supervisores            | Sim               | Não previsto               | Não previsto                                            |
-| Cadastrar e editar residentes              | Sim               | Sim no UC015*              | Edição própria a definir                                |
-| Gerenciar quartos                          | Sim               | Edição não prevista        | Não previsto                                            |
-| Gerenciar responsáveis legais              | Sim               | Limite de edição a definir | Alteração própria não definida                          |
-| Registrar chamada e avaliar limpeza        | Não previsto      | Sim                        | Não                                                     |
-| Aprovar/rejeitar e confirmar retorno curto | Não previsto      | Sim                        | Não                                                     |
-| Analisar notificações internas             | Gestor autorizado | Sim                        | Não                                                     |
-| Registrar advertência manual               | Não previsto      | Sim                        | Não                                                     |
-| Relatórios operacionais e estratégicos     | Sim               | Sim                        | Relatório completo não previsto                         |
-| Consultar avisos e marcar ciência          | A definir         | A definir                  | Residente: somente seus itens                           |
-| Consultar ranking                          | A definir         | Posição após avaliação     | Residente: posições gerais e detalhes do próprio quarto |
-| Assinar autorização longa                  | Não               | Não                        | Responsável legal vinculado                             |
+| Operação                                   | Gestor            | Supervisor             | Residente / responsável                                 |
+| ------------------------------------------ | ----------------- | ---------------------- | ------------------------------------------------------- |
+| Cadastrar e editar supervisores            | Sim               | Sim                    | Não previsto                                            |
+| Cadastrar e editar residentes              | Sim               | Sim                    | Edição própria a definir                                |
+| Gerenciar quartos e alocações              | Sim               | Sim                    | Não previsto                                            |
+| Gerenciar responsáveis legais              | Sim               | Sim                    | Alteração própria não definida                          |
+| Registrar chamada e avaliar limpeza        | Não previsto      | Sim                    | Não                                                     |
+| Aprovar/rejeitar e confirmar retorno curto | Não previsto      | Sim                    | Não                                                     |
+| Analisar notificações internas             | Gestor autorizado | Sim                    | Não                                                     |
+| Registrar advertência manual               | Não previsto      | Sim                    | Não                                                     |
+| Relatórios operacionais e estratégicos     | Sim               | Sim                    | Relatório completo não previsto                         |
+| Consultar avisos e marcar ciência          | A definir         | A definir              | Residente: somente seus itens                           |
+| Consultar ranking                          | A definir         | Posição após avaliação | Residente: posições gerais e detalhes do próprio quarto |
+| Assinar autorização longa                  | Não               | Não                    | Responsável legal vinculado                             |
 
-**“Não previsto” não equivale a uma decisão institucional de proibição permanente.** Significa que este PRD não concede a permissão sem base. Permissões adicionais exigem validação.
+**[U] Decisão de 30/09/2026:** o supervisor tem autoridade operacional máxima e recebe as permissões do gestor nos recursos de gestão integrados, inclusive supervisores, residentes, responsáveis, alojamentos, quartos e alocações. O gestor também pode inserir residentes manualmente. As funções operacionais de chamada, limpeza, decisões de saída e advertências mantêm as permissões anteriores; esta decisão não amplia o acesso do gestor a elas. Informações médicas podem ser compartilhadas entre profissionais autorizados para a finalidade assistencial, sob sigilo profissional; o papel de supervisor ou gestor, isoladamente, não concede esse acesso. As demais permissões do produto completo ainda exigem validação institucional.
 
 ## 2.3 Isolamento e autenticação
 
 O usuário autenticado deve acessar apenas as funções e registros permitidos. Um residente não pode acessar dados privados de outro residente, notificações internas ou documentos de terceiros. O responsável legal participa pelo fluxo seguro de assinatura; não se presume uma conta institucional nem acesso ao painel geral.
 
-**[A]** *RF002 indica Gestor, mas UC015 admite Supervisor/Gestor. A lista de autorizados a dados médicos e documentos assinados, os papéis acumuláveis e o login do gestor precisam ser confirmados. UC01 cita supervisor e residente, enquanto os demais requisitos pressupõem gestor autenticado.
+**[A]** RF002 indica Gestor, mas UC015 admite Supervisor/Gestor; a paridade operacional local de 30/09 resolve a implementação atual, sem alterar o texto histórico da SRS. Ainda precisam de confirmação institucional os profissionais autorizados a dados médicos, o acesso a documentos assinados e os papéis acumuláveis. UC01 cita supervisor e residente, enquanto os demais requisitos pressupõem gestor autenticado.
 
 **Fonte:** SRS, RF001–RF016, p. 7; atores, p. 8; UC01, p. 10; UC04, pp. 13–14; UC08, p. 20; UC015, pp. 29–30; interfaces e proteção de dados, pp. 47–49.
 
@@ -113,7 +113,7 @@ A classificação da SRS é preservada: **RF001 é “Importante”; RF002–RF0
 
 | Épico | Entrega de produto                         | Referência de origem                        |
 | ----- | ------------------------------------------ | ------------------------------------------- |
-| E01   | Acesso e autenticação institucional        | RF001; UC01                                 |
+| E01   | Acesso com login próprio do SAGER          | RF001; UC01                                 |
 | E02   | Residentes e responsáveis legais           | RF002; UC015; RN03                          |
 | E03   | Gestão de supervisores                     | RF013; UC14                                 |
 | E04   | Quartos e Mapa de Blocos                   | RF003; UC16; Figura 12                      |
@@ -145,35 +145,35 @@ Os diagramas de domínio e entidade-relacionamento das páginas 32 e 34 não con
 
 # 4. Acesso e gestão de supervisores
 
-## E01 — Login e acesso institucional
+## E01 — Login e acesso ao SAGER
 
 **Necessidade do usuário:** acessar o sistema com credenciais válidas e ser direcionado às funcionalidades do próprio perfil.
 
-O usuário abre a tela de login, informa suas credenciais e solicita autenticação. O sistema valida o acesso pela autenticação institucional existente, autentica o usuário e o direciona à página inicial correspondente ao perfil. Credenciais inválidas devem produzir uma mensagem de erro e permitir nova tentativa. Indisponibilidade deve ser apresentada de forma explícita.
+O usuário abre a tela de login, informa o e-mail e a senha da própria conta SAGER e solicita autenticação. O sistema valida as credenciais, autentica o usuário e o direciona à página inicial correspondente ao perfil. Credenciais inválidas devem produzir uma mensagem de erro e permitir nova tentativa. Indisponibilidade deve ser apresentada de forma explícita.
 
-A integração institucional é obrigatória; LDAP e SSO são exemplos da SRS, não uma escolha já realizada. As contas e a aceitação de qualquer senha exibidas na Figura 1 são elementos demonstrativos do protótipo, não critérios de autenticação do produto operacional.
+A SRS originalmente prescreve integração institucional, com LDAP e SSO como exemplos. **[U] Em 30/09/2026, o solicitante definiu login próprio por e-mail e senha para a fase atual**, deixando SUAP ou Google como possibilidades futuras, sem torná-las condição de cadastro ou aceite atual. As contas e a aceitação de qualquer senha exibidas na Figura 1 são elementos demonstrativos do protótipo, não critérios de autenticação do produto operacional. A implementação local presente permanece restrita a desenvolvimento em loopback; sua segurança e implantação real dependem de validação separada.
 
-**[A]** Provedor, protocolo, identificação do usuário, sincronização de perfis, encerramento de sessão, recuperação de acesso, duração de sessão e provisionamento inicial do gestor não estão especificados. A tela final pode depender do mecanismo institucional escolhido.
+**[A]** Provisionamento, recuperação de acesso, política de senha, encerramento e duração de sessão para implantação real ainda precisam de validação. Uma futura integração externa deverá preservar as permissões e os vínculos locais.
 
 ## E03 — Gerenciar supervisores
 
-**Necessidade do gestor:** manter os dados dos supervisores que operam a Assistência Estudantil.
+**Necessidade do gestor e do supervisor:** manter os dados dos supervisores que operam a Assistência Estudantil.
 
-O gestor autenticado acessa a listagem, seleciona um registro existente ou inicia um cadastro, preenche ou altera os dados e confirma. O sistema valida os campos obrigatórios, persiste as informações e informa sucesso. Dados inválidos devem ser apontados para correção, sem concluir o cadastro como se estivesse válido.
+O gestor ou supervisor autenticado acessa a listagem, seleciona um registro existente ou inicia um cadastro, preenche ou altera os dados e confirma. O sistema valida os campos obrigatórios, persiste as informações e informa sucesso. Dados inválidos devem ser apontados para correção, sem concluir o cadastro como se estivesse válido.
 
-**[A]** A SRS não fixa o formulário completo, critérios de unicidade, inativação, exclusão ou escopo por bloco/turno. Cadastro funcional e credencial institucional não devem ser confundidos; a criação de um supervisor não autoriza inventar uma senha local independente da integração.
+**[A]** A SRS não fixa o formulário completo, critérios de unicidade, inativação, exclusão ou escopo por bloco/turno. O cadastro funcional e a conta de login próprio precisam ter vínculo controlado; criar um supervisor não deve gerar credenciais previsíveis.
 
 ## Critérios de aceite
 
-| ID   | Verificação                                           | Resultado esperado                                                   |
-| ---- | ----------------------------------------------------- | -------------------------------------------------------------------- |
-| AC01 | Login com credencial institucional válida             | Usuário autenticado e direcionado ao perfil autorizado.              |
-| AC02 | Credencial inválida ou serviço indisponível           | Mensagem correspondente; nenhuma sessão válida criada indevidamente. |
-| AC03 | Acesso a funcionalidade fora do perfil                | Acesso negado; ocultar o botão não é o único controle.               |
-| AC04 | Gestor cadastra ou edita supervisor com dados válidos | Informações persistidas e confirmação de sucesso.                    |
-| AC05 | Cadastro com campo obrigatório ausente                | Campo identificado e registro não concluído.                         |
+| ID   | Verificação                                       | Resultado esperado                                                   |
+| ---- | ------------------------------------------------- | -------------------------------------------------------------------- |
+| AC01 | Login com e-mail e senha válidos da conta SAGER   | Usuário autenticado e direcionado ao perfil autorizado.              |
+| AC02 | Credencial inválida ou serviço indisponível       | Mensagem correspondente; nenhuma sessão válida criada indevidamente. |
+| AC03 | Acesso a funcionalidade fora do perfil            | Acesso negado; ocultar o botão não é o único controle.               |
+| AC04 | Gestor ou supervisor cadastra ou edita supervisor | Informações válidas persistidas e confirmação de sucesso.            |
+| AC05 | Cadastro com campo obrigatório ausente            | Campo identificado e registro não concluído.                         |
 
-AC03 operacionaliza a restrição de acesso por perfil; a matriz final depende das permissões ainda pendentes. Autorização do gestor no login deve integrar a homologação da divergência identificada na seção 2.
+AC03 operacionaliza a restrição de acesso por perfil. A paridade operacional local e o sigilo médico seguem a matriz da seção 2; permissões adicionais do produto completo dependem de validação.
 
 **Fonte:** SRS, RF001 e RF013, p. 7; UC01, p. 10; UC14, pp. 27–28; Figura 1, p. 35; integração institucional, p. 47.
 
@@ -185,31 +185,31 @@ AC03 operacionaliza a restrição de acesso por perfil; a matriz final depende d
 
 **Necessidade da AE:** consultar e manter informações de residentes matriculados, com histórico operacional e acesso restrito a informações sensíveis.
 
-O supervisor/gestor acessa os residentes, busca um registro ou inicia cadastro, preenche ou altera dados pessoais, ocorrências, informações médicas ou histórico de presença e confirma. O sistema valida os dados, exige vínculo de matrícula, salva e informa o resultado. Erros devem ser associados aos campos correspondentes.
+O supervisor/gestor acessa os residentes, busca um registro ou inicia cadastro manual, preenche ou altera os dados permitidos e confirma. O sistema valida os dados, exige vínculo de matrícula e data de nascimento no cadastro atual, salva e informa o resultado. O curso é opcional na API local. Erros devem ser associados aos campos correspondentes. Informações médicas seguem fluxo próprio, restrito a profissionais autorizados e ao sigilo profissional, ainda que um supervisor ou gestor possua acesso ao cadastro geral.
 
 A consulta deve permitir chegar ao histórico do residente e às informações necessárias para os fluxos de chamada, saída, limpeza, avisos, advertências e relatórios. A Figura 5 apresenta busca e filtros por bloco, curso, status e faixa etária, além de nome, quarto, curso e idade na listagem. Esses elementos visuais complementam o caso de uso, mas não definem sozinhos todos os campos cadastrais.
 
 ## Responsável legal
 
-O gestor administra os dados de responsáveis legais. Para uma saída longa, deve existir responsável ativo e autorizado, vinculado ao residente, com telefone WhatsApp previamente cadastrado e válido. O envio deve usar esse contato, não um número livre informado no momento da solicitação pelo residente.
+Gestor e supervisor administram os dados de responsáveis legais na fase atual. Para uma saída longa, deve existir ao menos um responsável ativo e autorizado, vinculado ao residente, com telefone WhatsApp previamente cadastrado e válido. O envio deve usar esse contato, não um número livre informado no momento da solicitação pelo residente.
 
 **Dados explicitamente necessários ao fluxo:** identificação do residente, condição de menor de idade, matrícula/vínculo institucional, identificação do responsável, vínculo/autorização, situação ativa e telefone para envio. A assinatura gera dados adicionais de evidência, descritos na seção 11.
 
-**[T]** Representar a condição etária por data de nascimento, com cálculo na data de referência da operação, e manter os vínculos entre residente e responsável. A cardinalidade permitida e a escolha do signatário continuam dependendo da AE; a modelagem não autoriza envios indiscriminados a todos os contatos.
+**[U/T]** A data de nascimento é obrigatória em novos cadastros e edições; a idade é calculada na data de referência da operação. O cadastro manual não impõe faixa etária de 16–17 anos. Registros legados sem nascimento permanecem legíveis, mas sua edição exige informar a data. A cardinalidade dos vínculos e a escolha de quem receberá o link seguem D15; uma assinatura válida de qualquer responsável ativo, autorizado e vinculado basta para a saída longa, sem exigir assinatura de todos. Isso não substitui prova de identidade, vínculo, autorização e telefone, que permanecem sujeitos à validação institucional.
 
 ## Critérios de aceite
 
-| ID   | Verificação                                               | Resultado esperado                                           |
-| ---- | --------------------------------------------------------- | ------------------------------------------------------------ |
-| AC06 | Cadastro/edição válido por usuário permitido              | Dados salvos e disponíveis para consulta.                    |
-| AC07 | Tentativa de cadastrar residente sem vínculo de matrícula | Restrição apresentada; requisito de matrícula não ignorado.  |
-| AC08 | Consulta de informações médicas                           | Dados disponíveis apenas ao conjunto de usuários autorizado. |
-| AC09 | Saída longa sem responsável ativo ou telefone válido      | Envio impedido e problema cadastral identificado.            |
-| AC10 | Solicitação válida de saída longa                         | Destinatário corresponde ao responsável pré-cadastrado.      |
+| ID   | Verificação                                               | Resultado esperado                                                                         |
+| ---- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| AC06 | Cadastro/edição válido por gestor ou supervisor           | Dados salvos e disponíveis para consulta; nascimento exigido em novos registros e edições. |
+| AC07 | Tentativa de cadastrar residente sem vínculo de matrícula | Restrição apresentada; requisito de matrícula não ignorado.                                |
+| AC08 | Consulta de informações médicas                           | Dados disponíveis apenas a profissionais autorizados, sob sigilo.                          |
+| AC09 | Saída longa sem responsável ativo ou telefone válido      | Envio impedido e problema cadastral identificado.                                          |
+| AC10 | Solicitação válida de saída longa                         | Destinatário corresponde ao responsável pré-cadastrado.                                    |
 
 ## Decisões de cadastro
 
-**[A]** A AE/TI deve aprovar campos obrigatórios, validação da matrícula, permissões de edição do supervisor, transferência entre quartos, inativação por desligamento, política de correção de histórico e tratamento da maioridade. Não existe especificação de integração automática com sistema acadêmico. A Figura 7 inclui “Meu perfil”, mas não determina autorização de edição pelo residente.
+**[A]** A AE/TI deve aprovar os demais campos e a validade da matrícula, inativação por desligamento, política de correção de histórico e tratamento da maioridade. Não existe especificação de integração automática com sistema acadêmico. A Figura 7 inclui “Meu perfil”, mas não determina autorização de edição pelo residente. A faixa de 16–17 anos descreve a população operacional atual; não é bloqueio geral do cadastro manual.
 
 **Fonte:** SRS, RF002 e RF007, p. 7; atores, p. 8; UC015, pp. 29–30; Figuras 5 e 7, pp. 37–38; RN03, p. 50; UC18, pp. 54–55.
 
@@ -238,13 +238,15 @@ A legenda deve permanecer visível. A Figura 12 apresenta busca e filtros por bl
 
 **[U/T] Fatia local provisória de alocação, autorizada em 29/09/2026:** permitir um quarto ativo por residente, guardar histórico de alocações, transferências e encerramentos, e calcular ocupação pela contagem de vínculos ativos. Vagas livres serão `capacidade - ocupação` quando a capacidade estiver definida; caso contrário, permanecem desconhecidas. Nova alocação exige capacidade definida, não pode excedê-la e é bloqueada nos quartos em Manutenção ou Indisponível. Uma edição não pode tornar a capacidade ausente ou menor que a ocupação ativa. A situação continua manual, sem transição pela contagem de residentes. Nota de limpeza permanece sem avaliação. Essas regras atendem somente ao ambiente local de desenvolvimento e não homologam a política da AE nem resolvem as divergências dos anexos de 2026.
 
+**[U] Precedência dos anexos em 30/09/2026:** nas divergências de capacidade, usar os valores detalhados do ZIP/planilha: Residência 4 com 66 lugares, em vez de 64 no PDF; Laticínio com 10, em vez de 8. O PDF complementa o inventário ausente no ZIP parcial, sem distribuir por inferência os quartos que faltam na Residência 3 nem a diferença de Zootecnia 3 (três quartos de dois lugares e total de oito no PDF). Os 300 lugares do PDF são capacidade total, não vagas livres. A divergência R4-21 (cinco ocupantes para capacidade quatro) não altera a capacidade declarada. Os anexos não fornecem matrícula, nascimento, responsáveis ou telefones e não autorizam importar estudantes reais. A conferência e homologação institucional das capacidades permanecem pendentes em D19.
+
 ## Critérios de aceite
 
 | ID   | Verificação                                                                        | Resultado esperado                                                                                                                        |
 | ---- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| AC11 | Gestor abre a gestão de quartos                                                    | Mapa principal agrupado por alojamento, unidade opcional e piso conhecido, com legenda visível.                                           |
+| AC11 | Gestor ou supervisor abre a gestão de quartos                                      | Mapa principal agrupado por alojamento, unidade opcional e piso conhecido, com legenda visível.                                           |
 | AC12 | Usuário observa qualquer quarto                                                    | Identificação, ocupação, situação e nota de limpeza compreensíveis sem depender só da cor.                                                |
-| AC13 | Gestor seleciona, edita e salva um quarto                                          | Detalhes corretos e mapa atualizado com os dados persistidos.                                                                             |
+| AC13 | Gestor ou supervisor seleciona, edita e salva um quarto                            | Detalhes corretos e mapa atualizado com os dados persistidos.                                                                             |
 | AC14 | Cadastro com código global existente ou número local repetido na mesma localização | Duplicidade rejeitada; número local repetido em alojamento, unidade ou piso diferente é permitido, preservando sua representação textual. |
 | AC15 | Campo obrigatório inválido                                                         | Erro indicado; alteração inválida não concluída.                                                                                          |
 
@@ -254,7 +256,7 @@ A legenda deve permanecer visível. A Figura 12 apresenta busca e filtros por bl
 
 **[P]** Não derivar automaticamente a situação do quarto somente pela quantidade de ocupantes até a AE aprovar a regra. Em ausência de avaliação, apresentar ausência de nota, em vez de atribuir uma nota fictícia.
 
-**[T]** Gestor e supervisor locais consultam a estrutura e os vínculos; somente gestor cadastra, edita e movimenta, com sessão, CSRF e controle de versão no servidor. A demonstração pública usa dados sintéticos em memória; uma falha da API local não pode preencher o mapa com registros demonstrativos. A estrutura e a alocação receberam [aceite técnico local](docs/fase-2/QA.md) em 29/09/2026, com provas pelo navegador em PostgreSQL e persistência após reinício. Esses aceites não encerram E04, a Fase 2 ou as decisões institucionais D01/D02/D15/D19/D22.
+**[U/T]** Gestor e supervisor locais consultam, cadastram, editam e movimentam a estrutura e os vínculos, com sessão, CSRF e controle de versão no servidor. A demonstração pública usa dados sintéticos em memória; uma falha da API local não pode preencher o mapa com registros demonstrativos. A estrutura e a alocação receberam [aceite técnico local](docs/fase-2/QA.md) em 29/09/2026, com provas pelo navegador em PostgreSQL e persistência após reinício. A paridade operacional foi decidida em 30/09/2026; esses aceites não encerram E04, a Fase 2 ou as decisões institucionais D01/D02/D15/D19/D22.
 
 **Fonte:** SRS, RF003, p. 7; UC16, p. 31; Figura 12, p. 43.
 
@@ -311,7 +313,7 @@ Após o envio válido, a solicitação aguarda análise do supervisor. Não exis
 
 ### Saída longa
 
-Exige responsável legal ativo, telefone pré-cadastrado e documento de autorização assinado eletronicamente. Após o registro, o sistema gera o documento e inicia o envio para assinatura. A solicitação só fica apta à aprovação depois da assinatura válida e do armazenamento do documento assinado.
+Exige responsável legal ativo e autorizado, telefone pré-cadastrado e documento de autorização assinado eletronicamente. Após o registro, o sistema gera o documento e inicia o envio para assinatura. Uma assinatura válida de qualquer responsável vinculado, registrado e autorizado para o residente, com o documento assinado armazenado, torna a solicitação apta à análise; não se exige a assinatura de ambos ou de todos os responsáveis.
 
 ### Microtextos obrigatórios
 
@@ -349,7 +351,7 @@ O residente pode editar solicitações pendentes. A alteração reaplica as vali
 
 O supervisor abre a lista de solicitações, seleciona uma e consulta residente, tipo, datas/horas, motivo e documentos. A **Linha do Tempo Visual** deve destacar a etapa atual, as concluídas e as pendentes, com data/hora dos eventos registrados.
 
-Na saída longa, o sistema verifica a assinatura eletrônica válida do responsável. Sem essa condição, a aprovação fica bloqueada e a pendência deve aparecer claramente. O supervisor pode manter a pendência ou reenviar a mensagem, conforme o fluxo de reenvio.
+Na saída longa, o sistema verifica ao menos uma assinatura eletrônica válida de responsável ativo, autorizado e vinculado. Sem essa condição, a aprovação fica bloqueada e a pendência deve aparecer claramente. O supervisor ou gestor pode manter a pendência ou reenviar a mensagem, conforme o fluxo de reenvio.
 
 Ao escolher “Aprovar” ou “Rejeitar”, o sistema valida a decisão e abre um **Modal de Revisão**. O modal apresenta os dados completos da ação, inclusive responsável quando aplicável, e os botões de confirmar/cancelar. Somente a confirmação explícita altera o status. Cancelar ou fechar o modal não altera a solicitação.
 
@@ -372,7 +374,7 @@ Quando a data/hora da saída já passou, o sistema identifica a condição de ex
 | AC31 | Decisão válida confirmada           | Status, auditoria e linha do tempo atualizados; residente notificado. |
 | AC32 | Solicitação com saída já passada    | Condição expirada identificada e apresentada ao supervisor.           |
 
-**[A]** Precisam de decisão: rejeitar uma saída longa antes da assinatura, antecedência mínima, quem pode cancelar, editabilidade após aprovação e evento que coloca uma saída em andamento. Este PRD não presume um registro de portaria ou confirmação automática de partida.
+**[A]** Precisam de decisão: rejeitar uma saída longa antes da assinatura, antecedência mínima, quem pode cancelar, editabilidade após aprovação e evento que coloca uma saída em andamento. Este PRD não presume um registro de portaria ou confirmação automática de partida. A paridade operacional de gestor e supervisor foi definida para a fase atual em 30/09/2026.
 
 **Fonte:** SRS, RF008, p. 7; UC07, pp. 18–19; Figuras 10 e 11, pp. 41–42; RN05, RN06 e RN08, p. 50.
 
@@ -423,7 +425,7 @@ Se não existir saída curta ativa, o sistema informa a ausência do registro e 
 
 Após uma solicitação longa válida, o sistema gera documento contendo **identificação do residente, período da saída, motivo e termo de responsabilidade**. A mensagem é enviada via WhatsApp/API ao telefone pré-cadastrado do responsável, com link individual e seguro para visualização e assinatura.
 
-O responsável acessa o link e assina no serviço de assinatura eletrônica. Ao receber confirmação válida, o sistema armazena o documento assinado e as evidências, registra a etapa **“Assinada”**, encaminha para **“Aguardando aprovação”** e notifica o supervisor de que a solicitação está pronta para análise. A assinatura não aprova a saída por conta própria.
+Um responsável ativo, autorizado e vinculado acessa o link e assina no serviço de assinatura eletrônica. Ao receber uma confirmação válida desse responsável para a versão vigente, o sistema armazena o documento assinado e as evidências, registra a etapa **“Assinada”**, encaminha para **“Aguardando aprovação”** e notifica a equipe de que a solicitação está pronta para análise. A assinatura não aprova a saída por conta própria e não exige que outro responsável também assine.
 
 ## Requisitos de integração
 
@@ -663,7 +665,7 @@ O supervisor deve conseguir acessar chamada, saídas, limpeza, notificações, r
 
 | Área                      | Conteúdo mínimo                                                                                                               |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Acesso e supervisores     | Autenticação institucional; lista e formulário de supervisores.                                                               |
+| Acesso e supervisores     | Login próprio do SAGER; lista e formulário de supervisores acessíveis a gestor e supervisor.                                  |
 | Residentes                | Listagem, cadastro/edição, informações autorizadas e histórico individual.                                                    |
 | Responsáveis              | Dados vinculados ao residente e necessários ao envio/assinatura.                                                              |
 | Quartos                   | Cadastro de alojamentos e unidades opcionais; mapa por alojamento/unidade/piso, legenda, situação, ocupação, nota e detalhes. |
@@ -730,7 +732,7 @@ Uma saída longa não pode ser aprovada sem assinatura válida e documento assin
 
 | Objeto conceitual              | Conteúdo necessário ao produto                                                                                                                         |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Usuário/perfil                 | Identificação institucional, vínculo ao perfil e permissões autorizadas.                                                                               |
+| Usuário/perfil                 | Conta SAGER por e-mail/senha, vínculo ao perfil e permissões autorizadas; identidade externa pode ser associada futuramente.                           |
 | Supervisor                     | Dados cadastrais validados e vínculo às operações e decisões realizadas.                                                                               |
 | Residente                      | Identificação, vínculo de matrícula, condição etária, quarto, dados pessoais e históricos previstos.                                                   |
 | Informação médica              | Dados sensíveis do residente com acesso restrito ao conjunto autorizado.                                                                               |
@@ -773,7 +775,7 @@ Os valores abaixo são os declarados pela SRS. A aprovação deste PRD não cons
 | Infraestrutura  | VPS com 2 GB de RAM, 1 CPU e 50 GB de armazenamento                             | Validar aplicação, documentos, integrações e testes nesse orçamento de recursos.                                                    |
 | Degradação      | Manter operação básica em falhas parciais; exemplo de relatórios offline        | Funcionalidades e mecanismo offline não detalhados.                                                                                 |
 | Plataforma      | Web responsiva, sem aplicativo móvel próprio                                    | Testar uso em computador e celular; matriz de navegadores a definir.                                                                |
-| Autenticação    | Integração obrigatória ao mecanismo institucional                               | LDAP/SSO são exemplos; provedor e protocolo pendentes.                                                                              |
+| Autenticação    | SRS: integração institucional; decisão de 30/09: login próprio do SAGER         | E-mail e senha na fase atual; SUAP/Google são possibilidades futuras. Implantação real requer validação de segurança.               |
 | Comunicação     | HTTPS entre cliente/servidor e proteção das integrações                         | Webhooks autenticados, credenciais protegidas e tratamento de falhas.                                                               |
 | Aprendizado     | 2 horas para supervisores e 30 minutos para residentes                          | Validar por tarefas representativas após treinamento.                                                                               |
 | Erro de uso     | Inferior a 5% após treinamento                                                  | Método, tarefas e cálculo da taxa a definir.                                                                                        |
@@ -803,7 +805,7 @@ Estas são exigências da fonte, não uma conclusão de conformidade jurídica j
 
 ## 21.2 Eventos auditáveis
 
-Devem ser auditados os envios e reenvios, assinaturas, decisões de aprovação/rejeição, confirmações de retorno e alterações de status, com **data, hora, usuário e origem**. O fluxo de análise também preserva visualização e decisão; a área do residente mantém leitura e ciência. Termos de Compromisso guardam decisão, data e supervisor responsável.
+Devem ser auditados os envios e reenvios, assinaturas, decisões de aprovação/rejeição, confirmações de retorno e alterações de status, com **data, hora, usuário e origem**. O fluxo de análise também preserva visualização e decisão; a área do residente mantém leitura e ciência. Termos de Compromisso guardam decisão, data e usuário responsável. **[U] A trilha de auditoria é permanente**; isso não implica guardar indefinidamente o conteúdo integral de dados médicos, documentos ou todas as cópias de backup. A implementação da trilha permanente ainda está pendente.
 
 O registro da operação precisa permitir relacionar a ação à solicitação, documento, ocorrência ou item correto. Falhas de envio, recebimento e assinatura devem ser tratadas e permanecer identificáveis para operação.
 
@@ -821,7 +823,7 @@ A manutenção de operações básicas em falha parcial está prevista, com rela
 
 ## Pendências obrigatórias de governança
 
-**[A]** A instituição precisa definir finalidade de tratamento por conjunto de dados, retenção, descarte, acesso a dados médicos, modalidade de assinatura e responsáveis por incidentes. **[T]** O documento técnico especifica o mecanismo de backup e o procedimento de restauração. Frequência, retenção, destino institucional e objetivo de perda máxima de dados exigem aprovação; o MTTR da SRS não define esses parâmetros.
+**[A]** A instituição precisa definir finalidade de tratamento por conjunto de dados, retenção e descarte dos dados operacionais e médicos, lista de profissionais autorizados, modalidade de assinatura e responsáveis por incidentes. A decisão de auditoria permanente deve ser implementada com minimização do conteúdo sensível e controle de acesso. **[T]** O documento técnico especifica o mecanismo de backup e o procedimento de restauração. Frequência, retenção, destino institucional e objetivo de perda máxima de dados exigem aprovação; o MTTR da SRS não define esses parâmetros.
 
 **Fonte:** SRS, referências, p. 5; UC04 e UC08, pp. 13–14 e 20; interfaces e proteção de dados, pp. 47–48; confiabilidade, p. 49; RN08–RN10, pp. 50–51; RNF-WA01–05, p. 55.
 
@@ -850,7 +852,7 @@ O uso de simulações para desenvolvimento não substitui a homologação das in
 
 ## 22.3 Ordem de execução sugerida
 
-**[P] Etapa 0 — decisões e preparação:** resolver regras bloqueantes, autenticação, assinatura, critérios de avaliação, matriz de acesso e ambiente. **Etapa 1 — fundação:** acesso, cadastros, mapa, permissões e auditoria. **Etapa 2 — operação residencial:** chamada, saídas curtas, aprovação e retorno. **Etapa 3 — integração longa:** documentos, WhatsApp, assinatura, falhas e reenvio. **Etapa 4 — acompanhamento:** notificações, advertências, ciência, termos, limpeza e ranking. **Etapa 5 — fechamento:** relatórios, ajuda, testes não funcionais e homologação integrada.
+**[P] Etapa 0 — decisões e preparação:** validar o login próprio para implantação, assinatura, critérios de avaliação, matriz de acesso e ambiente. Integração com SUAP/Google pode ser estudada depois, sem bloquear o desenvolvimento atual. **Etapa 1 — fundação:** acesso, cadastros, mapa, permissões e auditoria. **Etapa 2 — operação residencial:** chamada, saídas curtas, aprovação e retorno. **Etapa 3 — integração longa:** documentos, WhatsApp, assinatura, falhas e reenvio. **Etapa 4 — acompanhamento:** notificações, advertências, ciência, termos, limpeza e ranking. **Etapa 5 — fechamento:** relatórios, ajuda, testes não funcionais e homologação integrada.
 
 Essa sequência é planejamento proposto, não redução de escopo, prazo contratado ou autorização para operar parcialmente fluxos obrigatórios. A SRS não informa orçamento, cronograma nem tamanho da equipe.
 
@@ -870,39 +872,39 @@ Este registro não retira requisitos documentados. Identifica as decisões neces
 
 ## 23.1 Regras operacionais bloqueantes
 
-| ID  | Lacuna ou divergência identificada                                                                                                            | Decisão necessária / encaminhamento                                                                                                                         |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D01 | RF002 indica Gestor; UC015 permite Supervisor/Gestor. UC01 não detalha Gestor.                                                                | AE/TI: matriz final de perfis, permissões e provisionamento do gestor.                                                                                      |
-| D02 | Cadastro não lista todos os campos, unicidades ou como comprovar matrícula.                                                                   | AE/TI: dicionário, dados obrigatórios, validade da matrícula, desligamento e maioridade.                                                                    |
-| D03 | UC06 preenche saída com “agora”, mas proíbe horário anterior ao atual; o preenchimento leva tempo.                                            | AE/TI: referência temporal no envio, atualização do valor ou tratamento explícito do intervalo de preenchimento.                                            |
-| D04 | Texto define Curta/Longa; Figuras 8 e 13 mostram também Breve e Visita pra casa. A Figura 4 exemplifica curta com intervalo acima de 3 horas. | AE: homologar modalidades. [P] Adotar os UC/RN revisados e corrigir protótipos conflitantes, sem incluir modalidades extras por inferência.                 |
-| D05 | UC17 requer saída “em andamento”, mas não define como ocorre a transição após aprovação.                                                      | AE: definir evento de início e distinguir autorização de efetiva saída física.                                                                              |
-| D06 | Expiração e cancelamento são estados, sem política completa de prazos, atores ou automação.                                                   | AE: definir transições, cancelamento, antecedência e tratamento de solicitações já vencidas.                                                                |
-| D07 | Aprovação longa exige assinatura; pré-condição do UC07 é ampla e não esclarece rejeição antes da assinatura.                                  | AE: definir se o supervisor pode rejeitar antes do responsável assinar.                                                                                     |
-| D08 | Retorno curto informa horário real, mas não define lançamento tardio, correção ou saída ainda não encerrada após o prazo.                     | AE: definir esses cenários e confirmar que retorno longo permanece fora do fluxo detalhado.                                                                 |
-| D09 | Chamada às 22h30, com alternativa tardia, sem tolerância e política de correção completas.                                                    | AE: janela, população, fechamento e correção. [T] Fuso America/Sao_Paulo, unicidade por chamada/residente e conflito de versão já definidos na arquitetura. |
-| D10 | Escala, critérios e pesos da limpeza, períodos, desempates e limiar de alerta não definidos.                                                  | AE: aprovar fórmula da avaliação, ranking e parâmetros de notificação.                                                                                      |
-| D11 | “Evolução do comportamento” é exigida, sem definição da métrica.                                                                              | AE: determinar indicadores, agregação e origem; não usar nota fictícia ou fórmula inferida do protótipo.                                                    |
-| D12 | UC10 cita cancelar notificação, mas lista somente cinco estados, sem “Cancelada”.                                                             | AE/TI: definir estado adicional ou representação auditável equivalente e comportamento após revisão.                                                        |
-| D13 | Critérios de notificação, gravidades e evidências mínimas não são enumerados.                                                                 | AE: definir catálogos, limites, responsáveis pela configuração e regras de revisão.                                                                         |
-| D14 | RN10 exige Termo de Compromisso, sem limiar, modelo, signatários ou fluxo detalhado.                                                          | AE: aprovar procedimento e forma de registro/ciência/assinatura; sem número de reincidências inventado.                                                     |
+| ID  | Lacuna ou divergência identificada                                                                                                            | Decisão necessária / encaminhamento                                                                                                                                                                                  |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D01 | RF002 indica Gestor; UC015 permite Supervisor/Gestor. UC01 não detalha Gestor.                                                                | [U] Em 30/09, paridade operacional de gestor e supervisor nas funções atuais, inclusive gestão de supervisores; médico apenas por profissão. AE/TI: demais perfis e permissões.                                      |
+| D02 | Cadastro não lista todos os campos, unicidades ou como comprovar matrícula.                                                                   | [U] Em 30/09, cadastro manual sem limite 16–17 anos, nascimento obrigatório em novo/edição e curso opcional na API local; legado sem nascimento legível. AE/TI: demais campos, validade da matrícula e desligamento. |
+| D03 | UC06 preenche saída com “agora”, mas proíbe horário anterior ao atual; o preenchimento leva tempo.                                            | AE/TI: referência temporal no envio, atualização do valor ou tratamento explícito do intervalo de preenchimento.                                                                                                     |
+| D04 | Texto define Curta/Longa; Figuras 8 e 13 mostram também Breve e Visita pra casa. A Figura 4 exemplifica curta com intervalo acima de 3 horas. | AE: homologar modalidades. [P] Adotar os UC/RN revisados e corrigir protótipos conflitantes, sem incluir modalidades extras por inferência.                                                                          |
+| D05 | UC17 requer saída “em andamento”, mas não define como ocorre a transição após aprovação.                                                      | AE: definir evento de início e distinguir autorização de efetiva saída física.                                                                                                                                       |
+| D06 | Expiração e cancelamento são estados, sem política completa de prazos, atores ou automação.                                                   | AE: definir transições, cancelamento, antecedência e tratamento de solicitações já vencidas.                                                                                                                         |
+| D07 | Aprovação longa exige assinatura; pré-condição do UC07 é ampla e não esclarece rejeição antes da assinatura.                                  | AE: definir se o supervisor pode rejeitar antes do responsável assinar.                                                                                                                                              |
+| D08 | Retorno curto informa horário real, mas não define lançamento tardio, correção ou saída ainda não encerrada após o prazo.                     | AE: definir esses cenários e confirmar que retorno longo permanece fora do fluxo detalhado.                                                                                                                          |
+| D09 | Chamada às 22h30, com alternativa tardia, sem tolerância e política de correção completas.                                                    | AE: janela, população, fechamento e correção. [T] Fuso America/Sao_Paulo, unicidade por chamada/residente e conflito de versão já definidos na arquitetura.                                                          |
+| D10 | Escala, critérios e pesos da limpeza, períodos, desempates e limiar de alerta não definidos.                                                  | AE: aprovar fórmula da avaliação, ranking e parâmetros de notificação.                                                                                                                                               |
+| D11 | “Evolução do comportamento” é exigida, sem definição da métrica.                                                                              | AE: determinar indicadores, agregação e origem; não usar nota fictícia ou fórmula inferida do protótipo.                                                                                                             |
+| D12 | UC10 cita cancelar notificação, mas lista somente cinco estados, sem “Cancelada”.                                                             | AE/TI: definir estado adicional ou representação auditável equivalente e comportamento após revisão.                                                                                                                 |
+| D13 | Critérios de notificação, gravidades e evidências mínimas não são enumerados.                                                                 | AE: definir catálogos, limites, responsáveis pela configuração e regras de revisão.                                                                                                                                  |
+| D14 | RN10 exige Termo de Compromisso, sem limiar, modelo, signatários ou fluxo detalhado.                                                          | AE: aprovar procedimento e forma de registro/ciência/assinatura; sem número de reincidências inventado.                                                                                                              |
 
 ## 23.2 Integração, dados e governança
 
-| ID  | Lacuna ou divergência identificada                                                                                                           | Decisão necessária / encaminhamento                                                                                                                                                                                                                 |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D15 | Responsáveis não têm cardinalidade, prioridade de contato ou verificação de identidade definida.                                             | AE/TI: vínculo, autorização, escolha do destinatário e validação do telefone.                                                                                                                                                                       |
-| D16 | Modalidade aceita e contratação do serviço de assinatura não homologadas.                                                                    | [T] Referência técnica: Clicksign API 3.0 com adaptador. AE/TI: aprovar método, identidade, serviço, custos e compatibilidade com D25 antes da ativação.                                                                                            |
-| D17 | Expiração do link, reenvio ao responsável e recusa não definidos institucionalmente.                                                         | AE/TI: aprovar essas políticas. [T] Versões imutáveis, callbacks idempotentes e bloqueio durante falha de armazenamento já definidos no documento técnico.                                                                                          |
-| D18 | UC08 permite consultar avisos, mas não detalha autoria, publicação, segmentação ou revisão. UC04 mistura trechos de e-mail ao fluxo interno. | AE: definir gestão de avisos e canais de notificação, preservando o sigilo dos alertas internos.                                                                                                                                                    |
-| D19 | UC16 exige número único; anexos de 2026 mostram alojamentos e unidades com divergências de capacidade e ocupação.                            | [U/T] Em 29/09/2026, distinguir código global e número local único por alojamento/unidade/piso, capacidade positiva ou ausente e situação manual. AE: revisar divergências, capacidades, alocação e transições; homologação institucional pendente. |
-| D20 | UC11/RF011 permitem relatórios para supervisor/gestor; Figura 9 indica exportação somente para gestor.                                       | AE: confirmar exportações por perfil, dados sensíveis e colunas/filtros de cada relatório.                                                                                                                                                          |
-| D21 | Autenticação institucional obrigatória; protocolo, atributos e ciclo da conta desconhecidos.                                                 | [T] Spring Security + sessão JDBC; preferência por OIDC. TI: informar o mecanismo real, atributos, credenciais e política de desligamento. LDAP/SAML exigem o adaptador correspondente.                                                             |
-| D22 | Retenção, descarte e objetivos de recuperação não definidos na SRS.                                                                          | AE/TI: aprovar governança, acessos, retenção e destino externo. [T] Backup de PostgreSQL e arquivos com restauração ensaiada definido no documento técnico.                                                                                         |
-| D23 | “Relatórios offline” aparece apenas como exemplo de degradação.                                                                              | AE/TI: escolher escopo e forma da contingência; não presumir sistema inteiro offline.                                                                                                                                                               |
-| D24 | Metas de resposta/capacidade existem sem cenário de teste; 250 residentes não fixa concorrência.                                             | TI: carga, métricas, condições de medição e validação na VPS definida.                                                                                                                                                                              |
-| D25 | “Código aberto interno”, uso exclusivo e ausência de licenças comerciais coexistem com serviços externos obrigatórios.                       | Instituição/TI: esclarecer licença, contratação, orçamento e compatibilidade das dependências.                                                                                                                                                      |
-| D26 | Diagramas antigos contêm penalidades e não representam integralmente responsáveis, mensagens, assinaturas, ciência e termos.                 | AE/TI: atualizar diagramas e modelo físico a partir dos fluxos homologados.                                                                                                                                                                         |
+| ID  | Lacuna ou divergência identificada                                                                                                           | Decisão necessária / encaminhamento                                                                                                                                                                                                                                                                         |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D15 | Responsáveis não têm cardinalidade, prioridade de contato ou verificação de identidade definida.                                             | [U] Em 30/09, uma assinatura válida de qualquer responsável ativo, autorizado e vinculado basta para saída longa; não exigir ambos. AE/TI: prova de identidade, vínculo, escolha do destinatário e telefone.                                                                                                |
+| D16 | Modalidade aceita e contratação do serviço de assinatura não homologadas.                                                                    | [T] Referência técnica: Clicksign API 3.0 com adaptador. AE/TI: aprovar método, identidade, serviço, custos e compatibilidade com D25 antes da ativação.                                                                                                                                                    |
+| D17 | Expiração do link, reenvio ao responsável e recusa não definidos institucionalmente.                                                         | AE/TI: aprovar essas políticas. [T] Versões imutáveis, callbacks idempotentes e bloqueio durante falha de armazenamento já definidos no documento técnico.                                                                                                                                                  |
+| D18 | UC08 permite consultar avisos, mas não detalha autoria, publicação, segmentação ou revisão. UC04 mistura trechos de e-mail ao fluxo interno. | AE: definir gestão de avisos e canais de notificação, preservando o sigilo dos alertas internos.                                                                                                                                                                                                            |
+| D19 | UC16 exige número único; anexos de 2026 mostram alojamentos e unidades com divergências de capacidade e ocupação.                            | [U/T] Código global e número local por localização; alocação local provisória. Em 30/09, ZIP detalhado prevalece onde há divergência de capacidade: R4 66/64 e Laticínio 10/8; PDF complementa inventário ausente. Não inferir quartos de R3/Zootecnia nem importar alunos reais. AE: conferir e homologar. |
+| D20 | UC11/RF011 permitem relatórios para supervisor/gestor; Figura 9 indica exportação somente para gestor.                                       | AE: confirmar exportações por perfil, dados sensíveis e colunas/filtros de cada relatório.                                                                                                                                                                                                                  |
+| D21 | SRS prevê autenticação institucional; decisão atual é login próprio por e-mail/senha.                                                        | [U] SUAP/Google ficam para futuro. [T] Spring Security e sessão JDBC na fase atual local. TI: validar segurança, provisionamento, recuperação e implantação real; provedor externo não é bloqueio atual.                                                                                                    |
+| D22 | Retenção, descarte e objetivos de recuperação não definidos na SRS.                                                                          | [U] Trilha de auditoria permanente, com implementação pendente; isso não abrange todo conteúdo médico nem backups. AE/TI: governança e prazos desses dados, acessos, destino externo e recuperação.                                                                                                         |
+| D23 | “Relatórios offline” aparece apenas como exemplo de degradação.                                                                              | AE/TI: escolher escopo e forma da contingência; não presumir sistema inteiro offline.                                                                                                                                                                                                                       |
+| D24 | Metas de resposta/capacidade existem sem cenário de teste; 250 residentes não fixa concorrência.                                             | TI: carga, métricas, condições de medição e validação na VPS definida.                                                                                                                                                                                                                                      |
+| D25 | “Código aberto interno”, uso exclusivo e ausência de licenças comerciais coexistem com serviços externos obrigatórios.                       | Instituição/TI: esclarecer licença, contratação, orçamento e compatibilidade das dependências.                                                                                                                                                                                                              |
+| D26 | Diagramas antigos contêm penalidades e não representam integralmente responsáveis, mensagens, assinaturas, ciência e termos.                 | AE/TI: atualizar diagramas e modelo físico a partir dos fluxos homologados.                                                                                                                                                                                                                                 |
 
 ## 23.3 Delimitação da aprovação
 
@@ -920,20 +922,20 @@ Até essa validação, o documento cobre o escopo conhecido do software, mas nã
 
 **[U]** O solicitante confirmou Angular no frontend e Java com Spring Boot no backend em 24/09/2026. **[T]** As escolhas abaixo completam essa base, priorizando ferramentas do próprio ecossistema, um único backend e poucos serviços para operar. Não representam uma pesquisa de popularidade nem aprovação institucional de contratos externos.
 
-| Camada               | Escolha                                                     | Uso no SAGER                                                                       |
-| -------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Frontend             | Angular 22, TypeScript e Angular CLI                        | Aplicação web responsiva com rotas por funcionalidade; sem app nativo.             |
-| Interface            | Angular Material + CDK + SCSS                               | Formulários, modais, abas, navegação e componentes; mapa de quartos em CSS Grid.   |
-| Formulários e estado | Reactive Forms, Signals e RxJS                              | Validação, estado local e chamadas HTTP; sem NgRx na base inicial.                 |
-| Backend              | Java 21 LTS / Eclipse Temurin + Spring Boot 4.1             | API REST e regras de negócio em monólito modular, com Spring MVC.                  |
-| Dados                | PostgreSQL 17 + Spring Data JPA/Hibernate + Flyway          | Banco relacional, transações, consultas, integridade e migrações.                  |
-| Segurança            | Spring Security + Spring Session JDBC                       | Autenticação institucional, sessão no servidor e permissões por operação/registro. |
-| Integrações          | Spring RestClient; Meta WhatsApp Cloud API                  | Comunicação externa pelo backend, com adaptadores, auditoria e retentativas.       |
-| Assinatura           | Clicksign API 3.0 como referência condicionada              | Coleta/evidências por serviço externo; ativação depende de D16 e D25.              |
-| Tarefas              | Agendador Spring + tabela persistente no PostgreSQL         | Envios, eventos e recuperação após reinício, sem Redis/RabbitMQ obrigatórios.      |
-| Relatórios           | Apache PDFBox 3, Apache POI e Chart.js                      | PDFs, planilhas XLSX e gráficos com alternativa textual.                           |
-| Implantação          | Docker Engine + Compose + Nginx em VPS Linux                | Frontend estático, backend Java e banco; documentos em volume privado.             |
-| Qualidade            | JUnit Jupiter, Mockito, Testcontainers, Vitest e Playwright | Testes de regras, integração, componentes e jornadas de navegador.                 |
+| Camada               | Escolha                                                     | Uso no SAGER                                                                     |
+| -------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Frontend             | Angular 22, TypeScript e Angular CLI                        | Aplicação web responsiva com rotas por funcionalidade; sem app nativo.           |
+| Interface            | Angular Material + CDK + SCSS                               | Formulários, modais, abas, navegação e componentes; mapa de quartos em CSS Grid. |
+| Formulários e estado | Reactive Forms, Signals e RxJS                              | Validação, estado local e chamadas HTTP; sem NgRx na base inicial.               |
+| Backend              | Java 21 LTS / Eclipse Temurin + Spring Boot 4.1             | API REST e regras de negócio em monólito modular, com Spring MVC.                |
+| Dados                | PostgreSQL 17 + Spring Data JPA/Hibernate + Flyway          | Banco relacional, transações, consultas, integridade e migrações.                |
+| Segurança            | Spring Security + Spring Session JDBC                       | Login próprio do SAGER, sessão no servidor e permissões por operação/registro.   |
+| Integrações          | Spring RestClient; Meta WhatsApp Cloud API                  | Comunicação externa pelo backend, com adaptadores, auditoria e retentativas.     |
+| Assinatura           | Clicksign API 3.0 como referência condicionada              | Coleta/evidências por serviço externo; ativação depende de D16 e D25.            |
+| Tarefas              | Agendador Spring + tabela persistente no PostgreSQL         | Envios, eventos e recuperação após reinício, sem Redis/RabbitMQ obrigatórios.    |
+| Relatórios           | Apache PDFBox 3, Apache POI e Chart.js                      | PDFs, planilhas XLSX e gráficos com alternativa textual.                         |
+| Implantação          | Docker Engine + Compose + Nginx em VPS Linux                | Frontend estático, backend Java e banco; documentos em volume privado.           |
+| Qualidade            | JUnit Jupiter, Mockito, Testcontainers, Vitest e Playwright | Testes de regras, integração, componentes e jornadas de navegador.               |
 
 **Referências técnicas:** documentação oficial listada na seção 17 da Especificação Técnica. As famílias de versão foram consultadas em 24/09/2026; a combinação exata de patches deve ser registrada nos arquivos de dependências e validada pela integração contínua. Não usar versões preview, snapshot ou a tag latest em produção.
 
@@ -960,6 +962,7 @@ O documento técnico não autoriza modificar as regras da SRS, resolver por cont
 | 1.0              | Consolidação do escopo da SRS                                                                     | 15 épicos, 72 critérios de aceite e registro de lacunas.                                                                                                                |
 | 2.0              | Confirmação de Angular e Java/Spring Boot; seleção dos complementos; criação do documento técnico | Stack deixa de ser pendência. São preservados RF001–RF016, RN01–RN10, RNF-WA01–05 e AC01–AC72.                                                                          |
 | 2.0 — 29/09/2026 | Decisão de projeto para a fatia local de alojamentos, unidades e quartos                          | E04/AC14 distinguem código global e número local; capacidade e situação manuais não simulam ocupação nem limpeza. Fase 2 e homologação institucional continuam abertas. |
-| 2.0 — 29/09/2026 | Regra provisória para a fatia local de alocação e transferência                                     | Um quarto ativo por residente, limite pela capacidade definida, histórico e bloqueios locais; situação manual e homologação institucional preservadas.                 |
+| 2.0 — 29/09/2026 | Regra provisória para a fatia local de alocação e transferência                                   | Um quarto ativo por residente, limite pela capacidade definida, histórico e bloqueios locais; situação manual e homologação institucional preservadas.                  |
+| 2.0 — 30/09/2026 | Decisões do solicitante para autenticação, acesso, cadastro, responsáveis, capacidade e auditoria | Login próprio; paridade operacional com sigilo médico; nascimento obrigatório sem limite etário de cadastro; uma assinatura; precedência do ZIP; trilha permanente.     |
 
-A proposta anterior de React/Django não integra a arquitetura vigente. Nenhum código de aplicação foi implementado ou testado por esta revisão documental. A homologação do produto e das integrações reais continua necessária.
+A proposta anterior de React/Django não integra a arquitetura vigente. O repositório já contém implementação e testes locais; esta revisão documental não comprova homologação ou implantação real. A homologação do produto e das integrações reais continua necessária.

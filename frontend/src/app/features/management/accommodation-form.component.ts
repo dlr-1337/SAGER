@@ -24,7 +24,7 @@ import { Accommodation } from './housing.models';
       @if (!canEdit()) {
         <section class="mg-empty" role="alert">
           <h1>Acesso restrito</h1>
-          <p>Somente o gestor pode editar alojamentos.</p>
+          <p>O cadastro de alojamentos está disponível para gestor e supervisor.</p>
           <a class="btn mg-primary" routerLink="/alojamentos">Voltar aos alojamentos</a>
         </section>
       } @else if (loading()) {
@@ -124,7 +124,7 @@ export class AccommodationFormComponent {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   readonly editId = inject(ActivatedRoute).snapshot.paramMap.get('id');
-  readonly canEdit = computed(() => this.session.hasRole('gestor'));
+  readonly canEdit = computed(() => this.session.hasRole('gestor', 'supervisor'));
   readonly existing = signal<Accommodation | null>(null);
   readonly loading = signal(false);
   readonly loadError = signal('');

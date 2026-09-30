@@ -189,7 +189,7 @@ export class AccommodationDetailComponent {
   readonly id = this.route.snapshot.paramMap.get('id') ?? '';
   readonly item = signal<Accommodation | null>(null);
   readonly units = signal<AccommodationUnit[]>([]);
-  readonly canEdit = computed(() => this.session.hasRole('gestor'));
+  readonly canEdit = computed(() => this.session.hasRole('gestor', 'supervisor'));
   readonly isDemo = this.session.active;
   readonly saved = signal(this.route.snapshot.queryParamMap.get('saved') === '1');
   readonly loading = signal(false);

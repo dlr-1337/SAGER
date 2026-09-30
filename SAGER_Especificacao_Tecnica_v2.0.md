@@ -1,4 +1,5 @@
 # SAGER
+
 ## Especificação Técnica e Arquitetura
 
 **Angular + Java com Spring Boot**  
@@ -12,9 +13,9 @@ Documento complementar ao PRD completo v2.0
 
 ## Leitura e autoridade das decisões
 
-**[U]** identifica a decisão do solicitante: Angular no frontend e Java com Spring Boot no backend. **[T]** identifica a escolha técnica feita neste documento por delegação do solicitante. **[P]** identifica um parâmetro ou procedimento proposto para homologação. **[A]** identifica dependência institucional não resolvida. A seleção de um fornecedor de referência não autoriza contratação nem comprova validade jurídica de assinaturas.
+**[U]** identifica decisão do solicitante, incluindo Angular/Java e as regras da fase atual definidas em 30/09/2026. **[T]** identifica escolha técnica feita neste documento por delegação do solicitante. **[P]** identifica parâmetro ou procedimento proposto para homologação. **[A]** identifica dependência institucional não resolvida. A seleção de um fornecedor de referência não autoriza contratação nem comprova validade jurídica de assinaturas.
 
-A SRS v2.1 e o PRD v2.0 definem o que o produto precisa fazer. Este documento define como implementar. Os requisitos funcionais, seus 72 critérios de aceite e as pendências D01–D26 não são substituídos por decisões de biblioteca ou infraestrutura. Não há código implementado, implantação realizada ou testes de aplicação executados nesta revisão documental.
+A SRS v2.1 e o PRD v2.0 definem o que o produto precisa fazer. Este documento define como implementar. Os requisitos funcionais, seus 72 critérios de aceite e as pendências D01–D26 não são substituídos por decisões de biblioteca ou infraestrutura. As decisões de 30/09 prevalecem para a fase atual onde atualizam uma premissa da SRS; não representam homologação institucional. O repositório já contém implementação e testes locais, mas esta revisão documental não comprova implantação real.
 
 ## Guia de leitura
 
@@ -23,6 +24,7 @@ Decisões e versões: seções 1–2. Arquitetura e código: 3–5. Autenticaç�
 **Base funcional:** SAGER_Corrigido(1).docx, SRS-SAGER-001 v2.1, 55 páginas na representação analisada; PRD completo v2.0; confirmação de stack do solicitante nesta conversa. O áudio OGG originalmente anexado não foi transcrito.
 
 <!-- pagebreak -->
+
 # 1. Decisões de arquitetura
 
 ## 1.1 Princípio de implementação
@@ -33,45 +35,46 @@ Essa composição foi escolhida para reduzir a quantidade de serviços e manter 
 
 ## 1.2 Restrições preservadas
 
-O produto é web responsivo, sem aplicativo móvel próprio. A autenticação institucional é obrigatória. O ambiente previsto na SRS tem **2 GB de RAM, 1 CPU e 50 GB de armazenamento**, com capacidade de gerenciar até 250 residentes e 50 transações por minuto. A SRS exige até 2 segundos para operações como consultas e solicitações; a fronteira da medição precisa ser homologada. Esses números são requisitos, não resultados de benchmark. [SRS, pp. 6 e 47–49]
+O produto é web responsivo, sem aplicativo móvel próprio. A SRS prescreveu autenticação institucional; **[U] a fase atual usa login próprio do SAGER por e-mail e senha**, com SUAP ou Google reservados para possível evolução. O ambiente previsto na SRS tem **2 GB de RAM, 1 CPU e 50 GB de armazenamento**, com capacidade de gerenciar até 250 residentes e 50 transações por minuto. A SRS exige até 2 segundos para operações como consultas e solicitações; a fronteira da medição precisa ser homologada. Esses números são requisitos, não resultados de benchmark. [SRS, pp. 6 e 47–49]
 
 A estrutura inicial não inclui microserviços, Kubernetes, Kafka, RabbitMQ, Redis, GraphQL, WebFlux ou banco não relacional. Não há aplicação Node.js permanente no servidor, NgRx obrigatório ou renderização Angular no servidor. Não haverá motor próprio de assinatura eletrônica nem autenticação JWT desenvolvida do zero.
 
 ## 1.3 O que permanece fora da decisão técnica
 
-A AE define escalas de avaliação, fórmula do ranking, critérios de reincidência, gravidades, regras de cancelamento e início de saída, permissões institucionais e signatários. A TI informa o provedor real de autenticação e os acessos. A instituição autoriza tratamento de dados, serviços de terceiros e custos. A arquitetura não pode substituir essas decisões por valores arbitrários.
+A AE define escalas de avaliação, fórmula do ranking, critérios de reincidência, gravidades e regras de cancelamento e início de saída. A paridade operacional de gestor e supervisor e a suficiência de uma assinatura válida já foram decididas para a fase atual; a identidade do responsável e o sigilo médico ainda exigem governança. A TI valida o login próprio antes de implantação real e informa acessos e infraestrutura. A instituição autoriza tratamento de dados, serviços de terceiros e custos. A arquitetura não pode substituir essas decisões por valores arbitrários.
 
-**Resultado esperado da preparação:** equipe consegue construir um fluxo vertical de login institucional, autorização por perfil, cadastro, gravação no PostgreSQL e teste automatizado antes de iniciar todos os módulos em paralelo.
+**Resultado esperado da preparação:** equipe consegue construir um fluxo vertical de login próprio do SAGER, autorização por perfil, cadastro, gravação no PostgreSQL e teste automatizado antes de iniciar todos os módulos em paralelo.
 
 <!-- pagebreak -->
+
 # 2. Stack e política de versões
 
 ## 2.1 Base tecnológica escolhida
 
-| Área | Tecnologia | Diretriz de implementação |
-| --- | --- | --- |
-| Frontend [U/T] | Angular 22 + TypeScript | Angular CLI, componentes standalone, tipagem estrita e carregamento por funcionalidade. [T01–T03] |
-| Componentes [T] | Angular Material + CDK | Mesma versão principal do Angular, SCSS próprio e componentes reutilizáveis. [T04] |
-| Formulários [T] | Angular Reactive Forms | Formulários tipados; validação local complementar ao servidor. [T30] |
-| Estado/HTTP [T] | Signals, RxJS e HttpClient | Estado simples em serviços; observables para HTTP e eventos assíncronos. [T32] |
-| Ferramentas frontend [T] | Node.js 24 LTS + npm | Somente desenvolvimento e build; dependências reproduzíveis com package-lock.json. [T02, T05] |
-| Backend [U/T] | Java 21 LTS, Eclipse Temurin; Spring Boot 4.1 | Spring MVC, servidor servlet embutido e aplicação JAR. [T06–T07] |
-| Build Java [T] | Maven 3.9.x com Maven Wrapper | Uma ferramenta de build, versão reproduzível e dependências geridas pelo Spring Boot. |
-| Persistência [T] | Spring Data JPA/Hibernate | Repositórios, transações e consultas; entidades não expostas diretamente pela API. |
-| Banco [T] | PostgreSQL 17 | Versão de manutenção suportada da linha 17; mesmo banco em testes de integração. [T08] |
-| Migrações [T] | Flyway Community | Migrações SQL versionadas; sem alteração automática de schema pelo Hibernate em produção. [T09] |
-| Autenticação [T] | Spring Security | Login institucional; OIDC preferencial, adaptado ao protocolo real da TI. [T10–T12] |
-| Sessão [T] | Spring Session JDBC | Sessões no PostgreSQL; cookie protegido e CSRF na integração com Angular. [T13–T14] |
-| Documentação de API [T] | springdoc-openapi 3.x + Swagger UI | Versão compatível com Spring Boot 4; exposta somente em ambiente autorizado. [T15] |
-| Mensagens [T] | Meta WhatsApp Cloud API | Integração HTTP oficial pelo backend, conforme obrigação da SRS. |
-| Assinatura [T/A] | Clicksign API 3.0, modelo de envelopes | Referência técnica condicionada à aprovação institucional e acesso ao serviço. [T16–T17] |
-| Documentos [T] | Apache PDFBox 3 + Apache POI | PDF e XLSX gerados em Java. [T18–T19] |
-| Gráficos [T] | Chart.js 4 | Integração direta em componente Angular; alternativa textual e tabela de dados. [T20] |
-| Processamento [T] | Agendador Spring + tarefas no PostgreSQL | Persistência, retentativa e recuperação sem servidor de fila separado. [T21] |
-| Operação [T] | Docker Engine, Compose e Nginx | Três serviços permanentes; volumes persistentes; HTTPS. [T22–T23] |
-| Testes [T] | JUnit Jupiter, Mockito, Testcontainers, Vitest e Playwright | Backend, banco real, componentes e jornadas completas. [T03, T24–T26] |
-| Qualidade/entrega [T] | Git, GitHub Actions, ESLint e Prettier | Build/testes antes de merge; implantação de produção com aprovação. [T27] |
-| Observabilidade [T] | Spring Boot Actuator + logs estruturados | Saúde, métricas básicas, erros e correlação de operações. [T28] |
+| Área                     | Tecnologia                                                  | Diretriz de implementação                                                                           |
+| ------------------------ | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Frontend [U/T]           | Angular 22 + TypeScript                                     | Angular CLI, componentes standalone, tipagem estrita e carregamento por funcionalidade. [T01–T03]   |
+| Componentes [T]          | Angular Material + CDK                                      | Mesma versão principal do Angular, SCSS próprio e componentes reutilizáveis. [T04]                  |
+| Formulários [T]          | Angular Reactive Forms                                      | Formulários tipados; validação local complementar ao servidor. [T30]                                |
+| Estado/HTTP [T]          | Signals, RxJS e HttpClient                                  | Estado simples em serviços; observables para HTTP e eventos assíncronos. [T32]                      |
+| Ferramentas frontend [T] | Node.js 24 LTS + npm                                        | Somente desenvolvimento e build; dependências reproduzíveis com package-lock.json. [T02, T05]       |
+| Backend [U/T]            | Java 21 LTS, Eclipse Temurin; Spring Boot 4.1               | Spring MVC, servidor servlet embutido e aplicação JAR. [T06–T07]                                    |
+| Build Java [T]           | Maven 3.9.x com Maven Wrapper                               | Uma ferramenta de build, versão reproduzível e dependências geridas pelo Spring Boot.               |
+| Persistência [T]         | Spring Data JPA/Hibernate                                   | Repositórios, transações e consultas; entidades não expostas diretamente pela API.                  |
+| Banco [T]                | PostgreSQL 17                                               | Versão de manutenção suportada da linha 17; mesmo banco em testes de integração. [T08]              |
+| Migrações [T]            | Flyway Community                                            | Migrações SQL versionadas; sem alteração automática de schema pelo Hibernate em produção. [T09]     |
+| Autenticação [U/T]       | Spring Security                                             | Login próprio por e-mail/senha na fase atual; SUAP/Google podem ser integrados no futuro. [T10–T12] |
+| Sessão [T]               | Spring Session JDBC                                         | Sessões no PostgreSQL; cookie protegido e CSRF na integração com Angular. [T13–T14]                 |
+| Documentação de API [T]  | springdoc-openapi 3.x + Swagger UI                          | Versão compatível com Spring Boot 4; exposta somente em ambiente autorizado. [T15]                  |
+| Mensagens [T]            | Meta WhatsApp Cloud API                                     | Integração HTTP oficial pelo backend, conforme obrigação da SRS.                                    |
+| Assinatura [T/A]         | Clicksign API 3.0, modelo de envelopes                      | Referência técnica condicionada à aprovação institucional e acesso ao serviço. [T16–T17]            |
+| Documentos [T]           | Apache PDFBox 3 + Apache POI                                | PDF e XLSX gerados em Java. [T18–T19]                                                               |
+| Gráficos [T]             | Chart.js 4                                                  | Integração direta em componente Angular; alternativa textual e tabela de dados. [T20]               |
+| Processamento [T]        | Agendador Spring + tarefas no PostgreSQL                    | Persistência, retentativa e recuperação sem servidor de fila separado. [T21]                        |
+| Operação [T]             | Docker Engine, Compose e Nginx                              | Três serviços permanentes; volumes persistentes; HTTPS. [T22–T23]                                   |
+| Testes [T]               | JUnit Jupiter, Mockito, Testcontainers, Vitest e Playwright | Backend, banco real, componentes e jornadas completas. [T03, T24–T26]                               |
+| Qualidade/entrega [T]    | Git, GitHub Actions, ESLint e Prettier                      | Build/testes antes de merge; implantação de produção com aprovação. [T27]                           |
+| Observabilidade [T]      | Spring Boot Actuator + logs estruturados                    | Saúde, métricas básicas, erros e correlação de operações. [T28]                                     |
 
 ## 2.2 Como congelar as versões
 
@@ -84,6 +87,7 @@ Spring Boot 4.1 aceita Java 21. **[T]** Adotar Java 21 LTS sem recursos preview,
 A manutenção inclui atualizações de segurança e revisão periódica das linhas suportadas. Um upgrade principal deve passar pelos mesmos testes de login, permissões, migração, exportação e saídas da versão anterior. A aplicação não deve depender de suporte comercial obrigatório para permanecer em uma versão obsoleta.
 
 <!-- pagebreak -->
+
 # 3. Estrutura da aplicação
 
 ## 3.1 Topologia de produção
@@ -93,13 +97,13 @@ Navegador no computador ou celular
   -> HTTPS -> Nginx
        /                 -> arquivos estáticos do Angular
        /api/v1/*         -> aplicação Spring Boot
-       /oauth2/*         -> aplicação Spring Boot, quando OIDC
-       /login/oauth2/*   -> callback institucional, quando OIDC
 
 Spring Boot -> PostgreSQL: domínio, sessão, auditoria e tarefas
 Spring Boot -> volume privado: PDFs, assinaturas e exportações
-Spring Boot -> HTTPS: autenticação, WhatsApp e assinatura
+Spring Boot -> HTTPS: WhatsApp e assinatura; identidade externa só se integrada futuramente
 ```
+
+O login próprio usa `/api/v1/auth/login`, já coberto pela rota da API. Qualquer rota de provedor externo será incluída somente se SUAP ou Google forem integrados futuramente.
 
 **[T]** Apenas Nginx publica as portas de aplicação na internet. PostgreSQL e porta interna do Spring Boot ficam na rede privada do Compose. Uma única instância de backend é suficiente como ponto de partida; o mecanismo de tarefas utiliza bloqueio/lease para evitar execução duplicada em reinícios ou sobreposição de deploy.
 
@@ -118,25 +122,26 @@ sager/
 
 ## 3.3 Módulos do backend
 
-| Pacote funcional | Responsabilidade | Referência do PRD |
-| --- | --- | --- |
-| acesso | Identidade institucional, perfis e sessões | E01 |
-| residentes | Cadastro, responsáveis, vínculos e acesso a dados médicos | E02 |
-| supervisores | Administração de supervisores | E03 |
-| quartos | Blocos/pisos, quartos e dados do mapa | E04 |
-| presencas | Chamada e participações | E05 |
-| saidas | Solicitações, decisões, linha do tempo e retorno curto | E06–E08 |
-| documentos / integracoes | Arquivos, versões, assinatura e mensagens | E09 |
-| ocorrencias | Origem dos alertas e notificações internas | E10 |
-| comunicacao | Advertências manuais, avisos, leitura e ciência | E11 |
-| compromissos | Termos vinculados a reincidências analisadas | E12 |
-| limpeza | Avaliação, cálculo homologado e ranking | E13 |
-| relatorios | Consultas, gráficos e exportações | E14 |
-| auditoria / tarefas | Histórico técnico e processamento persistente | Transversal |
+| Pacote funcional         | Responsabilidade                                                  | Referência do PRD |
+| ------------------------ | ----------------------------------------------------------------- | ----------------- |
+| acesso                   | Conta SAGER, perfis e sessões; identidade externa futura opcional | E01               |
+| residentes               | Cadastro, responsáveis, vínculos e acesso a dados médicos         | E02               |
+| supervisores             | Administração de supervisores                                     | E03               |
+| quartos                  | Blocos/pisos, quartos e dados do mapa                             | E04               |
+| presencas                | Chamada e participações                                           | E05               |
+| saidas                   | Solicitações, decisões, linha do tempo e retorno curto            | E06–E08           |
+| documentos / integracoes | Arquivos, versões, assinatura e mensagens                         | E09               |
+| ocorrencias              | Origem dos alertas e notificações internas                        | E10               |
+| comunicacao              | Advertências manuais, avisos, leitura e ciência                   | E11               |
+| compromissos             | Termos vinculados a reincidências analisadas                      | E12               |
+| limpeza                  | Avaliação, cálculo homologado e ranking                           | E13               |
+| relatorios               | Consultas, gráficos e exportações                                 | E14               |
+| auditoria / tarefas      | Histórico técnico e processamento persistente                     | Transversal       |
 
 Cada módulo pode ter controller, service, repository, entity e dto. Criar subpacotes quando houver conteúdo real. Não gerar interfaces para todas as classes, camadas vazias ou um módulo separado por tabela. Regras de um módulo são acessadas por seus serviços, não por alterações diretas em suas tabelas a partir de outro controller.
 
 <!-- pagebreak -->
+
 # 4. Implementação do frontend
 
 ## 4.1 Padrões definidos
@@ -149,14 +154,14 @@ Usar Angular Material para diálogos, campos, tabelas paginadas, abas, seleção
 
 ## 4.2 Componentes reutilizáveis prioritários
 
-| Componente | Contrato de comportamento |
-| --- | --- |
-| ModalRevisao | Mostra resumo da ação; cancelar não grava; confirmar dispara uma única requisição; erro não fecha como sucesso. |
-| LinhaTempoSaida | Usa eventos e estados enviados pela API; assinatura aparece como não aplicável em saída curta. |
-| FiltrosRelatorio | Combina período, residente, ocorrência e status; mostra filtros ativos e mantém exportação coerente. |
-| MapaQuartos | Agrupa por bloco/piso; situação por cor e texto; exibe identificação, ocupação e nota existente. |
-| FeedbackLimpeza | Mostra nota anterior, nova nota, diferença e posição retornadas pelo backend; sem previsão fictícia. |
-| EstadoVazioErro | Distingue carregando, sem dados, sem permissão e falha técnica. |
+| Componente       | Contrato de comportamento                                                                                       |
+| ---------------- | --------------------------------------------------------------------------------------------------------------- |
+| ModalRevisao     | Mostra resumo da ação; cancelar não grava; confirmar dispara uma única requisição; erro não fecha como sucesso. |
+| LinhaTempoSaida  | Usa eventos e estados enviados pela API; assinatura aparece como não aplicável em saída curta.                  |
+| FiltrosRelatorio | Combina período, residente, ocorrência e status; mostra filtros ativos e mantém exportação coerente.            |
+| MapaQuartos      | Agrupa por bloco/piso; situação por cor e texto; exibe identificação, ocupação e nota existente.                |
+| FeedbackLimpeza  | Mostra nota anterior, nova nota, diferença e posição retornadas pelo backend; sem previsão fictícia.            |
+| EstadoVazioErro  | Distingue carregando, sem dados, sem permissão e falha técnica.                                                 |
 
 O componente visual não decide permissão nem transição. Guards de rota servem à navegação; o backend valida cada operação e o vínculo do usuário ao registro.
 
@@ -170,9 +175,10 @@ O polling não deve prolongar indefinidamente a sessão sem interação humana: 
 
 ## 4.4 Rotas funcionais propostas
 
-**[T]** Organizar as telas em /inicio, /residentes, /supervisores, /quartos, /chamada, /saidas, /notificacoes, /avisos, /limpeza, /ranking, /relatorios e /ajuda. O histórico e os termos podem ficar dentro de /residentes/:id. A mesma área pode apresentar ações diferentes por perfil. A rota não concede permissão ausente na matriz institucional.
+**[T]** Organizar as telas em /inicio, /residentes, /supervisores, /quartos, /chamada, /saidas, /notificacoes, /avisos, /limpeza, /ranking, /relatorios e /ajuda. O histórico e os termos podem ficar dentro de /residentes/:id. A mesma área pode apresentar ações diferentes por perfil. A rota não concede permissão ausente na matriz vigente do PRD.
 
 <!-- pagebreak -->
+
 # 5. Backend e contrato da API
 
 ## 5.1 Padrão de implementação
@@ -193,64 +199,72 @@ Usar 400 para formato/validação, 401 para sessão ausente, 403 para operação
 
 ## 5.3 Catálogo inicial de endpoints
 
-Os caminhos da tabela são relativos ao prefixo /api/v1; as rotas de redirecionamento institucional ficam configuradas separadamente. São contratos técnicos propostos; permissões e comportamentos são os do PRD. Não criar um PATCH genérico de status que permita contornar as transições.
+Os caminhos da tabela são relativos ao prefixo /api/v1; as rotas de autenticação do SAGER ficam configuradas separadamente. São contratos técnicos propostos; permissões e comportamentos são os do PRD. Não criar um PATCH genérico de status que permita contornar as transições.
 
-| Grupo | Operações de referência |
-| --- | --- |
-| Sessão | GET /auth/me; GET /auth/csrf; POST /auth/logout |
-| Residentes | GET/POST /residentes; GET/PUT /residentes/{id}; sub-recursos /responsaveis e /historico |
-| Supervisores | GET/POST /supervisores; GET/PUT /supervisores/{id} |
-| Quartos | GET /quartos/mapa; GET/POST /quartos; GET/PUT /quartos/{id} |
-| Chamada | GET/POST /chamadas; GET /chamadas/{id}; PUT /chamadas/{id}/participacoes; POST /chamadas/{id}/confirmar |
-| Saídas | GET/POST /saidas; GET/PUT /saidas/{id}; GET /saidas/{id}/eventos |
-| Decisões | POST /saidas/{id}/aprovar; /rejeitar; /confirmar-retorno; /reenviar-mensagem |
-| Notificações | GET /notificacoes; POST /notificacoes/{id}/visualizar; /analisar; /arquivar; /converter |
-| Advertência e ciência | POST /advertencias; GET /me/avisos; GET /me/advertencias; POST /me/comunicacoes/{id}/ciencia |
-| Limpeza e ranking | POST /avaliacoes-limpeza; PUT /avaliacoes-limpeza/{id}; GET /ranking |
-| Relatórios | GET /relatorios/{tipo}; POST /exportacoes; GET /exportacoes/{id}; GET /exportacoes/{id}/arquivo |
-| Documentos | GET /documentos/{id}/arquivo; acesso conforme vínculo e permissão |
-| Termos | GET/POST /residentes/{id}/termos; ações de ciência/assinatura conforme RN10 homologada |
-| Integrações | POST /webhooks/whatsapp; POST /webhooks/assinatura; verificação adicional exigida pelo provedor |
+| Grupo                 | Operações de referência                                                                                 |
+| --------------------- | ------------------------------------------------------------------------------------------------------- |
+| Sessão                | POST /auth/login; GET /auth/me; GET /auth/csrf; POST /auth/logout                                       |
+| Residentes            | GET/POST /residentes; GET/PUT /residentes/{id}; sub-recursos /responsaveis e /historico                 |
+| Supervisores          | GET/POST /supervisores; GET/PUT /supervisores/{id}                                                      |
+| Quartos               | GET /quartos/mapa; GET/POST /quartos; GET/PUT /quartos/{id}                                             |
+| Chamada               | GET/POST /chamadas; GET /chamadas/{id}; PUT /chamadas/{id}/participacoes; POST /chamadas/{id}/confirmar |
+| Saídas                | GET/POST /saidas; GET/PUT /saidas/{id}; GET /saidas/{id}/eventos                                        |
+| Decisões              | POST /saidas/{id}/aprovar; /rejeitar; /confirmar-retorno; /reenviar-mensagem                            |
+| Notificações          | GET /notificacoes; POST /notificacoes/{id}/visualizar; /analisar; /arquivar; /converter                 |
+| Advertência e ciência | POST /advertencias; GET /me/avisos; GET /me/advertencias; POST /me/comunicacoes/{id}/ciencia            |
+| Limpeza e ranking     | POST /avaliacoes-limpeza; PUT /avaliacoes-limpeza/{id}; GET /ranking                                    |
+| Relatórios            | GET /relatorios/{tipo}; POST /exportacoes; GET /exportacoes/{id}; GET /exportacoes/{id}/arquivo         |
+| Documentos            | GET /documentos/{id}/arquivo; acesso conforme vínculo e permissão                                       |
+| Termos                | GET/POST /residentes/{id}/termos; ações de ciência/assinatura conforme RN10 homologada                  |
+| Integrações           | POST /webhooks/whatsapp; POST /webhooks/assinatura; verificação adicional exigida pelo provedor         |
 
 Não criar endpoints de início físico de saída, cancelamento ou alteração retroativa sem resolver D05–D08. Cadastro/publicação de avisos também depende de D18. O catálogo não concede um CRUD irrestrito a informações médicas ou registros históricos.
 
 **[T]** Documentar contratos com springdoc/Swagger; testar exemplos de sucesso e erro. Não habilitar recursos extras de MCP ou consoles administrativos da biblioteca que não fazem parte do SAGER. [T15]
 
 <!-- pagebreak -->
+
 # 6. Autenticação e autorização
 
-## 6.1 Login institucional
+## 6.1 Login próprio do SAGER
 
-**[T]** Preferir OIDC com Spring Security OAuth2 Login e fluxo Authorization Code, usando a instituição como provedor de identidade. O backend executa o fluxo e mantém a sessão; o Angular consulta /api/v1/auth/me. Essa preferência não confirma que o IF Goiano disponibilize OIDC. [T10]
+**[U/T]** Na fase atual, autenticar contas SAGER por e-mail e senha no backend, com hash de senha adequado, credenciais protegidas, controle de tentativas e sessão no servidor. O Angular consulta `/api/v1/auth/me`. O ambiente local existente está restrito ao loopback e serve ao desenvolvimento; a implantação real precisa de validação de segurança, operação e provisionamento.
 
-**[A]** Na preparação, a TI deve informar protocolo, ambiente, atributos, identificador estável, grupos e regras de desligamento. Se a instituição usar LDAP, integrar com Spring Security LDAP e conexão protegida; se exigir SAML, usar a integração SAML correspondente. Implementar apenas o caminho institucional confirmado, não os três ao mesmo tempo. Não implantar Keycloak adicional sem necessidade institucional. [T11, T29]
+**[A]** A TI deve validar política de senha, recuperação de acesso, provisionamento, desligamento, proteção contra abuso e condições de implantação. SUAP ou Google podem ser estudados como provedores futuros, com protocolo e atributos confirmados antes de qualquer integração; essa etapa não bloqueia o login próprio atual. Não implantar Keycloak adicional sem necessidade institucional. [T10–T12, T29]
 
-Vincular a identidade externa por identificador estável, como issuer + subject em OIDC. Não conceder papel de gestor por domínio do e-mail. O cadastro funcional de um supervisor não cria uma conta institucional. Manter perfis e vínculos locais de negócio, provisionados por pessoas autorizadas.
+Manter identificador estável da conta SAGER e vínculo com os perfis locais de negócio. Não conceder papel de gestor por domínio do e-mail. O cadastro funcional de um supervisor deve vincular a conta por processo autorizado e não deve criar senha previsível. Uma integração externa futura vinculará `issuer + subject` ou identificador equivalente sem alterar automaticamente o papel local.
 
 ## 6.2 Sessão e CSRF
 
-**[T]** Usar Spring Session JDBC no PostgreSQL. O navegador recebe cookie de sessão Secure, HttpOnly e SameSite configurado para o fluxo institucional; com OIDC por callback GET, adotar Lax como ponto de partida. A API fica na mesma origem da interface, evitando CORS aberto. [T12–T13]
+**[T]** Usar Spring Session JDBC no PostgreSQL. O navegador recebe cookie de sessão Secure, HttpOnly e SameSite ajustado ao fluxo de login próprio; Lax é ponto de partida sujeito à validação da implantação. A API fica na mesma origem da interface, evitando CORS aberto. [T12–T13]
 
 Manter CSRF ativo nas operações autenticadas por cookie. Configurar o token CSRF e o interceptor do Angular de forma compatível; o cookie que contém apenas o token CSRF pode ser legível pelo JavaScript, ao contrário do cookie de sessão. Renovar o token após login/logout e testar a integração de SPA segundo a documentação da versão Spring Security escolhida. [T14]
 
-Logout é uma operação protegida que invalida a sessão no servidor. Não guardar access token ou refresh token em localStorage/sessionStorage. Tokens institucionais necessários ficam no backend, protegidos e fora de logs; não criar um fluxo paralelo de emissão de JWT próprio.
+Logout é uma operação protegida que invalida a sessão no servidor. Não guardar credenciais ou tokens em localStorage/sessionStorage. Eventuais tokens de integração futura ficam no backend, protegidos e fora de logs; não criar um fluxo paralelo de emissão de JWT próprio.
 
-**[P]** Iniciar a homologação com 30 minutos de inatividade e duração máxima de 8 horas, sujeitas à política institucional. Implementar controle de inatividade de interação para que polling não preserve sessões sem usuário. Uma conta desabilitada localmente deve perder acesso mesmo que a sessão ainda exista. A propagação de desligamento no provedor institucional precisa de acordo com a TI; não prometer revogação instantânea sem evento ou consulta que a sustente.
+**[P]** Iniciar a homologação com 30 minutos de inatividade e duração máxima de 8 horas, sujeitas à política institucional. Implementar controle de inatividade de interação para que polling não preserve sessões sem usuário. Uma conta desabilitada localmente deve perder acesso mesmo que a sessão ainda exista. Se houver provedor externo no futuro, sua propagação de desligamento precisará de acordo com a TI.
 
 ## 6.3 Permissões
 
 **[T]** Spring Security controla o acesso ao endpoint e o serviço verifica vínculo, papel e registro. Um residente acessa seus próprios dados, solicitações e comunicações. Um responsável legal recebe acesso ao documento pertinente no serviço de assinatura, não ao painel completo do SAGER.
 
-Dados médicos têm autorização específica, negada por padrão até a matriz ser aprovada. Gestor não herda automaticamente todas as ações operacionais de supervisor: a matriz do PRD distingue o que está previsto do que depende de decisão. Testar acesso horizontal, trocando IDs de residentes e documentos, além de acesso vertical entre papéis.
+**[U]** O supervisor tem autoridade operacional máxima e recebe as permissões do gestor nos recursos de gestão integrados: supervisores, residentes, responsáveis, alojamentos, quartos e alocações. O gestor pode cadastrar residentes manualmente; esta decisão não amplia seu acesso aos fluxos operacionais de supervisor. Dados médicos podem ser compartilhados entre profissionais autorizados para finalidade assistencial, sob sigilo profissional; gestor ou supervisor, isoladamente, não recebe esse acesso. Testar acesso horizontal, trocando IDs de residentes e documentos, além de acesso vertical entre papéis.
 
 ## 6.4 Desenvolvimento sem credenciais reais
 
-**[T]** Permitir autenticação simulada somente em perfil de desenvolvimento/teste, com dados sintéticos. Inicialização de produção deve falhar quando esse perfil estiver ativo ou quando faltarem configurações institucionais obrigatórias. A página de demonstração da SRS não autoriza login com qualquer senha em produção.
+**[T]** Permitir autenticação simulada somente em perfil de desenvolvimento/teste, com dados sintéticos. Inicialização de produção deve falhar quando esse perfil estiver ativo ou quando faltarem configurações de segurança obrigatórias para login próprio. A página de demonstração da SRS não autoriza login com qualquer senha em produção. O login local atual em loopback não comprova prontidão para implantação real.
 
 <!-- pagebreak -->
+
 # 7. Modelo de dados e arquivos
 
 ## 7.1 Convenções de persistência
+
+**Implementação atual:** as fatias cadastrais locais usam `JdbcTemplate`, SQL e
+Flyway, com controle de versão explícito nas gravações. As referências a JPA,
+Hibernate e `@Version` neste documento descrevem a arquitetura proposta para
+evolução; não representam bibliotecas já usadas nas APIs locais nem exigem uma
+troca de persistência para validar as regras entregues.
 
 **[T]** PostgreSQL 17 com tabelas em snake_case, UUID para IDs, chaves estrangeiras, campos de auditoria e version em registros concorrentes. Instantes ficam em timestamptz/UTC; datas de nascimento e data civil da chamada são datas, não horários convertidos. Usar BigDecimal/NUMERIC para notas, com precisão e arredondamento ajustados à regra de avaliação homologada.
 
@@ -260,39 +274,41 @@ Migrações Flyway criam e evoluem o schema. Hibernate usa validação de estrut
 
 A lista detalha a modelagem proposta; não inventa campos obrigatórios de cadastro ou critérios disciplinares ausentes na SRS.
 
-| Conjunto | Tabelas/objetos | Integridade principal |
-| --- | --- | --- |
-| Acesso | usuario, usuario_perfil, identidade_institucional | Identidade externa única e usuário ativo; perfis atribuídos explicitamente. |
-| Equipe | supervisor | Vínculo ao usuário e às ações registradas. |
-| Residentes | residente, dado_medico_residente | Matrícula/vínculo, nascimento e dados restritos separados da listagem comum. |
-| Responsáveis | responsavel_legal, residente_responsavel | Vínculo ativo, telefone e autorização; seleção do destinatário conforme D15. |
-| Residência | bloco, piso, quarto, vinculacao_quarto | Identificação e situação; capacidade/movimentação conforme D19. |
-| Chamada | chamada_noturna, participacao_chamada | Unicidade por chamada/residente, data de referência e registro tardio. |
-| Saídas | solicitacao_saida, evento_saida | Tipo CURTA/LONGA, período, motivo, estado atual e histórico de decisões. |
-| Retorno | retorno_curto | Um retorno por solicitação, supervisor, horário real e observação do atraso. |
-| Documentos | documento, documento_versao | Arquivo privado, tamanho, hash, tipo, versão do termo e vínculo ao objeto. |
-| Assinatura | processo_assinatura, evidencia_assinatura | Provedor/envelope/documento, versão local e responsável correto. |
-| Mensagens | envio_whatsapp, tentativa_envio | Destinatário pré-cadastrado, identificação externa e tentativas auditáveis. |
-| Ocorrências | ocorrencia, ocorrencia_residente | Origem e residentes impactados; sem sanção automática. |
-| Notificações | notificacao_analise, evento_notificacao | Origem, regra aplicada, estados e decisões humanas. |
-| Advertências | advertencia | Justificativa, gravidade, supervisor e vínculo à análise quando houver. |
-| Comunicação | aviso, destinatario_aviso, leitura_comunicacao, ciencia_comunicacao | Destinatário controlado; ciência única por pessoa/item. |
-| Compromissos | termo_compromisso, termo_ocorrencia, evidencia_termo | Residente, ocorrências, documento e procedimento homologado da AE. |
-| Limpeza | avaliacao_limpeza, item_avaliacao | Quarto, valores, versão da regra e histórico de alteração. |
-| Regras | configuracao_regra, versao_regra | Parâmetros aprovados e vigência; sem valores disciplinares fictícios. |
-| Operação | tarefa_integracao, evento_recebido, exportacao | Persistência, desduplicação, prazo técnico de processamento e resultado. |
-| Auditoria | evento_auditoria | Autor, origem, objeto, ação, horário e correlação. |
-| Sessões | Tabelas Spring Session JDBC | Schema da versão da biblioteca gerido por migração e acesso restrito. |
+| Conjunto     | Tabelas/objetos                                                      | Integridade principal                                                                                                                                                        |
+| ------------ | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Acesso       | usuario, usuario_perfil, credencial_local; identidade_externa futura | E-mail único, hash de senha, usuário ativo e perfis atribuídos explicitamente.                                                                                               |
+| Equipe       | supervisor                                                           | Vínculo ao usuário e às ações registradas.                                                                                                                                   |
+| Residentes   | residente, dado_medico_residente                                     | Matrícula/vínculo, nascimento obrigatório em novos cadastros e edições, curso opcional na API local; legado sem nascimento legível. Dados médicos separados e profissionais. |
+| Responsáveis | responsavel_legal, residente_responsavel                             | Vínculo ativo, telefone e autorização; seleção do destinatário conforme D15.                                                                                                 |
+| Residência   | bloco, piso, quarto, vinculacao_quarto                               | Identificação e situação; capacidade/movimentação conforme D19, com paridade operacional gestor/supervisor.                                                                  |
+| Chamada      | chamada_noturna, participacao_chamada                                | Unicidade por chamada/residente, data de referência e registro tardio.                                                                                                       |
+| Saídas       | solicitacao_saida, evento_saida                                      | Tipo CURTA/LONGA, período, motivo, estado atual e histórico de decisões.                                                                                                     |
+| Retorno      | retorno_curto                                                        | Um retorno por solicitação, supervisor, horário real e observação do atraso.                                                                                                 |
+| Documentos   | documento, documento_versao                                          | Arquivo privado, tamanho, hash, tipo, versão do termo e vínculo ao objeto.                                                                                                   |
+| Assinatura   | processo_assinatura, evidencia_assinatura                            | Provedor/envelope/documento, versão local e responsável correto.                                                                                                             |
+| Mensagens    | envio_whatsapp, tentativa_envio                                      | Destinatário pré-cadastrado, identificação externa e tentativas auditáveis.                                                                                                  |
+| Ocorrências  | ocorrencia, ocorrencia_residente                                     | Origem e residentes impactados; sem sanção automática.                                                                                                                       |
+| Notificações | notificacao_analise, evento_notificacao                              | Origem, regra aplicada, estados e decisões humanas.                                                                                                                          |
+| Advertências | advertencia                                                          | Justificativa, gravidade, supervisor e vínculo à análise quando houver.                                                                                                      |
+| Comunicação  | aviso, destinatario_aviso, leitura_comunicacao, ciencia_comunicacao  | Destinatário controlado; ciência única por pessoa/item.                                                                                                                      |
+| Compromissos | termo_compromisso, termo_ocorrencia, evidencia_termo                 | Residente, ocorrências, documento e procedimento homologado da AE.                                                                                                           |
+| Limpeza      | avaliacao_limpeza, item_avaliacao                                    | Quarto, valores, versão da regra e histórico de alteração.                                                                                                                   |
+| Regras       | configuracao_regra, versao_regra                                     | Parâmetros aprovados e vigência; sem valores disciplinares fictícios.                                                                                                        |
+| Operação     | tarefa_integracao, evento_recebido, exportacao                       | Persistência, desduplicação, prazo técnico de processamento e resultado.                                                                                                     |
+| Auditoria    | evento_auditoria                                                     | Autor, origem, objeto, ação, horário e correlação.                                                                                                                           |
+| Sessões      | Tabelas Spring Session JDBC                                          | Schema da versão da biblioteca gerido por migração e acesso restrito.                                                                                                        |
 
 Não persistir um ranking independente editável. A classificação deve ser derivada das avaliações e da regra homologada, por consulta ou cálculo no servidor. Um resultado materializado só será adicionado depois de medir necessidade; nunca terá fonte de dados divergente das avaliações.
 
 ## 7.3 Restrições e índices
 
-**[T]** Garantir no banco retorno previsto posterior à saída; para CURTA, intervalo máximo de três horas. Usar unicidade em retorno por saída, ciência por pessoa/item e identificação de evento externo por provedor/chave. A conversão de notificação deve impedir duas advertências para o mesmo ato de conversão.
+**[T]** Garantir no banco retorno previsto posterior à saída; para CURTA, intervalo máximo de três horas. Usar unicidade em retorno por saída, ciência por pessoa/item e identificação de evento externo por provedor/chave. A conversão de notificação deve impedir duas advertências para o mesmo ato de conversão. O cadastro manual não valida idade restrita a 16–17 anos. Novos residentes e atualizações exigem data de nascimento; registros legados com `NULL` continuam consultáveis até edição.
 
 Indexar filtros reais: residente/data de saída, status/data prevista, quarto/data de avaliação, notificação/status/data e tarefa/status/próxima execução. Verificar planos de consultas lentas e paginação. Não criar índices em todo campo indiscriminadamente, nem usar cascata de exclusão que apague o histórico de um residente.
 
 A regra de chamada única por dia/bloco e os limites de alocação em quarto dependem de D09/D19. A estrutura permite representar esses conceitos, mas não presume que já estejam aprovados.
+
+**[U] Fonte de capacidades em 30/09/2026:** quando ZIP/planilha detalhada e PDF divergem, a capacidade detalhada do ZIP prevalece: Residência 4, 66 em lugar de 64; Laticínio, 10 em lugar de 8. O PDF complementa inventário ausente no ZIP parcial. Não inferir os quartos ausentes da Residência 3 nem a distribuição de Zootecnia 3; não aumentar R4-21 de quatro para cinco pela ocupação registrada. Os 300 lugares do PDF são capacidade total. Os anexos não fornecem cadastro apto para importar estudantes reais. D19 e homologação pela AE seguem pendentes.
 
 ## 7.4 Arquivos e armazenamento
 
@@ -305,6 +321,7 @@ Manter versões imutáveis. O PDF assinado pode ter hash diferente do PDF origin
 **[P]** Limite inicial de 10 MiB para documentos recebidos, configurável após validar amostras reais. Validar tipo efetivo, tamanho e nome; não confiar apenas na extensão. A inclusão de upload de termo pronto depende do procedimento RN10. Volume local é a escolha inicial; uma interface ArquivoStorage permite migração posterior para armazenamento institucional sem refazer o domínio.
 
 <!-- pagebreak -->
+
 # 8. Saída longa, WhatsApp e assinatura
 
 ## 8.1 Fornecedores e fronteiras
@@ -329,7 +346,7 @@ O webhook de assinatura é autenticado e registrado. A tarefa consulta o estado 
 
 **[T]** Validar a autenticidade do webhook sobre o corpo original, antes de interpretar o JSON. A documentação de assinatura descreve HMAC; os detalhes de cabeçalho e configuração devem ser os da versão/conta adotada e verificados no teste de integração, pois páginas legadas usam formatos diferentes. Não aceitar somente um parâmetro status=assinado enviado por um cliente. [T16–T17]
 
-Verificar também: ambiente correto, provedor correto, envelope/documento esperado, versão vigente, responsável associado e conjunto de assinaturas exigidas. Persistir o evento para processamento idempotente. Após persistência durável, responder o recebimento conforme contrato do provedor; falha ao gravar não deve ser reconhecida como sucesso.
+Verificar também: ambiente correto, provedor correto, envelope/documento esperado, versão vigente e se o signatário é um responsável ativo, autorizado e vinculado ao residente. **[U] Uma assinatura válida desse conjunto basta**; não exigir assinatura simultânea de todos os responsáveis. A prova de identidade, vínculo, autorização e telefone segue D15 e os requisitos da integração. Persistir o evento para processamento idempotente. Após persistência durável, responder o recebimento conforme contrato do provedor; falha ao gravar não deve ser reconhecida como sucesso.
 
 A consulta autenticada à API confirma o estado; não substitui a verificação do webhook. Payload desconhecido, ambiente trocado ou evento de documento não vinculado deve ser rejeitado ou isolado para análise, nunca aplicado a uma solicitação por aproximação de nome/telefone.
 
@@ -344,6 +361,7 @@ Expirar um link não equivale, por si só, a cancelar automaticamente a solicita
 **Limite desta revisão:** a documentação pública de Meta Cloud API não pôde ser aberta com sucesso na consulta. A obrigação da integração e os comportamentos descritos acima estão fundamentados na SRS; a versão Graph API, payload do template e verificação dos webhooks Meta devem ser conferidos na documentação acessível à conta antes da implementação. Não foram inventados endpoints versionados ou preços da Meta.
 
 <!-- pagebreak -->
+
 # 9. Tarefas, retentativas e concorrência
 
 ## 9.1 Fila persistente no PostgreSQL
@@ -375,6 +393,7 @@ Confirmações usam transação, verificação de estado e @Version. A unicidade
 A aprovação longa deve bloquear/revalidar a solicitação e a versão de documento na mesma unidade de decisão. Um botão habilitado na tela antiga não permite aprovar versão nova ainda sem assinatura. O modal é um requisito de interface; no servidor, as regras e o controle de versão continuam obrigatórios independentemente dele.
 
 <!-- pagebreak -->
+
 # 10. Relatórios, PDFs e planilhas
 
 ## 10.1 PDF e XLSX
@@ -400,6 +419,7 @@ Gravação de uma solicitação de exportação pode retornar um identificador e
 Não calcular no navegador uma “nota de comportamento” que a AE não definiu. A API só retorna métricas reais e homologadas. Sem dados, exibir estado vazio. O relatório PDF pode apresentar tabelas/agregações equivalentes; a inclusão dos mesmos gráficos no arquivo deve seguir o modelo de relatório homologado, sem presumir que a captura da tela seja o documento final.
 
 <!-- pagebreak -->
+
 # 11. Segurança, auditoria e proteção operacional
 
 ## 11.1 Controles de aplicação
@@ -414,7 +434,7 @@ Webhooks são exceções específicas à proteção CSRF, porque usam autentica�
 
 **[T]** Registrar autor, origem, horário do servidor, ação, entidade/ID, versão e identificador de correlação. Para decisões de saída e alterações relevantes, registrar a auditoria na mesma transação que altera o domínio. Evitar copiar dados médicos completos para o log de alterações; guardar identificação do ato e somente o conteúdo necessário ao controle autorizado.
 
-A trilha não deve ser editável pela interface nem por operações comuns do usuário de aplicação. Restringir UPDATE/DELETE no armazenamento de auditoria quando a modelagem permitir. Isso dificulta alterações indevidas, mas não torna o histórico inviolável contra um administrador de banco/servidor. Backup, permissões e governança seguem necessários.
+A trilha de auditoria é permanente por decisão do solicitante em 30/09/2026; a implementação dessa retenção ainda está pendente. Não deve ser editável pela interface nem por operações comuns do usuário de aplicação. Restringir UPDATE/DELETE no armazenamento de auditoria quando a modelagem permitir. Isso dificulta alterações indevidas, mas não torna o histórico inviolável contra um administrador de banco/servidor. A permanência da trilha não estende indefinidamente a retenção do conteúdo médico completo, documentos ou backups. Backup, permissões e governança seguem necessários.
 
 Aviso lido, ciência explícita, assinatura e decisão de aprovação são eventos distintos. O uso do botão “Marcar como Ciente” não supre a assinatura da saída longa.
 
@@ -427,6 +447,7 @@ Proteger o disco/volume que contém banco e documentos conforme a infraestrutura
 A instituição define finalidade, retenção, descarte, responsáveis e modalidade de assinatura. A lista de bibliotecas e controles acima não comprova conformidade jurídica. Permanecem aplicáveis as exigências de proteção de dados da SRS, pp. 29, 47–49 e 50–55.
 
 <!-- pagebreak -->
+
 # 12. Implantação, recursos e recuperação
 
 ## 12.1 Ambiente de referência
@@ -441,15 +462,15 @@ O pipeline produz os artefatos fora da VPS. Não executar Angular CLI, Maven com
 
 Os valores seguintes são **[T] pontos iniciais de configuração**, não dimensionamento comprovado nem garantia de capacidade.
 
-| Item | Referência inicial | Validação necessária |
-| --- | --- | --- |
-| Heap Java | Xms 128 MiB e Xmx 512 MiB | Medir memória total do processo, que também inclui memória fora do heap. |
-| Contêiner da aplicação | Orçamento aproximado de até 850 MiB | Medir pico com PDF, autenticação, JPA e tarefas. |
-| PostgreSQL | Orçamento inicial próximo de 400 MiB | Medir cache, conexões e consultas; não confundir limite com memória constante. |
-| Pool JDBC | Iniciar com máximo de 5 conexões | Medir espera; não manter conexão ocupada por chamadas externas. |
-| Processamento externo/PDF | Uma tarefa pesada por vez | Verificar que chamada e decisões continuam responsivas. |
-| Nginx, SO e Docker | Reservar memória restante | Medir pressão do host e evitar depender de swap para atender a meta. |
-| Disco | 50 GB previstos pela SRS | Monitorar crescimento de arquivos, banco, logs, temporários e backups locais. |
+| Item                      | Referência inicial                   | Validação necessária                                                           |
+| ------------------------- | ------------------------------------ | ------------------------------------------------------------------------------ |
+| Heap Java                 | Xms 128 MiB e Xmx 512 MiB            | Medir memória total do processo, que também inclui memória fora do heap.       |
+| Contêiner da aplicação    | Orçamento aproximado de até 850 MiB  | Medir pico com PDF, autenticação, JPA e tarefas.                               |
+| PostgreSQL                | Orçamento inicial próximo de 400 MiB | Medir cache, conexões e consultas; não confundir limite com memória constante. |
+| Pool JDBC                 | Iniciar com máximo de 5 conexões     | Medir espera; não manter conexão ocupada por chamadas externas.                |
+| Processamento externo/PDF | Uma tarefa pesada por vez            | Verificar que chamada e decisões continuam responsivas.                        |
+| Nginx, SO e Docker        | Reservar memória restante            | Medir pressão do host e evitar depender de swap para atender a meta.           |
+| Disco                     | 50 GB previstos pela SRS             | Monitorar crescimento de arquivos, banco, logs, temporários e backups locais.  |
 
 Realizar testes com carga representativa aprovada, incluindo o pico da chamada, filtros, exportação e tarefas externas. Medir tempo máximo, percentis, erros, CPU, memória e disco. O máximo de 2 segundos da SRS não pode ser substituído por p95 sem aprovação. A capacidade de 250 residentes também não determina 250 usuários simultâneos.
 
@@ -472,6 +493,7 @@ Testar restauração em ambiente isolado antes da produção e periodicamente: r
 Usar Actuator com endpoints restritos e estado de saúde sem detalhes sensíveis externamente. Monitorar erros, uso de disco, fila parada, falha de integração e validade do certificado. Aproveitar o monitoramento existente da TI; não instalar uma suíte pesada de observabilidade na VPS apenas para a primeira versão. [T28]
 
 <!-- pagebreak -->
+
 # 13. Testes e critérios técnicos de aceite
 
 ## 13.1 Estratégia
@@ -480,38 +502,39 @@ Usar Actuator com endpoints restritos e estado de saúde sem detalhes sensíveis
 
 Frontend com Vitest e utilitários de teste do Angular; a configuração atual do Angular CLI usa Vitest. Playwright executa jornadas completas de login, modais, abas, filtros e saídas, em navegador real. Acessibilidade exige verificações de foco/teclado e leitura, não apenas teste de renderização. [T03, T26]
 
-Integrações externas começam com adaptadores simulados e passam por sandbox/ambiente de homologação real. Simulação não comprova identidade institucional nem assinatura operacional. Testar falhas, repetição, ordem invertida de webhooks e reinício no meio de cada etapa.
+Integrações externas começam com adaptadores simulados e passam por sandbox/ambiente de homologação real. Simulação não comprova identidade do signatário nem assinatura operacional. O login próprio também exige validação separada antes de implantação. Testar falhas, repetição, ordem invertida de webhooks e reinício no meio de cada etapa.
 
 ## 13.2 Critérios AT01–AT18
 
 Estes critérios complementam AC01–AC72 do PRD; não renumeram nem substituem o aceite funcional.
 
-| ID | Evidência exigida |
-| --- | --- |
-| AT01 | Checkout limpo executa instalação/build com lockfile e wrappers; versões e comandos registrados no README. |
-| AT02 | Interface e API usam a mesma origem em produção; banco e porta interna não estão públicos; HTTPS verificado. |
-| AT03 | Login institucional real homologado; mock de autenticação impede inicialização em produção. |
-| AT04 | APIs bloqueiam troca de ID para acessar outro residente, documento, comunicação ou dado médico sem permissão. |
-| AT05 | Cookies, CSRF, renovação de token, logout e expiração funcionam; polling não mantém sessão indefinidamente. |
-| AT06 | Migrações constroem banco vazio e atualizam base anterior; produção não usa ddl-auto=update/create. |
-| AT07 | Regra de duração curta é validada no servidor e banco, além da interface; valores inválidos não persistem. |
-| AT08 | Ações concorrentes produzem conflito controlado, um único retorno e uma única ciência por item/pessoa. |
-| AT09 | Reinício após gravar uma solicitação preserva e retoma a tarefa de integração pendente. |
-| AT10 | Webhook inválido não causa efeito; evento duplicado não duplica transições, documentos ou evidências. |
-| AT11 | Callback de versão anterior não libera saída editada; falha de armazenamento impede aprovação. |
-| AT12 | Resultado incerto de envio externo é reconciliado ou sinalizado; não há promessa falsa de envio exatamente uma vez. |
-| AT13 | PDF/XLSX mantêm filtros e permissões; documentos privados não são obtidos por URL estática ou ID de terceiro. |
-| AT14 | Gráficos refletem dados reais e oferecem alternativa textual; modais restauram foco e funcionam por teclado. |
-| AT15 | Logs, repositório e artefatos não contêm senhas, tokens, cookies, links privados ou dados médicos desnecessários. |
-| AT16 | Carga homologada é medida na VPS prevista, preservando o máximo de resposta da SRS ou registrando não atendimento. |
-| AT17 | Restauração isolada recupera banco e arquivos coerentes; relatório informa duração, ponto recuperado e pendências. |
-| AT18 | Homologação integra as oito jornadas da seção 22 do PRD, manuais e regras institucionais bloqueantes resolvidas. |
+| ID   | Evidência exigida                                                                                                                                                            |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AT01 | Checkout limpo executa instalação/build com lockfile e wrappers; versões e comandos registrados no README.                                                                   |
+| AT02 | Interface e API usam a mesma origem em produção; banco e porta interna não estão públicos; HTTPS verificado.                                                                 |
+| AT03 | Login próprio por e-mail/senha validado para o ambiente de implantação; mock de autenticação impede inicialização em produção. SUAP/Google não são condição de aceite atual. |
+| AT04 | APIs bloqueiam troca de ID para acessar outro residente, documento, comunicação ou dado médico sem permissão.                                                                |
+| AT05 | Cookies, CSRF, renovação de token, logout e expiração funcionam; polling não mantém sessão indefinidamente.                                                                  |
+| AT06 | Migrações constroem banco vazio e atualizam base anterior; produção não usa ddl-auto=update/create.                                                                          |
+| AT07 | Regra de duração curta é validada no servidor e banco, além da interface; valores inválidos não persistem.                                                                   |
+| AT08 | Ações concorrentes produzem conflito controlado, um único retorno e uma única ciência por item/pessoa.                                                                       |
+| AT09 | Reinício após gravar uma solicitação preserva e retoma a tarefa de integração pendente.                                                                                      |
+| AT10 | Webhook inválido não causa efeito; evento duplicado não duplica transições, documentos ou evidências.                                                                        |
+| AT11 | Callback de versão anterior não libera saída editada; falha de armazenamento impede aprovação.                                                                               |
+| AT12 | Resultado incerto de envio externo é reconciliado ou sinalizado; não há promessa falsa de envio exatamente uma vez.                                                          |
+| AT13 | PDF/XLSX mantêm filtros e permissões; documentos privados não são obtidos por URL estática ou ID de terceiro.                                                                |
+| AT14 | Gráficos refletem dados reais e oferecem alternativa textual; modais restauram foco e funcionam por teclado.                                                                 |
+| AT15 | Logs, repositório e artefatos não contêm senhas, tokens, cookies, links privados ou dados médicos desnecessários.                                                            |
+| AT16 | Carga homologada é medida na VPS prevista, preservando o máximo de resposta da SRS ou registrando não atendimento.                                                           |
+| AT17 | Restauração isolada recupera banco e arquivos coerentes; relatório informa duração, ponto recuperado e pendências.                                                           |
+| AT18 | Homologação integra as oito jornadas da seção 22 do PRD, manuais e regras institucionais bloqueantes resolvidas.                                                             |
 
 ## 13.3 Falhas que impedem a liberação
 
 Impedem a liberação: aprovação longa sem assinatura/documento correto; exposição de dados de terceiros; sanção automática; perda ou duplicidade de retorno; autenticação de demonstração ativa; segredo exposto; migração sem teste; ausência de backup recuperável. Falhas em requisitos não funcionais devem ser registradas com evidência e submetidas à instituição, não ocultadas pela escolha de um percentil diferente.
 
 <!-- pagebreak -->
+
 # 14. Desenvolvimento e integração contínua
 
 ## 14.1 Ambiente da equipe
@@ -537,105 +560,108 @@ Artefatos de build devem identificar commit, versões e dependências. Jobs que 
 Para alterações de schema, incluir migração, teste de atualização e análise de rollback. Para mudanças de integração, incluir evento duplicado, falha transitória, resultado incerto e recuperação após reinício. Para alteração de relatório, comparar prévia, API e arquivo exportado.
 
 <!-- pagebreak -->
+
 # 15. Sequência de implementação
 
 A sequência abaixo cobre o produto completo. Não fixa prazo nem reduz requisitos a um MVP menor. O número de etapas não pressupõe quantidade de sprints ou tamanho da equipe.
 
-| Etapa | Trabalho principal | Critério de saída |
-| --- | --- | --- |
-| 0. Preparação | Congelar stack; confirmar autenticação; validar API de assinatura e Meta; resolver pendências que bloqueiam o próximo módulo | Login institucional de prova; contrato de versões; dependências e regras com responsáveis. |
-| 1. Fundação | Angular/Material, Spring Boot, banco/Flyway, sessões, perfis, auditoria, pipeline | Fluxo vertical de cadastro protegido com banco real e testes. |
-| 2. Residência | Residentes, responsáveis, supervisores, quartos e mapa | Cadastros homologados, vínculos/permissões e mapa coerente. |
-| 3. Operação curta | Chamada, solicitação curta, decisão, linha do tempo e retorno | Limite de 3 horas, modais, atraso e concorrência validados. |
-| 4. Saída longa | Documento, adaptadores, tarefa persistente, WhatsApp, assinatura e recuperação | Jornada externa real e falhas homologadas, sem aprovação indevida. |
-| 5. Acompanhamento | Notificações, advertência manual, avisos, ciência e termos | Revisão humana preservada e procedimento RN10 aprovado. |
-| 6. Limpeza e relatórios | Avaliação, ranking, feedback, filtros, gráficos e exportações | Fórmulas aprovadas; consistência entre dados, tela e arquivos. |
-| 7. Operação assistida | Ajuda, testes de carga, backup/restore, segurança, treinamento e piloto | AC01–AC72 e AT01–AT18 verificados; pendências bloqueantes encerradas. |
+| Etapa                   | Trabalho principal                                                                                                                           | Critério de saída                                                                  |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| 0. Preparação           | Congelar stack; validar login próprio para implantação; validar API de assinatura e Meta; resolver pendências que bloqueiam o próximo módulo | Login SAGER de prova; contrato de versões; dependências e regras com responsáveis. |
+| 1. Fundação             | Angular/Material, Spring Boot, banco/Flyway, sessões, perfis, auditoria, pipeline                                                            | Fluxo vertical de cadastro protegido com banco real e testes.                      |
+| 2. Residência           | Residentes, responsáveis, supervisores, quartos e mapa                                                                                       | Cadastros homologados, vínculos/permissões e mapa coerente.                        |
+| 3. Operação curta       | Chamada, solicitação curta, decisão, linha do tempo e retorno                                                                                | Limite de 3 horas, modais, atraso e concorrência validados.                        |
+| 4. Saída longa          | Documento, adaptadores, tarefa persistente, WhatsApp, assinatura e recuperação                                                               | Jornada externa real e falhas homologadas, sem aprovação indevida.                 |
+| 5. Acompanhamento       | Notificações, advertência manual, avisos, ciência e termos                                                                                   | Revisão humana preservada e procedimento RN10 aprovado.                            |
+| 6. Limpeza e relatórios | Avaliação, ranking, feedback, filtros, gráficos e exportações                                                                                | Fórmulas aprovadas; consistência entre dados, tela e arquivos.                     |
+| 7. Operação assistida   | Ajuda, testes de carga, backup/restore, segurança, treinamento e piloto                                                                      | AC01–AC72 e AT01–AT18 verificados; pendências bloqueantes encerradas.              |
 
 **[T]** Desenvolver primeiro um fluxo pequeno de ponta a ponta e reutilizar o padrão. Evitar construir todas as telas com dados fictícios para só depois iniciar o backend. Contratos e exemplos de erro devem ser acordados quando cada funcionalidade começa.
 
-**[A]** Ausência de credencial institucional ou de contratação da assinatura não impede desenvolver cadastros e regras independentes, mas impede declarar homologada a integração real ou liberar o fluxo de saída longa em produção.
+**[A]** Integração com SUAP/Google não é bloqueio da fase atual. O login próprio requer validação antes de implantação real. Ausência de contratação da assinatura não impede desenvolver cadastros e regras independentes, mas impede declarar homologada a integração real ou liberar o fluxo de saída longa em produção.
 
 <!-- pagebreak -->
+
 # 16. Registro de decisões e pendências
 
 ## 16.1 Decisões técnicas consolidadas
 
-| ID | Decisão | Motivo no contexto do SAGER |
-| --- | --- | --- |
-| DT01 | Angular + Java/Spring Boot | Determinação do solicitante. |
-| DT02 | Angular Material, Reactive Forms e estado simples | Reutilizar componentes do ecossistema; evitar segunda biblioteca visual/estado global obrigatório. |
-| DT03 | Monólito modular Spring MVC | Uma aplicação para desenvolver, testar e implantar. |
-| DT04 | PostgreSQL, JPA e Flyway | Modelo relacional e migrações versionadas para os vínculos da SRS. |
-| DT05 | Sessão JDBC e login institucional | Reutilizar o banco; não criar servidor de tokens ou Redis adicional. |
-| DT06 | Tarefas persistentes no PostgreSQL | Retomar integrações após queda mantendo poucos serviços. |
-| DT07 | PDFBox, POI e Chart.js | Geração Java de arquivos e gráficos no navegador, sem serviço PDF externo obrigatório. |
-| DT08 | Documentos privados em volume local | Implantação inicial simples; metadados/versionamento e backup coerente. |
-| DT09 | Docker Compose + Nginx | Três serviços permanentes e frontend estático. |
-| DT10 | Adaptador Clicksign de referência | Contrato de assinatura definido tecnicamente, ativação condicionada à instituição. |
-| DT11 | Testes por camada e jornadas E2E | Verificar regras sensíveis e regressões nas integrações. |
-| DT12 | Auditoria/transações/controle de versão | Preservar decisões e impedir efeitos duplicados ou sobre estado desatualizado. |
+| ID   | Decisão                                           | Motivo no contexto do SAGER                                                                                     |
+| ---- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| DT01 | Angular + Java/Spring Boot                        | Determinação do solicitante.                                                                                    |
+| DT02 | Angular Material, Reactive Forms e estado simples | Reutilizar componentes do ecossistema; evitar segunda biblioteca visual/estado global obrigatório.              |
+| DT03 | Monólito modular Spring MVC                       | Uma aplicação para desenvolver, testar e implantar.                                                             |
+| DT04 | PostgreSQL, JPA e Flyway                          | Modelo relacional e migrações versionadas para os vínculos da SRS.                                              |
+| DT05 | Sessão JDBC e login próprio do SAGER              | Reutilizar o banco; autenticar por e-mail/senha na fase atual, sem criar servidor de tokens ou Redis adicional. |
+| DT06 | Tarefas persistentes no PostgreSQL                | Retomar integrações após queda mantendo poucos serviços.                                                        |
+| DT07 | PDFBox, POI e Chart.js                            | Geração Java de arquivos e gráficos no navegador, sem serviço PDF externo obrigatório.                          |
+| DT08 | Documentos privados em volume local               | Implantação inicial simples; metadados/versionamento e backup coerente.                                         |
+| DT09 | Docker Compose + Nginx                            | Três serviços permanentes e frontend estático.                                                                  |
+| DT10 | Adaptador Clicksign de referência                 | Contrato de assinatura definido tecnicamente, ativação condicionada à instituição.                              |
+| DT11 | Testes por camada e jornadas E2E                  | Verificar regras sensíveis e regressões nas integrações.                                                        |
+| DT12 | Auditoria/transações/controle de versão           | Preservar decisões e impedir efeitos duplicados ou sobre estado desatualizado.                                  |
 
 Estas decisões deixam de ser “stack a escolher”. Se forem alteradas, registrar motivo, impacto, dependências afetadas e testes de regressão. Uma troca de versão de manutenção não exige reescrever o PRD; uma mudança que afete regra, segurança ou operação exige revisar o documento correspondente.
 
 ## 16.2 Dependências que não podem ser presumidas
 
-| Dependência | Encaminhamento |
-| --- | --- |
-| Protocolo, atributos e ciclo do login institucional | TI; D01/D21 do PRD. Preferência OIDC já registrada, mas o protocolo real prevalece. |
-| Assinatura, prova de identidade, fornecedor e custos | Instituição/AE/TI; D16/D25. Validar acesso à API e evidências antes de produção. |
-| Cadastro, janelas, início de saída, cancelamento e correções | AE; D02–D09, D15 e D19. |
-| Fórmulas de limpeza, comportamento, alertas e reincidência | AE; D10–D14. Não preencher com números de exemplo. |
-| Avisos, exportações e acesso a dados médicos | AE/TI; D01, D18 e D20. |
-| Retenção, descarte, destino de backup e recuperação aceitável | Instituição/TI; D22/D23. Mecanismo técnico descrito; parâmetros precisam de aceite. |
-| Carga e fronteira do limite de 2 segundos | TI/AE; D24. Medir na infraestrutura prevista, sem promessa antecipada. |
-| Diagramas de domínio antigos | Atualizar após resolver as políticas que afetam cardinalidades/transições; D26. |
+| Dependência                                                   | Encaminhamento                                                                                                                              |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Segurança e ciclo do login próprio                            | TI; D01/D21 do PRD. Validar provisionamento, recuperação, proteção contra abuso e implantação; SUAP/Google apenas em etapa futura.          |
+| Assinatura, prova de identidade, fornecedor e custos          | Instituição/AE/TI; D16/D25. Validar acesso à API e evidências antes de produção.                                                            |
+| Cadastro, janelas, início de saída, cancelamento e correções  | AE; D02–D09, D15 e D19. Nascimento obrigatório em novo/edição e curso opcional na API local; não restringir cadastro a 16–17 anos.          |
+| Fórmulas de limpeza, comportamento, alertas e reincidência    | AE; D10–D14. Não preencher com números de exemplo.                                                                                          |
+| Avisos, exportações e acesso a dados médicos                  | AE/TI; D01, D18 e D20. Acesso médico restrito a profissionais autorizados, mesmo com paridade operacional gestor/supervisor.                |
+| Retenção, descarte, destino de backup e recuperação aceitável | Instituição/TI; D22/D23. Trilha de auditoria permanente decidida, implementação pendente; demais dados e backups exigem políticas próprias. |
+| Carga e fronteira do limite de 2 segundos                     | TI/AE; D24. Medir na infraestrutura prevista, sem promessa antecipada.                                                                      |
+| Diagramas de domínio antigos                                  | Atualizar após resolver as políticas que afetam cardinalidades/transições; D26.                                                             |
 
 ## 16.3 Entregáveis da equipe de implementação
 
 **[T]** Código-fonte frontend/backend, migrações, testes, arquivos de implantação, lockfiles, contrato OpenAPI, lista de dependências/licenças, documentação de configuração, manual por perfil, roteiro de homologação, relatório de carga, procedimento de backup/restore e registro de decisões. A lista define o que deve ser produzido durante o desenvolvimento; não declara que esses itens já foram implementados nesta entrega documental.
 
 <!-- pagebreak -->
+
 # 17. Referências e limites da pesquisa
 
 As páginas abaixo foram consultadas para verificar suporte, compatibilidade e recursos das tecnologias. São referências técnicas externas; as escolhas de arquitetura são decisões deste documento. A consulta é de 24/09/2026. Documentação online pode mudar: o projeto deve registrar as versões exatas e a documentação correspondente quando gerar seu primeiro build reproduzível.
 
 **Fontes de produto:** SAGER_Corrigido(1).docx, SRS-SAGER-001 v2.1, especialmente requisitos funcionais (p. 7), UC revisados (pp. 10–31 e 52–55), interface (pp. 35–46), restrições (pp. 47–49) e regras RN01–RN10 (pp. 50–51); PRD completo v2.0; definição de Angular e Java/Spring Boot pelo solicitante nesta conversa.
 
-| ID | Documento oficial consultado | Endereço |
-| --- | --- | --- |
-| T01 | Angular — Versioning and releases | https://angular.dev/reference/releases |
-| T02 | Angular — Version compatibility | https://angular.dev/reference/versions |
-| T03 | Angular — Unit testing | https://angular.dev/guide/testing |
-| T04 | Angular — Accessibility / Angular Material | https://angular.dev/best-practices/a11y |
-| T05 | Node.js — Releases | https://nodejs.org/en/about/previous-releases |
-| T06 | Spring Boot — System Requirements | https://docs.spring.io/spring-boot/system-requirements.html |
-| T07 | Eclipse Adoptium — Temurin Support | https://adoptium.net/support/ |
-| T08 | PostgreSQL — Versioning Policy | https://www.postgresql.org/support/versioning/ |
-| T09 | Spring Boot — Database Initialization | https://docs.spring.io/spring-boot/how-to/data-initialization.html |
-| T10 | Spring Security — OAuth2 Login | https://docs.spring.io/spring-security/reference/servlet/oauth2/login/core.html |
-| T11 | Spring Security — LDAP Authentication | https://docs.spring.io/spring-security/reference/servlet/authentication/passwords/ldap.html |
-| T12 | Spring Security — Session Management | https://docs.spring.io/spring-security/reference/servlet/authentication/session-management.html |
-| T13 | Spring Session — Boot JDBC | https://docs.spring.io/spring-session/reference/guides/boot-jdbc.html |
-| T14 | Spring Security — CSRF | https://docs.spring.io/spring-security/reference/servlet/exploits/csrf.html |
-| T15 | springdoc-openapi — integração e compatibilidade | https://springdoc.org/ |
-| T16 | Clicksign — documentação da API | https://developers.clicksign.com/ |
-| T17 | Clicksign — API 3.0 Envelope | https://developers.clicksign.com/reference/comece-agora |
-| T18 | Apache PDFBox — Java PDF Library | https://pdfbox.apache.org/ |
-| T19 | Apache POI — Spreadsheet guide | https://poi.apache.org/components/spreadsheet/how-to.html |
-| T20 | Chart.js — Accessibility | https://www.chartjs.org/docs/latest/general/accessibility.html |
-| T21 | Spring Framework — Task Execution and Scheduling | https://docs.spring.io/spring-framework/reference/integration/scheduling.html |
-| T22 | Docker — Compose | https://docs.docker.com/compose/ |
-| T23 | Nginx — Beginner's Guide | https://nginx.org/en/docs/beginners_guide.html |
-| T24 | Spring Boot — Testing | https://docs.spring.io/spring-boot/reference/testing/ |
-| T25 | Spring Boot — Testcontainers | https://docs.spring.io/spring-boot/reference/testing/testcontainers.html |
-| T26 | Playwright — Installation | https://playwright.dev/docs/intro |
-| T27 | GitHub Actions — Understanding GitHub Actions | https://docs.github.com/en/actions/get-started/understand-github-actions |
-| T28 | Spring Boot — Actuator Endpoints | https://docs.spring.io/spring-boot/reference/actuator/endpoints.html |
-| T29 | Spring Security — SAML 2.0 Login | https://docs.spring.io/spring-security/reference/servlet/saml2/login/overview.html |
-| T30 | Angular — Reactive Forms | https://angular.dev/guide/forms/reactive-forms |
-| T31 | Spring Framework — REST Clients | https://docs.spring.io/spring-framework/reference/integration/rest-clients.html |
-| T32 | Angular — Signals | https://angular.dev/guide/signals |
+| ID  | Documento oficial consultado                     | Endereço                                                                                        |
+| --- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| T01 | Angular — Versioning and releases                | https://angular.dev/reference/releases                                                          |
+| T02 | Angular — Version compatibility                  | https://angular.dev/reference/versions                                                          |
+| T03 | Angular — Unit testing                           | https://angular.dev/guide/testing                                                               |
+| T04 | Angular — Accessibility / Angular Material       | https://angular.dev/best-practices/a11y                                                         |
+| T05 | Node.js — Releases                               | https://nodejs.org/en/about/previous-releases                                                   |
+| T06 | Spring Boot — System Requirements                | https://docs.spring.io/spring-boot/system-requirements.html                                     |
+| T07 | Eclipse Adoptium — Temurin Support               | https://adoptium.net/support/                                                                   |
+| T08 | PostgreSQL — Versioning Policy                   | https://www.postgresql.org/support/versioning/                                                  |
+| T09 | Spring Boot — Database Initialization            | https://docs.spring.io/spring-boot/how-to/data-initialization.html                              |
+| T10 | Spring Security — OAuth2 Login                   | https://docs.spring.io/spring-security/reference/servlet/oauth2/login/core.html                 |
+| T11 | Spring Security — LDAP Authentication            | https://docs.spring.io/spring-security/reference/servlet/authentication/passwords/ldap.html     |
+| T12 | Spring Security — Session Management             | https://docs.spring.io/spring-security/reference/servlet/authentication/session-management.html |
+| T13 | Spring Session — Boot JDBC                       | https://docs.spring.io/spring-session/reference/guides/boot-jdbc.html                           |
+| T14 | Spring Security — CSRF                           | https://docs.spring.io/spring-security/reference/servlet/exploits/csrf.html                     |
+| T15 | springdoc-openapi — integração e compatibilidade | https://springdoc.org/                                                                          |
+| T16 | Clicksign — documentação da API                  | https://developers.clicksign.com/                                                               |
+| T17 | Clicksign — API 3.0 Envelope                     | https://developers.clicksign.com/reference/comece-agora                                         |
+| T18 | Apache PDFBox — Java PDF Library                 | https://pdfbox.apache.org/                                                                      |
+| T19 | Apache POI — Spreadsheet guide                   | https://poi.apache.org/components/spreadsheet/how-to.html                                       |
+| T20 | Chart.js — Accessibility                         | https://www.chartjs.org/docs/latest/general/accessibility.html                                  |
+| T21 | Spring Framework — Task Execution and Scheduling | https://docs.spring.io/spring-framework/reference/integration/scheduling.html                   |
+| T22 | Docker — Compose                                 | https://docs.docker.com/compose/                                                                |
+| T23 | Nginx — Beginner's Guide                         | https://nginx.org/en/docs/beginners_guide.html                                                  |
+| T24 | Spring Boot — Testing                            | https://docs.spring.io/spring-boot/reference/testing/                                           |
+| T25 | Spring Boot — Testcontainers                     | https://docs.spring.io/spring-boot/reference/testing/testcontainers.html                        |
+| T26 | Playwright — Installation                        | https://playwright.dev/docs/intro                                                               |
+| T27 | GitHub Actions — Understanding GitHub Actions    | https://docs.github.com/en/actions/get-started/understand-github-actions                        |
+| T28 | Spring Boot — Actuator Endpoints                 | https://docs.spring.io/spring-boot/reference/actuator/endpoints.html                            |
+| T29 | Spring Security — SAML 2.0 Login                 | https://docs.spring.io/spring-security/reference/servlet/saml2/login/overview.html              |
+| T30 | Angular — Reactive Forms                         | https://angular.dev/guide/forms/reactive-forms                                                  |
+| T31 | Spring Framework — REST Clients                  | https://docs.spring.io/spring-framework/reference/integration/rest-clients.html                 |
+| T32 | Angular — Signals                                | https://angular.dev/guide/signals                                                               |
 
 **WhatsApp:** integração exigida pela SRS e mantida nesta arquitetura. A abertura da documentação pública da Meta falhou nesta revisão; não foram verificadas versão Graph API, tarifas ou payloads específicos. Esses pontos devem ser conferidos na conta/documentação oficial durante a etapa 0.
 

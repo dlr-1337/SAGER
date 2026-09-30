@@ -233,19 +233,17 @@ describe('Quartos em sessão local', () => {
     expect(api.get).not.toHaveBeenCalled();
   });
 
-  it('supervisor consulta mapa sem ações de edição e formulário nega acesso', async () => {
+  it('supervisor acessa mapa e formulário de quarto', async () => {
     role.set('supervisor');
     const fixture = TestBed.createComponent(RoomsComponent);
     await fixture.whenStable();
     fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).not.toContain('Cadastrar quarto');
-    expect(fixture.nativeElement.textContent).not.toContain('Gerenciar alojamentos');
-    expect(fixture.nativeElement.textContent).toContain('Consultar alojamentos');
+    expect(fixture.nativeElement.textContent).toContain('Cadastrar quarto');
+    expect(fixture.nativeElement.textContent).toContain('Gerenciar alojamentos');
     const form = TestBed.createComponent(RoomFormComponent);
+    await form.whenStable();
     form.detectChanges();
-    expect(form.nativeElement.textContent).toContain('Acesso restrito');
-    await form.componentInstance.save();
-    expect(api.save).not.toHaveBeenCalled();
+    expect(form.nativeElement.textContent).toContain('Cadastrar quarto');
   });
 
   it('preserva zeros iniciais e nulos, recusando capacidades fracionárias e zero', async () => {

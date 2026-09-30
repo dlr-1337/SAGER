@@ -258,7 +258,7 @@ class AccommodationApiIntegrationTest {
     }
 
     @Test
-    void supervisorReadsButOnlyGestorWritesAndBothRequireActiveSession() throws Exception {
+    void gestorAndSupervisorReadWriteWithCsrfAndActiveSession() throws Exception {
         for (String profile : new String[] { "gestor", "supervisor", "residente" }) {
             provisioning.create(profile + "@example.invalid", profile, profile, PASSWORD.toCharArray());
         }
@@ -277,12 +277,22 @@ class AccommodationApiIntegrationTest {
             for (String path : new String[] { PATH, PATH + "/" + id, units }) {
                 assertThat(get(supervisor, path).statusCode()).isEqualTo(200);
             }
-            assertThat(post(supervisor, PATH, input("DEMO-B", "Proibida"), csrf(supervisor))
+            assertThat(post(supervisor, PATH, input("DEMO-B", "Sem CSRF"), null)
                     .statusCode()).isEqualTo(403);
+            assertThat(post(supervisor, PATH, input("DEMO-B", "Residência B"), csrf(supervisor))
+                    .statusCode()).isEqualTo(201);
             assertThat(put(supervisor, PATH + "/" + id,
-                    update("DEMO-A", "Proibida", 0), csrf(supervisor)).statusCode()).isEqualTo(403);
-            assertThat(post(supervisor, units, input("CASA", "Proibida"), csrf(supervisor))
-                    .statusCode()).isEqualTo(403);
+                    update("DEMO-A", "Residência A Atualizada", 0), csrf(supervisor)).statusCode())
+                    .isEqualTo(200);
+            HttpResponse<String> unitCreated = post(supervisor, units,
+                    input("CASA", "Casa Sintética"), csrf(supervisor));
+            assertThat(unitCreated.statusCode()).isEqualTo(201);
+            String unitId = json.readTree(unitCreated.body()).path("id").asText();
+            assertThat(put(supervisor, units + "/" + unitId,
+                    update("CASA", "Casa Atualizada", 0), csrf(supervisor)).statusCode())
+                    .isEqualTo(200);
+            assertThat(json.readTree(get(supervisor, units + "/" + unitId).body())
+                    .path("name").asText()).isEqualTo("Casa Atualizada");
             provisioning.disable("supervisor@example.invalid");
             assertThat(get(supervisor, PATH).statusCode()).isEqualTo(401);
         }

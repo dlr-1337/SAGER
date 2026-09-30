@@ -32,7 +32,7 @@ function localToday(): string {
   ].join('-');
 }
 
-function optionalBirthDate(control: AbstractControl): { invalidDate: true } | null {
+function validBirthDate(control: AbstractControl): { invalidDate: true } | null {
   const value = String(control.value ?? '');
   if (!value) return null;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value > localToday()) return { invalidDate: true };
@@ -54,11 +54,7 @@ function optionalBirthDate(control: AbstractControl): { invalidDate: true } | nu
         <section class="mg-empty" role="alert">
           <span class="material-symbols-rounded" aria-hidden="true">lock</span>
           <h1>Acesso restrito</h1>
-          <p>
-            O cadastro de residentes está disponível ao gestor
-            {{ isDemo() ? 'nesta demonstração' : 'no ambiente local de teste' }}. A permissão de
-            edição do supervisor depende de definição da AE/TI.
-          </p>
+          <p>O cadastro de residentes está disponível para gestor e supervisor.</p>
           <a class="btn mg-primary" routerLink="/residentes">Voltar aos residentes</a>
         </section>
       } @else if (loading()) {
@@ -146,17 +142,23 @@ function optionalBirthDate(control: AbstractControl): { invalidDate: true } | nu
               [class.mg-invalid]="
                 form.controls.birthDate.invalid && form.controls.birthDate.touched
               "
-              >Data de nascimento {{ isDemo() ? '*' : '(opcional)' }}
+              >Data de nascimento *
               <input
                 type="date"
                 formControlName="birthDate"
                 [max]="today"
+                required
+                [attr.aria-invalid]="
+                  form.controls.birthDate.invalid && form.controls.birthDate.touched ? 'true' : null
+                "
                 aria-describedby="resident-birth-error"
               />
               @if (form.controls.birthDate.invalid && form.controls.birthDate.touched) {
-                <span class="mg-field-error" id="resident-birth-error"
-                  >Informe uma data de nascimento válida.</span
-                >
+                <span class="mg-field-error" id="resident-birth-error">{{
+                  form.controls.birthDate.hasError('required')
+                    ? 'Informe a data de nascimento.'
+                    : 'Informe uma data de nascimento válida e não futura.'
+                }}</span>
               }
             </label>
             <label
@@ -186,8 +188,9 @@ function optionalBirthDate(control: AbstractControl): { invalidDate: true } | nu
                 legais podem ser vinculados depois de salvar o residente. Dados médicos não são
                 exibidos neste protótipo.
               } @else {
-                A origem e validação definitiva da matrícula, responsáveis, alocação e dados
-                sensíveis ainda dependem de decisão institucional.
+                A origem e validação definitiva da matrícula e as regras para dados sensíveis ainda
+                dependem de decisão institucional. Responsáveis e quartos podem ser vinculados após
+                salvar o residente.
               }
             </p>
           </div>
@@ -223,7 +226,7 @@ export class ResidentFormComponent {
   private readonly destroyRef = inject(DestroyRef);
   readonly editId = this.route.snapshot.paramMap.get('id');
   readonly isDemo = this.session.active;
-  readonly canEdit = computed(() => this.session.hasRole('gestor'));
+  readonly canEdit = computed(() => this.session.hasRole('gestor', 'supervisor'));
   readonly localResident = signal<ResidentRecord | null>(null);
   readonly resident = computed(() =>
     this.editId
@@ -248,7 +251,10 @@ export class ResidentFormComponent {
       nonNullable: true,
       validators: [Validators.required, Validators.maxLength(64)],
     }),
-    birthDate: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    birthDate: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, validBirthDate],
+    }),
     course: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
   });
 
@@ -257,8 +263,6 @@ export class ResidentFormComponent {
       const existing = this.resident();
       if (existing) this.setFields(existing);
     } else {
-      this.form.controls.birthDate.setValidators(optionalBirthDate);
-      this.form.controls.birthDate.updateValueAndValidity({ emitEvent: false });
       this.form.controls.course.setValidators(Validators.maxLength(200));
       this.form.controls.course.updateValueAndValidity({ emitEvent: false });
       if (this.editId && this.canEdit()) void this.load();
@@ -333,7 +337,7 @@ export class ResidentFormComponent {
     const input: ResidentPayload = {
       name,
       enrollment,
-      birthDate: birthDate || null,
+      birthDate,
       course: course || null,
     };
     this.saving.set(true);

@@ -26,6 +26,17 @@ interface NavItem {
 const commonItems: NavItem[] = [{ label: 'Início', path: '/inicio', icon: 'home' }];
 
 const residentItem: NavItem = { label: 'Residentes', path: '/residentes', icon: 'groups' };
+const guardianItem: NavItem = {
+  label: 'Responsáveis',
+  path: '/responsaveis',
+  icon: 'family_restroom',
+};
+const supervisorItem: NavItem = {
+  label: 'Supervisores',
+  path: '/supervisores',
+  icon: 'supervisor_account',
+};
+const roomItem: NavItem = { label: 'Quartos', path: '/quartos', icon: 'bed' };
 
 const supervisorItems: NavItem[] = [
   residentItem,
@@ -37,15 +48,18 @@ const navByRole: Record<Role, NavItem[]> = {
   gestor: [
     ...commonItems,
     residentItem,
-    { label: 'Responsáveis', path: '/responsaveis', icon: 'family_restroom' },
-    { label: 'Supervisores', path: '/supervisores', icon: 'supervisor_account' },
-    { label: 'Quartos', path: '/quartos', icon: 'bed' },
+    guardianItem,
+    supervisorItem,
+    roomItem,
     { label: 'Relatórios', path: '/relatorios', icon: 'description' },
     { label: 'Ajuda', path: '/ajuda', icon: 'help' },
   ],
   supervisor: [
     ...commonItems,
     ...supervisorItems,
+    guardianItem,
+    supervisorItem,
+    roomItem,
     { label: 'Chamada noturna', path: '/chamada', icon: 'bedtime' },
     { label: 'Limpeza', path: '/limpeza', icon: 'cleaning_services' },
     { label: 'Relatórios', path: '/relatorios', icon: 'description' },

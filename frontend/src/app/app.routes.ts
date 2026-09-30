@@ -14,21 +14,11 @@ const accessGuard: CanActivateFn = async (route) => {
   return !allowed || session.hasRole(...allowed) || router.createUrlTree(['/acesso-negado']);
 };
 
-const managementRoutes: Routes = MANAGEMENT_ROUTES.map((route) => {
-  const roles: Role[] = [
-    'alojamentos',
-    'alojamentos/:id',
-    'residentes',
-    'residentes/:id',
-    'responsaveis',
-    'responsaveis/:id',
-    'quartos',
-    'quartos/:id',
-  ].includes(route.path ?? '')
-    ? ['gestor', 'supervisor']
-    : ['gestor'];
-  return { ...route, canActivate: [accessGuard], data: { ...route.data, roles } };
-});
+const managementRoutes: Routes = MANAGEMENT_ROUTES.map((route) => ({
+  ...route,
+  canActivate: [accessGuard],
+  data: { ...route.data, roles: ['gestor', 'supervisor'] satisfies Role[] },
+}));
 const operationRoutes: Routes = OPERATIONS_ROUTES.map((route) => {
   let roles: Role[] = ['supervisor'];
   if (route.path?.startsWith('saidas'))

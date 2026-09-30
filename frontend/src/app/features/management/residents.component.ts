@@ -252,7 +252,7 @@ export class ResidentsComponent {
   private readonly session = inject(DemoSessionService);
   readonly isDemo = this.session.active;
   readonly canView = computed(() => this.session.hasRole('gestor', 'supervisor'));
-  readonly canEdit = computed(() => this.session.hasRole('gestor'));
+  readonly canEdit = computed(() => this.session.hasRole('gestor', 'supervisor'));
   readonly scenario = this.session.scenario;
   readonly filters = new FormGroup({
     query: new FormControl('', { nonNullable: true }),

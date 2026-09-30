@@ -24,6 +24,13 @@ alocações com histórico. Essas fatias receberam [aceite técnico local](fase-
 em 29/09/2026. As demais telas existentes são a base visual e funcional para
 as próximas fatias.
 
+Em 30/09/2026, o solicitante escolheu o login próprio do SAGER, com integrações
+SUAP/Google adiadas; confirmou cadastro manual, nascimento obrigatório,
+supervisor com autoridade de gestão, uma assinatura válida de qualquer responsável
+cadastrado para saída longa, compartilhamento entre profissionais de saúde e
+retenção permanente da auditoria. A implementação atual do login continua local;
+a configuração e a validação de produção ainda precisam ser concluídas.
+
 A arquitetura de referência é o monólito modular Spring Boot com PostgreSQL/Flyway,
 sessão e autorização no servidor, Angular e API na mesma origem, arquivos privados e
 integrações externas por adaptadores com tarefas persistentes. A Fase 0 confirma as versões
@@ -47,16 +54,17 @@ responsividade e ajuda) acompanha as fases e é fechado na Fase 7.
    demais antes das fases que dependem delas.
 2. Confirmar versões exatas de Java, Spring Boot, PostgreSQL, Angular e bibliotecas; fixar
    estratégia de lockfiles, Maven Wrapper e ambientes com dados sintéticos.
-3. Fazer prova de integração com o mecanismo institucional que a TI definir; documentar
-   identificador estável, atributos, perfis, desligamento e política de sessão. O login
-   local provisório não substitui essa prova nem determina o provedor definitivo.
+3. Validar o login próprio escolhido em 30/09/2026; documentar identificador estável,
+   provisionamento, perfis, desligamento, recuperação e política de sessão. A prova
+   atual em loopback cobre desenvolvimento; o ambiente de produção requer configuração
+   e testes próprios. Integrações SUAP/Google ficam para uma fase futura.
 4. Validar com a instituição acesso, modalidade, identidade e custos da assinatura, além dos
    requisitos da conta Meta/WhatsApp. Definir quais adaptadores terão sandbox utilizável.
 5. Concordar no primeiro contrato vertical de API, erros, datas, autorização e dicionário
    cadastral; atualizar o modelo de dados quando decisões alterarem vínculos ou estados.
 
 **Saída verificável:** decisões necessárias à Fase 1 registradas, versões reproduzíveis
-definidas, prova do login institucional documentada e responsáveis indicados para as
+definidas, prova do login próprio no ambiente previsto documentada e responsáveis indicados para as
 integrações externas. Ausência de credenciais ou contratação não paralisa módulos
 independentes, mas mantém a homologação dessas integrações pendente.
 
@@ -68,9 +76,9 @@ A antiga prova Google passou em testes sintéticos, mas
 foi [descontinuada](fase-0/AUTENTICACAO_GOOGLE.md). O
 [login local provisório](fase-0/AUTENTICACAO_LOCAL.md) foi integrado ao backend e
 ao Angular, com [aceite técnico local](fase-0/QA.md) para desenvolvimento e teste.
-O provedor institucional, a prova
-com contas autorizadas e o aceite TI/AE permanecem pendentes; **a Fase 0 não está
-homologada**.
+Essa evidência é histórica. A escolha de login próprio foi confirmada em 30/09/2026;
+configuração de produção, prova com contas autorizadas e aceite TI/AE permanecem
+pendentes; **a Fase 0 não está homologada**.
 
 ### Fase 1 — Fundação técnica e primeira fatia real
 
@@ -81,15 +89,15 @@ implantação da Fase 7.
    Session JDBC, PostgreSQL, Flyway, perfis de ambiente, erros padronizados e OpenAPI.
 2. Integrar o login local provisório somente em desenvolvimento/teste, com contas
    criadas por operador, perfis locais explícitos, sessão, `/api/v1/auth/me`, CSRF e
-   logout. Fora do perfil local, o backend falha fechado até existir identidade
-   institucional confirmada. Implementar autorização por endpoint **e** por registro
+   logout. Fora do perfil local, o backend falha fechado até concluir a configuração
+   e a validação do login próprio em produção. Implementar autorização por endpoint **e** por registro
    nas fatias reais, a partir da matriz D01 aprovada.
 3. Criar auditoria transacional e observabilidade básica. Definir UUID, datas, paginação,
    controle de versão e conflitos como convenções da API.
 4. Integrar uma primeira fatia protegida de cadastro/consulta de residente ao Angular,
    usando um serviço de API e banco real. Unificar o identificador do residente entre gestão e
    operações antes de expandir os módulos. A D02 autoriza digitação local provisória:
-   nome e matrícula obrigatórios, nascimento e curso opcionais, UUID interno estável
+   nome, matrícula e nascimento obrigatórios, curso opcional, UUID interno estável
    e matrícula única após retirar espaços nas pontas. Não inferir matrícula do login;
    origem e validação institucionais continuam pendentes.
 5. Criar pipeline de build, testes Java/Angular e migração em PostgreSQL de teste, sem dados
@@ -98,7 +106,7 @@ implantação da Fase 7.
 **Saída verificável:** após reiniciar a aplicação, o cadastro da fatia continua disponível;
 um perfil sem permissão e a troca de ID são bloqueados; sessão, CSRF e logout funcionam;
 migrações constroem banco vazio e testes passam. O login real fecha AC01/AC02 e AT03
-somente após prova com o provedor institucional.
+somente após prova do login próprio no ambiente de produção previsto.
 
 **Decisões de entrada:** D01, D02 e D21; D22 para acesso e tratamento inicial de dados
 sensíveis.
@@ -107,7 +115,7 @@ sensíveis.
 persistidas estão implementados. O [CI](CI.md) verifica backend em PostgreSQL,
 Angular e jornadas Chromium no GitHub Actions; os resultados estão no
 [QA](fase-2/QA.md). Erros padronizados para toda a API, OpenAPI, auditoria,
-observabilidade e identidade institucional continuam pendentes. A Fase 1
+observabilidade e configuração de autenticação para produção continuam pendentes. A Fase 1
 ainda não está completa nem homologada.
 
 ### Fase 2 — Residentes, responsáveis, supervisores e quartos
@@ -116,8 +124,9 @@ ainda não está completa nem homologada.
 
 1. Persistir residentes, matrícula, condição etária, responsáveis ativos e vínculos;
    proteger informações médicas em recurso e permissão separados.
-2. Integrar cadastro e edição de supervisores ao gestor autenticado; as contas locais
-   usadas em desenvolvimento não substituem o futuro provisionamento institucional.
+2. Integrar cadastro e edição de supervisores ao gestor ou supervisor autenticado;
+   as contas locais usadas em desenvolvimento não substituem o provisionamento
+   e a validação de contas no ambiente de produção.
 3. Persistir alojamentos, unidades internas opcionais (casas/blocos) e quartos com piso
    opcional. Distinguir código globalmente único de número local textual único na mesma
    localização; manter capacidade editável, positiva ou ausente, e situação manual.
@@ -134,7 +143,7 @@ as telas não apresentam ocupação ou nota inventada.
 **Decisões de entrada:** D01, D02, D15 e D19; D22 para retenção e acesso aos dados.
 
 **Estado em 29/09/2026:** a [primeira fatia de supervisores](fase-2/README.md) persiste
-o cadastro funcional no PostgreSQL, com API restrita ao gestor local e telas integradas;
+o cadastro funcional no PostgreSQL, com API inicialmente restrita ao gestor local e telas integradas;
 o [QA](fase-2/QA.md) registra testes e prova após reinício. A fatia de alojamentos,
 unidades e quartos foi implementada, com mapa local inicialmente vazio,
 leitura por gestor/supervisor e gravação por gestor. O [aceite técnico local](fase-2/QA.md)
@@ -159,10 +168,25 @@ Os anexos recebidos servem como referência privada, com divergências de estrut
 e capacidade registradas na [D19](fase-0/DECISOES.md), sem carga de estudantes reais.
 As demais operações continuam demonstrativas. Reservas, exceções de lotação,
 correção de histórico, D01/D02/D15/D19/D22 e a homologação institucional
-permanecem pendentes. O aceite técnico de cada fatia não encerra a Fase 2.
+permaneciam pendentes nessa data. O aceite técnico de cada fatia não encerra a Fase 2.
 O [pacote de decisões e aceite AE/TI](fase-2/PACOTE_AE_TI.md) reúne as regras
 locais implementadas, as divergências conhecidas e os campos de aprovação que
 dependem de evidência institucional.
+
+**Atualização em 30/09/2026:** gestor e supervisor consultam, cadastram e editam
+todos os cadastros de gestão existentes, incluindo supervisores, e movimentam
+alocações. O supervisor mantém sua autoridade operacional sem receber acesso
+médico pelo perfil geral. Nome, matrícula e nascimento são obrigatórios nas novas
+gravações e edições de residentes; registros legados sem nascimento continuam
+legíveis e exigem preenchimento ao editar. A matrícula é digitada manualmente;
+integração SUAP foi adiada. A planilha do ZIP prevalece nas capacidades divergentes
+de R4 e Laticínio; o PDF complementa o inventário ausente, sem inferir quartos ou
+distribuições. Uma assinatura válida de qualquer responsável cadastrado e vinculado
+será suficiente na saída longa da Fase 4. Dados médicos terão compartilhamento entre
+profissionais de saúde, respeitado o sigilo profissional. Auditoria terá retenção
+permanente quando implementada. Exceções de lotação, correção de histórico,
+comprovação de vínculos, detalhes do recurso médico e implantação continuam abertos;
+as perguntas já respondidas deixam de bloquear o projeto.
 
 ### Fase 3 — Chamada, saída curta, decisão e retorno
 
@@ -192,7 +216,9 @@ e decisões concorrentes são recusados; atraso e histórico permanecem corretos
 **Cobertura:** E06/E07 na modalidade longa e E09; AC09–AC10, AC25–AC26, AC30 e
 AC39–AC44; AT09–AT12.
 
-1. Validar responsável autorizado e telefone pré-cadastrado; criar solicitação e tarefa de
+1. Validar responsável cadastrado, vinculado e autorizado e telefone pré-cadastrado;
+   uma assinatura válida de qualquer um deles é suficiente, sem exigir assinatura
+   de ambos os pais. Criar solicitação e tarefa de
    integração na mesma transação. Versionar os dados usados para gerar o documento.
 2. Gerar e guardar PDF em volume privado, com metadados, hash e versões imutáveis. Servir
    downloads somente pelo backend, após autorização por vínculo.
@@ -268,7 +294,7 @@ ou arquivos de outro perfil; ausência de dados não produz números fictícios.
    corrigir falhas antes da liberação.
 5. Instrumentar disponibilidade, falha crítica e reparo para acompanhar no piloto as metas
    de 99% mensal, MTBF de 500 horas e MTTR de até 4 horas. Formalizar finalidade,
-   retenção/descarte de dados, acesso a dados médicos, resposta a incidentes e escopo da
+   retenção/descarte dos demais dados, acesso a dados médicos, resposta a incidentes e escopo da
    contingência com AE/TI.
 6. Executar os oito fluxos de homologação do PRD com AE/TI, incluindo autenticação e
    integrações reais, falhas, concorrência, permissões e restauração. Fechar os 72 critérios
@@ -310,7 +336,7 @@ substituir a meta do PRD por outra métrica.
 | Fase 7            | D22–D24, D26 (retenção, contingência, carga e modelo atualizado)                    | AE/TI                 |
 
 As decisões podem ser trabalhadas em paralelo com módulos independentes. Um adaptador
-simulado permite desenvolvimento e testes, mas não satisfaz critérios de autenticação,
+simulado permite desenvolvimento e testes, mas não satisfaz critérios de autenticação operacional,
 assinatura ou comunicação reais. O [PRD, seção 23](../SAGER_PRD_v2.0_Angular_SpringBoot.md)
 é a fonte para o texto completo de cada D01–D26; a
 [especificação técnica, seções 13–16](../SAGER_Especificacao_Tecnica_v2.0.md) define os

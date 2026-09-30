@@ -80,6 +80,55 @@ class ResidentMigrationIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_resident", Integer.class)).isEqualTo(1);
     }
 
+    @Test
+    void v10PreservesLegacyNullBirthDateButRequiresItForNewAndUpdatedRows() {
+        String schema = "resident_birth_required_upgrade_v9";
+        migrate(schema, "9");
+        JdbcTemplate jdbc = jdbc(schema);
+        UUID legacy = UUID.randomUUID();
+        jdbc.update("INSERT INTO sager_resident (id, name, enrollment) VALUES (?, ?, ?)",
+                legacy, "Estudante Legado", "DEMO-LEGACY");
+
+        migrate(schema, "10");
+        assertThat(jdbc.queryForObject("SELECT birth_date FROM sager_resident WHERE id = ?",
+                LocalDate.class, legacy)).isNull();
+        assertThat(jdbc.queryForObject("""
+                SELECT c.convalidated FROM pg_constraint c
+                JOIN pg_namespace n ON n.oid = c.connamespace
+                WHERE c.conname = 'sager_resident_birth_date_required' AND n.nspname = ?
+                """, Boolean.class, schema)).isFalse();
+        assertThatThrownBy(() -> jdbc.update("""
+                INSERT INTO sager_resident (id, name, enrollment) VALUES (?, ?, ?)
+                """, UUID.randomUUID(), "Estudante Novo", "DEMO-NEW"))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbc.update("UPDATE sager_resident SET name = ? WHERE id = ?",
+                "Estudante Legado Atualizado", legacy))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        jdbc.update("UPDATE sager_resident SET birth_date = ? WHERE id = ?",
+                LocalDate.of(2006, 1, 2), legacy);
+        assertThat(jdbc.queryForObject("SELECT birth_date FROM sager_resident WHERE id = ?",
+                LocalDate.class, legacy)).isEqualTo(LocalDate.of(2006, 1, 2));
+        assertThat(jdbc.queryForObject("SELECT MAX(version::int) FROM flyway_schema_history",
+                Integer.class)).isEqualTo(10);
+    }
+
+    @Test
+    void freshV10DatabaseRejectsNullBirthDateAndAcceptsSyntheticDate() {
+        String schema = "resident_birth_required_fresh";
+        migrate(schema, "10");
+        JdbcTemplate jdbc = jdbc(schema);
+        assertThatThrownBy(() -> jdbc.update("""
+                INSERT INTO sager_resident (id, name, enrollment, birth_date)
+                VALUES (?, ?, ?, NULL)
+                """, UUID.randomUUID(), "Estudante Sintético", "DEMO-EMPTY"))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        jdbc.update("""
+                INSERT INTO sager_resident (id, name, enrollment, birth_date)
+                VALUES (?, ?, ?, ?)
+                """, UUID.randomUUID(), "Estudante Sintético", "DEMO-DATED", LocalDate.of(2006, 1, 2));
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_resident", Integer.class)).isEqualTo(1);
+    }
+
     private void migrate(String schema, String version) {
         Flyway.configure().dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                 .schemas(schema).defaultSchema(schema).locations("classpath:db/migration")

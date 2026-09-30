@@ -18,7 +18,7 @@ const record: ResidentRecord = {
 const input: ResidentPayload = {
   name: record.name,
   enrollment: record.enrollment,
-  birthDate: null,
+  birthDate: '2009-05-14',
   course: null,
 };
 

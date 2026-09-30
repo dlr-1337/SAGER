@@ -143,9 +143,7 @@ test('duplicidade, conflito em duas abas e recarga não perdem a edição nem ge
   );
 });
 
-test('supervisor consulta e não recebe controles de escrita; API indisponível não traz demo', async ({
-  page,
-}) => {
+test('supervisor gerencia alojamentos; API indisponível não traz demo', async ({ page }) => {
   await mockSession(page, 'supervisor');
   const registry = mockRegistry(page, [
     { id: firstId, code: 'TESTE-A', name: 'Somente Leitura', version: 0 },
@@ -153,12 +151,12 @@ test('supervisor consulta e não recebe controles de escrita; API indisponível 
   await registry.ready;
   await page.goto('/alojamentos');
   await expect(page.getByRole('heading', { name: 'Somente Leitura' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Cadastrar alojamento' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Cadastrar alojamento' })).toBeVisible();
   await page.getByRole('link', { name: 'Ver alojamento' }).click();
-  await expect(page.getByRole('link', { name: 'Editar alojamento' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Adicionar casa ou bloco' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Editar alojamento' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Adicionar casa ou bloco' })).toBeVisible();
   await page.goto('/alojamentos/novo');
-  await expect(page).toHaveURL(/\/acesso-negado$/);
+  await expect(page.getByRole('heading', { name: 'Cadastrar alojamento' })).toBeVisible();
   await page.unroute('**/api/v1/alojamentos**');
   await page.route('**/api/v1/alojamentos**', (route) => route.abort('failed'));
   await page.goto('/alojamentos');

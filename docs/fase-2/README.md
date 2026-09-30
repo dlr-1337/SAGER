@@ -9,13 +9,24 @@ e sua homologação institucional ainda estão abertas.** O
 [pacote AE/TI](PACOTE_AE_TI.md) reúne as regras locais, as decisões pendentes e
 um formulário para registrar futura evidência institucional.
 
+**Contrato atualizado em 30/09/2026:** o solicitante definiu o supervisor como
+autoridade máxima na gestão, com as mesmas operações disponíveis ao gestor;
+cadastro manual de residentes; nascimento obrigatório nas novas gravações;
+uma assinatura de qualquer responsável cadastrado e vinculado para saída longa;
+precedência das capacidades detalhadas do ZIP nos locais divergentes com maior
+capacidade, complementadas pelo inventário do PDF onde o ZIP for parcial;
+login próprio do SAGER; compartilhamento entre profissionais de saúde; e retenção
+permanente dos registros de auditoria. Essas escolhas atualizam as regras de
+projeto de 29/09/2026. O [QA](QA.md) identifica as verificações efetivamente
+executadas; as respostas não são aceite formal da AE/TI.
+
 ## Primeira fatia: supervisores
 
-- Gestor local cadastra, consulta e edita um supervisor; o servidor valida campos,
+- Gestor e supervisor locais cadastram, consultam e editam supervisores; o servidor valida campos,
   mantém um ID estável e rejeita alterações com versão desatualizada.
 - O cadastro fica no PostgreSQL. A demonstração pública mantém seus registros
   fictícios em memória, separada da API.
-- As rotas de gestão exigem sessão local, perfil de gestor e CSRF nas alterações.
+- As rotas de gestão exigem sessão local, perfil de gestor ou supervisor e CSRF nas alterações.
   Fora do perfil `local`, o backend continua fechado.
 - A identificação institucional, o e-mail e o nome são dados **sintéticos** para
   desenvolvimento. A migração V4 exige identificação única sem diferenciar
@@ -28,7 +39,7 @@ e `PUT /api/v1/supervisores/{id}` para editar. O JSON expõe `id`, `name`,
 `institutionalId`, `email` e `version`; o `PUT` exige a versão conhecida. Criação
 retorna `201`; dados inválidos, ID inexistente, duplicidade e versão obsoleta
 retornam respectivamente `400`, `404`, `409` e `409`. Todas as rotas exigem
-perfil `gestor`; as mutações também exigem CSRF.
+perfil `gestor` ou `supervisor`; as mutações também exigem CSRF.
 
 ## Segunda fatia: alojamentos, unidades e quartos
 
@@ -63,8 +74,8 @@ não representam o contrato atual desses dois campos.
 - O mapa local começa vazio, agrupado por alojamento, unidade opcional e piso
   conhecido. A demonstração permanece independente do backend, com dados
   fictícios em memória. Falha da API local não carrega registros demonstrativos.
-- Gestor e supervisor locais consultam a estrutura; somente gestor cadastra e
-  edita. Sessão, CSRF nas alterações e bloqueio fora de `local` são mantidos.
+- Gestor e supervisor locais consultam, cadastram e editam a estrutura.
+  Sessão, CSRF nas alterações e bloqueio fora de `local` são mantidos.
   A edição exige `version`; conflito deve ser apresentado sem sucesso falso.
   Exclusão permanece fora do escopo; alocação e transferência foram integradas
   na quinta fatia.
@@ -105,20 +116,21 @@ no fluxo local.
 entrega cadastral; quarto atual e histórico de alocações foram acrescentados
 na quinta fatia.
 
-No ambiente de desenvolvimento, o gestor pode cadastrar e editar residentes
-manualmente; gestor e supervisor podem consultar. A matrícula identifica o
-registro do estudante, mas não é obtida do login. A escolha da fonte institucional
-(planilha, sistema do IF ou outra) e sua validação definitiva continuam abertas
-na [D02](../fase-0/DECISOES.md). O cadastro local é provisório e não provisiona
-conta de acesso ao SAGER.
+O cadastro será manual pelo gestor, conforme decisão de 30/09/2026; o supervisor
+também pode consultar, cadastrar e editar. A integração com SUAP está adiada
+porque não há autorização. A matrícula identifica o registro do estudante, mas
+não é obtida do login. Comprovação dos campos, responsável pela conferência e
+ciclo do cadastro continuam por detalhar na [D02](../fase-0/DECISOES.md).
+O cadastro local não provisiona conta de acesso ao SAGER.
 
 O contrato oferece `GET/POST /api/v1/residentes` e
 `GET/PUT /api/v1/residentes/{id}`. Cada resposta inclui `id` (UUID), `name`,
 `enrollment`, `birthDate`, `course` e `version`. O banco mantém também as
-datas de criação e alteração. Nome e matrícula são obrigatórios. A matrícula é
+datas de criação e alteração. Nome, matrícula e nascimento são obrigatórios em
+criação e edição. A matrícula é
 única sem diferenciar maiúsculas/minúsculas depois de retirar espaços das pontas;
-não há regra provisória para quantidade de dígitos ou composição. Nascimento e
-curso podem ser `null`; nascimento informado deve ser uma data válida e não futura.
+não há regra provisória para quantidade de dígitos ou composição. Curso pode
+ser `null`; nascimento deve ser uma data válida e não futura.
 O `PUT` exige a versão conhecida. Entrada inválida retorna `400`, matrícula
 duplicada ou versão obsoleta retornam `409`, e ID ausente retorna `404`.
 Sessão local e CSRF protegem as alterações; fora do perfil `local`, a API
@@ -132,14 +144,18 @@ dos vínculos persistidos da quinta fatia. Histórico de chamadas e saídas e te
 continuam sem integração. O vínculo de responsáveis é tratado na quarta
 fatia abaixo. A demonstração pública continua
 com seus próprios registros fictícios em memória. A migração V7 preserva V1–V6
-e não cria vínculos com quartos, responsáveis ou dados de saúde. Nascimento
-ausente não comprova maioridade para fluxos futuros.
+e não cria vínculos com quartos, responsáveis ou dados de saúde. Na regra anterior,
+nascimento era opcional. A atualização preserva os registros legados sem data,
+sem inventar valores; novas gravações, inclusive a edição desses registros,
+exigem nascimento. A migração V10 acrescenta `CHECK (birth_date IS NOT NULL)
+NOT VALID`, que conserva linhas legadas e verifica novas inserções e atualizações.
+Nascimento legado ausente não comprova maioridade para fluxos futuros.
 
 ## Quarta fatia: cadastro local de responsáveis
 
 **Estado: implementada, com aceite técnico local.**
 
-O gestor local cadastra e edita nome, vínculo declarado, telefone opcional e
+Gestor e supervisor locais cadastram e editam nome, vínculo declarado, telefone opcional e
 estado ativo de responsáveis associados a residentes persistidos. Cada registro
 tem UUID e versão próprios; um residente pode ter vários responsáveis, sem um
 limite ou uma ordem presumidos. A migração V8 cria os registros e a chave
@@ -153,13 +169,16 @@ regra provisória de validade para WhatsApp. A edição exige a versão consulta
 Entrada inválida retorna `400/invalid_input`, residente ausente no vínculo
 retorna `422/invalid_reference`, responsável ausente retorna `404/not_found` e
 versão obsoleta retorna `409/stale_version`. Gestor e supervisor locais podem
-consultar; só gestor grava. Sessão, CSRF e bloqueio fora de `local` permanecem.
+consultar e gravar. Sessão, CSRF e bloqueio fora de `local` permanecem.
 
 Lista, formulário, detalhe e vínculo no detalhe do residente consultam a API
 no acesso local. A demonstração mantém seus próprios registros fictícios em
 memória; uma falha da API local não os apresenta como dados persistidos.
-Prioridade, autorização, comprovação do vínculo, destinatário e assinatura
-continuam pendentes na [D15](../fase-0/DECISOES.md) e na D16. Nenhum envio ou
+Em 30/09/2026, o solicitante definiu que uma assinatura válida de qualquer
+responsável cadastrado e vinculado ao residente é suficiente para saída longa,
+sem exigir ambos. Comprovação do vínculo e da identidade, seleção do destinatário,
+tratamento de divergências e serviço/modalidade de assinatura continuam por
+detalhar na [D15](../fase-0/DECISOES.md) e na D16. Nenhum envio ou
 decisão de saída longa é ativado por esta fatia.
 
 ## Quinta fatia: alocação local e histórico de quartos
@@ -181,7 +200,7 @@ encerrar preservam as linhas históricas; não há exclusão nesta fatia.
 `POST /api/v1/alocacoes/{id}/transferir` recebe `roomId` de destino e
 `version`; `POST /api/v1/alocacoes/{id}/encerrar` recebe `version`. A
 transferência encerra o vínculo anterior e cria o novo na mesma transação.
-Gestor e supervisor locais consultam; somente gestor movimenta residentes.
+Gestor e supervisor locais consultam e movimentam residentes.
 Sessão, CSRF, versão e bloqueio fora de `local` continuam obrigatórios.
 Entrada inválida, referência ausente, conflito de versão, lotação e situação
 indisponível têm respostas distintas; a edição de quarto retorna conflito se
@@ -220,43 +239,45 @@ vagas do PDF são capacidade total**, não vagas livres.
 | R4-21        | —                             | 5 ocupantes listados; capacidade indicada de 4 |
 | Zootecnia 3  | 3 quartos × 2, mas total de 8 | —                                              |
 
-As divergências ficam para revisão da AE, sem alterar uma fonte ou escolher
-capacidades por inferência. Os arquivos não trazem matrícula, nascimento,
+Em 30/09/2026, o solicitante reiterou a orientação de usar o documento com maior
+capacidade dos quartos. O ZIP/planilha detalhada traz as maiores capacidades
+nos locais divergentes: Residência 4, 66; Laticínio, 10. As capacidades detalhadas
+do ZIP prevalecem nesses casos como referência de projeto; o PDF complementa
+o inventário ausente no ZIP parcial. Essa escolha não distribui os 300 lugares
+por quarto, não inventa os quartos faltantes de Residência 3 nem a distribuição
+de Zootecnia 3 e não aumenta a capacidade de R4-21 pelo número de ocupantes.
+As cinco diferenças permanecem registradas para conferência e homologação da AE,
+sem importar ocupantes reais.
+
+Os arquivos não trazem matrícula, nascimento,
 responsáveis legais ou telefones e não resolvem cadastro de residentes,
 destinatários de assinatura ou acesso a dados de saúde. Os testes usam somente
 dados sintéticos; nomes e dados pessoais dos anexos não entram no Git.
 
 ## Decisões para homologação
 
-A [D01](../fase-0/DECISOES.md) define a matriz de permissões; a [D02](../fase-0/DECISOES.md)
-define origem, validação e ciclo da matrícula; a [D15](../fase-0/DECISOES.md) define
-cardinalidade e prioridade dos responsáveis; a [D19](../fase-0/DECISOES.md) define
-capacidade, ocupação e transições dos quartos; e a [D22](../fase-0/DECISOES.md) define
-acesso e retenção de dados sensíveis. A [D21](../fase-0/DECISOES.md) mantém
-pendentes o mecanismo e a prova de autenticação institucional. Essas decisões
-ainda não têm aprovação registrada; as questões para revisão estão no
-[pacote AE/TI](PACOTE_AE_TI.md).
-Em 26/09/2026, o solicitante esclareceu que todos os servidores da GAE, inclusive
-profissionais de saúde, devem acessar dados não sensíveis; que responsáveis legais
-podem ser detentores da guarda, ambos os pais ou apenas um deles; e que dados
-sensíveis devem ficar restritos a profissionais de saúde, com sigilo próprio de
-cada profissão. São orientações preliminares, ainda sem matriz de permissões
-aprovada. A matrícula é usada no SUAP, mas sua origem e validação no SAGER
-continuam indefinidas. Os anexos de alojamentos recebidos em 29/09/2026 permitem
-desenvolver a estrutura acima, mas não validam a regra provisória de alocação,
-vínculos de responsáveis ou acesso sensível. Esses pontos seguem abertos no
-[registro de decisões](../fase-0/DECISOES.md).
+As respostas de 30/09/2026 definem as escolhas de projeto de
+[D01, D02, D15, D19, D21 e D22](../fase-0/DECISOES.md). Restam detalhes concretos:
+provisionamento e revisão de perfis; conferência dos campos cadastrais e ciclo
+do vínculo; comprovação dos responsáveis e escolha do destinatário; revisão das
+divergências do inventário (D19); operação institucional do login próprio;
+categorias e limites do compartilhamento entre profissionais de saúde; e
+retenção/descarte dos dados que não sejam registros de auditoria e política
+de backup. O [pacote AE/TI](PACOTE_AE_TI.md) registra as respostas e as lacunas.
+Não há manifestação formal nem homologação institucional registrada.
 
-Até lá, não se deve inferir matrícula do login local, conceder acesso médico,
-escolher signatário automaticamente, calcular vagas livres com capacidade não
-definida ou mostrar nota de limpeza inventada. A ocupação atual é contada pelos
-vínculos ativos, inclusive quando a capacidade não está definida. Os testes das
-cinco fatias cobrem persistência, permissões e concorrência; a conclusão e
-homologação da Fase 2 dependem das regras institucionais e das entregas restantes.
+O acesso a dados sensíveis continua restrito a profissionais de saúde, conforme
+orientação de 26/09/2026, com compartilhamento permitido entre esses profissionais
+por decisão de 30/09/2026. A autoridade de gestão do supervisor não cria acesso
+médico. Uma assinatura pode ser suficiente sem dispensar comprovação do vínculo,
+identidade e validade da assinatura. Os anexos privados não validam esses pontos.
+A ocupação atual é contada pelos vínculos ativos; vagas livres dependem de
+capacidade conhecida e nota de limpeza continua sem integração.
 
 Também continuam abertas entregas da Fase 1: erros padronizados para toda a API,
 OpenAPI, auditoria e observabilidade. O [pipeline de CI](../CI.md) está implementado; seu
 estado de execução e as evidências estão no registro de QA. Os cadastros persistidos
-recebem apenas aceite técnico local; comprovação e autorização institucional dos
-responsáveis, regras institucionais de alocação, permissões institucionais e
-dados médicos impedem a homologação da Fase 2.
+recebem apenas aceite técnico local; a homologação da Fase 2 exige as definições
+institucionais aplicáveis e as entregas restantes. A retenção permanente dos
+registros de auditoria foi decidida; a auditoria ainda é uma entrega técnica
+pendente e essa retenção não se estende automaticamente aos demais dados.

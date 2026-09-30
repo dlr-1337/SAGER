@@ -16,7 +16,7 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
       @if (!canEdit()) {
         <section class="mg-empty" role="alert">
           <h1>Acesso restrito</h1>
-          <p>A gestão de supervisores está disponível apenas ao gestor.</p>
+          <p>A gestão de supervisores está disponível para gestor e supervisor.</p>
           <a class="btn mg-primary" routerLink="/inicio">Voltar ao início</a>
         </section>
       } @else if (loading()) {
@@ -149,7 +149,7 @@ export class SupervisorFormComponent {
   private readonly router = inject(Router);
   readonly editId = this.route.snapshot.paramMap.get('id');
   readonly isDemo = this.session.active;
-  readonly canEdit = computed(() => this.session.hasRole('gestor'));
+  readonly canEdit = computed(() => this.session.hasRole('gestor', 'supervisor'));
   readonly localSupervisor = signal<Supervisor | null>(null);
   readonly supervisor = computed(() =>
     this.isDemo()

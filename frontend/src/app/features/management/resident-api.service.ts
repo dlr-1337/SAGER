@@ -9,7 +9,9 @@ export interface ResidentRecord {
   version: number;
 }
 
-export type ResidentPayload = Pick<ResidentRecord, 'name' | 'enrollment' | 'birthDate' | 'course'>;
+export type ResidentPayload = Pick<ResidentRecord, 'name' | 'enrollment' | 'course'> & {
+  birthDate: string;
+};
 
 const baseUrl = '/api/v1/residentes';
 

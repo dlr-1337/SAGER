@@ -153,7 +153,7 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
         <section class="mg-empty" role="alert">
           <span class="material-symbols-rounded" aria-hidden="true">lock</span>
           <h1>Acesso restrito</h1>
-          <p>A gestão de supervisores está disponível apenas ao gestor.</p>
+          <p>A gestão de supervisores está disponível para gestor e supervisor.</p>
           <a class="btn mg-primary" routerLink="/inicio">Voltar ao início</a>
         </section>
       }
@@ -165,7 +165,7 @@ export class SupervisorsComponent {
   private readonly api = inject(SupervisorApiService);
   private readonly session = inject(DemoSessionService);
   readonly isDemo = this.session.active;
-  readonly canEdit = computed(() => this.session.hasRole('gestor'));
+  readonly canEdit = computed(() => this.session.hasRole('gestor', 'supervisor'));
   readonly scenario = this.session.scenario;
   readonly search = new FormControl('', { nonNullable: true });
   readonly localSupervisors = signal<Supervisor[]>([]);

@@ -34,4 +34,29 @@ describe('ResidentFormComponent', () => {
     );
     expect(service.residents().length).toBe(before);
   });
+
+  it('requires a valid, nonfuture birth date before saving', () => {
+    const service = TestBed.inject(ManagementDemoService);
+    const before = service.residents().length;
+    const fixture = TestBed.createComponent(ResidentFormComponent);
+    const form = fixture.componentInstance.form;
+    form.setValue({
+      name: 'Pessoa Demonstrativa',
+      enrollment: 'DEMO-999',
+      birthDate: '',
+      course: 'Agropecuária',
+    });
+    fixture.componentInstance.save();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Informe a data de nascimento.');
+    expect(service.residents()).toHaveLength(before);
+
+    form.controls.birthDate.setValue('2025-02-30');
+    fixture.componentInstance.save();
+    expect(form.controls.birthDate.invalid).toBe(true);
+    form.controls.birthDate.setValue('2999-01-01');
+    fixture.componentInstance.save();
+    expect(form.controls.birthDate.invalid).toBe(true);
+    expect(service.residents()).toHaveLength(before);
+  });
 });

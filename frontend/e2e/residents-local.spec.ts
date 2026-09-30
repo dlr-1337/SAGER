@@ -112,14 +112,18 @@ test('cadastro local cria, consulta, busca e edita após recarga, sem dados inve
   await page.getByRole('textbox', { name: 'Nome completo *' }).fill(' Estudante Sintético ');
   await page.getByRole('textbox', { name: 'Matrícula *' }).fill(' TESTE-A1 ');
   await page.getByRole('button', { name: 'Salvar residente' }).click();
+  await expect(page.getByText('Informe a data de nascimento.')).toBeVisible();
+  expect(registry.writes).toHaveLength(0);
+  await page.getByLabel('Data de nascimento *').fill('2009-05-14');
+  await page.getByRole('button', { name: 'Salvar residente' }).click();
   await expect(page.getByRole('heading', { name: 'Estudante Sintético' })).toBeVisible();
   await expect(page.getByRole('status')).toContainText(
     'Cadastro salvo no ambiente local de teste.',
   );
-  await expect(page.getByText('Não informado')).toHaveCount(2);
+  await expect(page.getByText('Não informado')).toHaveCount(1);
   await expect(
     page.getByText('A ausência da data de nascimento não indica maioridade'),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await page.getByRole('button', { name: 'Responsáveis' }).click();
   await expect(page.getByRole('heading', { name: 'Nenhum responsável vinculado' })).toBeVisible();
   await expect(page.getByText('Mariana Ribeiro')).toHaveCount(0);
@@ -135,14 +139,19 @@ test('cadastro local cria, consulta, busca e edita após recarga, sem dados inve
   expect(registry.writes).toEqual([
     {
       method: 'POST',
-      body: { name: 'Estudante Sintético', enrollment: 'TESTE-A1', birthDate: null, course: null },
+      body: {
+        name: 'Estudante Sintético',
+        enrollment: 'TESTE-A1',
+        birthDate: '2009-05-14',
+        course: null,
+      },
     },
     {
       method: 'PUT',
       body: {
         name: 'Estudante Sintético',
         enrollment: 'TESTE-A1',
-        birthDate: null,
+        birthDate: '2009-05-14',
         course: 'Curso de Teste',
         version: 0,
       },
@@ -169,6 +178,7 @@ test('duplicidade, entrada inválida e conflito de duas abas não anunciam suces
   await page.goto('/residentes/novo');
   await page.getByRole('textbox', { name: 'Nome completo *' }).fill('Outra Pessoa');
   await page.getByRole('textbox', { name: 'Matrícula *' }).fill('teste-001');
+  await page.getByLabel('Data de nascimento *').fill('2009-05-14');
   registry.setFailNextWrite();
   await page.getByRole('button', { name: 'Salvar residente' }).click();
   await expect(page.getByRole('alert')).toContainText('Os dados foram recusados');
@@ -188,9 +198,11 @@ test('duplicidade, entrada inválida e conflito de duas abas não anunciam suces
     'Estudante Original',
   );
   await other.getByRole('textbox', { name: 'Nome completo *' }).fill('Alteração da Outra Aba');
+  await other.getByLabel('Data de nascimento *').fill('2009-05-14');
   await other.getByRole('button', { name: 'Salvar residente' }).click();
   await expect(other.getByRole('heading', { name: 'Alteração da Outra Aba' })).toBeVisible();
   await page.getByRole('textbox', { name: 'Nome completo *' }).fill('Alteração Desatualizada');
+  await page.getByLabel('Data de nascimento *').fill('2009-05-14');
   await page.getByRole('button', { name: 'Salvar residente' }).click();
   await expect(page.getByRole('alert')).toContainText('alterado por outra sessão');
   await expect(page).toHaveURL(new RegExp(`/residentes/${id}/editar$`));
@@ -201,7 +213,7 @@ test('duplicidade, entrada inválida e conflito de duas abas não anunciam suces
   await other.close();
 });
 
-test('erro local não carrega demo, supervisor consulta e demonstração funciona offline', async ({
+test('erro local não carrega demo, supervisor edita e demonstração funciona offline', async ({
   page,
 }) => {
   await mockSession(page);
@@ -231,9 +243,15 @@ test('erro local não carrega demo, supervisor consulta e demonstração funcion
   await registry.attach(supervisor);
   await supervisor.goto('/residentes');
   await expect(supervisor.getByRole('heading', { name: 'Estudante Sintético' })).toBeVisible();
-  await expect(supervisor.getByRole('link', { name: 'Cadastrar residente' })).toHaveCount(0);
+  await expect(supervisor.getByRole('link', { name: 'Cadastrar residente' })).toBeVisible();
   await supervisor.goto(`/residentes/${id}/editar`);
-  await expect(supervisor).toHaveURL(/\/acesso-negado$/);
+  await expect(supervisor.getByRole('heading', { name: 'Editar residente' })).toBeVisible();
+  await expect(supervisor.getByLabel('Data de nascimento *')).toHaveValue('');
+  await supervisor.getByRole('button', { name: 'Salvar residente' }).click();
+  await expect(supervisor.getByText('Informe a data de nascimento.')).toBeVisible();
+  await supervisor.getByLabel('Data de nascimento *').fill('2009-05-14');
+  await supervisor.getByRole('button', { name: 'Salvar residente' }).click();
+  await expect(supervisor.getByRole('heading', { name: 'Estudante Sintético' })).toBeVisible();
   await supervisor.close();
 
   const demo = await page.context().newPage();

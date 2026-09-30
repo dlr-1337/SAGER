@@ -195,6 +195,8 @@ class AllocationApiIntegrationTest {
         }
         UUID resident = resident("DEMO-A");
         UUID room = room("DEMO-01", 2, "Disponível");
+        UUID secondResident = resident("DEMO-B");
+        UUID secondRoom = room("DEMO-02", 2, "Disponível");
         String body = json.writeValueAsString(Map.of("residentId", resident, "roomId", room));
         try (HttpClient anonymous = browser(); HttpClient supervisor = browser();
                 HttpClient gestor = browser(); HttpClient student = browser()) {
@@ -207,9 +209,21 @@ class AllocationApiIntegrationTest {
                     .statusCode()).isEqualTo(403);
             login(supervisor, "supervisor");
             assertThat(read(supervisor, PATH + "?residentId=" + resident).size()).isEqualTo(1);
-            assertThat(post(supervisor, PATH, body, csrf(supervisor)).statusCode()).isEqualTo(403);
+            UUID secondAllocation = create(supervisor, secondResident, secondRoom);
+            assertThat(read(supervisor, PATH + "?residentId=" + secondResident).size()).isEqualTo(1);
+            assertThat(post(supervisor, PATH + "/" + secondAllocation + "/encerrar", "{\"version\":0}",
+                    null).statusCode()).isEqualTo(403);
             assertThat(post(supervisor, PATH + "/" + allocation + "/encerrar", "{\"version\":0}",
-                    csrf(supervisor)).statusCode()).isEqualTo(403);
+                    csrf(supervisor)).statusCode()).isEqualTo(200);
+            UUID replacement = create(supervisor, resident, room);
+            HttpResponse<String> transferred = post(supervisor, PATH + "/" + replacement + "/transferir",
+                    json.writeValueAsString(Map.of("roomId", secondRoom, "version", 0)),
+                    csrf(supervisor));
+            assertThat(transferred.statusCode()).isEqualTo(201);
+            assertThat(json.readTree(transferred.body()).path("roomId").asText())
+                    .isEqualTo(secondRoom.toString());
+            assertThat(post(supervisor, PATH + "/" + secondAllocation + "/encerrar", "{\"version\":0}",
+                    csrf(supervisor)).statusCode()).isEqualTo(200);
             provisioning.disable("supervisor@example.invalid");
             assertThat(get(supervisor, PATH + "?residentId=" + resident).statusCode()).isEqualTo(401);
             login(student, "residente");
@@ -281,8 +295,8 @@ class AllocationApiIntegrationTest {
 
     private UUID resident(String enrollment) {
         UUID id = UUID.randomUUID();
-        jdbc.update("INSERT INTO sager_resident (id, name, enrollment) VALUES (?, ?, ?)",
-                id, "Estudante Sintético", enrollment);
+        jdbc.update("INSERT INTO sager_resident (id, name, enrollment, birth_date) VALUES (?, ?, ?, ?)",
+                id, "Estudante Sintético", enrollment, java.time.LocalDate.of(2006, 1, 2));
         return id;
     }
 
