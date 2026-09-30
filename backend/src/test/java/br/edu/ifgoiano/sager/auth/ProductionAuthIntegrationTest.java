@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
+import java.nio.file.Path;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,6 +35,7 @@ import tools.jackson.databind.ObjectMapper;
         "sager.production.login-counter-cleanup-ms=86400000" })
 @ActiveProfiles("production")
 class ProductionAuthIntegrationTest {
+    private static final Path STORAGE_ROOT = Path.of("target", "production-auth-" + UUID.randomUUID()).toAbsolutePath();
     private static final String RUNTIME_PASSWORD = "Synthetic_runtime_password_20260930_123";
     private static final String PASSWORD = "Senha sintética institucional 123!";
     static final PostgreSQLContainer DATABASE = new PostgreSQLContainer("postgres:17.11")
@@ -62,6 +64,8 @@ class ProductionAuthIntegrationTest {
         registry.add("spring.datasource.url", DATABASE::getJdbcUrl);
         registry.add("spring.datasource.username", () -> "sager_runtime");
         registry.add("spring.datasource.password", () -> RUNTIME_PASSWORD);
+        registry.add("sager.documents.private-root", () -> STORAGE_ROOT.resolve("documents").toString());
+        registry.add("sager.reports.private-root", () -> STORAGE_ROOT.resolve("reports").toString());
     }
 
     @BeforeEach

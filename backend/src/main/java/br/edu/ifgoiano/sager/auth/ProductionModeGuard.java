@@ -1,14 +1,19 @@
 package br.edu.ifgoiano.sager.auth;
 
 import java.util.Arrays;
+import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
-import org.springframework.stereotype.Component;
 
-@Component
+@Configuration
 @Profile("production")
 public class ProductionModeGuard {
-    public ProductionModeGuard(Environment environment) { requireProduction(environment); }
+    @Bean
+    static BeanFactoryPostProcessor validateProductionBeforeDatabaseInitialization(Environment environment) {
+        return factory -> requireProduction(environment);
+    }
 
     public static void requireProduction(Environment environment) {
         if (!Arrays.equals(environment.getActiveProfiles(), new String[] { "production" }))

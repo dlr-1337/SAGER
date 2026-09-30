@@ -410,7 +410,7 @@ class RoomApiIntegrationTest {
 
     @Test
     void nonLocalModeBlocksRoomApiAndMap() throws Exception {
-        try (var closed = application("production"); HttpClient client = browser()) {
+        try (var closed = application("closed"); HttpClient client = browser()) {
             port = closed.getWebServer().getPort();
             for (String path : new String[] { PATH, PATH + "/mapa", PATH + "/" + UUID.randomUUID() }) {
                 assertThat(get(client, path).statusCode()).isIn(401, 403);
