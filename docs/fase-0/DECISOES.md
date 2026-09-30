@@ -21,6 +21,21 @@ definem escolhas do projeto para D01, D02, D15, D19, D21 e D22, sem registrar
 manifestação formal da AE/TI. Elas prevalecem sobre as regras provisórias
 anteriores nos pontos expressamente respondidos.
 
+## Complemento de escolhas delegadas — 30/09/2026
+
+O solicitante delegou as respostas operacionais ainda necessárias e pediu execução
+até a conclusão. Os parâmetros abaixo são regras locais de implementação;
+homologação institucional continua pendente. A indicação anterior de “pendente”
+não impede desenvolver essas regras identificadas e testá-las com dados sintéticos.
+
+| Decisões | Escolha local e contrato |
+| --- | --- |
+| D03–D09 | Supervisor opera; chamada por alojamento/data com menores alocados congelados; janela 22:00–23:30 e exceção confirmada/motivada; saída curta até 3h, partida/retorno físicos e expiração por estado. [Contrato](../fase-3/README.md) |
+| D12 | Cancelar notificação corresponde a arquivamento motivado, sem exclusão ou reabertura silenciosa. [Contrato](../fase-5/CONTRATO.md) |
+| D13 | Ausência injustificada em chamada fechada, retorno físico atrasado e limpeza abaixo de 6,00 geram análise interna; gravidade e advertência dependem de decisão humana. Origem corrigida exige revisão; regras e evidências versionadas. |
+| D14 | Duas advertências vigentes da mesma categoria e origens distintas em 90 dias geram candidato, excluindo OUTRA, anulações e evidência inválida/pendente. Supervisor confirma e emite termo local v1; ciência por versão é distinta de assinatura. |
+| D18 | Supervisor publica avisos para UUIDs congelados; revisão preserva versões e exige nova ciência. Leitura e ciência são comandos explícitos idempotentes. Comunicação interna, sem envio externo implícito. |
+
 ## D01 — Matriz de perfis, permissões e provisionamento do gestor; E01–E03, RF002, UC01/UC015.
 
 **Estado atual e encaminhamento:** **Permissões de gestão definidas pelo

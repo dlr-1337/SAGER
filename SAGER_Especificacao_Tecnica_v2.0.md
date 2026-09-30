@@ -17,6 +17,24 @@ Documento complementar ao PRD completo v2.0
 
 A SRS v2.1 e o PRD v2.0 definem o que o produto precisa fazer. Este documento define como implementar. Os requisitos funcionais, seus 72 critérios de aceite e as pendências D01–D26 não são substituídos por decisões de biblioteca ou infraestrutura. As decisões de 30/09 prevalecem para a fase atual onde atualizam uma premissa da SRS; não representam homologação institucional. O repositório já contém implementação e testes locais, mas esta revisão documental não comprova implantação real.
 
+### Delimitação local das regras operacionais
+
+**[U/T], 30/09/2026.** O solicitante delegou as decisões necessárias para concluir
+a implementação. Os contratos de [operações](docs/fase-3/README.md) e
+[disciplina/comunicações](docs/fase-5/CONTRATO.md) registram valores e procedimentos
+versionados para desenvolvimento. Substituem, nesse escopo local, a orientação de
+aguardar números ou modelos institucionais antes de implementar D12–D14 e D18.
+
+Alertas são evidências internas deduplicadas; nunca advertências automáticas.
+Reincidência é candidata com duas advertências vigentes da mesma categoria,
+origens distintas e janela de 90 dias, seguida de confirmação humana. Termo
+local v1 usa PDF imutável e ciência explícita por versão. Sua ciência não equivale
+a assinatura eletrônica; assinatura de responsável de uma saída não é reutilizada
+para esse termo. Avisos publicados congelam destinatários UUID e preservam versões.
+
+Essas políticas autorizam a implementação e seus testes, sem declarar homologação
+institucional ou habilitar implicitamente provedores externos.
+
 ## Guia de leitura
 
 Decisões e versões: seções 1–2. Arquitetura e código: 3–5. Autenticação e dados: 6–7. Integrações e tarefas: 8–9. Relatórios e segurança: 10–11. Implantação e qualidade: 12–14. Sequência de execução e pendências: 15–16. Referências técnicas: 17.
