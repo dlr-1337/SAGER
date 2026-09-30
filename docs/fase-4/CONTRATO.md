@@ -10,7 +10,7 @@ validade jurídica de assinatura. A verificação técnica será registrada no Q
   na data civil de São Paulo e com alocação ativa. Duração pedida maior que três
   horas; até três horas pertence ao fluxo curto.
 - `NOW` usa o instante de submissão no servidor. `SCHEDULED` exige instante
-  não anterior ao servidor. Retorno previsto posterior à partida.
+  estritamente posterior ao servidor. Retorno previsto posterior à partida.
 - Somente supervisor decide e confirma movimentos físicos. Gestor não herda
   operação de saída pela paridade dos cadastros de gestão.
 - A solicitação seleciona UUID de responsável cadastrado, ativo e vinculado,
@@ -23,6 +23,10 @@ validade jurídica de assinatura. A verificação técnica será registrada no Q
   responsável ainda elegível e arquivos original e assinado armazenados e íntegros.
 - Edição pendente antes da partida cria nova revisão documental e invalida
   tokens, assinaturas e tarefas anteriores, preservando o histórico.
+- Alteração de identidade ou relação do responsável invalida o convite pendente.
+  Reenvio cria nova revisão quando nome/relação mudaram ou o documento anterior
+  já tem PDF assinado; alteração apenas de telefone pode reutilizar o original
+  ainda não assinado. Aprovações realizadas preservam seu snapshot histórico.
 - Cancelamento e expiração seguem F3. Em andamento não expira automaticamente.
   Retorno físico também é confirmado pelo supervisor: escolha local que encerra
   ocupação física e permite verificar atrasos, sem confundi-lo com a assinatura.
@@ -64,6 +68,12 @@ Sequência persistida por etapas: envelope → PDF → signatário → requisito
 Um binding contém um único signatário para não exigir todos os responsáveis.
 Prazo do envelope acompanha o token: 24 horas, limitado pelo prazo funcional.
 Binding cancelado/expirado exige novo envelope em reenvio.
+
+Cancelamento externo: documento em execução usa
+`PATCH /envelopes/{envelope_id}/documents/{document_id}` com `status=canceled`.
+Envelope ainda em rascunho pode usar `DELETE /envelopes/{envelope_id}`.
+Não enviar `canceled` ao PATCH do envelope, cujo status aceita `draft/running`.
+Revogação local do convite antecede a tarefa de cancelamento externo.
 
 O widget v3 Embedded 2.1.0 recebe `signer.id` depois de `running`. Callback
 JavaScript só informa a interface; não grava evidência válida. Não usar chaves
@@ -147,6 +157,7 @@ Fora do perfil autorizado, a API continua fechada.
   [envelope](https://developers.clicksign.com/reference/api-editar-envelope),
   [eventos](https://developers.clicksign.com/reference/eventos-de-um-documento).
 - Clicksign: [widget v3](https://developers.clicksign.com/docs/implementando-o-widget-embedded),
+  [cancelar documento](https://developers.clicksign.com/reference/editar-documento),
   [HMAC](https://developers.clicksign.com/docs/seguranca-de-webhooks),
   [documento fechado](https://developers.clicksign.com/docs/evento-document-closed),
   [política de webhooks](https://developers.clicksign.com/docs/introducao-a-webhooks),

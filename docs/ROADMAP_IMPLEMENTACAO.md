@@ -255,6 +255,12 @@ após autorização institucional e credenciais operacionais.
 **Decisões de entrada:** D07, D15–D17 e D25; confirmar termos do provedor e requisitos
 de segurança antes de ativar o fluxo real.
 
+**Estado em 30/09/2026:** implementação persistida de saídas longas, revisão/PDF
+privado, convite, outbox e webhooks autenticados, com interface ligada à API.
+O [contrato local](fase-4/CONTRATO.md) e o [registro técnico](fase-4/QA.md)
+distinguem testes sintéticos da homologação Clicksign/Meta, ainda pendente de
+credenciais e configuração institucional. Provedores ficam desativados por padrão.
+
 ### Fase 5 — Ocorrências, notificações, avisos e termos
 
 **Cobertura:** E10–E12 e AC21, AC45–AC60.
