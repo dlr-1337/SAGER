@@ -664,6 +664,10 @@
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
+.op-exit-side .op-definition div {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+}
 .op-exit-side > .op-actions {
   display: block;
 }
