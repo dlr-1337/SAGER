@@ -12,6 +12,7 @@ import br.edu.ifgoiano.sager.management.rooms.RoomApiException;
 import br.edu.ifgoiano.sager.management.supervisors.SupervisorApiException;
 import br.edu.ifgoiano.sager.operations.OpsApiException;
 import br.edu.ifgoiano.sager.reports.ReportingApiException;
+import br.edu.ifgoiano.sager.operations.longexits.LongExitApiException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,7 +38,7 @@ public class ApiExceptionHandler {
     @ExceptionHandler({ SupervisorApiException.class, ResidentApiException.class,
             GuardianApiException.class, AccommodationApiException.class,
             RoomApiException.class, AllocationApiException.class, OpsApiException.class,
-            HealthApiException.class, DisciplineApiException.class, ReportingApiException.class })
+            HealthApiException.class, DisciplineApiException.class, ReportingApiException.class, LongExitApiException.class })
     public ResponseEntity<ApiError> domainError(RuntimeException error, HttpServletRequest request) {
         DomainError details = switch (error) {
             case SupervisorApiException e -> new DomainError(e.status(), e.code(), e.getMessage());
@@ -50,6 +51,7 @@ public class ApiExceptionHandler {
             case HealthApiException e -> new DomainError(e.status(), e.code(), e.getMessage());
             case DisciplineApiException e -> new DomainError(e.status(), e.code(), e.getMessage());
             case ReportingApiException e -> new DomainError(e.status(), e.code(), e.getMessage());
+            case LongExitApiException e -> new DomainError(e.status(), e.code(), e.getMessage());
             default -> throw new IllegalArgumentException("Tipo de erro de domínio não suportado.");
         };
         return ApiErrors.response(request, details.status(), details.code(), details.message());
