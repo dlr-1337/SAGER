@@ -205,7 +205,9 @@ obrigatórios; telefone é opcional. O estado ativo cadastral não comprova
 autorização legal ou assinatura. Para a saída longa futura, basta **uma assinatura
 válida de qualquer responsável cadastrado e vinculado ao residente**, sem exigir
 ambos; a comprovação do vínculo/identidade e o serviço de assinatura ainda faltam.
-Essa regra de saída longa ainda não foi implementada.
+O fluxo persistido de saída longa aplica essa regra, com revisão/PDF privado,
+convite limitado e conferência de evidência por adaptador; veja
+[Fase 4](../docs/fase-4/README.md). A homologação real do provedor permanece pendente.
 Na alocação provisória, um residente tem no máximo um quarto ativo. Entrada e
 transferência exigem capacidade definida com vaga e quarto fora de Manutenção
 e Indisponível. Encerramento e transferência preservam o histórico. A situação
