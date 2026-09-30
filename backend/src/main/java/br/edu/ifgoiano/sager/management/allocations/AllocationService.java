@@ -2,8 +2,12 @@ package br.edu.ifgoiano.sager.management.allocations;
 
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
+import br.edu.ifgoiano.sager.audit.AuditAction;
+import br.edu.ifgoiano.sager.audit.AuditResource;
+import br.edu.ifgoiano.sager.audit.AuditService;
 import br.edu.ifgoiano.sager.management.rooms.RoomRecord;
 import br.edu.ifgoiano.sager.management.rooms.RoomRepository;
 import org.springframework.context.annotation.Profile;
@@ -17,10 +21,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class AllocationService {
     private final AllocationRepository allocations;
     private final RoomRepository rooms;
+    private final AuditService audit;
 
-    public AllocationService(AllocationRepository allocations, RoomRepository rooms) {
+    public AllocationService(AllocationRepository allocations, RoomRepository rooms, AuditService audit) {
         this.allocations = allocations;
         this.rooms = rooms;
+        this.audit = audit;
     }
 
     @Transactional(readOnly = true)
@@ -49,11 +55,15 @@ public class AllocationService {
             throw conflict("active_conflict", "O residente já possui uma alocação ativa.");
         }
         checkAdmission(room);
+        Allocation created;
         try {
-            return allocations.insert(UUID.randomUUID(), residentId, roomId);
+            created = allocations.insert(UUID.randomUUID(), residentId, roomId);
         } catch (DataIntegrityViolationException error) {
             throw integrityError(error);
         }
+        audit.record(AuditResource.ALLOCATION, created.id(), AuditAction.CREATE, created.version(),
+                Set.of("residentId", "roomId", "startedAt"));
+        return created;
     }
 
     @Transactional
@@ -75,11 +85,17 @@ public class AllocationService {
         if (closed == null) {
             throw conflict("stale_version", "A alocação foi alterada. Recarregue o registro.");
         }
+        Allocation created;
         try {
-            return allocations.insert(UUID.randomUUID(), current.residentId(), targetRoomId);
+            created = allocations.insert(UUID.randomUUID(), current.residentId(), targetRoomId);
         } catch (DataIntegrityViolationException error) {
             throw integrityError(error);
         }
+        audit.record(AuditResource.ALLOCATION, closed.id(), AuditAction.END, closed.version(),
+                Set.of("endedAt", "endReason"));
+        audit.record(AuditResource.ALLOCATION, created.id(), AuditAction.CREATE, created.version(),
+                Set.of("residentId", "roomId", "startedAt"));
+        return created;
     }
 
     @Transactional
@@ -93,6 +109,8 @@ public class AllocationService {
         if (closed == null) {
             throw conflict("stale_version", "A alocação foi alterada. Recarregue o registro.");
         }
+        audit.record(AuditResource.ALLOCATION, closed.id(), AuditAction.END, closed.version(),
+                Set.of("endedAt", "endReason"));
         return closed;
     }
 

@@ -34,7 +34,7 @@ public class LocalAccountAuthenticationProvider implements AuthenticationProvide
             throw new BadCredentialsException("Credenciais invalidas");
         }
         LocalAccountPrincipal principal = new LocalAccountPrincipal(account.id(), account.email(),
-                account.name(), account.profile());
+                account.name(), account.profile(), account.residentId(), account.supervisorId());
         return new UsernamePasswordAuthenticationToken(principal, null,
                 List.of(new SimpleGrantedAuthority("ROLE_" + account.profile().toUpperCase(Locale.ROOT))));
     }

@@ -1,7 +1,9 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
+import { LocalAuthService } from '../../core/local-auth.service';
 import { OperationsDemoService } from '../operations/operations-demo.service';
-import { HomePage } from './portal.pages';
+import { HomePage, ProfilePage } from './portal.pages';
 
 describe('HomePage', () => {
   it('mostra contagens que acompanham os registros e não antecipa a análise de saída longa', () => {
@@ -13,17 +15,54 @@ describe('HomePage', () => {
     expect(home.shortReturnCount()).toBe(1);
     expect(home.notificationCount()).toBe(2);
 
-    operations.exits.update((items) => items.map((item) => item.id === 'S-1045' ? { ...item, status: 'Aprovada' } : item));
-    operations.exits.update((items) => items.map((item) => item.id === 'S-1048' ? { ...item, status: 'Aguardando análise' } : item));
+    operations.exits.update((items) =>
+      items.map((item) => (item.id === 'S-1045' ? { ...item, status: 'Aprovada' } : item)),
+    );
+    operations.exits.update((items) =>
+      items.map((item) =>
+        item.id === 'S-1048' ? { ...item, status: 'Aguardando análise' } : item,
+      ),
+    );
     expect(home.pendingExitCount()).toBe(0);
 
-    operations.exits.update((items) => items.map((item) => item.id === 'S-1048' ? { ...item, signed: true } : item));
+    operations.exits.update((items) =>
+      items.map((item) => (item.id === 'S-1048' ? { ...item, signed: true } : item)),
+    );
     expect(home.pendingExitCount()).toBe(1);
 
-    operations.notifications.update((items) => items.map((item) => ({ ...item, status: 'Arquivada' })));
+    operations.notifications.update((items) =>
+      items.map((item) => ({ ...item, status: 'Arquivada' })),
+    );
     expect(home.notificationCount()).toBe(0);
 
     session.setScenario('erro');
     expect(home.countsAvailable()).toBe(false);
+  });
+});
+
+describe('ProfilePage', () => {
+  it('apresenta o vínculo explícito da conta residente e informa quando ele está ausente', async () => {
+    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    TestBed.inject(DemoSessionService).deactivate();
+    const auth = TestBed.inject(LocalAuthService);
+    const linked = {
+      id: '00000000-0000-0000-0000-000000000001',
+      nome: 'Pessoa Sintética',
+      email: 'residente@example.test',
+      fotoUrl: null,
+      perfis: ['residente' as const],
+      residenteId: '00000000-0000-0000-0000-000000000002',
+      supervisorId: null,
+    };
+    auth.principal.set(linked);
+    const fixture = TestBed.createComponent(ProfilePage);
+    await fixture.whenStable();
+    expect(fixture.nativeElement.textContent).toContain('Cadastro de residente vinculado');
+    expect(fixture.nativeElement.textContent).toContain(linked.residenteId);
+    const unlinked = { ...linked, residenteId: null };
+    auth.principal.set(unlinked);
+    await fixture.whenStable();
+    expect(fixture.nativeElement.textContent).toContain('Conta sem cadastro vinculado');
+    expect(fixture.nativeElement.textContent).not.toContain(linked.residenteId);
   });
 });

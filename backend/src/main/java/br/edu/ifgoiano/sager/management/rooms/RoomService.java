@@ -1,10 +1,15 @@
 package br.edu.ifgoiano.sager.management.rooms;
 
 import java.sql.SQLException;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
+import br.edu.ifgoiano.sager.audit.AuditAction;
+import br.edu.ifgoiano.sager.audit.AuditResource;
+import br.edu.ifgoiano.sager.audit.AuditService;
 import br.edu.ifgoiano.sager.management.accommodations.AccommodationRepository;
 import org.springframework.context.annotation.Profile;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -20,10 +25,13 @@ public class RoomService {
             Set.of("Disponível", "Ocupado", "Manutenção", "Indisponível");
     private final RoomRepository repository;
     private final AccommodationRepository accommodations;
+    private final AuditService audit;
 
-    public RoomService(RoomRepository repository, AccommodationRepository accommodations) {
+    public RoomService(RoomRepository repository, AccommodationRepository accommodations,
+            AuditService audit) {
         this.repository = repository;
         this.accommodations = accommodations;
+        this.audit = audit;
     }
 
     public List<RoomRecord> list() {
@@ -40,6 +48,7 @@ public class RoomService {
         return new RoomMap(accommodations.findAll(), accommodations.findAllUnits(), repository.findAll());
     }
 
+    @Transactional
     public RoomRecord create(String code, String number, UUID accommodationId, UUID unitId,
             String floor, Integer capacity, String situation) {
         CheckedInput checked = checked(code, number, accommodationId, unitId, floor, capacity, situation);
@@ -50,6 +59,8 @@ public class RoomService {
         } catch (DataIntegrityViolationException error) {
             throw integrityError(error);
         }
+        audit.record(AuditResource.ROOM, id, AuditAction.CREATE, 0,
+                Set.of("code", "number", "accommodationId", "unitId", "floor", "capacity", "situation"));
         return get(id);
     }
 
@@ -83,6 +94,29 @@ public class RoomService {
             throw new RoomApiException(HttpStatus.CONFLICT, "stale_version",
                     "O quarto foi alterado. Recarregue o registro antes de salvar.");
         }
+        Set<String> changed = new HashSet<>();
+        if (!Objects.equals(current.code(), checked.code())) {
+            changed.add("code");
+        }
+        if (!Objects.equals(current.number(), checked.number())) {
+            changed.add("number");
+        }
+        if (!Objects.equals(current.accommodationId(), accommodationId)) {
+            changed.add("accommodationId");
+        }
+        if (!Objects.equals(current.unitId(), unitId)) {
+            changed.add("unitId");
+        }
+        if (!Objects.equals(current.floor(), checked.floor())) {
+            changed.add("floor");
+        }
+        if (!Objects.equals(current.capacity(), capacity)) {
+            changed.add("capacity");
+        }
+        if (!Objects.equals(current.situation(), checked.situation())) {
+            changed.add("situation");
+        }
+        audit.record(AuditResource.ROOM, id, AuditAction.UPDATE, version + 1, changed);
         return get(id);
     }
 

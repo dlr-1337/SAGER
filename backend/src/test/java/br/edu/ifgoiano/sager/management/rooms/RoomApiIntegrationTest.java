@@ -120,6 +120,9 @@ class RoomApiIntegrationTest {
                     String.class, UUID.fromString(id))).isEqualTo("01");
             assertThat(jdbc.queryForObject("SELECT capacity FROM sager_room WHERE id = ?",
                     Integer.class, UUID.fromString(id))).isEqualTo(6);
+            assertAudit(id, "CREATE", 0, "code", "number", "accommodationId", "unitId", "floor",
+                    "capacity", "situation");
+            assertAudit(id, "UPDATE", 1, "unitId", "floor", "capacity", "situation");
         }
     }
 
@@ -488,6 +491,17 @@ class RoomApiIntegrationTest {
         HttpResponse<String> response = get(client, "/api/v1/auth/csrf");
         assertThat(response.statusCode()).isEqualTo(200);
         return json.readTree(response.body()).path("token").asText();
+    }
+
+    private void assertAudit(String id, String action, long version, String... fields) {
+        assertThat(jdbc.queryForObject("SELECT to_regclass('sager_audit_event')", String.class)).isNotNull();
+        List<List<String>> recorded = jdbc.query("""
+                SELECT changed_fields FROM sager_audit_event
+                WHERE resource = 'ROOM' AND resource_id = ? AND action = ? AND resulting_version = ?
+                """, (result, row) -> List.of((String[]) result.getArray(1).getArray()),
+                UUID.fromString(id), action, version);
+        assertThat(recorded).hasSize(1);
+        assertThat(recorded.getFirst()).containsExactlyInAnyOrder(fields);
     }
 
     private void assertError(HttpResponse<String> response, int status, String code) {

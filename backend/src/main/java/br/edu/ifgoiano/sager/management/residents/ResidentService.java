@@ -2,21 +2,30 @@ package br.edu.ifgoiano.sager.management.residents;
 
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
+import br.edu.ifgoiano.sager.audit.AuditAction;
+import br.edu.ifgoiano.sager.audit.AuditResource;
+import br.edu.ifgoiano.sager.audit.AuditService;
 import org.springframework.context.annotation.Profile;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Profile("local")
 public class ResidentService {
     private final ResidentRepository repository;
+    private final AuditService audit;
 
-    public ResidentService(ResidentRepository repository) {
+    public ResidentService(ResidentRepository repository, AuditService audit) {
         this.repository = repository;
+        this.audit = audit;
     }
 
     public List<Resident> list() {
@@ -28,6 +37,7 @@ public class ResidentService {
                 HttpStatus.NOT_FOUND, "not_found", "Estudante não encontrado."));
     }
 
+    @Transactional
     public Resident create(String name, String enrollment, LocalDate birthDate, String course) {
         CheckedInput checked = checked(name, enrollment, birthDate, course);
         UUID id = UUID.randomUUID();
@@ -36,15 +46,23 @@ public class ResidentService {
         } catch (DataIntegrityViolationException error) {
             throw integrityError(error);
         }
+        audit.record(AuditResource.RESIDENT, id, AuditAction.CREATE, 0,
+                Set.of("name", "enrollment", "birthDate", "course"));
         return new Resident(id, checked.name(), checked.enrollment(), birthDate, checked.course(), 0);
     }
 
+    @Transactional
     public Resident update(UUID id, String name, String enrollment, LocalDate birthDate,
             String course, long version) {
         if (version < 0 || version == Long.MAX_VALUE) {
             throw invalidInput("version deve ser um inteiro não negativo válido.");
         }
         CheckedInput checked = checked(name, enrollment, birthDate, course);
+        Resident current = get(id);
+        if (current.version() != version) {
+            throw new ResidentApiException(HttpStatus.CONFLICT, "stale_version",
+                    "O estudante foi alterado. Recarregue o registro antes de salvar.");
+        }
         int updated;
         try {
             updated = repository.update(id, checked.name(), checked.enrollment(), birthDate,
@@ -57,6 +75,20 @@ public class ResidentService {
             throw new ResidentApiException(HttpStatus.CONFLICT, "stale_version",
                     "O estudante foi alterado. Recarregue o registro antes de salvar.");
         }
+        Set<String> changed = new HashSet<>();
+        if (!Objects.equals(current.name(), checked.name())) {
+            changed.add("name");
+        }
+        if (!Objects.equals(current.enrollment(), checked.enrollment())) {
+            changed.add("enrollment");
+        }
+        if (!Objects.equals(current.birthDate(), birthDate)) {
+            changed.add("birthDate");
+        }
+        if (!Objects.equals(current.course(), checked.course())) {
+            changed.add("course");
+        }
+        audit.record(AuditResource.RESIDENT, id, AuditAction.UPDATE, version + 1, changed);
         return new Resident(id, checked.name(), checked.enrollment(), birthDate,
                 checked.course(), version + 1);
     }

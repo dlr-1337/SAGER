@@ -111,12 +111,14 @@ somente após prova do login próprio no ambiente de produção previsto.
 **Decisões de entrada:** D01, D02 e D21; D22 para acesso e tratamento inicial de dados
 sensíveis.
 
-**Estado em 29/09/2026:** backend, sessão local, migrações e fatias cadastrais
+**Estado em 30/09/2026:** backend, sessão local, migrações e fatias cadastrais
 persistidas estão implementados. O [CI](CI.md) verifica backend em PostgreSQL,
 Angular e jornadas Chromium no GitHub Actions; os resultados estão no
-[QA](fase-2/QA.md). Erros padronizados para toda a API, OpenAPI, auditoria,
-observabilidade e configuração de autenticação para produção continuam pendentes. A Fase 1
-ainda não está completa nem homologada.
+[QA](fase-2/QA.md). A [fundação da API](fase-1/FUNDACAO.md) implementa erros
+padronizados, OpenAPI protegido, auditoria transacional permanente e
+observabilidade básica. Vínculos explícitos entre contas e cadastros têm
+revogação de sessão e persistência comprovada após reinício. A configuração
+de autenticação para produção e a homologação da Fase 1 permanecem pendentes.
 
 ### Fase 2 — Residentes, responsáveis, supervisores e quartos
 

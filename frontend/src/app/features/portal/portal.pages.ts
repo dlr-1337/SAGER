@@ -1317,11 +1317,8 @@ export class HelpPage {}
   template: `<main class="page simple-page">
     <header class="page-header">
       <div>
-        <span class="eyebrow">{{
-          session.active() ? 'Conta de demonstração' : 'Conta local de teste'
-        }}</span>
         <h1>Meu perfil</h1>
-        <p>Veja o perfil ativo nesta sessão.</p>
+        <p>{{ session.active() ? 'Conta de demonstração' : 'Conta local de desenvolvimento' }}</p>
       </div>
     </header>
     <section class="panel profile-panel">
@@ -1330,10 +1327,35 @@ export class HelpPage {}
       </div>
       <div>
         <strong>{{ session.active() ? label() : auth.principal()?.nome }}</strong
-        ><span>{{ session.active() ? 'IF Goiano · Campus Urutaí' : auth.principal()?.email }}</span
-        ><small>As telas usam dados fictícios · Nenhuma conta institucional conectada</small>
+        ><span>{{ session.active() ? 'IF Goiano · Campus Urutaí' : auth.principal()?.email }}</span>
+        @if (session.active()) {
+          <small>Dados fictícios da demonstração</small>
+        } @else {
+          <small>Perfil da conta: {{ localRoleLabel() }}</small>
+        }
       </div>
     </section>
+    @if (!session.active()) {
+      <section class="profile-link" aria-labelledby="profile-link-title">
+        <h2 id="profile-link-title">Vínculo cadastral</h2>
+        @if (auth.principal()?.residenteId; as recordId) {
+          <p>Cadastro de residente vinculado</p>
+          <details>
+            <summary>Referência do cadastro</summary>
+            <code>{{ recordId }}</code>
+          </details>
+        } @else if (auth.principal()?.supervisorId; as recordId) {
+          <p>Cadastro de supervisor vinculado</p>
+          <details>
+            <summary>Referência do cadastro</summary>
+            <code>{{ recordId }}</code>
+          </details>
+        } @else {
+          <p>Conta sem cadastro vinculado</p>
+          <p>Para associar sua conta ao cadastro, solicite o vínculo ao operador do SAGER.</p>
+        }
+      </section>
+    }
     <div class="action-row">
       @if (session.active()) {
         <a class="btn-secondary" routerLink="/demonstracao">Trocar perfil</a>
@@ -1349,13 +1371,6 @@ export class HelpPage {}
       .simple-page {
         max-width: 900px;
       }
-      .eyebrow {
-        font-size: 0.82rem;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: #17683f;
-        font-weight: 800;
-      }
       .profile-panel {
         display: flex;
         gap: 22px;
@@ -1364,6 +1379,7 @@ export class HelpPage {}
         margin: 24px 0;
       }
       .profile-avatar {
+        flex-shrink: 0;
         width: 72px;
         height: 72px;
         display: grid;
@@ -1389,12 +1405,58 @@ export class HelpPage {}
       .profile-panel small {
         color: #607164;
       }
+      .profile-panel > div:last-child {
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      .profile-link {
+        padding-block: 4px 24px;
+      }
+      .profile-link h2 {
+        font-size: 1.2rem;
+        margin: 0 0 12px;
+      }
+      .profile-link p {
+        line-height: 1.6;
+      }
+      .profile-link summary {
+        cursor: pointer;
+        min-height: 44px;
+        display: list-item;
+        align-content: center;
+        color: var(--green-900);
+      }
+      .profile-link code {
+        display: block;
+        overflow-wrap: anywhere;
+        padding-block: 8px;
+      }
+      @media (max-width: 520px) {
+        .profile-panel {
+          align-items: flex-start;
+          padding: 20px;
+          gap: 16px;
+        }
+        .profile-avatar {
+          width: 48px;
+          height: 48px;
+        }
+        .profile-avatar .material-symbols-outlined {
+          font-size: 28px;
+        }
+      }
     `,
   ],
 })
 export class ProfilePage {
   readonly session = inject(DemoSessionService);
   readonly auth = inject(LocalAuthService);
+  readonly localRoleLabel = computed(
+    () =>
+      ({ gestor: 'Gestor', supervisor: 'Supervisor', residente: 'Residente' })[
+        this.auth.principal()?.perfis[0] ?? 'residente'
+      ],
+  );
   readonly label = computed(
     () =>
       ({

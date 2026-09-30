@@ -1,21 +1,30 @@
 package br.edu.ifgoiano.sager.management.guardians;
 
 import java.sql.SQLException;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
+import br.edu.ifgoiano.sager.audit.AuditAction;
+import br.edu.ifgoiano.sager.audit.AuditResource;
+import br.edu.ifgoiano.sager.audit.AuditService;
 import org.springframework.context.annotation.Profile;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Profile("local")
 public class GuardianService {
     private final GuardianRepository repository;
+    private final AuditService audit;
 
-    public GuardianService(GuardianRepository repository) {
+    public GuardianService(GuardianRepository repository, AuditService audit) {
         this.repository = repository;
+        this.audit = audit;
     }
 
     public List<Guardian> list() {
@@ -27,6 +36,7 @@ public class GuardianService {
                 HttpStatus.NOT_FOUND, "not_found", "Responsável não encontrado."));
     }
 
+    @Transactional
     public Guardian create(UUID residentId, String name, String relationship, String phone,
             Boolean active) {
         CheckedInput checked = checked(residentId, name, relationship, phone, active);
@@ -37,14 +47,21 @@ public class GuardianService {
         } catch (DataIntegrityViolationException error) {
             throw integrityError(error);
         }
+        audit.record(AuditResource.GUARDIAN, id, AuditAction.CREATE, 0,
+                Set.of("residentId", "name", "relationship", "phone", "active"));
         return new Guardian(id, checked.residentId(), checked.name(), checked.relationship(),
                 checked.phone(), checked.active(), 0);
     }
 
+    @Transactional
     public Guardian update(UUID id, UUID residentId, String name, String relationship,
             String phone, Boolean active, long version) {
-        get(id);
+        Guardian current = get(id);
         CheckedInput checked = checked(residentId, name, relationship, phone, active);
+        if (current.version() != version) {
+            throw new GuardianApiException(HttpStatus.CONFLICT, "stale_version",
+                    "O responsável foi alterado. Recarregue o registro antes de salvar.");
+        }
         int updated;
         try {
             updated = repository.update(id, checked.residentId(), checked.name(),
@@ -57,6 +74,23 @@ public class GuardianService {
             throw new GuardianApiException(HttpStatus.CONFLICT, "stale_version",
                     "O responsável foi alterado. Recarregue o registro antes de salvar.");
         }
+        Set<String> changed = new HashSet<>();
+        if (!Objects.equals(current.residentId(), checked.residentId())) {
+            changed.add("residentId");
+        }
+        if (!Objects.equals(current.name(), checked.name())) {
+            changed.add("name");
+        }
+        if (!Objects.equals(current.relationship(), checked.relationship())) {
+            changed.add("relationship");
+        }
+        if (!Objects.equals(current.phone(), checked.phone())) {
+            changed.add("phone");
+        }
+        if (current.active() != checked.active()) {
+            changed.add("active");
+        }
+        audit.record(AuditResource.GUARDIAN, id, AuditAction.UPDATE, version + 1, changed);
         return new Guardian(id, checked.residentId(), checked.name(), checked.relationship(),
                 checked.phone(), checked.active(), version + 1);
     }

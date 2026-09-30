@@ -23,6 +23,29 @@ public class LocalAccountRepository {
         return query("WHERE id = ?", id).stream().findFirst();
     }
 
+    public Optional<LocalAccount> findByEmailForUpdate(String email) {
+        return query("WHERE email = ? FOR UPDATE", email).stream().findFirst();
+    }
+
+    public boolean residentExists(UUID id) {
+        return Boolean.TRUE.equals(jdbc.queryForObject(
+                "SELECT EXISTS (SELECT 1 FROM sager_resident WHERE id = ?)", Boolean.class, id));
+    }
+
+    public boolean supervisorExists(UUID id) {
+        return Boolean.TRUE.equals(jdbc.queryForObject(
+                "SELECT EXISTS (SELECT 1 FROM sager_supervisor WHERE id = ?)", Boolean.class, id));
+    }
+
+    public void updateLink(LocalAccount account, UUID residentId, UUID supervisorId) {
+        jdbc.update("""
+                UPDATE sager_local_account
+                SET resident_id = ?, supervisor_id = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """, residentId, supervisorId, account.id());
+        jdbc.update("DELETE FROM spring_session WHERE principal_name = ?", account.email());
+    }
+
     public void create(String email, String name, String passwordHash, String profile) {
         jdbc.update("""
                 INSERT INTO sager_local_account
@@ -55,11 +78,13 @@ public class LocalAccountRepository {
 
     private List<LocalAccount> query(String condition, Object argument) {
         return jdbc.query("""
-                SELECT id, email, display_name, password_hash, profile, active
+                SELECT id, email, display_name, password_hash, profile, active, resident_id, supervisor_id
                 FROM sager_local_account
                 """ + condition, (result, row) -> new LocalAccount(
                 result.getObject("id", UUID.class), result.getString("email"),
                 result.getString("display_name"), result.getString("password_hash"),
-                result.getString("profile"), result.getBoolean("active")), argument);
+                result.getString("profile"), result.getBoolean("active"),
+                result.getObject("resident_id", UUID.class),
+                result.getObject("supervisor_id", UUID.class)), argument);
     }
 }

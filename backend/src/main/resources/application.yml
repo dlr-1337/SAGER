@@ -13,9 +13,29 @@ spring:
       initialize-schema: never
 server:
   port: 8080
+  error:
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
   servlet:
     session:
       cookie:
         http-only: true
         secure: true
         same-site: lax
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics
+  endpoint:
+    health:
+      show-details: never
+      show-components: never
+springdoc:
+  api-docs:
+    enabled: false
+logging:
+  structured:
+    format:
+      console: logstash

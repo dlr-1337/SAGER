@@ -7,6 +7,8 @@ export interface LocalPrincipal {
   email: string;
   fotoUrl: string | null;
   perfis: Role[];
+  residenteId: string | null;
+  supervisorId: string | null;
 }
 
 interface CsrfToken {
@@ -15,6 +17,14 @@ interface CsrfToken {
 }
 
 const roles: Role[] = ['gestor', 'supervisor', 'residente'];
+
+function nullableRecordId(value: unknown): value is string | null {
+  return (
+    value === null ||
+    (typeof value === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value))
+  );
+}
 
 function validPrincipal(value: unknown): value is LocalPrincipal {
   if (!value || typeof value !== 'object') return false;
@@ -25,8 +35,13 @@ function validPrincipal(value: unknown): value is LocalPrincipal {
     typeof principal.email === 'string' &&
     (principal.fotoUrl === null || typeof principal.fotoUrl === 'string') &&
     Array.isArray(principal.perfis) &&
-    principal.perfis.length > 0 &&
-    principal.perfis.every((profile) => roles.includes(profile))
+    principal.perfis.length === 1 &&
+    principal.perfis.every((profile) => roles.includes(profile)) &&
+    nullableRecordId(principal.residenteId) &&
+    nullableRecordId(principal.supervisorId) &&
+    !(principal.residenteId && principal.supervisorId) &&
+    (!principal.residenteId || principal.perfis[0] === 'residente') &&
+    (!principal.supervisorId || principal.perfis[0] !== 'residente')
   );
 }
 

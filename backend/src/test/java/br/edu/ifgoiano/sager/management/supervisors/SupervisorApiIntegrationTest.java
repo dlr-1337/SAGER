@@ -10,14 +10,18 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import br.edu.ifgoiano.sager.auth.LocalAccountProvisioningService;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -117,6 +121,8 @@ class SupervisorApiIntegrationTest {
                     String.class, UUID.fromString(id))).isEqualTo("DEMO-SUP-002");
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_local_account", Integer.class))
                     .isEqualTo(1);
+            assertAudit(id, "CREATE", 0, "name", "institutionalId", "email");
+            assertAudit(id, "UPDATE", 1, "name", "institutionalId", "email");
         }
     }
 
@@ -169,6 +175,60 @@ class SupervisorApiIntegrationTest {
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_supervisor", Integer.class))
                     .isEqualTo(2);
         }
+    }
+
+    @ParameterizedTest
+    @MethodSource("nonTextRequests")
+    void rejectsNonTextCreationWithoutWritingOrAuditing(Map<String, Object> invalid) throws Exception {
+        provisioning.create("gestor@example.invalid", "Gestor Sintético", "gestor", PASSWORD.toCharArray());
+        UUID actor = jdbc.queryForObject("SELECT id FROM sager_local_account WHERE email = ?",
+                UUID.class, "gestor@example.invalid");
+        try (HttpClient client = browser()) {
+            login(client, "gestor@example.invalid");
+            assertError(post(client, PATH, json.writeValueAsString(invalid), csrfToken(client)),
+                    400, "invalid_input");
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_supervisor", Integer.class)).isZero();
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_audit_event WHERE actor_id = ?",
+                    Integer.class, actor)).isZero();
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidUpdateRequests")
+    void rejectsNonTextOrNonIntegerUpdatesWithoutWritingOrAuditing(Map<String, Object> invalid)
+            throws Exception {
+        provisioning.create("gestor@example.invalid", "Gestor Sintético", "gestor", PASSWORD.toCharArray());
+        try (HttpClient client = browser()) {
+            login(client, "gestor@example.invalid");
+            HttpResponse<String> created = post(client, PATH,
+                    input("Pessoa Original", "STRICT-ORIGINAL", "original@example.invalid"), csrfToken(client));
+            assertThat(created.statusCode()).isEqualTo(201);
+            UUID id = UUID.fromString(json.readTree(created.body()).path("id").asText());
+            Map<String, Object> fields = new LinkedHashMap<>(invalid);
+            fields.putIfAbsent("version", 0);
+            assertError(put(client, PATH + "/" + id, json.writeValueAsString(fields), csrfToken(client)),
+                    400, "invalid_input");
+            JsonNode persisted = json.readTree(get(client, PATH + "/" + id).body());
+            assertThat(persisted.path("name").asText()).isEqualTo("Pessoa Original");
+            assertThat(persisted.path("institutionalId").asText()).isEqualTo("STRICT-ORIGINAL");
+            assertThat(persisted.path("email").asText()).isEqualTo("original@example.invalid");
+            assertThat(persisted.path("version").asLong()).isZero();
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_audit_event WHERE resource_id = ?",
+                    Integer.class, id)).isEqualTo(1);
+        }
+    }
+
+    private static Stream<Map<String, Object>> nonTextRequests() {
+        return Stream.of(
+                Map.of("name", 123, "institutionalId", "STRICT-NEW", "email", "new@example.invalid"),
+                Map.of("name", "Pessoa Nova", "institutionalId", 123, "email", "new@example.invalid"),
+                Map.of("name", "Pessoa Nova", "institutionalId", "STRICT-NEW", "email", 123));
+    }
+
+    private static Stream<Map<String, Object>> invalidUpdateRequests() {
+        return Stream.concat(nonTextRequests(), Stream.of(0.5, "0", true).map(version ->
+                Map.of("name", "Pessoa Nova", "institutionalId", "STRICT-NEW",
+                        "email", "new@example.invalid", "version", version)));
     }
 
     @Test
@@ -277,6 +337,17 @@ class SupervisorApiIntegrationTest {
         return """
                 {"name":"%s","institutionalId":"%s","email":"%s","version":%d}
                 """.formatted(name, institutionalId, email, version);
+    }
+
+    private void assertAudit(String id, String action, long version, String... fields) {
+        assertThat(jdbc.queryForObject("SELECT to_regclass('sager_audit_event')", String.class)).isNotNull();
+        java.util.List<java.util.List<String>> recorded = jdbc.query("""
+                SELECT changed_fields FROM sager_audit_event
+                WHERE resource = 'SUPERVISOR' AND resource_id = ? AND action = ? AND resulting_version = ?
+                """, (result, row) -> java.util.List.of((String[]) result.getArray(1).getArray()),
+                UUID.fromString(id), action, version);
+        assertThat(recorded).hasSize(1);
+        assertThat(recorded.getFirst()).containsExactlyInAnyOrder(fields);
     }
 
     private void assertError(HttpResponse<String> response, int status, String code) throws Exception {

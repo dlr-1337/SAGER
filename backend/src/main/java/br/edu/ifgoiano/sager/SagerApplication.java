@@ -15,11 +15,18 @@ public class SagerApplication {
         SpringApplication application = new SpringApplication(SagerApplication.class);
         if (Arrays.stream(args).anyMatch(arg -> arg.startsWith("--sager-account"))) {
             application.setWebApplicationType(WebApplicationType.NONE);
+            int exitCode;
             try (ConfigurableApplicationContext context = application.run(args)) {
                 if (!Arrays.equals(context.getEnvironment().getActiveProfiles(),
                         new String[] { "local" })) {
-                    throw new IllegalStateException("O comando de contas exige somente o perfil 'local'.");
+                    System.err.println("Comando de contas recusado: exige somente o perfil 'local'.");
+                    exitCode = SpringApplication.exit(context, () -> 2);
+                } else {
+                    exitCode = SpringApplication.exit(context);
                 }
+            }
+            if (exitCode != 0) {
+                System.exit(exitCode);
             }
             return;
         }

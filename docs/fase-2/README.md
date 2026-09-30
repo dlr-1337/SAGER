@@ -4,7 +4,9 @@ O [roteiro](../ROADMAP_IMPLEMENTACAO.md) cobre residentes, responsáveis legais,
 supervisores e quartos. As cinco fatias locais estão implementadas e
 [verificadas](QA.md): supervisores; alojamentos, unidades e quartos; residentes;
 responsáveis; e alocação com histórico. Os testes usam contas e dados sintéticos.
-Os cadastros funcionais não provisionam contas de acesso. **A Fase 2 completa
+Os cadastros funcionais não provisionam contas de acesso. Há auditoria de suas
+alterações pela V11 e vínculo explícito, feito pelo operador, entre contas e
+cadastros pela V12. **A Fase 2 completa
 e sua homologação institucional ainda estão abertas.** O
 [pacote AE/TI](PACOTE_AE_TI.md) reúne as regras locais, as decisões pendentes e
 um formulário para registrar futura evidência institucional.
@@ -102,7 +104,7 @@ strings JSON; números e booleanos não são convertidos silenciosamente em text
 O mapa é lido em uma transação com snapshot consistente.
 
 Criação retorna `201`; leitura e edição retornam `200`. Erros de domínio expõem
-`code` e `message`: `400/invalid_input` para dados inválidos,
+`code`, `message` e `requestId`: `400/invalid_input` para dados inválidos,
 `400/invalid_location` para vínculo recusado, `404/not_found` para ID inexistente,
 `409/duplicate_code` para código repetido, `409/duplicate_location` para número
 de quarto repetido na mesma localização e `409/stale_version` para versão
@@ -110,13 +112,22 @@ obsoleta. Sessão inválida retorna `401`; perfil sem permissão ou CSRF ausente
 retorna `403`. Esses erros são apresentados sem carregar dados de demonstração
 no fluxo local.
 
+O mesmo contrato de erro se aplica às demais fatias integradas e à segurança:
+`401/unauthorized` para sessão ausente ou inválida, `401/invalid_credentials`
+no login recusado, `403/forbidden` para perfil sem permissão e
+`403/csrf_invalid` para CSRF ausente ou inválido. O servidor gera o UUID de
+correlação e o retorna também em `X-Request-Id`, sem expor SQL, stack trace ou
+valores dos campos enviados. O
+[contrato da fundação](../fase-1/FUNDACAO.md) descreve a padronização, o OpenAPI
+autenticado e a observabilidade locais.
+
 ## Terceira fatia: cadastro local de residentes
 
 **Estado: implementada, com aceite técnico local.** Esta seção descreve a
 entrega cadastral; quarto atual e histórico de alocações foram acrescentados
 na quinta fatia.
 
-O cadastro será manual pelo gestor, conforme decisão de 30/09/2026; o supervisor
+O cadastro é manual pelo gestor, conforme decisão de 30/09/2026; o supervisor
 também pode consultar, cadastrar e editar. A integração com SUAP está adiada
 porque não há autorização. A matrícula identifica o registro do estudante, mas
 não é obtida do login. Comprovação dos campos, responsável pela conferência e
@@ -222,6 +233,62 @@ capacidades oficiais e transições automáticas continuam pendentes da
 [D19](../fase-0/DECISOES.md) e da AE. O aceite técnico desta fatia não
 homologa a Fase 2.
 
+## Auditoria local dos cadastros — V11
+
+Criações e edições de supervisores, residentes, responsáveis, alojamentos,
+unidades e quartos, além das criações e encerramentos de alocações, geram
+eventos na mesma transação da alteração. Se o registro de auditoria falhar, a
+gravação do cadastro é revertida. Uma transferência gera dois eventos, `END`
+para o vínculo anterior e `CREATE` para o novo, com o mesmo `requestId`.
+Requisições recusadas por validação, conflito, permissão ou CSRF não geram
+eventos de alteração. Não há preenchimento retroativo para cadastros anteriores
+à V11.
+
+Cada evento expõe `sequence`, `id`, `occurredAt`, `actorId`, `actorProfile`,
+`origin`, `requestId`, `resource`, `resourceId`, `action`, `resultingVersion` e
+`changedFields`. A autoria usa o UUID da conta, e a origem é `LOCAL_API`.
+`changedFields` contém apenas nomes de campos autorizados; valores anteriores
+ou novos, cópias do cadastro, nomes, e-mails, telefones, senhas e tokens não são
+armazenados no evento. Os UUIDs ainda são metadados de acesso restrito.
+
+`GET /api/v1/auditoria` exige sessão local de gestor ou supervisor. A consulta
+aceita filtros opcionais `resourceId`, `actorId`, `requestId` e `resource`, além
+de `limit` de `1` a `100` (padrão `50`). A resposta contém `items` em ordem
+decrescente de `sequence` e `nextCursor`; para continuar, envie o cursor como
+`beforeSequence`. Não há rotas de edição ou exclusão de eventos.
+
+A migração V11 bloqueia `UPDATE`, `DELETE` e `TRUNCATE` por triggers e revoga
+essas permissões de `PUBLIC`. Eventos não têm chaves estrangeiras para contas
+ou cadastros, evitando remoção em cascata. A retenção permanente foi decidida
+para esses registros; ela não se estende automaticamente aos demais dados.
+A configuração local padrão ainda não separa as roles de migrações e aplicação.
+Owner ou superusuário podem alterar essas proteções; separação de roles,
+backup e controles operacionais de retenção ainda precisam ser implementados
+e verificados no ambiente de produção.
+
+## Vínculo entre conta local e cadastro — V12
+
+O operador pode associar uma conta ativa já provisionada a um residente existente
+(`link-resident`, perfil `residente`) ou supervisor existente
+(`link-supervisor`, perfil `gestor` ou `supervisor`). Cada conta possui no máximo
+um vínculo, de um desses tipos, e cada registro pode ser associado a somente
+uma conta. O vínculo usa o UUID do registro: não é inferido de nome, e-mail ou
+matrícula, não cria credenciais e não altera o perfil da conta.
+
+O comando `unlink` exige o UUID do vínculo atual e pode liberar o registro de
+uma conta desativada sem reativá-la. Alterar ou remover o vínculo revoga as
+sessões existentes; uma sessão com IDs antigos é recusada. Repetir o mesmo
+vínculo não revoga sessões. Contas anteriores à migração continuam sem vínculo
+e podem fazer login local. O
+[guia do backend](../../backend/README.md) apresenta os comandos completos;
+não existem rotas HTTP de provisionamento ou de vínculo de contas.
+
+`GET /api/v1/auth/me` retorna o `id` da conta e os UUIDs opcionais
+`residenteId` e `supervisorId`, além de `nome`, `email`, `fotoUrl` e `perfis`.
+Um cadastro sem conta e uma conta sem vínculo continuam sendo situações válidas
+no desenvolvimento local. A associação não implementa as futuras operações
+por registro nem concede ao residente acesso às APIs de gestão.
+
 ## Referências recebidas e divergências abertas
 
 Em 29/09/2026 foram recebidos o PDF
@@ -274,10 +341,15 @@ identidade e validade da assinatura. Os anexos privados não validam esses ponto
 A ocupação atual é contada pelos vínculos ativos; vagas livres dependem de
 capacidade conhecida e nota de limpeza continua sem integração.
 
-Também continuam abertas entregas da Fase 1: erros padronizados para toda a API,
-OpenAPI, auditoria e observabilidade. O [pipeline de CI](../CI.md) está implementado; seu
-estado de execução e as evidências estão no registro de QA. Os cadastros persistidos
-recebem apenas aceite técnico local; a homologação da Fase 2 exige as definições
-institucionais aplicáveis e as entregas restantes. A retenção permanente dos
-registros de auditoria foi decidida; a auditoria ainda é uma entrega técnica
-pendente e essa retenção não se estende automaticamente aos demais dados.
+A fundação local agora inclui erros padronizados, OpenAPI autenticado, auditoria
+de metadados e observabilidade com correlação, conforme o
+[contrato da Fase 1](../fase-1/FUNDACAO.md). `GET /api/v1/openapi`,
+`GET /actuator/health` e `GET /actuator/metrics` exigem sessão local de gestor
+ou supervisor; o contrato documenta cookie `SESSION` e CSRF nas mutações.
+Saúde não publica detalhes e outros endpoints de Actuator não são expostos.
+Os logs estruturados da aplicação não incluem payloads, credenciais ou valores
+pessoais dos cadastros. O [pipeline de CI](../CI.md) está implementado; seu
+estado de execução e as evidências estão no registro de QA. Essas entregas
+recebem apenas aceite técnico local. A homologação da Fase 2 e a implantação
+em produção ainda exigem as definições institucionais aplicáveis, autorização
+por registro e controles operacionais de segurança e retenção.

@@ -54,6 +54,8 @@ async function mockLocal(context: BrowserContext, role: 'gestor' | 'supervisor' 
           email: 'teste@example.invalid',
           fotoUrl: null,
           perfis: [role],
+          residenteId: null,
+          supervisorId: null,
         },
       });
     if (path.endsWith('/csrf'))

@@ -31,6 +31,8 @@ async function session(page: Page, profile: 'gestor' | 'supervisor' = 'gestor') 
           email: 'conta@example.invalid',
           fotoUrl: null,
           perfis: [profile],
+          residenteId: null,
+          supervisorId: null,
         },
       });
     return route.fulfill({ json: { headerName: 'X-CSRF-TOKEN', token: 'csrf-synthetic' } });

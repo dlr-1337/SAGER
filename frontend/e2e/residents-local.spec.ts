@@ -17,6 +17,8 @@ const principal = (profile: 'gestor' | 'supervisor' = 'gestor') => ({
   email: 'conta@example.invalid',
   fotoUrl: null,
   perfis: [profile],
+  residenteId: null,
+  supervisorId: null,
 });
 
 async function mockSession(page: Page, profile: 'gestor' | 'supervisor' = 'gestor') {

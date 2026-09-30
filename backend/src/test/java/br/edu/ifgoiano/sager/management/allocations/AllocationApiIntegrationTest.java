@@ -262,8 +262,113 @@ class AllocationApiIntegrationTest {
             CompletableFuture<Integer> b = CompletableFuture.supplyAsync(() ->
                     parallelPost(two, second, room, tokenTwo));
             assertThat(List.of(a.join(), b.join())).containsExactlyInAnyOrder(201, 409);
-            assertThat(read(one, PATH + "?roomId=" + room + "&active=true").size()).isEqualTo(1);
+            JsonNode active = read(one, PATH + "?roomId=" + room + "&active=true");
+            assertThat(active.size()).isEqualTo(1);
             assertCounts(one, room, 1, 0);
+            assertThat(jdbc.queryForObject("SELECT to_regclass('sager_audit_event')", String.class)).isNotNull();
+            assertThat(auditRows(UUID.fromString(active.get(0).path("id").asText()))).hasSize(1);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_audit_event "
+                    + "WHERE resource = 'ALLOCATION' AND actor_id = "
+                    + "(SELECT id FROM sager_local_account WHERE email = ?)", Integer.class,
+                    "gestor@example.invalid")).isEqualTo(1);
+        }
+    }
+
+    @Test
+    void auditsTransferAsCorrelatedEndAndCreationAndKeepsFailedChangesUnaudited() throws Exception {
+        assertThat(jdbc.queryForObject("SELECT to_regclass('sager_audit_event')", String.class)).isNotNull();
+        account("supervisor");
+        UUID resident = resident("AUDIT-TRANSFER");
+        UUID first = room("AUDIT-01", 1, "Disponível");
+        UUID second = room("AUDIT-02", 1, "Disponível");
+        UUID actor = jdbc.queryForObject("SELECT id FROM sager_local_account WHERE email = ?",
+                UUID.class, "supervisor@example.invalid");
+        try (HttpClient client = browser()) {
+            login(client, "supervisor");
+            UUID id = create(client, resident, first);
+            List<AuditRow> initial = auditRows(id);
+            assertThat(initial).hasSize(1);
+            assertThat(initial.getFirst().action()).isEqualTo("CREATE");
+            assertThat(initial.getFirst().version()).isZero();
+            assertThat(initial.getFirst().fields()).containsExactlyInAnyOrder("residentId", "roomId", "startedAt");
+            assertThat(initial.getFirst().actorId()).isEqualTo(actor);
+            assertThat(initial.getFirst().profile()).isEqualTo("supervisor");
+            assertError(post(client, PATH + "/" + id + "/transferir",
+                    json.writeValueAsString(Map.of("roomId", first, "version", 0)), csrf(client)),
+                    400, "invalid_input");
+            assertError(post(client, PATH + "/" + id + "/encerrar", "{\"version\":1}", csrf(client)),
+                    409, "stale_version");
+            assertThat(auditRows(id)).hasSize(1);
+
+            HttpResponse<String> moved = post(client, PATH + "/" + id + "/transferir",
+                    json.writeValueAsString(Map.of("roomId", second, "version", 0)), csrf(client));
+            assertThat(moved.statusCode()).isEqualTo(201);
+            UUID replacement = UUID.fromString(json.readTree(moved.body()).path("id").asText());
+            AuditRow end = auditRows(id).getLast();
+            AuditRow start = auditRows(replacement).getFirst();
+            assertThat(end.action()).isEqualTo("END");
+            assertThat(end.version()).isEqualTo(1);
+            assertThat(end.fields()).containsExactlyInAnyOrder("endedAt", "endReason");
+            assertThat(start.action()).isEqualTo("CREATE");
+            assertThat(start.version()).isZero();
+            assertThat(end.requestId()).isEqualTo(start.requestId());
+            assertThat(end.requestId()).isNotEqualTo(initial.getFirst().requestId());
+            assertThat(end.actorId()).isEqualTo(start.actorId()).isEqualTo(actor);
+            assertThat(end.profile()).isEqualTo(start.profile()).isEqualTo("supervisor");
+
+            assertThat(post(client, PATH + "/" + replacement + "/encerrar", "{\"version\":0}",
+                    csrf(client)).statusCode()).isEqualTo(200);
+            AuditRow finalEnd = auditRows(replacement).getLast();
+            assertThat(finalEnd.action()).isEqualTo("END");
+            assertThat(finalEnd.version()).isEqualTo(1);
+            assertThat(finalEnd.fields()).containsExactlyInAnyOrder("endedAt", "endReason");
+            assertThat(finalEnd.requestId()).isNotEqualTo(end.requestId());
+            assertThat(auditRows(id)).hasSize(2);
+            assertThat(auditRows(replacement)).hasSize(2);
+        }
+    }
+
+    @Test
+    void transferAuditFailureRollsBackBothAllocationChanges() throws Exception {
+        assertThat(jdbc.queryForObject("SELECT to_regclass('sager_audit_event')", String.class)).isNotNull();
+        account("gestor");
+        UUID resident = resident("AUDIT-TRANSFER-ROLLBACK");
+        UUID first = room("AUDIT-ROLLBACK-01", 1, "Disponível");
+        UUID second = room("AUDIT-ROLLBACK-02", 1, "Disponível");
+        try (HttpClient client = browser()) {
+            login(client, "gestor");
+            UUID id = create(client, resident, first);
+            jdbc.execute("""
+                    CREATE FUNCTION reject_test_allocation_audit() RETURNS trigger LANGUAGE plpgsql AS $$
+                    BEGIN
+                        IF NEW.resource = 'ALLOCATION' AND NEW.action = 'CREATE' THEN
+                            RAISE EXCEPTION 'synthetic allocation audit insertion failure';
+                        END IF;
+                        RETURN NEW;
+                    END
+                    $$
+                    """);
+            jdbc.execute("CREATE TRIGGER reject_test_allocation_audit BEFORE INSERT ON sager_audit_event "
+                    + "FOR EACH ROW EXECUTE FUNCTION reject_test_allocation_audit()");
+            try {
+                assertThat(post(client, PATH + "/" + id + "/transferir",
+                        json.writeValueAsString(Map.of("roomId", second, "version", 0)), csrf(client))
+                        .statusCode()).isEqualTo(500);
+                JsonNode current = read(client, PATH + "/" + id);
+                assertThat(current.path("endedAt").isNull()).isTrue();
+                assertThat(current.path("version").asLong()).isZero();
+                assertThat(read(client, PATH + "?residentId=" + resident).size()).isEqualTo(1);
+                assertCounts(client, first, 1, 0);
+                assertCounts(client, second, 0, 1);
+                assertThat(auditRows(id)).hasSize(1);
+                assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_audit_event "
+                        + "WHERE resource = 'ALLOCATION' AND actor_id = "
+                        + "(SELECT id FROM sager_local_account WHERE email = ?)",
+                        Integer.class, "gestor@example.invalid")).isEqualTo(1);
+            } finally {
+                jdbc.execute("DROP TRIGGER reject_test_allocation_audit ON sager_audit_event");
+                jdbc.execute("DROP FUNCTION reject_test_allocation_audit()");
+            }
         }
     }
 
@@ -291,6 +396,19 @@ class AllocationApiIntegrationTest {
         } catch (Exception error) {
             throw new IllegalStateException(error);
         }
+    }
+
+    private List<AuditRow> auditRows(UUID id) {
+        return jdbc.query("""
+                SELECT action, resulting_version, changed_fields, actor_id, actor_profile, request_id
+                FROM sager_audit_event WHERE resource = 'ALLOCATION' AND resource_id = ? ORDER BY sequence
+                """, (result, row) -> new AuditRow(result.getString("action"), result.getLong("resulting_version"),
+                List.of((String[]) result.getArray("changed_fields").getArray()), result.getObject("actor_id", UUID.class),
+                result.getString("actor_profile"), result.getObject("request_id", UUID.class)), id);
+    }
+
+    private record AuditRow(String action, long version, List<String> fields, UUID actorId,
+            String profile, UUID requestId) {
     }
 
     private UUID resident(String enrollment) {

@@ -23,6 +23,8 @@ async function mockSession(page: Page, profile = 'gestor') {
           email: 'ficticia@example.invalid',
           fotoUrl: null,
           perfis: [profile],
+          residenteId: null,
+          supervisorId: null,
         },
       });
     return route.fulfill({ json: { headerName: 'X-CSRF-TOKEN', token: 'csrf-synthetic' } });
