@@ -14,9 +14,12 @@ Execução completa coordenada na integração de F4–F6:
 | `frontend/npm run build`                                                | Compilação de produção passou, incluindo rotas carregadas sob demanda         |
 | `frontend/npm run test:e2e`                                             | 97 testes passaram em 4,8 minutos                                             |
 
-O último ajuste posterior a esses gates alterou somente a espera de abertura e
-fechamento por Escape em um teste F5; seus três casos focados passaram. Não houve
-mudança de produto após a compilação usada abaixo.
+A correção posterior de Escape em F5 teve seus três casos focados aprovados.
+A primeira CI de F6 passou o backend e 94/96 jornadas; duas falhas eram esperas
+ausentes nos testes: acesso ao job Excel antes de a UI recebê-lo e navegação antes
+de concluir a ativação da demonstração. Os testes agora aguardam os estados
+observáveis; seus dois casos focados passaram em 37,2 segundos. A correção móvel
+de CSS está documentada abaixo e não altera regras ou respostas da API.
 
 `CleaningReportsIntegrationTest` contém 14 testes PostgreSQL/HTTP específicos de
 F6. Eles verificam cálculo e concorrência por quarto/data, alocações históricas,
