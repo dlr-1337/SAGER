@@ -117,13 +117,14 @@ test('login local restaura a sessão, respeita o perfil do servidor e permite sa
   await page.getByLabel('Senha').fill('senha de teste');
   await page.getByRole('button', { name: 'Entrar com e-mail e senha' }).click();
   await expect(page).toHaveURL(/\/inicio$/);
-  await expect(page.getByRole('heading', { name: 'Olá, gestor' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Atividades do SAGER' })).toBeVisible();
+  await expect(page.getByText('Operadora Exemplo · Acesso local')).toBeVisible();
   await expect(page.locator('.demo-flag')).toContainText('Login local');
   await expect(page.getByLabel('Perfil', { exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => Object.keys(sessionStorage))).not.toContain('sager.demo.active');
 
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Olá, gestor' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Atividades do SAGER' })).toBeVisible();
   await page.goto('/chamada');
   await expect(page).toHaveURL(/\/acesso-negado$/);
   await page.locator('.exit-link').click();
