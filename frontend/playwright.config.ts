@@ -12,7 +12,7 @@ export default defineConfig({
   reporter: 'list',
   use: { baseURL, trace: 'retain-on-failure', screenshot: 'only-on-failure' },
   webServer: {
-    command: `npm start -- --host 127.0.0.1 --port ${port}`,
+    command: `npm start -- --host 127.0.0.1 --port ${port} --hmr=false --live-reload=false`,
     url: `${baseURL}/acesso`,
     reuseExistingServer: !process.env['CI'],
     timeout: 120_000,

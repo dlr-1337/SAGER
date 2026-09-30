@@ -53,8 +53,8 @@ test('aprovação longa bloqueada até assinatura simulada', async ({ page }) =>
 test('chamada exige revisão e permite cancelar', async ({ page }) => {
   await page.goto('/chamada');
   const groups = page.getByRole('group', { name: /Presença de/ });
+  await expect(groups.first()).toBeVisible();
   const count = await groups.count();
-  expect(count).toBeGreaterThan(0);
   for (let index = 0; index < count; index++)
     await groups.nth(index).getByRole('button', { name: 'Presente' }).click();
   await page.getByRole('button', { name: /Revisar e confirmar chamada/ }).click();

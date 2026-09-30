@@ -19,32 +19,39 @@ formalizada; uma proposta técnica não a substitui.
 
 ## D01 — Matriz de perfis, permissões e provisionamento do gestor; E01–E03, RF002, UC01/UC015.
 
-**Estado atual e encaminhamento:** **Institucional pendente.** O projeto prevê
-perfis locais explícitos e autorização no servidor, mas não atribui perfil pelo
-domínio do e-mail nem presume acesso do gestor a dados médicos. O solicitante
+**Estado atual e encaminhamento:** **Autorização local implementada; matriz
+institucional pendente.** O projeto usa perfis locais explícitos e autorização
+no servidor, sem atribuir perfil pelo domínio do e-mail ou conceder acesso
+médico ao gestor. O solicitante
 informou que os servidores da GAE, inclusive os profissionais de saúde, poderão
 acessar dados não sensíveis. Esta orientação ainda precisa ser traduzida em uma
 matriz de recursos e operações por perfil, com confirmação da AE/TI. Acesso a
 dados sensíveis segue a delimitação preliminar da D22. Para a fatia local de
-residentes, o solicitante escolheu leitura por gestor e supervisor e escrita
-somente por gestor; o mesmo recorte será usado no cadastro local de responsáveis.
-Isso não aprova a matriz institucional.
+residentes, responsáveis, alojamentos, unidades, quartos, mapa e alocações,
+estão implementadas leitura por gestor e supervisor e escrita/movimentação
+somente por gestor. O cadastro funcional de supervisores permanece restrito ao
+gestor para leitura e escrita e não cria conta de acesso. Acesso de residente
+às APIs desses cadastros não está liberado. Este recorte autorizado para
+desenvolvimento não aprova a matriz institucional.
 
 **Responsável / até a fase:** AE/TI; entrada da Fase 1.
 
 **Evidência:** PRD §2.2–2.3 e §23.1; roteiro F0–F1; informação do solicitante
-de 26/09/2026 e escolhas de permissões locais para residentes e responsáveis
-em 29/09/2026, sem aceite institucional registrado.
+de 26/09/2026 e escolhas de permissões locais de 29/09/2026;
+[aceites técnicos das cinco fatias](../fase-2/QA.md), sem aceite institucional
+registrado. A matriz atual e os pontos a confirmar estão no
+[pacote AE/TI](../fase-2/PACOTE_AE_TI.md).
 
 ## D02 — Dicionário cadastral, campos, unicidade, matrícula, desligamento e maioridade; E02, RF002, UC015.
 
 **Estado atual e encaminhamento:** **Digitação provisória para desenvolvimento
-autorizada pelo solicitante; homologação institucional pendente.** O gestor local
-poderá cadastrar nome e matrícula, ambos obrigatórios. A matrícula será tratada
-como texto, sem inferir quantidade de dígitos ou composição; espaços nas pontas
-serão retirados e a unicidade não distinguirá maiúsculas de minúsculas. Nascimento
-e curso serão opcionais. A ausência de nascimento não implica maioridade nem
-autoriza operações que dependam da idade. O cadastro receberá um UUID local
+autorizada pelo solicitante e implementada; homologação institucional pendente.**
+O gestor local cadastra e edita nome e matrícula, ambos obrigatórios. A matrícula
+é tratada como texto, sem inferir quantidade de dígitos ou composição; espaços
+nas pontas, inclusive espaços Unicode, são retirados e a unicidade não distingue
+maiúsculas de minúsculas. Nascimento e curso são opcionais; nascimento informado
+deve ser válido e não futuro. A ausência de nascimento não implica maioridade
+nem autoriza operações que dependam da idade. O cadastro recebe um UUID local
 estável, independente do login e da matrícula. Esta regra viabiliza apenas a
 fatia local de cadastro e consulta; a fonte futura poderá ser planilha,
 integração institucional ou outro processo a definir com a AE/TI.
@@ -181,9 +188,9 @@ quantidade de reincidências nem modalidade de ciência/assinatura.
 
 ## D15 — Cardinalidade e prioridade dos responsáveis, identidade e telefone; E02/E09, RN03.
 
-**Estado atual e encaminhamento:** **Cadastro local provisório; decisão
-institucional pendente.** Para desenvolvimento, um residente poderá ter vários
-registros de responsáveis, cada um com nome, vínculo declarado, telefone
+**Estado atual e encaminhamento:** **Cadastro local provisório implementado;
+decisão institucional pendente.** Para desenvolvimento, um residente pode ter
+vários registros de responsáveis, cada um com nome, vínculo declarado, telefone
 opcional e estado ativo informado pelo gestor. Esse cadastro não comprova guarda
 ou autoriza assinatura. Prioridade, autorização e destinatário precisam ser
 definidos pela AE/TI antes de qualquer envio ao responsável. O solicitante
@@ -197,8 +204,9 @@ regras.
 **Responsável / até a fase:** AE/TI; Fases 2 e 4.
 
 **Evidência:** PRD §E02, §E09 e §23.2; roteiro F2/F4; esclarecimento do
-solicitante em 26/09/2026 e autorização para a próxima fatia local em 29/09/2026,
-sem aceite institucional registrado.
+solicitante em 26/09/2026, autorização para desenvolvimento local em 29/09/2026
+e [aceite técnico da quarta fatia](../fase-2/QA.md), sem aceite institucional
+registrado.
 
 ## D16 — Modalidade, identidade, serviço e contratação da assinatura; E09, RF015/RF016.
 
@@ -391,6 +399,10 @@ aprovadas; retirar penalidades antigas incompatíveis.
 **Evidência:** PRD §23.2; roteiro F7.
 
 ## Como fechar uma decisão
+
+O [pacote de revisão da AE/TI](../fase-2/PACOTE_AE_TI.md) reúne D01, D02, D15,
+D19 e D22, explicita a dependência D21 e oferece um formulário de evidência ainda
+sem preenchimento institucional. Preparar esse pacote não registra homologação.
 
 Para cada ID, registrar neste registro ou em ata vinculada: **opção aprovada**,
 **responsável institucional nominal**, **data**, **justificativa e evidência**,
