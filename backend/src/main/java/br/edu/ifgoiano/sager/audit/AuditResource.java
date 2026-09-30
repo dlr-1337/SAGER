@@ -9,7 +9,14 @@ public enum AuditResource {
     ACCOMMODATION(Set.of("code", "name")),
     ACCOMMODATION_UNIT(Set.of("accommodationId", "code", "name")),
     ROOM(Set.of("code", "number", "accommodationId", "unitId", "floor", "capacity", "situation")),
-    ALLOCATION(Set.of("residentId", "roomId", "startedAt", "endedAt", "endReason"));
+    ALLOCATION(Set.of("residentId", "roomId", "startedAt", "endedAt", "endReason")),
+    NIGHT_CALL(Set.of("accommodationId", "referenceDate", "status", "closedAt",
+            "outsideWindowConfirmed", "justification")),
+    NIGHT_CALL_MARK(Set.of("callId", "residentId", "mark", "authorizedExitId",
+            "authorizedExitType", "justification")),
+    SHORT_EXIT(Set.of("residentId", "departureMode", "requestedDepartureAt", "expectedReturnAt",
+            "reason", "notes", "status", "decision", "decisionComment", "actualDepartureAt",
+            "actualReturnAt", "lateObservation", "cancellationReason", "expiryReason"));
 
     private final Set<String> fields;
 

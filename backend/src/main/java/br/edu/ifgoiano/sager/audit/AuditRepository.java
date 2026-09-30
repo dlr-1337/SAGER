@@ -22,21 +22,35 @@ public class AuditRepository {
 
     public void insert(AuditContextProvider.Context context, AuditResource resource,
             UUID resourceId, AuditAction action, long resultingVersion, List<String> changedFields) {
+        insert("LOCAL_API", context.actorId(), context.actorProfile(), context.requestId(),
+                resource, resourceId, action, resultingVersion, changedFields);
+    }
+
+    public void insertSystem(UUID requestId, AuditResource resource, UUID resourceId,
+            AuditAction action, long resultingVersion, List<String> changedFields) {
+        insert("SYSTEM_JOB", null, null, requestId, resource, resourceId, action,
+                resultingVersion, changedFields);
+    }
+
+    private void insert(String origin, UUID actorId, String actorProfile, UUID requestId,
+            AuditResource resource, UUID resourceId, AuditAction action, long resultingVersion,
+            List<String> changedFields) {
         jdbc.update(connection -> {
             var statement = connection.prepareStatement("""
                     INSERT INTO sager_audit_event
                         (actor_id, actor_profile, origin, request_id, resource, resource_id,
                          action, resulting_version, changed_fields)
-                    VALUES (?, ?, 'LOCAL_API', ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """);
-            statement.setObject(1, context.actorId());
-            statement.setString(2, context.actorProfile());
-            statement.setObject(3, context.requestId());
-            statement.setString(4, resource.name());
-            statement.setObject(5, resourceId);
-            statement.setString(6, action.name());
-            statement.setLong(7, resultingVersion);
-            statement.setArray(8, connection.createArrayOf("text", changedFields.toArray(String[]::new)));
+            statement.setObject(1, actorId);
+            statement.setString(2, actorProfile);
+            statement.setString(3, origin);
+            statement.setObject(4, requestId);
+            statement.setString(5, resource.name());
+            statement.setObject(6, resourceId);
+            statement.setString(7, action.name());
+            statement.setLong(8, resultingVersion);
+            statement.setArray(9, connection.createArrayOf("text", changedFields.toArray(String[]::new)));
             return statement;
         });
     }

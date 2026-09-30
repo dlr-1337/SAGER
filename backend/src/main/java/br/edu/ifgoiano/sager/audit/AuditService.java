@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.context.request.RequestContextHolder;
 
 @Service
 @Profile("local")
@@ -26,13 +27,29 @@ public class AuditService {
     public void record(AuditResource resource, UUID resourceId, AuditAction action,
             long resultingVersion, Set<String> changedFields) {
         AuditContextProvider.Context context = contextProvider.requireContext();
+        validate(resource, resourceId, action, resultingVersion, changedFields);
+        repository.insert(context, resource, resourceId, action, resultingVersion,
+                changedFields.stream().sorted().toList());
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void recordSystem(UUID requestId, AuditResource resource, UUID resourceId,
+            AuditAction action, long resultingVersion, Set<String> changedFields) {
+        if (requestId == null || RequestContextHolder.getRequestAttributes() != null) {
+            throw new IllegalStateException("Auditoria de tarefa exige execução interna sem requisição HTTP.");
+        }
+        validate(resource, resourceId, action, resultingVersion, changedFields);
+        repository.insertSystem(requestId, resource, resourceId, action, resultingVersion,
+                changedFields.stream().sorted().toList());
+    }
+
+    private void validate(AuditResource resource, UUID resourceId, AuditAction action,
+            long resultingVersion, Set<String> changedFields) {
         if (resource == null || resourceId == null || action == null || resultingVersion < 0
                 || changedFields == null || changedFields.stream().anyMatch(field -> field == null
                         || !resource.fields().contains(field))) {
             throw new IllegalArgumentException("Metadados de auditoria inválidos.");
         }
-        repository.insert(context, resource, resourceId, action, resultingVersion,
-                changedFields.stream().sorted().toList());
     }
 
     @Transactional(readOnly = true)
