@@ -255,6 +255,14 @@ idempotência, propriedade do residente e ciência por versão. O
 [QA integrado](../docs/fase-5/QA.md) inclui PDF privado e reinício.
 Ciência não confirma assinatura e nenhuma ocorrência aplica sanção automática.
 
+## Limpeza e relatórios
+
+Avaliações, ranking e relatórios usam os registros persistidos. O
+[contrato da Fase 6](../docs/fase-6/CONTRATO.md) e a
+[jornada](../docs/fase-6/README.md) descrevem regras, participantes históricos,
+consulta privada por autor e exportação do mesmo snapshot. Arquivos transitórios
+de relatório têm raiz própria e expiram sem apagar documentos permanentes.
+
 ## Limite do aceite
 
 Testes e prova manual com conta sintética receberam

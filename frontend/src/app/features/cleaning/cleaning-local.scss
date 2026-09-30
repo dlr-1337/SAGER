@@ -27,6 +27,9 @@
 .cleaning-rank strong {
   overflow-wrap: anywhere;
 }
+.cleaning-rank > strong {
+  overflow-wrap: normal;
+}
 .cleaning-rank .cleaning-score {
   font-size: var(--text-body);
 }
@@ -95,7 +98,7 @@
     grid-template-columns: 1fr;
   }
   .cleaning-rank {
-    grid-template-columns: 60px minmax(0, 1fr);
+    grid-template-columns: 72px minmax(0, 1fr);
   }
   .cleaning-rank > :last-child {
     grid-column: 2;
