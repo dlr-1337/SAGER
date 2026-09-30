@@ -4,6 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { LocalAuthService } from '../../core/local-auth.service';
 import { OperationsDemoService } from '../operations/operations-demo.service';
+import { LocalHomePage } from './local-home.page';
 
 @Component({
   standalone: true,
@@ -471,300 +472,306 @@ export class DemoSelectorPage {
 @Component({
   standalone: true,
   selector: 'sager-home',
-  imports: [RouterLink],
+  imports: [RouterLink, LocalHomePage],
   template: `
-    <main class="page home-page">
-      <header class="home-heading">
-        <div>
-          <span class="eyebrow">SAGER · Campus Urutaí</span>
-          <h1>{{ heading() }}</h1>
-          <p>{{ intro() }}</p>
-        </div>
-        <span class="demo-pill">Dados fictícios</span>
-      </header>
-      @if (session.role() === 'supervisor') {
-        <div class="home-columns">
-          <section class="home-main">
-            <div class="feature-task">
-              <div class="task-icon">
-                <span class="material-symbols-outlined" aria-hidden="true">fact_check</span>
+    @if (!session.active()) {
+      <sager-local-home />
+    } @else {
+      <main class="page home-page">
+        <header class="home-heading">
+          <div>
+            <span class="eyebrow">SAGER · Campus Urutaí</span>
+            <h1>{{ heading() }}</h1>
+            <p>{{ intro() }}</p>
+          </div>
+          <span class="demo-pill">Dados fictícios</span>
+        </header>
+        @if (session.role() === 'supervisor') {
+          <div class="home-columns">
+            <section class="home-main">
+              <div class="feature-task">
+                <div class="task-icon">
+                  <span class="material-symbols-outlined" aria-hidden="true">fact_check</span>
+                </div>
+                <div>
+                  <span class="overline">Próxima atividade</span>
+                  <h2>Chamada noturna</h2>
+                  <p>
+                    Confira a presença dos residentes menores de idade e revise as marcações antes
+                    de registrar.
+                  </p>
+                  <span class="task-time"
+                    ><span class="material-symbols-outlined" aria-hidden="true">schedule</span
+                    >Prevista para 22h30</span
+                  >
+                </div>
+                <a class="btn" routerLink="/chamada">Abrir chamada</a>
               </div>
-              <div>
-                <span class="overline">Próxima atividade</span>
-                <h2>Chamada noturna</h2>
-                <p>
-                  Confira a presença dos residentes menores de idade e revise as marcações antes de
-                  registrar.
-                </p>
-                <span class="task-time"
-                  ><span class="material-symbols-outlined" aria-hidden="true">schedule</span
-                  >Prevista para 22h30</span
+              <section class="work-list" aria-labelledby="pending-title">
+                <div class="section-heading">
+                  <h2 id="pending-title">Pendências para revisar</h2>
+                  <span>Organizadas por tarefa</span>
+                </div>
+                <a class="work-row" routerLink="/saidas"
+                  ><span class="row-indicator amber"
+                    ><span class="material-symbols-outlined" aria-hidden="true"
+                      >directions_walk</span
+                    ></span
+                  ><span class="row-copy"
+                    ><strong>
+                      @if (countsAvailable()) {
+                        {{ pendingExitCount() }}
+                        {{
+                          pendingExitCount() === 1 ? 'saída para analisar' : 'saídas para analisar'
+                        }}
+                      } @else {
+                        Saídas para analisar
+                      }</strong
+                    ><small>Revise cada solicitação antes da decisão.</small></span
+                  ><span class="row-status"
+                    ><strong>{{
+                      countsAvailable() ? pendingExitStatus() : 'Cenário de demonstração'
+                    }}</strong
+                    ><small>{{
+                      countsAvailable()
+                        ? 'Saídas longas exigem assinatura prévia.'
+                        : 'Contagens indisponíveis neste cenário.'
+                    }}</small></span
+                  ><span class="row-tail"
+                    >Abrir fila
+                    <span class="material-symbols-outlined" aria-hidden="true"
+                      >arrow_forward</span
+                    ></span
+                  ></a
                 >
-              </div>
-              <a class="btn" routerLink="/chamada">Abrir chamada</a>
-            </div>
-            <section class="work-list" aria-labelledby="pending-title">
-              <div class="section-heading">
-                <h2 id="pending-title">Pendências para revisar</h2>
-                <span>Organizadas por tarefa</span>
-              </div>
-              <a class="work-row" routerLink="/saidas"
-                ><span class="row-indicator amber"
-                  ><span class="material-symbols-outlined" aria-hidden="true"
-                    >directions_walk</span
-                  ></span
-                ><span class="row-copy"
-                  ><strong>
-                    @if (countsAvailable()) {
-                      {{ pendingExitCount() }}
-                      {{
-                        pendingExitCount() === 1 ? 'saída para analisar' : 'saídas para analisar'
-                      }}
-                    } @else {
-                      Saídas para analisar
-                    }</strong
-                  ><small>Revise cada solicitação antes da decisão.</small></span
-                ><span class="row-status"
-                  ><strong>{{
-                    countsAvailable() ? pendingExitStatus() : 'Cenário de demonstração'
-                  }}</strong
-                  ><small>{{
-                    countsAvailable()
-                      ? 'Saídas longas exigem assinatura prévia.'
-                      : 'Contagens indisponíveis neste cenário.'
-                  }}</small></span
-                ><span class="row-tail"
-                  >Abrir fila
-                  <span class="material-symbols-outlined" aria-hidden="true"
-                    >arrow_forward</span
-                  ></span
-                ></a
-              >
-              <a class="work-row" routerLink="/saidas"
-                ><span class="row-indicator blue"
-                  ><span class="material-symbols-outlined" aria-hidden="true"
-                    >how_to_reg</span
-                  ></span
-                ><span class="row-copy"
-                  ><strong>
-                    @if (countsAvailable()) {
-                      {{ shortReturnCount() }}
-                      {{
-                        shortReturnCount() === 1
-                          ? 'retorno curto para confirmar'
-                          : 'retornos curtos para confirmar'
-                      }}
-                    } @else {
-                      Retornos curtos para confirmar
-                    }</strong
-                  ><small>Verifique a chegada antes de confirmar o retorno.</small></span
-                ><span class="row-status"
-                  ><strong>{{
-                    countsAvailable() ? shortReturnStatus() : 'Cenário de demonstração'
-                  }}</strong
-                  ><small>{{
-                    countsAvailable()
-                      ? 'A confirmação é feita pelo supervisor.'
-                      : 'Contagens indisponíveis neste cenário.'
-                  }}</small></span
-                ><span class="row-tail"
-                  >Ver retornos
-                  <span class="material-symbols-outlined" aria-hidden="true"
-                    >arrow_forward</span
-                  ></span
-                ></a
-              >
-              <a class="work-row" routerLink="/notificacoes"
-                ><span class="row-indicator green"
-                  ><span class="material-symbols-outlined" aria-hidden="true"
-                    >notification_important</span
-                  ></span
-                ><span class="row-copy"
-                  ><strong>
-                    @if (countsAvailable()) {
-                      {{ notificationCount() }}
-                      {{
-                        notificationCount() === 1
-                          ? 'notificação sem decisão'
-                          : 'notificações sem decisão'
-                      }}
-                    } @else {
-                      Notificações internas para revisar
-                    }</strong
-                  ><small>Analise cada ocorrência; nenhuma advertência é automática.</small></span
-                ><span class="row-status"
-                  ><strong>{{
-                    countsAvailable() ? notificationStatus() : 'Cenário de demonstração'
-                  }}</strong
-                  ><small>{{
-                    countsAvailable()
-                      ? 'Pendentes ou em análise.'
-                      : 'Contagens indisponíveis neste cenário.'
-                  }}</small></span
-                ><span class="row-tail"
-                  >Ver notificações
-                  <span class="material-symbols-outlined" aria-hidden="true"
-                    >arrow_forward</span
-                  ></span
-                ></a
-              >
+                <a class="work-row" routerLink="/saidas"
+                  ><span class="row-indicator blue"
+                    ><span class="material-symbols-outlined" aria-hidden="true"
+                      >how_to_reg</span
+                    ></span
+                  ><span class="row-copy"
+                    ><strong>
+                      @if (countsAvailable()) {
+                        {{ shortReturnCount() }}
+                        {{
+                          shortReturnCount() === 1
+                            ? 'retorno curto para confirmar'
+                            : 'retornos curtos para confirmar'
+                        }}
+                      } @else {
+                        Retornos curtos para confirmar
+                      }</strong
+                    ><small>Verifique a chegada antes de confirmar o retorno.</small></span
+                  ><span class="row-status"
+                    ><strong>{{
+                      countsAvailable() ? shortReturnStatus() : 'Cenário de demonstração'
+                    }}</strong
+                    ><small>{{
+                      countsAvailable()
+                        ? 'A confirmação é feita pelo supervisor.'
+                        : 'Contagens indisponíveis neste cenário.'
+                    }}</small></span
+                  ><span class="row-tail"
+                    >Ver retornos
+                    <span class="material-symbols-outlined" aria-hidden="true"
+                      >arrow_forward</span
+                    ></span
+                  ></a
+                >
+                <a class="work-row" routerLink="/notificacoes"
+                  ><span class="row-indicator green"
+                    ><span class="material-symbols-outlined" aria-hidden="true"
+                      >notification_important</span
+                    ></span
+                  ><span class="row-copy"
+                    ><strong>
+                      @if (countsAvailable()) {
+                        {{ notificationCount() }}
+                        {{
+                          notificationCount() === 1
+                            ? 'notificação sem decisão'
+                            : 'notificações sem decisão'
+                        }}
+                      } @else {
+                        Notificações internas para revisar
+                      }</strong
+                    ><small>Analise cada ocorrência; nenhuma advertência é automática.</small></span
+                  ><span class="row-status"
+                    ><strong>{{
+                      countsAvailable() ? notificationStatus() : 'Cenário de demonstração'
+                    }}</strong
+                    ><small>{{
+                      countsAvailable()
+                        ? 'Pendentes ou em análise.'
+                        : 'Contagens indisponíveis neste cenário.'
+                    }}</small></span
+                  ><span class="row-tail"
+                    >Ver notificações
+                    <span class="material-symbols-outlined" aria-hidden="true"
+                      >arrow_forward</span
+                    ></span
+                  ></a
+                >
+              </section>
             </section>
-          </section>
-          <aside class="home-aside">
-            <section class="aside-block">
-              <h2>Agenda de hoje</h2>
-              <div class="agenda-line"><strong>22h30</strong><span>Chamada noturna</span></div>
-              <p>Horários e atividades são exemplos de demonstração.</p>
-            </section>
-            <section class="aside-block">
-              <h2>Ajuda rápida</h2>
-              <p>Confira os passos de cada tarefa antes de registrar uma decisão.</p>
-              <a routerLink="/ajuda"
-                >Abrir ajuda
-                <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></a
-              >
-            </section>
-          </aside>
-        </div>
-      } @else if (session.role() === 'gestor') {
-        <div class="home-columns">
-          <section class="home-main">
-            <div class="feature-task">
-              <div class="task-icon">
-                <span class="material-symbols-outlined" aria-hidden="true">apartment</span>
+            <aside class="home-aside">
+              <section class="aside-block">
+                <h2>Agenda de hoje</h2>
+                <div class="agenda-line"><strong>22h30</strong><span>Chamada noturna</span></div>
+                <p>Horários e atividades são exemplos de demonstração.</p>
+              </section>
+              <section class="aside-block">
+                <h2>Ajuda rápida</h2>
+                <p>Confira os passos de cada tarefa antes de registrar uma decisão.</p>
+                <a routerLink="/ajuda"
+                  >Abrir ajuda
+                  <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></a
+                >
+              </section>
+            </aside>
+          </div>
+        } @else if (session.role() === 'gestor') {
+          <div class="home-columns">
+            <section class="home-main">
+              <div class="feature-task">
+                <div class="task-icon">
+                  <span class="material-symbols-outlined" aria-hidden="true">apartment</span>
+                </div>
+                <div>
+                  <span class="overline">Visão da residência</span>
+                  <h2>Cadastros e ocupação</h2>
+                  <p>
+                    Consulte os residentes e confira a distribuição dos quartos antes de atualizar
+                    registros.
+                  </p>
+                </div>
+                <a class="btn" routerLink="/residentes">Ver residentes</a>
               </div>
-              <div>
-                <span class="overline">Visão da residência</span>
-                <h2>Cadastros e ocupação</h2>
+              <section class="work-list">
+                <div class="section-heading">
+                  <h2>Atalhos de gestão</h2>
+                  <span>Exemplos de navegação</span>
+                </div>
+                <a class="work-row" routerLink="/quartos"
+                  ><span class="row-indicator green"
+                    ><span class="material-symbols-outlined" aria-hidden="true"
+                      >meeting_room</span
+                    ></span
+                  ><span
+                    ><strong>Mapa de quartos</strong
+                    ><small>Blocos, pisos e ocupação em um só lugar.</small></span
+                  ><span class="row-tail"
+                    >Abrir mapa
+                    <span class="material-symbols-outlined" aria-hidden="true"
+                      >arrow_forward</span
+                    ></span
+                  ></a
+                ><a class="work-row" routerLink="/supervisores"
+                  ><span class="row-indicator blue"
+                    ><span class="material-symbols-outlined" aria-hidden="true">groups</span></span
+                  ><span
+                    ><strong>Supervisores</strong><small>Consulte e organize a equipe.</small></span
+                  ><span class="row-tail"
+                    >Ver equipe
+                    <span class="material-symbols-outlined" aria-hidden="true"
+                      >arrow_forward</span
+                    ></span
+                  ></a
+                ><a class="work-row" routerLink="/relatorios"
+                  ><span class="row-indicator amber"
+                    ><span class="material-symbols-outlined" aria-hidden="true"
+                      >monitoring</span
+                    ></span
+                  ><span
+                    ><strong>Relatórios</strong
+                    ><small>Combine filtros e consulte dados de demonstração.</small></span
+                  ><span class="row-tail"
+                    >Ver relatórios
+                    <span class="material-symbols-outlined" aria-hidden="true"
+                      >arrow_forward</span
+                    ></span
+                  ></a
+                >
+              </section>
+            </section>
+            <aside class="home-aside">
+              <section class="aside-block">
+                <h2>Antes de continuar</h2>
                 <p>
-                  Consulte os residentes e confira a distribuição dos quartos antes de atualizar
-                  registros.
+                  Este ambiente permite experimentar jornadas e revisão de cadastros com dados
+                  fictícios.
                 </p>
+                <a routerLink="/ajuda"
+                  >Entenda o protótipo
+                  <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></a
+                >
+              </section>
+            </aside>
+          </div>
+        } @else {
+          <div class="home-columns">
+            <section class="home-main">
+              <div class="feature-task">
+                <div class="task-icon">
+                  <span class="material-symbols-outlined" aria-hidden="true">outbound</span>
+                </div>
+                <div>
+                  <span class="overline">Meu espaço</span>
+                  <h2>Minhas saídas</h2>
+                  <p>Solicite uma saída curta ou longa e acompanhe cada etapa com clareza.</p>
+                </div>
+                <a class="btn" routerLink="/saidas">Ver minhas saídas</a>
               </div>
-              <a class="btn" routerLink="/residentes">Ver residentes</a>
-            </div>
-            <section class="work-list">
-              <div class="section-heading">
-                <h2>Atalhos de gestão</h2>
-                <span>Exemplos de navegação</span>
-              </div>
-              <a class="work-row" routerLink="/quartos"
-                ><span class="row-indicator green"
-                  ><span class="material-symbols-outlined" aria-hidden="true"
-                    >meeting_room</span
-                  ></span
-                ><span
-                  ><strong>Mapa de quartos</strong
-                  ><small>Blocos, pisos e ocupação em um só lugar.</small></span
-                ><span class="row-tail"
-                  >Abrir mapa
-                  <span class="material-symbols-outlined" aria-hidden="true"
-                    >arrow_forward</span
-                  ></span
-                ></a
-              ><a class="work-row" routerLink="/supervisores"
-                ><span class="row-indicator blue"
-                  ><span class="material-symbols-outlined" aria-hidden="true">groups</span></span
-                ><span
-                  ><strong>Supervisores</strong><small>Consulte e organize a equipe.</small></span
-                ><span class="row-tail"
-                  >Ver equipe
-                  <span class="material-symbols-outlined" aria-hidden="true"
-                    >arrow_forward</span
-                  ></span
-                ></a
-              ><a class="work-row" routerLink="/relatorios"
-                ><span class="row-indicator amber"
-                  ><span class="material-symbols-outlined" aria-hidden="true"
-                    >monitoring</span
-                  ></span
-                ><span
-                  ><strong>Relatórios</strong
-                  ><small>Combine filtros e consulte dados de demonstração.</small></span
-                ><span class="row-tail"
-                  >Ver relatórios
-                  <span class="material-symbols-outlined" aria-hidden="true"
-                    >arrow_forward</span
-                  ></span
-                ></a
-              >
+              <section class="work-list">
+                <div class="section-heading">
+                  <h2>Para acompanhar</h2>
+                  <span>Somente suas informações</span>
+                </div>
+                <a class="work-row" routerLink="/avisos"
+                  ><span class="row-indicator amber"
+                    ><span class="material-symbols-outlined" aria-hidden="true"
+                      >campaign</span
+                    ></span
+                  ><span
+                    ><strong>Avisos e advertências</strong
+                    ><small>A leitura e a ciência são etapas distintas.</small></span
+                  ><span class="row-tail"
+                    >Consultar
+                    <span class="material-symbols-outlined" aria-hidden="true"
+                      >arrow_forward</span
+                    ></span
+                  ></a
+                ><a class="work-row" routerLink="/ranking"
+                  ><span class="row-indicator green"
+                    ><span class="material-symbols-outlined" aria-hidden="true"
+                      >leaderboard</span
+                    ></span
+                  ><span
+                    ><strong>Ranking dos quartos</strong
+                    ><small>Veja a classificação por período.</small></span
+                  ><span class="row-tail"
+                    >Ver ranking
+                    <span class="material-symbols-outlined" aria-hidden="true"
+                      >arrow_forward</span
+                    ></span
+                  ></a
+                >
+              </section>
             </section>
-          </section>
-          <aside class="home-aside">
-            <section class="aside-block">
-              <h2>Antes de continuar</h2>
-              <p>
-                Este ambiente permite experimentar jornadas e revisão de cadastros com dados
-                fictícios.
-              </p>
-              <a routerLink="/ajuda"
-                >Entenda o protótipo
-                <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></a
-              >
-            </section>
-          </aside>
-        </div>
-      } @else {
-        <div class="home-columns">
-          <section class="home-main">
-            <div class="feature-task">
-              <div class="task-icon">
-                <span class="material-symbols-outlined" aria-hidden="true">outbound</span>
-              </div>
-              <div>
-                <span class="overline">Meu espaço</span>
-                <h2>Minhas saídas</h2>
-                <p>Solicite uma saída curta ou longa e acompanhe cada etapa com clareza.</p>
-              </div>
-              <a class="btn" routerLink="/saidas">Ver minhas saídas</a>
-            </div>
-            <section class="work-list">
-              <div class="section-heading">
-                <h2>Para acompanhar</h2>
-                <span>Somente suas informações</span>
-              </div>
-              <a class="work-row" routerLink="/avisos"
-                ><span class="row-indicator amber"
-                  ><span class="material-symbols-outlined" aria-hidden="true">campaign</span></span
-                ><span
-                  ><strong>Avisos e advertências</strong
-                  ><small>A leitura e a ciência são etapas distintas.</small></span
-                ><span class="row-tail"
-                  >Consultar
-                  <span class="material-symbols-outlined" aria-hidden="true"
-                    >arrow_forward</span
-                  ></span
-                ></a
-              ><a class="work-row" routerLink="/ranking"
-                ><span class="row-indicator green"
-                  ><span class="material-symbols-outlined" aria-hidden="true"
-                    >leaderboard</span
-                  ></span
-                ><span
-                  ><strong>Ranking dos quartos</strong
-                  ><small>Veja a classificação por período.</small></span
-                ><span class="row-tail"
-                  >Ver ranking
-                  <span class="material-symbols-outlined" aria-hidden="true"
-                    >arrow_forward</span
-                  ></span
-                ></a
-              >
-            </section>
-          </section>
-          <aside class="home-aside">
-            <section class="aside-block">
-              <h2>Precisa de orientação?</h2>
-              <p>A ajuda explica cada passo e quem confirma as solicitações.</p>
-              <a routerLink="/ajuda"
-                >Abrir ajuda
-                <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></a
-              >
-            </section>
-          </aside>
-        </div>
-      }
-    </main>
+            <aside class="home-aside">
+              <section class="aside-block">
+                <h2>Precisa de orientação?</h2>
+                <p>A ajuda explica cada passo e quem confirma as solicitações.</p>
+                <a routerLink="/ajuda"
+                  >Abrir ajuda
+                  <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></a
+                >
+              </section>
+            </aside>
+          </div>
+        }
+      </main>
+    }
   `,
   styles: [
     `
