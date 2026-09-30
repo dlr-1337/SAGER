@@ -54,11 +54,7 @@ function validBirthDate(control: AbstractControl): { invalidDate: true } | null 
         <section class="mg-empty" role="alert">
           <span class="material-symbols-rounded" aria-hidden="true">lock</span>
           <h1>Acesso restrito</h1>
-          <p>
-            O cadastro de residentes está disponível ao gestor
-            {{ isDemo() ? 'nesta demonstração' : 'no ambiente local de teste' }}. A permissão de
-            edição do supervisor depende de definição da AE/TI.
-          </p>
+          <p>O cadastro de residentes está disponível para gestor e supervisor.</p>
           <a class="btn mg-primary" routerLink="/residentes">Voltar aos residentes</a>
         </section>
       } @else if (loading()) {
@@ -192,8 +188,9 @@ function validBirthDate(control: AbstractControl): { invalidDate: true } | null 
                 legais podem ser vinculados depois de salvar o residente. Dados médicos não são
                 exibidos neste protótipo.
               } @else {
-                A origem e validação definitiva da matrícula, responsáveis, alocação e dados
-                sensíveis ainda dependem de decisão institucional.
+                A origem e validação definitiva da matrícula e as regras para dados sensíveis ainda
+                dependem de decisão institucional. Responsáveis e quartos podem ser vinculados após
+                salvar o residente.
               }
             </p>
           </div>
@@ -229,7 +226,7 @@ export class ResidentFormComponent {
   private readonly destroyRef = inject(DestroyRef);
   readonly editId = this.route.snapshot.paramMap.get('id');
   readonly isDemo = this.session.active;
-  readonly canEdit = computed(() => this.session.hasRole('gestor'));
+  readonly canEdit = computed(() => this.session.hasRole('gestor', 'supervisor'));
   readonly localResident = signal<ResidentRecord | null>(null);
   readonly resident = computed(() =>
     this.editId

@@ -9,7 +9,18 @@ test('alvos de ação visíveis têm pelo menos 44 × 44 px nas telas centrais',
   const routeSets: { role: 'supervisor' | 'gestor' | 'residente'; paths: string[] }[] = [
     {
       role: 'supervisor',
-      paths: ['/inicio', '/chamada', '/saidas', '/saidas/S-1048', '/notificacoes', '/limpeza'],
+      paths: [
+        '/inicio',
+        '/residentes',
+        '/responsaveis',
+        '/supervisores',
+        '/quartos',
+        '/chamada',
+        '/saidas',
+        '/saidas/S-1048',
+        '/notificacoes',
+        '/limpeza',
+      ],
     },
     {
       role: 'gestor',

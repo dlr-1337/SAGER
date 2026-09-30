@@ -41,7 +41,7 @@ const positiveInteger: ValidatorFn = (control) =>
       @if (!canEdit()) {
         <section class="mg-empty" role="alert">
           <h1>Acesso restrito</h1>
-          <p>A edição de quartos está disponível apenas ao gestor.</p>
+          <p>O cadastro de quartos está disponível para gestor e supervisor.</p>
           <a class="btn mg-primary" routerLink="/quartos">Voltar ao mapa</a>
         </section>
       } @else if (loading()) {
@@ -329,7 +329,7 @@ export class RoomFormComponent {
   private readonly destroyRef = inject(DestroyRef);
   readonly editId = this.route.snapshot.paramMap.get('id');
   readonly isDemo = this.session.active;
-  readonly canEdit = computed(() => this.session.hasRole('gestor'));
+  readonly canEdit = computed(() => this.session.hasRole('gestor', 'supervisor'));
   readonly room = computed(() =>
     this.isDemo() && this.editId ? this.demo.room(this.editId) : undefined,
   );
@@ -548,7 +548,7 @@ export class RoomFormComponent {
         this.error.set(
           error.status === 401
             ? 'A sessão expirou. Entre novamente para salvar.'
-            : 'A sessão não permite salvar este quarto. Entre novamente com perfil de gestor.',
+            : 'A sessão não permite salvar este quarto. Entre com perfil de gestor ou supervisor.',
         );
       } else
         this.error.set(

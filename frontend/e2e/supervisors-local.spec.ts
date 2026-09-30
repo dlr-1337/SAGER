@@ -17,10 +17,10 @@ const principal = {
   perfis: ['gestor'],
 };
 
-async function mockSession(page: Page): Promise<void> {
+async function mockSession(page: Page, profile: 'gestor' | 'supervisor' = 'gestor'): Promise<void> {
   await page.route('**/api/v1/auth/**', (route) => {
     const path = new URL(route.request().url()).pathname;
-    if (path.endsWith('/me')) return route.fulfill({ json: principal });
+    if (path.endsWith('/me')) return route.fulfill({ json: { ...principal, perfis: [profile] } });
     if (path.endsWith('/csrf')) {
       return route.fulfill({ json: { headerName: 'X-CSRF-TOKEN', token: 'csrf-test' } });
     }
@@ -46,8 +46,8 @@ test('demonstração funciona sem backend e usa apenas registros fictícios', as
   await expect(page.getByRole('status')).toContainText('Supervisor salvo nesta demonstração.');
 });
 
-test('sessão local usa API e persiste criação e edição após recarga', async ({ page }) => {
-  await mockSession(page);
+test('supervisor usa API e persiste criação e edição após recarga', async ({ page }) => {
+  await mockSession(page, 'supervisor');
   const records: SupervisorRecord[] = [];
   const writes: { method: string; csrf: string | undefined; body: Record<string, unknown> }[] = [];
   await page.route('**/api/v1/supervisores**', async (route) => {

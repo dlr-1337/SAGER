@@ -231,10 +231,10 @@ class ResidentApiIntegrationTest {
         try (HttpClient gestor = browser()) {
             login(gestor, "gestor");
             id = create(gestor, "Estudante Exemplo", "DEMO-2026-A");
-            assertThat(post(gestor, PATH, body("Outro Estudante", "DEMO-2026-B", null, null, null),
+            assertThat(post(gestor, PATH, body("Outro Estudante", "DEMO-2026-B", BIRTH_DATE, null, null),
                     null).statusCode()).isEqualTo(403);
             assertThat(put(gestor, PATH + "/" + id,
-                    body("Estudante Exemplo", "DEMO-2026-A", null, null, 0), null).statusCode())
+                    body("Estudante Exemplo", "DEMO-2026-A", BIRTH_DATE, null, 0), null).statusCode())
                     .isEqualTo(403);
         }
         try (HttpClient supervisor = browser()) {
@@ -242,11 +242,11 @@ class ResidentApiIntegrationTest {
             assertThat(get(supervisor, PATH).statusCode()).isEqualTo(200);
             assertThat(get(supervisor, PATH + "/" + id).statusCode()).isEqualTo(200);
             assertThat(post(supervisor, PATH,
-                    body("Outro Estudante", "DEMO-2026-B", null, null, null), csrf(supervisor))
-                    .statusCode()).isEqualTo(403);
+                    body("Outro Estudante", "DEMO-2026-B", BIRTH_DATE, null, null), csrf(supervisor))
+                    .statusCode()).isEqualTo(201);
             assertThat(put(supervisor, PATH + "/" + id,
-                    body("Estudante Exemplo", "DEMO-2026-A", null, null, 0), csrf(supervisor))
-                    .statusCode()).isEqualTo(403);
+                    body("Estudante Editado", "DEMO-2026-A", BIRTH_DATE, null, 0), csrf(supervisor))
+                    .statusCode()).isEqualTo(200);
             provisioning.disable("supervisor@example.invalid");
             assertThat(get(supervisor, PATH).statusCode()).isEqualTo(401);
         }
@@ -257,19 +257,19 @@ class ResidentApiIntegrationTest {
                 assertThat(get(anonymous, path).statusCode()).isEqualTo(401);
             }
             assertThat(post(residente, PATH,
-                    body("Outro Estudante", "DEMO-2026-B", null, null, null), csrf(residente))
+                    body("Outro Estudante", "DEMO-2026-C", BIRTH_DATE, null, null), csrf(residente))
                     .statusCode()).isEqualTo(403);
             assertThat(post(anonymous, PATH,
-                    body("Outro Estudante", "DEMO-2026-B", null, null, null), csrf(anonymous))
+                    body("Outro Estudante", "DEMO-2026-C", BIRTH_DATE, null, null), csrf(anonymous))
                     .statusCode()).isEqualTo(401);
             assertThat(put(residente, PATH + "/" + id,
-                    body("Estudante Exemplo", "DEMO-2026-A", null, null, 0), csrf(residente))
+                    body("Estudante Exemplo", "DEMO-2026-A", BIRTH_DATE, null, 1), csrf(residente))
                     .statusCode()).isEqualTo(403);
             assertThat(put(anonymous, PATH + "/" + id,
-                    body("Estudante Exemplo", "DEMO-2026-A", null, null, 0), csrf(anonymous))
+                    body("Estudante Exemplo", "DEMO-2026-A", BIRTH_DATE, null, 1), csrf(anonymous))
                     .statusCode()).isEqualTo(401);
         }
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_resident", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_resident", Integer.class)).isEqualTo(2);
     }
 
     @Test

@@ -90,7 +90,6 @@ async function mockLocal(context: BrowserContext, role: 'gestor' | 'supervisor' 
     }
     const body = request.postDataJSON() as Record<string, unknown>;
     writes.push({ path: url.pathname, csrf: request.headers()['x-csrf-token'], body });
-    if (role === 'supervisor') return route.fulfill({ status: 403, json: { code: 'forbidden' } });
     if (url.pathname.endsWith('/transferir') || url.pathname.endsWith('/encerrar')) {
       const current = allocations.find((item) => item.id === url.pathname.split('/').at(-2));
       if (!current) return route.fulfill({ status: 404, json: { code: 'not_found' } });
@@ -152,7 +151,7 @@ test('gestor aloca, transfere e encerra com histórico persistido na interface',
   await expect(page.getByText('0 moradores', { exact: false }).first()).toBeVisible();
 });
 
-test('supervisor em celular consulta sem poder alterar; navegação é acessível', async ({
+test('supervisor em celular transfere alocação; navegação é acessível', async ({
   page,
   context,
 }) => {
@@ -170,8 +169,10 @@ test('supervisor em celular consulta sem poder alterar; navegação é acessíve
   await page.goto(`/residentes/${residentId}`);
   await expect(page.getByRole('link', { name: /Quarto 01/ })).toBeVisible();
   await page.screenshot({ path: 'test-results/allocation-mobile.png', fullPage: true });
-  await expect(page.getByRole('button', { name: 'Transferir residente' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Encerrar alocação' })).toHaveCount(0);
+  await page.getByRole('combobox', { name: 'Transferir para' }).selectOption(secondRoomId);
+  await page.getByRole('button', { name: 'Transferir residente' }).click();
+  await expect(page.getByRole('link', { name: /Quarto 02/ })).toBeVisible();
+  expect(state.writes[0].body).toMatchObject({ roomId: secondRoomId, version: 0 });
   await page.keyboard.press('Tab');
   const axe = await new AxeBuilder({ page }).analyze();
   expect(axe.violations).toEqual([]);

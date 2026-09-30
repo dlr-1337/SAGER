@@ -237,7 +237,7 @@ test('duplicidade e conflito em duas abas não apagam a edição nem anunciam su
   await secondPage.close();
 });
 
-test('mapa local oferece recuperação sem fallback e supervisor só consulta', async ({
+test('mapa local oferece recuperação sem fallback e supervisor cadastra quartos', async ({
   page,
   context,
 }) => {
@@ -251,13 +251,13 @@ test('mapa local oferece recuperação sem fallback e supervisor só consulta', 
   await page.goto('/quartos');
   await expect(page.getByRole('alert')).toContainText('Não foi possível carregar os quartos');
   await expect(page.locator('.mg-room-tile')).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Cadastrar quarto' })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Consultar alojamentos' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Cadastrar quarto' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Gerenciar alojamentos' })).toBeVisible();
   offline = false;
   await page.getByRole('button', { name: 'Tentar novamente' }).click();
   await expect(page.locator('.mg-room-tile')).toHaveCount(1);
   await page.goto('/quartos/novo');
-  await expect(page).toHaveURL(/\/acesso-negado$/);
+  await expect(page.getByRole('heading', { name: 'Cadastrar quarto' })).toBeVisible();
 });
 
 test('mapa e formulário locais são acessíveis no desktop e no celular, com teclado', async ({

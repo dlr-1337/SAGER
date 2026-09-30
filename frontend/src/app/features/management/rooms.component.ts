@@ -295,7 +295,7 @@ export class RoomsComponent {
   private readonly session = inject(DemoSessionService);
   readonly isDemo = this.session.active;
   readonly canView = computed(() => this.session.hasRole('gestor', 'supervisor'));
-  readonly canEdit = computed(() => this.session.hasRole('gestor'));
+  readonly canEdit = computed(() => this.session.hasRole('gestor', 'supervisor'));
   readonly scenario = computed(() => (this.isDemo() ? this.session.scenario() : 'padrao'));
   readonly situations: RoomSituation[] = ['Disponível', 'Ocupado', 'Manutenção', 'Indisponível'];
   readonly loading = signal(false);

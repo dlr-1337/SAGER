@@ -213,7 +213,7 @@ test('duplicidade, entrada inválida e conflito de duas abas não anunciam suces
   await other.close();
 });
 
-test('erro local não carrega demo, supervisor consulta e demonstração funciona offline', async ({
+test('erro local não carrega demo, supervisor edita e demonstração funciona offline', async ({
   page,
 }) => {
   await mockSession(page);
@@ -243,9 +243,15 @@ test('erro local não carrega demo, supervisor consulta e demonstração funcion
   await registry.attach(supervisor);
   await supervisor.goto('/residentes');
   await expect(supervisor.getByRole('heading', { name: 'Estudante Sintético' })).toBeVisible();
-  await expect(supervisor.getByRole('link', { name: 'Cadastrar residente' })).toHaveCount(0);
+  await expect(supervisor.getByRole('link', { name: 'Cadastrar residente' })).toBeVisible();
   await supervisor.goto(`/residentes/${id}/editar`);
-  await expect(supervisor).toHaveURL(/\/acesso-negado$/);
+  await expect(supervisor.getByRole('heading', { name: 'Editar residente' })).toBeVisible();
+  await expect(supervisor.getByLabel('Data de nascimento *')).toHaveValue('');
+  await supervisor.getByRole('button', { name: 'Salvar residente' }).click();
+  await expect(supervisor.getByText('Informe a data de nascimento.')).toBeVisible();
+  await supervisor.getByLabel('Data de nascimento *').fill('2009-05-14');
+  await supervisor.getByRole('button', { name: 'Salvar residente' }).click();
+  await expect(supervisor.getByRole('heading', { name: 'Estudante Sintético' })).toBeVisible();
   await supervisor.close();
 
   const demo = await page.context().newPage();

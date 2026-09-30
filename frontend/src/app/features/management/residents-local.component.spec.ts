@@ -151,13 +151,13 @@ describe('Residentes em sessão local', () => {
     expect(fixture.componentInstance.localResidents()).toEqual([]);
   });
 
-  it('supervisor lê, mas não vê ação de cadastro', async () => {
+  it('supervisor pode cadastrar residentes', async () => {
     role.set('supervisor');
     const fixture = TestBed.createComponent(ResidentsComponent);
     await fixture.whenStable();
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Estudante Sintético');
-    expect(fixture.nativeElement.textContent).not.toContain('Cadastrar residente');
+    expect(fixture.nativeElement.textContent).toContain('Cadastrar residente');
   });
 
   it('detalhe local mostra responsáveis da API sem inventar idade ou autorização', async () => {
@@ -268,7 +268,7 @@ describe('Residentes em sessão local', () => {
     expect(fixture.componentInstance.activeAllocation()?.roomId).toBe(roomId);
   });
 
-  it('supervisor consulta alocação, sem controles para alterá-la', async () => {
+  it('supervisor pode transferir ou encerrar alocação', async () => {
     role.set('supervisor');
     route.snapshot.paramMap = convertToParamMap({ id: resident.id });
     allocationApi.byResident.mockResolvedValue([structuredClone(allocation)]);
@@ -276,8 +276,8 @@ describe('Residentes em sessão local', () => {
     await fixture.whenStable();
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Quarto 01');
-    expect(fixture.nativeElement.textContent).not.toContain('Transferir residente');
-    expect(fixture.nativeElement.textContent).not.toContain('Encerrar alocação');
+    expect(fixture.nativeElement.textContent).toContain('Transferir residente');
+    expect(fixture.nativeElement.textContent).toContain('Encerrar alocação');
   });
 
   it('exige nascimento, preserva matrícula textual e bloqueia data futura', async () => {

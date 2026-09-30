@@ -276,9 +276,10 @@ class RoomApiIntegrationTest {
         }
         String id;
         String input;
+        String accommodation;
         try (HttpClient gestor = browser()) {
             login(gestor, "gestor");
-            String accommodation = accommodation(gestor, "DEMO-A");
+            accommodation = accommodation(gestor, "DEMO-A");
             input = room("DEMO-01", "01", accommodation, null, null, 4, "Disponível");
             id = createRoom(gestor, input);
             assertThat(post(gestor, PATH,
@@ -293,8 +294,17 @@ class RoomApiIntegrationTest {
             for (String path : new String[] { PATH, PATH + "/" + id, PATH + "/mapa" }) {
                 assertThat(get(supervisor, path).statusCode()).isEqualTo(200);
             }
-            assertThat(post(supervisor, PATH, input, csrf(supervisor)).statusCode()).isEqualTo(403);
-            assertThat(put(supervisor, PATH + "/" + id, edit(input, 0), csrf(supervisor)).statusCode()).isEqualTo(403);
+            assertThat(post(supervisor, PATH,
+                    room("DEMO-02", "02", accommodation, null, null, 4, "Disponível"),
+                    null).statusCode()).isEqualTo(403);
+            assertThat(post(supervisor, PATH,
+                    room("DEMO-02", "02", accommodation, null, null, 4, "Disponível"),
+                    csrf(supervisor)).statusCode()).isEqualTo(201);
+            assertThat(put(supervisor, PATH + "/" + id,
+                    edit(room("DEMO-01", "01", accommodation, null, null, 4, "Manutenção"), 0),
+                    csrf(supervisor)).statusCode()).isEqualTo(200);
+            assertThat(json.readTree(get(supervisor, PATH + "/" + id).body())
+                    .path("situation").asText()).isEqualTo("Manutenção");
             provisioning.disable("supervisor@example.invalid");
             assertThat(get(supervisor, PATH + "/mapa").statusCode()).isEqualTo(401);
         }

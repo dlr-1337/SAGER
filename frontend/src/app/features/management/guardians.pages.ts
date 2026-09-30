@@ -182,7 +182,7 @@ export class GuardiansPage {
   private readonly session = inject(DemoSessionService);
   private readonly destroyRef = inject(DestroyRef);
   readonly isDemo = this.session.active;
-  readonly canEdit = computed(() => this.session.hasRole('gestor'));
+  readonly canEdit = computed(() => this.session.hasRole('gestor', 'supervisor'));
   readonly scenario = this.session.scenario;
   readonly search = new FormControl('', { nonNullable: true });
   readonly query = toSignal(this.search.valueChanges, { initialValue: '' });
@@ -360,7 +360,7 @@ export class GuardianDetailPage {
   readonly id = this.route.snapshot.paramMap.get('id') ?? '';
   readonly isDemo = this.session.active;
   readonly canView = computed(() => this.session.hasRole('gestor', 'supervisor'));
-  readonly canEdit = computed(() => this.session.hasRole('gestor'));
+  readonly canEdit = computed(() => this.session.hasRole('gestor', 'supervisor'));
   readonly localGuardian = signal<GuardianRecord | null>(null);
   readonly localResident = signal<ResidentRecord | null>(null);
   readonly guardian = computed(() =>
@@ -425,7 +425,7 @@ export class GuardianDetailPage {
       @if (!canEdit()) {
         <section class="mg-empty" role="alert">
           <h1>Acesso restrito</h1>
-          <p>Somente o gestor pode cadastrar e editar responsáveis.</p>
+          <p>O cadastro de responsáveis está disponível para gestor e supervisor.</p>
           <a class="btn mg-primary" routerLink="/responsaveis">Voltar aos responsáveis</a>
         </section>
       } @else if (loading()) {
@@ -581,7 +581,7 @@ export class GuardianFormPage {
   private readonly router = inject(Router);
   readonly editId = this.route.snapshot.paramMap.get('id');
   readonly isDemo = this.session.active;
-  readonly canEdit = computed(() => this.session.hasRole('gestor'));
+  readonly canEdit = computed(() => this.session.hasRole('gestor', 'supervisor'));
   readonly residents = signal<ReadonlyArray<{ id: string; name: string }>>([]);
   readonly localGuardian = signal<GuardianRecord | null>(null);
   readonly loading = signal(false);

@@ -172,7 +172,7 @@ class SupervisorApiIntegrationTest {
     }
 
     @Test
-    void requiresGestorAndCsrfForMutations() throws Exception {
+    void gestorAndSupervisorCanManageWithCsrfWhileOthersCannot() throws Exception {
         provisioning.create("gestor@example.invalid", "Gestor", "gestor",
                 PASSWORD.toCharArray());
         provisioning.create("supervisor@example.invalid", "Supervisor", "supervisor",
@@ -189,7 +189,7 @@ class SupervisorApiIntegrationTest {
                     updateInput("Ana", "DEMO-001", "ana@demo.invalid", 0),
                     csrfToken(anonymous)).statusCode()).isEqualTo(401);
         }
-        for (String profile : new String[] { "supervisor", "residente" }) {
+        for (String profile : new String[] { "residente" }) {
             try (HttpClient client = browser()) {
                 login(client, profile + "@example.invalid");
                 assertThat(get(client, PATH).statusCode()).isEqualTo(403);
@@ -211,6 +211,25 @@ class SupervisorApiIntegrationTest {
                     null).statusCode()).isEqualTo(403);
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_supervisor", Integer.class))
                     .isZero();
+        }
+        try (HttpClient supervisor = browser()) {
+            login(supervisor, "supervisor@example.invalid");
+            assertThat(get(supervisor, PATH).statusCode()).isEqualTo(200);
+            assertThat(post(supervisor, PATH, input("Ana", "DEMO-001", "ana@demo.invalid"),
+                    null).statusCode()).isEqualTo(403);
+            HttpResponse<String> created = post(supervisor, PATH,
+                    input("Ana", "DEMO-001", "ana@demo.invalid"), csrfToken(supervisor));
+            assertThat(created.statusCode()).isEqualTo(201);
+            String id = json.readTree(created.body()).path("id").asText();
+            assertThat(get(supervisor, PATH + "/" + id).statusCode()).isEqualTo(200);
+            assertThat(put(supervisor, PATH + "/" + id,
+                    updateInput("Ana", "DEMO-001", "ana@demo.invalid", 0),
+                    null).statusCode()).isEqualTo(403);
+            assertThat(put(supervisor, PATH + "/" + id,
+                    updateInput("Ana Atualizada", "DEMO-001", "ana@demo.invalid", 0),
+                    csrfToken(supervisor)).statusCode()).isEqualTo(200);
+            assertThat(jdbc.queryForObject("SELECT name FROM sager_supervisor WHERE id = ?",
+                    String.class, UUID.fromString(id))).isEqualTo("Ana Atualizada");
         }
     }
 

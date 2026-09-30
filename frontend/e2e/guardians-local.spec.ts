@@ -181,7 +181,7 @@ test('conflito em duas abas exige recarregar antes de salvar', async ({ page, co
   await other.close();
 });
 
-test('erro local não carrega demo; supervisor consulta; demonstração funciona offline', async ({
+test('erro local não carrega demo; supervisor edita; demonstração funciona offline', async ({
   page,
 }) => {
   await session(page);
@@ -211,9 +211,9 @@ test('erro local não carrega demo; supervisor consulta; demonstração funciona
   await data.attach(supervisor);
   await supervisor.goto('/responsaveis');
   await expect(supervisor.getByRole('heading', { name: 'Responsável Sintético' })).toBeVisible();
-  await expect(supervisor.getByRole('link', { name: 'Cadastrar responsável' })).toHaveCount(0);
+  await expect(supervisor.getByRole('link', { name: 'Cadastrar responsável' })).toBeVisible();
   await supervisor.goto(`/responsaveis/${guardianId}/editar`);
-  await expect(supervisor).toHaveURL(/\/acesso-negado$/);
+  await expect(supervisor.getByRole('heading', { name: 'Editar responsável' })).toBeVisible();
   await supervisor.close();
   const demo = await page.context().newPage();
   await demo.route('**/api/**', (route) => route.abort('failed'));

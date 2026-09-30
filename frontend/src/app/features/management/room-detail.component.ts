@@ -299,7 +299,7 @@ export class RoomDetailComponent {
   readonly id = this.route.snapshot.paramMap.get('id') ?? '';
   readonly isDemo = this.session.active;
   readonly canView = computed(() => this.session.hasRole('gestor', 'supervisor'));
-  readonly canEdit = computed(() => this.session.hasRole('gestor'));
+  readonly canEdit = computed(() => this.session.hasRole('gestor', 'supervisor'));
   readonly room = computed(() => (this.isDemo() ? this.demo.room(this.id) : undefined));
   readonly residents = computed(() => (this.isDemo() ? this.demo.residentsInRoom(this.id) : []));
   readonly saved = computed(() => this.route.snapshot.queryParamMap.get('saved') === '1');
