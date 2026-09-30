@@ -39,6 +39,8 @@ test('aba nova encerra cookie de sessão local antes de abrir a demonstração',
           email: 'operadora@example.test',
           fotoUrl: null,
           perfis: ['gestor'],
+          residenteId: null,
+          supervisorId: null,
         },
       });
     }
@@ -95,6 +97,8 @@ test('login local restaura a sessão, respeita o perfil do servidor e permite sa
                 email: 'operadora@example.test',
                 fotoUrl: null,
                 perfis: ['gestor'],
+                residenteId: null,
+                supervisorId: null,
               },
             }
           : { status: 401 },
@@ -151,3 +155,39 @@ test('senha inválida mantém o usuário fora do sistema e não impede a demonst
   await page.getByRole('button', { name: /Entrar como residente/i }).click();
   await expect(page.getByRole('heading', { name: 'Olá, residente' })).toBeVisible();
 });
+
+for (const profile of ['residente', 'supervisor'] as const) {
+  test(`perfil ${profile} apresenta vínculo do servidor e perde acesso quando a sessão é revogada`, async ({
+    page,
+  }) => {
+    const recordId = '00000000-0000-0000-0000-000000000002';
+    let active = true;
+    await page.route('**/api/v1/auth/me', (route) =>
+      route.fulfill(
+        active
+          ? {
+              json: {
+                id: '00000000-0000-0000-0000-000000000001',
+                nome: 'Pessoa Sintética',
+                email: `${profile}@example.test`,
+                fotoUrl: null,
+                perfis: [profile],
+                residenteId: profile === 'residente' ? recordId : null,
+                supervisorId: profile === 'supervisor' ? recordId : null,
+              },
+            }
+          : { status: 401 },
+      ),
+    );
+    await page.goto('/perfil');
+    await expect(page.getByRole('heading', { name: 'Meu perfil' })).toBeVisible();
+    await expect(page.getByText(`Cadastro de ${profile} vinculado`, { exact: true })).toBeVisible();
+    await page.getByText('Referência do cadastro', { exact: true }).click();
+    await expect(page.locator('code')).toHaveText(recordId);
+    await expect(page.getByRole('link', { name: 'Trocar perfil' })).toHaveCount(0);
+    active = false;
+    await page.reload();
+    await expect(page).toHaveURL(/\/acesso$/);
+    await expect(page.locator('main')).not.toContainText(recordId);
+  });
+}

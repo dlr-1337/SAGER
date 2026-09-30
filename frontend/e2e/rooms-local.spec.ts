@@ -52,6 +52,8 @@ async function mockSession(context: BrowserContext, profile = 'gestor'): Promise
           email: 'teste@example.invalid',
           fotoUrl: null,
           perfis: [profile],
+          residenteId: null,
+          supervisorId: null,
         },
       });
     if (path.endsWith('/csrf'))

@@ -15,6 +15,8 @@ const principal = {
   email: 'gestora@example.invalid',
   fotoUrl: null,
   perfis: ['gestor'],
+  residenteId: null,
+  supervisorId: null,
 };
 
 async function mockSession(page: Page, profile: 'gestor' | 'supervisor' = 'gestor'): Promise<void> {

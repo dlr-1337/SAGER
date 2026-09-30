@@ -8,6 +8,8 @@ const principal = {
   email: 'operadora@example.test',
   fotoUrl: null,
   perfis: ['gestor' as const],
+  residenteId: null,
+  supervisorId: null,
 };
 
 describe('LocalAuthService', () => {
@@ -43,6 +45,58 @@ describe('LocalAuthService', () => {
 
     expect(await auth.refresh()).toBeNull();
     expect(auth.principal()).toBeNull();
+  });
+
+  it('recusa vínculos ausentes, inválidos ou incompatíveis com o perfil da conta', async () => {
+    const { residenteId: _resident, supervisorId: _supervisor, ...withoutLinks } = principal;
+    const invalidPrincipals = [
+      withoutLinks,
+      { ...principal, perfis: ['gestor', 'residente'] },
+      { ...principal, residenteId: 'outro-residente', supervisorId: null },
+      {
+        ...principal,
+        residenteId: '00000000-0000-0000-0000-000000000002',
+        supervisorId: null,
+      },
+      { ...principal, residenteId: null, supervisorId: 123 },
+      {
+        ...principal,
+        perfis: ['residente'],
+        residenteId: null,
+        supervisorId: '00000000-0000-0000-0000-000000000003',
+      },
+      {
+        ...principal,
+        perfis: ['residente'],
+        residenteId: '00000000-0000-0000-0000-000000000002',
+        supervisorId: '00000000-0000-0000-0000-000000000003',
+      },
+    ];
+    const auth = TestBed.inject(LocalAuthService);
+    for (const value of invalidPrincipals) {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(value))));
+      expect(await auth.refresh()).toBeNull();
+      expect(auth.principal()).toBeNull();
+    }
+  });
+
+  it('aceita vínculos explícitos e não infere o cadastro a partir do e-mail', async () => {
+    const auth = TestBed.inject(LocalAuthService);
+    for (const value of [
+      principal,
+      {
+        ...principal,
+        perfis: ['residente'],
+        residenteId: '00000000-0000-0000-0000-000000000002',
+      },
+      {
+        ...principal,
+        supervisorId: '00000000-0000-0000-0000-000000000003',
+      },
+    ]) {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(value))));
+      expect(await auth.refresh()).toEqual(value);
+    }
   });
 
   it('encerra a sessão com CSRF e limpa o principal após resposta bem-sucedida', async () => {
