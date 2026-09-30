@@ -85,4 +85,4 @@ por registro, CSRF, versões, limites de duração, expiração exata, concorrê
 retorno atrasado, ausência justificada e rollback de auditoria em PostgreSQL.
 No navegador: recarga, cancelamento sem gravação, erros, vazio, foco/teclado,
 320 px, acessibilidade e separação da demonstração. O QA final registrará as
-execuções efetivas e a prova após reinício.
+execuções efetivas e a prova após reinício, disponíveis no [QA](QA.md).
