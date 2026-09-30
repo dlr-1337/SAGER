@@ -20,6 +20,14 @@ O navegador completo ainda não havia sido repetido localmente após as duas
 correções. O CI obrigatório executa a seleção completa na revisão final.
 Jornadas com API interceptada verificam a interface; a prova abaixo usa a API real.
 
+O primeiro CI passou backend, unitários e build, mas marcou 65/66 jornadas:
+o teste offline de responsáveis navegava antes de terminar a entrada explícita
+na demonstração. Essa entrada revalida a sessão de forma assíncrona. O teste
+agora espera a chegada a `/inicio` antes de iniciar a próxima navegação;
+nenhum timeout, retry ou comportamento de autorização foi relaxado.
+O caso dirigido de responsáveis passou após a correção (`playwright test
+e2e/guardians-local.spec.ts:186 --workers=1`, porta local 4380).
+
 ## Prova integrada e reinício
 
 Frontend de produção em `127.0.0.1:4342`, JAR em `127.0.0.1:8080` e PostgreSQL

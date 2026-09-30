@@ -221,6 +221,7 @@ test('erro local não carrega demo; supervisor edita; demonstração funciona of
   await demo.route('**/api/**', (route) => route.abort('failed'));
   await demo.goto('/demonstracao');
   await demo.getByRole('button', { name: /Entrar como gestor/i }).click();
+  await expect(demo).toHaveURL(/\/inicio$/);
   await demo.goto('/responsaveis');
   await expect(demo.getByText('Mariana Ribeiro')).toBeVisible();
   await demo.goto('/responsaveis/g-1');
