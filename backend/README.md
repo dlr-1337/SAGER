@@ -102,6 +102,24 @@ vínculo e podem fazer login local. O vínculo de residente permite somente cami
 próprios implementados, como `/api/v1/minha-saude`; não concede acesso geral à
 gestão ou a outros residentes.
 
+## Operações locais
+
+`/api/v1/chamadas` fornece contexto, listagem, abertura, marcação, fechamento e
+correção motivada. Somente supervisor opera. O conjunto de menores alocados é
+congelado na abertura; ausência justificada exige autorização e partida física
+válidas naquele instante.
+
+`/api/v1/saidas-curtas` fornece elegibilidade, solicitação própria, edição,
+consulta, decisão e movimentos físicos. Residente usa exclusivamente o vínculo
+da conta; supervisor decide, registra partida e confirma retorno. Gestor não
+herda essas permissões. Versão, relógio do servidor e lock do residente protegem
+decisões, sobreposição e um único movimento físico.
+
+O job de expiração preserva histórico e auditoria na mesma transação. A origem
+`SYSTEM_JOB` não pode ser usada por uma requisição HTTP. Em andamento, uma saída
+não expira nem recebe retorno automático. Consulte o
+[contrato](../docs/fase-3/README.md) e o [QA](../docs/fase-3/QA.md).
+
 ## API e uso no navegador
 
 | Rota                       | Contrato                                                                                                                                                                                     |

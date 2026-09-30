@@ -220,6 +220,14 @@ e decisões concorrentes são recusados; atraso e histórico permanecem corretos
 
 **Decisões de entrada:** D03–D09. D13 condiciona a geração de alertas, que fecha na Fase 5.
 
+**Estado em 30/09/2026:** chamada e saída curta persistidas, com decisão,
+partida/retorno físicos, expiração transacional, correções imutáveis e auditoria.
+As rotas autenticadas usam a API; o início local apresenta ações disponíveis,
+sem os indicadores sintéticos da demonstração. O [contrato](fase-3/README.md)
+registra as regras delegadas de janela, idade, alocação, duração e expiração.
+O [QA](fase-3/QA.md) registra os testes e a prova integrada com reinício.
+Alertas disciplinares fecham na Fase 5; esta entrega não registra aceite da AE/TI.
+
 ### Fase 4 — Saída longa, WhatsApp, documento e assinatura
 
 **Cobertura:** E06/E07 na modalidade longa e E09; AC09–AC10, AC25–AC26, AC30 e
