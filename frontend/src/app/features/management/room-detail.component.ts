@@ -1,9 +1,22 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
+import {
+  AllocationApiService,
+  AllocationRecord,
+  allocationErrorMessage,
+} from './allocation-api.service';
 import { HousingMap, RoomRecord } from './housing.models';
 import { ManagementDemoService } from './management-demo.service';
 import { RoomApiError, RoomApiService, roomLoadError } from './room-api.service';
+import { ResidentApiService, ResidentRecord } from './resident-api.service';
 
 @Component({
   selector: 'app-room-detail',
@@ -112,7 +125,11 @@ import { RoomApiError, RoomApiService, roomLoadError } from './room-api.service'
             </div>
             <div>
               <dt>Ocupação</dt>
-              <dd>Ocupação ainda não integrada</dd>
+              <dd>{{ item.occupancy }} {{ item.occupancy === 1 ? 'morador' : 'moradores' }}</dd>
+            </div>
+            <div>
+              <dt>Vagas livres</dt>
+              <dd>{{ item.vacancies === null ? 'Capacidade não definida' : item.vacancies }}</dd>
             </div>
             <div>
               <dt>Última nota de limpeza</dt>
@@ -120,12 +137,50 @@ import { RoomApiError, RoomApiService, roomLoadError } from './room-api.service'
             </div>
           </dl>
         </section>
+        <section class="panel mg-panel" aria-labelledby="local-room-residents-title">
+          <h2 id="local-room-residents-title">Moradores atuais</h2>
+          @if (occupantsLoading()) {
+            <p role="status">Carregando moradores...</p>
+          } @else if (occupantsError()) {
+            <div class="mg-empty mg-empty-inline" role="alert">
+              <h3>Não foi possível carregar moradores</h3>
+              <p>{{ occupantsError() }}</p>
+              <button type="button" class="btn mg-secondary" (click)="loadOccupants()">
+                Tentar novamente
+              </button>
+            </div>
+          } @else if (occupants().length) {
+            <div class="mg-list">
+              @for (allocation of occupants(); track allocation.id) {
+                <article class="mg-row">
+                  <div class="mg-avatar" aria-hidden="true">
+                    {{ occupantName(allocation.residentId).slice(0, 1) }}
+                  </div>
+                  <div class="mg-row-main">
+                    <h3>{{ occupantName(allocation.residentId) }}</h3>
+                    <p>Alocado desde {{ allocationDate(allocation.startedAt) }}</p>
+                  </div>
+                  <a class="mg-row-link" [routerLink]="['/residentes', allocation.residentId]"
+                    >Ver cadastro
+                    <span class="material-symbols-rounded" aria-hidden="true"
+                      >arrow_forward</span
+                    ></a
+                  >
+                </article>
+              }
+            </div>
+          } @else {
+            <div class="mg-empty mg-empty-inline" role="status">
+              <h3>Nenhum morador vinculado</h3>
+              <p>Este quarto não tem alocações ativas.</p>
+            </div>
+          }
+        </section>
         <div class="mg-note">
           <span class="material-symbols-rounded" aria-hidden="true">info</span>
           <p>
-            Use somente registros fictícios no ambiente local de teste. A situação manual não
-            determina moradores ou vagas livres. A alocação de residentes será integrada em outra
-            etapa.
+            Use somente registros fictícios no ambiente local de teste. A situação é manual e
+            independente da ocupação. Capacidade definida limita novas alocações.
           </p>
         </div>
       } @else if (isDemo() && room(); as item) {
@@ -236,6 +291,9 @@ import { RoomApiError, RoomApiService, roomLoadError } from './room-api.service'
 export class RoomDetailComponent {
   readonly demo = inject(ManagementDemoService);
   private readonly api = inject(RoomApiService);
+  private readonly allocationApi = inject(AllocationApiService);
+  private readonly residentApi = inject(ResidentApiService);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly session = inject(DemoSessionService);
   private readonly route = inject(ActivatedRoute);
   readonly id = this.route.snapshot.paramMap.get('id') ?? '';
@@ -247,6 +305,10 @@ export class RoomDetailComponent {
   readonly saved = computed(() => this.route.snapshot.queryParamMap.get('saved') === '1');
   readonly localRoom = signal<RoomRecord | null>(null);
   readonly localMap = signal<HousingMap>({ accommodations: [], units: [], rooms: [] });
+  readonly occupants = signal<AllocationRecord[]>([]);
+  readonly occupantResidents = signal<ResidentRecord[]>([]);
+  readonly occupantsLoading = signal(false);
+  readonly occupantsError = signal('');
   readonly loading = signal(false);
   readonly loadError = signal('');
   readonly missing = signal(false);
@@ -276,6 +338,7 @@ export class RoomDetailComponent {
       if (!item) throw new RoomApiError(404);
       this.localRoom.set(item);
       this.localMap.set(map);
+      if (!this.destroyRef.destroyed) void this.loadOccupants();
     } catch (error) {
       this.localRoom.set(null);
       this.missing.set(error instanceof RoomApiError && error.status === 404);
@@ -284,5 +347,41 @@ export class RoomDetailComponent {
     } finally {
       this.loading.set(false);
     }
+  }
+
+  async loadOccupants(): Promise<void> {
+    if (this.isDemo() || !this.canView()) return;
+    this.occupantsLoading.set(true);
+    this.occupantsError.set('');
+    try {
+      const [allocations, residents] = await Promise.all([
+        this.allocationApi.activeInRoom(this.id),
+        this.residentApi.list(),
+      ]);
+      if (this.destroyRef.destroyed) return;
+      this.occupants.set(allocations);
+      this.occupantResidents.set(residents);
+    } catch (error) {
+      if (this.destroyRef.destroyed) return;
+      this.occupants.set([]);
+      this.occupantResidents.set([]);
+      this.occupantsError.set(allocationErrorMessage(error));
+    } finally {
+      if (!this.destroyRef.destroyed) this.occupantsLoading.set(false);
+    }
+  }
+
+  occupantName(residentId: string): string {
+    return (
+      this.occupantResidents().find((item) => item.id === residentId)?.name ??
+      'Residente não encontrado'
+    );
+  }
+
+  allocationDate(value: string): string {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? 'Data não informada'
+      : new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(date);
   }
 }

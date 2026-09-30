@@ -114,7 +114,7 @@ sensíveis.
    opcional. Distinguir código globalmente único de número local textual único na mesma
    localização; manter capacidade editável, positiva ou ausente, e situação manual.
    Integrar o mapa por alojamento/unidade/piso, com legenda e atualização após gravação.
-   Implementar vínculos de ocupação em uma fatia posterior, após as regras de alocação.
+   Integrar vínculos de ocupação com as regras provisórias da quinta fatia.
 4. Trocar os serviços demonstrativos de gestão por serviços de API; garantir que operações
    posteriores usem os mesmos IDs e vínculos. Testar validações, unicidade, concorrência e
    acesso a registros de outros residentes.
@@ -141,14 +141,17 @@ vários registros por estudante, com nome, vínculo declarado, telefone opcional
 e estado ativo. Gestor local grava; gestor e supervisor consultam. O vínculo
 aparece no detalhe do residente; autorização, prioridade, comprovação legal e
 destinatário de saída longa continuam pendentes na D15.
-Sem alocação e avaliações integradas, ocupação, vagas livres e nota de limpeza
-continuam desconhecidas, não zero; somatórios de capacidade incompletos devem
-ser identificados como parciais.
+A quinta fatia integra alocação, transferência e encerramento locais, com um
+quarto ativo por residente, histórico persistido, limite pela capacidade
+definida e bloqueio de novas entradas em Manutenção ou Indisponível. Ocupação
+passa a ser calculada por vínculos ativos; vagas livres continuam desconhecidas
+onde a capacidade não foi definida, e somatórios incompletos são parciais.
+A situação do quarto permanece manual e a nota de limpeza sem avaliação.
 Os anexos recebidos servem como referência privada, com divergências de estrutura
 e capacidade registradas na [D19](fase-0/DECISOES.md), sem carga de estudantes reais.
-Alocação e operações continuam demonstrativas. D01/D02/D15/D19/D22 e a
-homologação institucional permanecem pendentes. O aceite técnico de cada fatia
-não encerra a Fase 2.
+As demais operações continuam demonstrativas. Reservas, exceções de lotação,
+correção de histórico, D01/D02/D15/D19/D22 e a homologação institucional
+permanecem pendentes. O aceite técnico de cada fatia não encerra a Fase 2.
 
 ### Fase 3 — Chamada, saída curta, decisão e retorno
 

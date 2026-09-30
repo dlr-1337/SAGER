@@ -243,5 +243,75 @@ confirma que não ocorre gravação indevida.
 
 **Limites:** prioridade, identidade e comprovação legal, autorização, telefone
 válido para envio e assinatura dependem da D15/D16 e de aceite da AE/TI.
-Alocação, permissões institucionais, dados de saúde e homologação da Fase 2
-continuam pendentes. Nenhum dado pessoal real ou credencial foi incluído no Git.
+Naquela fatia, alocação, permissões institucionais, dados de saúde e
+homologação da Fase 2 permaneciam pendentes. Nenhum dado pessoal real ou
+credencial foi incluído no Git.
+
+## Quinta fatia — alocação local, transferência e encerramento
+
+**Data:** 29/09/2026. **Escopo:** vínculo persistido de residente com quarto,
+histórico e contagem de ocupação no perfil `local`. O resultado é **aceite
+técnico para desenvolvimento** conforme a regra provisória autorizada pelo
+solicitante; não é aprovação institucional da AE/TI.
+
+| Verificação | Comando ou cenário | Resultado |
+| --- | --- | --- |
+| Migração | `AllocationMigrationIntegrationTest` em PostgreSQL 17.11/Testcontainers | V9 aplicada em banco vazio e sobre V1–V8, preservando residentes, quartos e responsáveis. Índice impede dois vínculos ativos do mesmo residente; restrição exige motivo válido quando o vínculo termina. **2/2** testes passaram após corrigir o caso de motivo `NULL`. |
+| API e segurança | `AllocationApiIntegrationTest` e `RoomApiIntegrationTest` em PostgreSQL | Criação, transferência e encerramento; contagem e vagas no mapa; capacidade definida, lotação, manutenção, versão obsoleta, permissões de gestor/supervisor, anônimo, CSRF, conta desativada e concorrência por uma vaga. |
+| Backend completo | `backend/`: `./mvnw.cmd -B -ntp verify` com JDK 21 | **60/60 testes** e JAR aprovados. A correção posterior da restrição V9 recebeu execução focada da migração, **2/2**. |
+| Angular | `frontend/`: `npm test -- --watch=false` e `npm run build` | **96/96 testes** e build de produção aprovados. |
+| Jornadas focadas | `npx playwright test e2e/allocations-local.spec.ts --workers=1` e demais testes focados de quartos/residentes | **14/14** passaram, incluindo alocar, transferir, encerrar, recarga, conflito em duas abas, supervisor sem escrita, demonstração separada, Axe e celular. |
+| Navegador completo | `frontend/`: `$env:SAGER_E2E_PORT='4332'; npx playwright test --grep-invert 'captura telas centrais' --workers=1 --reporter=line` | **52/52** jornadas passaram na repetição isolada. A captura global foi excluída porque sobrescreve imagens de referência rastreadas. |
+| Revisão visual | Impeccable `detect --json`, capturas e viewport 390 × 844 | Detector retornou `[]`; mapa e histórico sem transbordamento horizontal na prova integrada, sem falhas de acessibilidade nas jornadas focadas. |
+
+### Prova integrada sem API simulada
+
+Um PostgreSQL descartável foi publicado só em `127.0.0.1:15437`, o backend em
+`127.0.0.1:8080` e o Angular em `127.0.0.1:4333`. Uma conta gestora,
+um estudante, um alojamento e dois quartos sintéticos foram criados para a
+prova. Pelo Chromium, o gestor entrou e alocou o estudante no quarto P1:
+ocupação e vagas foram `1/0` em P1 e `0/1` em P2. A transferência para P2
+produziu `0/1` em P1 e `1/0` em P2, com motivo `TRANSFER` no histórico.
+O encerramento produziu `0/1` nos dois quartos e motivo `END`. API e mapa
+concordaram a cada etapa. Depois de reiniciar o backend, a mesma sessão abriu
+o residente, os dois vínculos históricos e o mapa com as contagens preservadas.
+
+O contêiner, o volume e os processos descartáveis foram encerrados. As
+capturas [desktop após transferência](../../.impeccable/reviews/pr-alocacoes-after-desktop.png)
+e [celular após encerramento](../../.impeccable/reviews/pr-alocacoes-after-mobile.png)
+mostram somente dados sintéticos. A revisão automática bloqueou a exclusão do
+script e dos arquivos temporários da prova na pasta Temp local; eles não estão
+no Git.
+
+A revisão de código encontrou uma brecha no `CHECK` da V9: PostgreSQL aceita
+o resultado lógico desconhecido de `NULL IN (...)`. A restrição agora exige
+`end_reason IS NOT NULL` ao encerrar; um teste cobre a falha. A tela de edição
+também passou a explicar o conflito quando a nova capacidade fica abaixo da
+ocupação ativa.
+
+Na primeira execução da suíte completa, um seletor antigo encontrava o nome
+da responsável tanto no título quanto no detalhe. A jornada agora espera a
+rota da lista e seleciona o título. Duas falhas de geração de trace ocorreram
+porque execuções Playwright paralelas compartilhavam `test-results`; a suíte
+foi repetida sem concorrência e passou integralmente.
+
+**Limites:** a situação Disponível/Ocupado continua manual. Capacidade ausente
+bloqueia novas entradas e deixa vagas livres desconhecidas. Reservas, exceções
+de lotação, correção de histórico, capacidades oficiais e permissões
+institucionais dependem da D19/D01 e da AE/TI. Esta entrega não homologa a
+Fase 2.
+
+### Revisão final do PR #5 — 29/09/2026
+
+O rótulo da alocação agora inclui código global e piso, permitindo distinguir
+quartos de mesmo número em pisos diferentes na seleção, no vínculo atual e no
+histórico. O teste reproduziu primeiro o rótulo ambíguo e passou após a correção.
+A verificação final executou `./mvnw.cmd -B -ntp verify` (**60/60**, após iniciar
+o Docker que estava parado), `npm test -- --watch=false` (**97/97**) e
+`npm run build` (aprovado). Impeccable `detect --json` retornou `[]`.
+
+Na suíte completa de navegador, 51/52 passaram e uma navegação foi cancelada
+por recarga do Vite durante uma edição concorrente de fonte. A execução
+posterior, com os arquivos estáveis, de `e2e/allocations-local.spec.ts` e
+`e2e/supervisors-local.spec.ts:31` passou **4/4**. O CI deve executar as
+jornadas sem edições concorrentes e sem recarga automática do servidor.

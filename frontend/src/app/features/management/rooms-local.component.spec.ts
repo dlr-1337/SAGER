@@ -3,9 +3,11 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DemoScenario, DemoSessionService, Role } from '../../core/demo-session.service';
+import { AllocationApiService } from './allocation-api.service';
 import { HousingMap, RoomRecord } from './housing.models';
 import { ManagementDemoService } from './management-demo.service';
 import { RoomApiError, RoomApiService } from './room-api.service';
+import { ResidentApiService } from './resident-api.service';
 import { RoomDetailComponent } from './room-detail.component';
 import { RoomFormComponent } from './room-form.component';
 import { RoomsComponent } from './rooms.component';
@@ -19,7 +21,7 @@ const room: RoomRecord = {
   floor: null,
   capacity: null,
   situation: 'Disponível',
-  occupancy: null,
+  occupancy: 0,
   vacancies: null,
   cleaningScore: null,
   version: 0,
@@ -39,7 +41,15 @@ const map: HousingMap = {
   ],
   rooms: [
     room,
-    { ...room, id: 'quarto-2', code: 'TESTE-Q02', number: '02', capacity: 4, unitId: null },
+    {
+      ...room,
+      id: 'quarto-2',
+      code: 'TESTE-Q02',
+      number: '02',
+      capacity: 4,
+      vacancies: 4,
+      unitId: null,
+    },
   ],
 };
 
@@ -55,6 +65,8 @@ describe('Quartos em sessão local', () => {
     get: ReturnType<typeof vi.fn>;
     save: ReturnType<typeof vi.fn>;
   };
+  let allocationApi: { activeInRoom: ReturnType<typeof vi.fn> };
+  let residentApi: { list: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     active.set(false);
@@ -67,12 +79,16 @@ describe('Quartos em sessão local', () => {
       get: vi.fn().mockResolvedValue(structuredClone(room)),
       save: vi.fn().mockResolvedValue(structuredClone(room)),
     };
+    allocationApi = { activeInRoom: vi.fn().mockResolvedValue([]) };
+    residentApi = { list: vi.fn().mockResolvedValue([]) };
     await TestBed.configureTestingModule({
       imports: [RoomsComponent, RoomFormComponent, RoomDetailComponent],
       providers: [
         provideRouter([]),
         { provide: ActivatedRoute, useValue: route },
         { provide: RoomApiService, useValue: api },
+        { provide: AllocationApiService, useValue: allocationApi },
+        { provide: ResidentApiService, useValue: residentApi },
         {
           provide: DemoSessionService,
           useValue: {
@@ -94,12 +110,18 @@ describe('Quartos em sessão local', () => {
     const text = fixture.nativeElement.textContent;
     expect(text).toContain('soma parcial; 1 quarto sem capacidade');
     expect(text).toContain('Capacidade não definida');
-    expect(text).toContain('Ocupação ainda não integrada');
+    expect(text).toContain('0 moradores');
+    expect(text).toContain('4 vagas livres');
     expect(text).toContain('Sem avaliação');
     expect(text).not.toContain('Bloco A');
     expect(fixture.componentInstance.groups()).toHaveLength(2);
     fixture.componentInstance.filters.controls.unitId.setValue('unidade-1');
     expect(fixture.componentInstance.filteredRooms().map((item) => item.id)).toEqual(['quarto-1']);
+    fixture.componentInstance.filters.controls.occupancy.setValue('with-vacancies');
+    expect(fixture.componentInstance.filteredRooms()).toHaveLength(0);
+    fixture.componentInstance.clearFilters();
+    fixture.componentInstance.filters.controls.occupancy.setValue('with-vacancies');
+    expect(fixture.componentInstance.filteredRooms().map((item) => item.id)).toEqual(['quarto-2']);
   });
 
   it('falha de backend nunca preenche o mapa com registros demonstrativos', async () => {
@@ -135,9 +157,46 @@ describe('Quartos em sessão local', () => {
     expect(residents).not.toHaveBeenCalled();
   });
 
+  it('detalhe local mostra moradores vinculados pela API', async () => {
+    route.snapshot.paramMap = convertToParamMap({ id: room.id });
+    const residentId = '00000000-0000-0000-0000-000000000041';
+    allocationApi.activeInRoom.mockResolvedValue([
+      {
+        id: 'alocacao-1',
+        residentId,
+        roomId: room.id,
+        startedAt: '2026-09-29T12:00:00Z',
+        endedAt: null,
+        endReason: null,
+        version: 0,
+      },
+    ]);
+    residentApi.list.mockResolvedValue([
+      {
+        id: residentId,
+        name: 'Morador Sintético',
+        enrollment: 'TESTE-01',
+        birthDate: null,
+        course: null,
+        version: 0,
+      },
+    ]);
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Morador Sintético');
+    expect(allocationApi.activeInRoom).toHaveBeenCalledWith(room.id);
+  });
+
   it('detalhe e edição usam o quarto e a unidade do mesmo mapa, incluindo a versão', async () => {
     route.snapshot.paramMap = convertToParamMap({ id: room.id });
-    const movedRoom: RoomRecord = { ...room, unitId: 'unidade-2', capacity: 6, version: 1 };
+    const movedRoom: RoomRecord = {
+      ...room,
+      unitId: 'unidade-2',
+      capacity: 6,
+      vacancies: 6,
+      version: 1,
+    };
     api.map.mockResolvedValue({
       ...structuredClone(map),
       units: [
@@ -234,7 +293,7 @@ describe('Quartos em sessão local', () => {
     expect(fixture.componentInstance.localRoom()?.version).toBe(0);
     api.map.mockResolvedValue({
       ...structuredClone(map),
-      rooms: [{ ...room, version: 1, capacity: 6 }],
+      rooms: [{ ...room, version: 1, capacity: 6, vacancies: 6 }],
     });
     await fixture.componentInstance.reloadLatest();
     expect(fixture.componentInstance.localForm.controls.capacity.value).toBe(6);
@@ -275,6 +334,17 @@ describe('Quartos em sessão local', () => {
     await fixture.componentInstance.save();
     expect(fixture.componentInstance.error()).toContain(message);
     expect(fixture.componentInstance.conflict()).toBe(false);
+    expect(TestBed.inject(Router).navigate).not.toHaveBeenCalled();
+  });
+
+  it('não declara sucesso ao reduzir capacidade abaixo da ocupação ativa', async () => {
+    route.snapshot.paramMap = convertToParamMap({ id: room.id });
+    const fixture = TestBed.createComponent(RoomFormComponent);
+    await fixture.whenStable();
+    api.save.mockRejectedValue(new RoomApiError(409, 'capacity_below_occupancy'));
+    fixture.componentInstance.localForm.controls.capacity.setValue(1);
+    await fixture.componentInstance.save();
+    expect(fixture.componentInstance.error()).toContain('moradores ativos');
     expect(TestBed.inject(Router).navigate).not.toHaveBeenCalled();
   });
 

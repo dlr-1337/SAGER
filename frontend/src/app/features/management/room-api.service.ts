@@ -51,8 +51,13 @@ function isRoom(value: unknown): value is RoomRecord {
     (item.floor === null || typeof item.floor === 'string') &&
     (item.capacity === null || (Number.isInteger(item.capacity) && (item.capacity ?? 0) > 0)) &&
     situations.includes(item.situation as RoomSituation) &&
-    item.occupancy === null &&
-    item.vacancies === null &&
+    Number.isInteger(item.occupancy) &&
+    (item.occupancy ?? -1) >= 0 &&
+    (item.vacancies === null ||
+      (Number.isInteger(item.vacancies) && (item.vacancies ?? -1) >= 0)) &&
+    (item.capacity === null
+      ? item.vacancies === null
+      : item.vacancies === Math.max(0, Number(item.capacity) - Number(item.occupancy))) &&
     item.cleaningScore === null &&
     Number.isInteger(item.version) &&
     (item.version ?? -1) >= 0

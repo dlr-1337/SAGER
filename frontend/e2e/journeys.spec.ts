@@ -205,7 +205,8 @@ test('gestor cadastra e edita responsável e consulta detalhe do supervisor', as
   await page.getByRole('button', { name: /Salvar responsável/ }).click();
   await expect(page.getByText('62999990012')).toBeVisible();
   await page.getByRole('link', { name: 'Responsáveis', exact: true }).first().click();
-  await expect(page.getByText('Carla Ribeiro')).toBeVisible();
+  await expect(page).toHaveURL(/\/responsaveis$/);
+  await expect(page.getByRole('heading', { name: 'Carla Ribeiro' })).toBeVisible();
   await page.getByRole('link', { name: 'Supervisores', exact: true }).first().click();
   await page
     .getByRole('link', { name: /Ver detalhes/ })

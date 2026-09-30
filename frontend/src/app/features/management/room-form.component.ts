@@ -283,8 +283,8 @@ const positiveInteger: ValidatorFn = (control) =>
             <div class="mg-note">
               <span class="material-symbols-rounded" aria-hidden="true">info</span>
               <p>
-                A situação é manual. Alterar a capacidade não informa ocupação nem vagas livres; a
-                alocação de moradores ainda não está integrada.
+                A situação é manual e independente da ocupação. A capacidade limita novas alocações
+                e não pode ser reduzida abaixo do número de moradores ativos.
               </p>
             </div>
             @if (error()) {
@@ -528,6 +528,10 @@ export class RoomFormComponent {
       )
         this.error.set(
           'Já existe um quarto com este número na mesma localização. Confira o alojamento, a casa ou bloco e o piso.',
+        );
+      else if (error instanceof RoomApiError && error.code === 'capacity_below_occupancy')
+        this.error.set(
+          'Este quarto tem moradores ativos. Mantenha a capacidade igual ou acima da ocupação antes de salvar.',
         );
       else if (error instanceof RoomApiError && error.code === 'invalid_location')
         this.error.set('A localização foi recusada. Confira o alojamento e a casa ou bloco.');

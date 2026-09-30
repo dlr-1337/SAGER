@@ -143,7 +143,44 @@ Prioridade, autorização, comprovação do vínculo, destinatário e assinatura
 continuam pendentes na [D15](../fase-0/DECISOES.md) e na D16. Nenhum envio ou
 decisão de saída longa é ativado por esta fatia.
 
-### Referências recebidas e divergências abertas
+## Quinta fatia: alocação local e histórico de quartos
+
+A migração V9 guarda cada vínculo entre residente e quarto, com início,
+encerramento, motivo do encerramento (`TRANSFER` ou `END`) e versão. O banco
+impede mais de um vínculo ativo para o mesmo residente. Alocar, transferir e
+encerrar preservam as linhas históricas; não há exclusão nesta fatia.
+
+`GET /api/v1/alocacoes?residentId={id}` consulta o histórico do residente;
+`GET /api/v1/alocacoes?roomId={id}&active=true` consulta ocupantes atuais,
+`active=false` consulta vínculos encerrados e a ausência do filtro traz ambos.
+`GET /api/v1/alocacoes/{id}` consulta um vínculo específico.
+`POST /api/v1/alocacoes` cria um vínculo com `residentId` e `roomId`;
+`POST /api/v1/alocacoes/{id}/transferir` recebe `roomId` de destino e
+`version`; `POST /api/v1/alocacoes/{id}/encerrar` recebe `version`. A
+transferência encerra o vínculo anterior e cria o novo na mesma transação.
+Gestor e supervisor locais consultam; somente gestor movimenta residentes.
+Sessão, CSRF, versão e bloqueio fora de `local` continuam obrigatórios.
+Entrada inválida, referência ausente, conflito de versão, lotação e situação
+indisponível têm respostas distintas; a edição de quarto retorna conflito se
+a nova capacidade não comportar os vínculos ativos.
+
+Esta é uma **regra técnica provisória de desenvolvimento**, autorizada em
+29/09/2026: cada residente ocupa no máximo um quarto ativo. Uma nova entrada
+exige capacidade definida e vaga, e é recusada em Manutenção ou Indisponível.
+Uma edição não pode reduzir a capacidade abaixo da ocupação ativa nem apagá-la
+enquanto houver ocupantes. A situação Disponível/Ocupado continua manual,
+independente da contagem. Ocupação é o número de vínculos ativos, inclusive
+zero; vagas livres são `capacidade - ocupação` somente quando a capacidade é
+conhecida. Nota de limpeza permanece sem avaliação. O acesso local mostra
+quarto atual, histórico e ocupantes; a demonstração conserva os dados próprios
+em memória e não substitui uma resposta com falha da API.
+
+Reservas, exceções para dados históricos divergentes, correção de vínculos,
+capacidades oficiais e transições automáticas continuam pendentes da
+[D19](../fase-0/DECISOES.md) e da AE. O aceite técnico desta fatia não
+homologa a Fase 2.
+
+## Referências recebidas e divergências abertas
 
 Em 29/09/2026 foram recebidos o PDF
 `Controle de Vagas das Residências Estudantis 2026.xlsx - Vagas Residências Est. 2026.pdf`
@@ -180,8 +217,8 @@ sensíveis devem ficar restritos a profissionais de saúde, com sigilo próprio 
 cada profissão. São orientações preliminares, ainda sem matriz de permissões
 aprovada. A matrícula é usada no SUAP, mas sua origem e validação no SAGER
 continuam indefinidas. Os anexos de alojamentos recebidos em 29/09/2026 permitem
-desenvolver a estrutura acima, mas não definem regras de alocação, vínculos de
-responsáveis ou acesso sensível. Esses pontos seguem abertos no
+desenvolver a estrutura acima, mas não validam a regra provisória de alocação,
+vínculos de responsáveis ou acesso sensível. Esses pontos seguem abertos no
 [registro de decisões](../fase-0/DECISOES.md).
 
 Até lá, não se deve inferir matrícula do login local, conceder acesso médico,
@@ -193,5 +230,5 @@ permissões e concorrência.
 Também continuam abertas entregas da Fase 1: erros padronizados para toda a API,
 OpenAPI, auditoria, observabilidade e pipeline de CI. Os cadastros persistidos
 recebem apenas aceite técnico local; comprovação e autorização institucional dos
-responsáveis, alocação, permissões institucionais e dados médicos impedem a
-homologação da Fase 2.
+responsáveis, regras institucionais de alocação, permissões institucionais e
+dados médicos impedem a homologação da Fase 2.

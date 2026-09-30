@@ -22,8 +22,8 @@ export interface RoomRecord {
   floor: string | null;
   capacity: number | null;
   situation: RoomSituation;
-  occupancy: null;
-  vacancies: null;
+  occupancy: number;
+  vacancies: number | null;
   cleaningScore: null;
   version: number;
 }

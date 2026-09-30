@@ -19,6 +19,8 @@ interface MapRoom {
   floor: string | null;
   situation: RoomSituation;
   capacity: number | null;
+  occupancy: number | null;
+  vacancies: number | null;
   occupancyLabel: string;
   cleaningLabel: string;
 }
@@ -116,6 +118,18 @@ interface RoomGroup {
                 }
               </select></label
             >
+            @if (!isDemo()) {
+              <label class="field mg-field"
+                >Ocupação<select formControlName="occupancy">
+                  <option value="">Todas as ocupações</option>
+                  <option value="with-residents">Com moradores</option>
+                  <option value="empty">Sem moradores</option>
+                  <option value="with-vacancies">Com vagas</option>
+                  <option value="full">Lotados</option>
+                  <option value="unknown">Capacidade não definida</option>
+                </select></label
+              >
+            }
           </form>
         </section>
         <div class="mg-legend" aria-label="Legenda do mapa de quartos">
@@ -195,7 +209,7 @@ interface RoomGroup {
           } @else if (groups().length) {
             @if (!isDemo()) {
               <p class="mg-muted" aria-live="polite">
-                {{ capacitySummary() }} · Ocupação ainda não integrada
+                {{ capacitySummary() }} · {{ occupancySummary() }}
               </p>
             }
             @for (group of groups(); track group.key) {
@@ -261,7 +275,7 @@ interface RoomGroup {
             {{
               isDemo()
                 ? 'Estes registros são demonstrativos. A situação do quarto é registrada separadamente da quantidade de moradores.'
-                : 'Use somente dados fictícios no ambiente local de teste. A situação é manual e não informa moradores ou vagas livres. Capacidades em revisão podem permanecer não definidas.'
+                : 'Use somente dados fictícios no ambiente local de teste. A ocupação vem dos vínculos ativos; a situação do quarto é manual e independente. Capacidades em revisão podem permanecer não definidas.'
             }}
           </p>
         </div>
@@ -294,6 +308,7 @@ export class RoomsComponent {
     unitId: new FormControl('', { nonNullable: true }),
     floor: new FormControl('', { nonNullable: true }),
     situation: new FormControl('', { nonNullable: true }),
+    occupancy: new FormControl('', { nonNullable: true }),
   });
   private readonly criteria = toSignal(this.filters.valueChanges, {
     initialValue: this.filters.getRawValue(),
@@ -315,6 +330,8 @@ export class RoomsComponent {
         unitId: null,
         unitName: null,
         capacity: null,
+        occupancy: null,
+        vacancies: null,
         occupancyLabel: this.demo.occupancyLabel(item.id),
         cleaningLabel:
           item.cleaningScore === null
@@ -327,7 +344,7 @@ export class RoomsComponent {
       accommodationName:
         map.accommodations.find((value) => value.id === item.accommodationId)?.name ?? '',
       unitName: map.units.find((value) => value.id === item.unitId)?.name ?? null,
-      occupancyLabel: 'Ocupação ainda não integrada',
+      occupancyLabel: `${item.occupancy} ${item.occupancy === 1 ? 'morador' : 'moradores'}${item.vacancies === null ? ' · vagas não definidas' : ` · ${item.vacancies} ${item.vacancies === 1 ? 'vaga livre' : 'vagas livres'}`}`,
       cleaningLabel: 'Sem avaliação',
     }));
   });
@@ -344,14 +361,21 @@ export class RoomsComponent {
     ].sort((a, b) => floorPosition(a) - floorPosition(b) || a.localeCompare(b)),
   );
   readonly filteredRooms = computed(() => {
-    const { block, accommodationId, unitId, floor, situation } = this.criteria();
+    const { block, accommodationId, unitId, floor, situation, occupancy } = this.criteria();
     return this.rooms().filter(
       (room) =>
         (!this.isDemo() || !block || room.accommodationId === block) &&
         (this.isDemo() || !accommodationId || room.accommodationId === accommodationId) &&
         (this.isDemo() || !unitId || room.unitId === unitId) &&
         (!floor || room.floor === floor) &&
-        (!situation || room.situation === situation),
+        (!situation || room.situation === situation) &&
+        (this.isDemo() ||
+          !occupancy ||
+          (occupancy === 'with-residents' && (room.occupancy ?? 0) > 0) ||
+          (occupancy === 'empty' && room.occupancy === 0) ||
+          (occupancy === 'with-vacancies' && room.vacancies !== null && room.vacancies > 0) ||
+          (occupancy === 'full' && room.capacity !== null && room.vacancies === 0) ||
+          (occupancy === 'unknown' && room.capacity === null)),
     );
   });
   readonly groups = computed<RoomGroup[]>(() => {
@@ -383,6 +407,13 @@ export class RoomsComponent {
     const sum = known.reduce((total, room) => total + (room.capacity ?? 0), 0);
     const missing = rooms.length - known.length;
     return `Capacidade cadastrada: ${sum} ${sum === 1 ? 'vaga' : 'vagas'}${missing ? ` (soma parcial; ${missing} ${missing === 1 ? 'quarto sem capacidade' : 'quartos sem capacidade'})` : ''}`;
+  });
+  readonly occupancySummary = computed(() => {
+    const rooms = this.filteredRooms();
+    const people = rooms.reduce((total, room) => total + (room.occupancy ?? 0), 0);
+    const known = rooms.filter((room) => room.vacancies !== null);
+    const vacancies = known.reduce((total, room) => total + (room.vacancies ?? 0), 0);
+    return `${people} ${people === 1 ? 'morador' : 'moradores'} · ${vacancies} ${vacancies === 1 ? 'vaga livre' : 'vagas livres'}${known.length < rooms.length ? ' (soma parcial)' : ''}`;
   });
 
   constructor() {
@@ -417,7 +448,14 @@ export class RoomsComponent {
     return `Quarto ${room.number}, ${room.code ? `código ${room.code}, ` : ''}${room.accommodationName}${room.unitName ? `, ${room.unitName}` : ''}, ${room.floor ?? 'piso não informado'}, ${room.situation}, ${!this.isDemo() ? `${this.capacityLabel(room.capacity)}, ` : ''}${room.occupancyLabel}, ${room.cleaningLabel}`;
   }
   clearFilters(): void {
-    this.filters.reset({ block: '', accommodationId: '', unitId: '', floor: '', situation: '' });
+    this.filters.reset({
+      block: '',
+      accommodationId: '',
+      unitId: '',
+      floor: '',
+      situation: '',
+      occupancy: '',
+    });
   }
   restoreScenario(): void {
     this.session.setScenario('padrao');
