@@ -123,7 +123,7 @@ import {
             @for (term of terms(); track term.id) {
               <article class="op-row">
                 <div class="op-row-main">
-                  <h3>{{ term.status === 'VIGENTE' ? 'Termo vigente' : 'Termo anulado' }}</h3>
+                  <h3>{{ term.status === 'EMITIDO' ? 'Termo vigente' : 'Termo anulado' }}</h3>
                   <p>{{ formatTime(term.issuedAt) }} · {{ term.warningIds.length }} advertências</p>
                   <p>{{ term.decision }}</p>
                 </div>
@@ -371,7 +371,7 @@ export class RecurrenceLocalPage {
         as term
       ) {
         <section class="panel op-panel">
-          <h2>{{ term.status === 'VIGENTE' ? 'Termo vigente' : 'Termo anulado' }}</h2>
+          <h2>{{ term.status === 'EMITIDO' ? 'Termo vigente' : 'Termo anulado' }}</h2>
           <p class="comm-message">{{ term.decision }}</p>
           <h3>Advertências que formaram a base</h3>
           <ul class="comm-basis">
@@ -404,7 +404,7 @@ export class RecurrenceLocalPage {
             >
               {{ downloading() ? 'Preparando PDF…' : 'Baixar PDF original' }}
             </button>
-            @if (term.status === 'VIGENTE') {
+            @if (term.status === 'EMITIDO') {
               <button
                 class="btn-secondary"
                 type="button"
@@ -490,7 +490,7 @@ export class TermDetailLocalPage implements OnDestroy {
   }
   annul(): void {
     const item = this.item();
-    if (!item || item.status !== 'VIGENTE' || this.busy() || this.conflict()) return;
+    if (!item || item.status !== 'EMITIDO' || this.busy() || this.conflict()) return;
     this.dialogs
       .open<CommunicationReviewDialogComponent, CommunicationReviewData, CommunicationReviewResult>(
         CommunicationReviewDialogComponent,

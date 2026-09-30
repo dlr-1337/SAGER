@@ -5,7 +5,7 @@ import {
   CommunicationsLocalApiService,
   communicationsError,
 } from './communications-local-api.service';
-import { OwnCommunication } from './communications-local.models';
+import { DisciplineTerm, OwnCommunication } from './communications-local.models';
 
 const id = '00000000-0000-0000-0000-000000000901';
 const sourceId = '00000000-0000-0000-0000-000000000902';
@@ -26,6 +26,30 @@ const item: OwnCommunication = {
 };
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status });
 describe('Contrato privado de disciplina e comunicações', () => {
+  it('aceita termo EMITIDO do contrato real e recusa alias de situação de advertência', async () => {
+    const term: DisciplineTerm = {
+      id,
+      residentId: sourceId,
+      residentName: 'Estudante Sintético',
+      warningIds: [id, sourceId],
+      decision: 'A base foi conferida antes da decisão.',
+      status: 'EMITIDO',
+      issuedAt: '2026-09-30T16:00:00Z',
+      issuedBy: id,
+      communicationId: sourceId,
+      document: { id: sourceId, sha256: 'a'.repeat(64), size: 987, state: 'STORED' },
+      version: 0,
+      annulmentReason: null,
+    };
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(json(term))
+      .mockResolvedValueOnce(json({ ...term, status: 'VIGENTE' }));
+    vi.stubGlobal('fetch', fetch);
+    const api = TestBed.inject(CommunicationsLocalApiService);
+    expect(await api.term(id)).toEqual(term);
+    await expect(api.term(id)).rejects.toThrow('inválidos');
+  });
   afterEach(() => vi.unstubAllGlobals());
   it('consulta própria com sessão e sem criar evidência, filtros por nome ou escrita', async () => {
     const fetch = vi.fn().mockResolvedValue(json(item));

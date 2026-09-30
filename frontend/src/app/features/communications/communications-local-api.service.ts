@@ -137,7 +137,7 @@ const term: Guard<DisciplineTerm> = (value): value is DisciplineTerm =>
   strings(value, ['residentName', 'decision']) &&
   Array.isArray(value['warningIds']) &&
   value['warningIds'].every(uuid) &&
-  ['VIGENTE', 'ANULADO'].includes(String(value['status'])) &&
+  ['EMITIDO', 'ANULADO'].includes(String(value['status'])) &&
   instant(value['issuedAt']) &&
   document(value['document']) &&
   numbered(value['version']) &&
