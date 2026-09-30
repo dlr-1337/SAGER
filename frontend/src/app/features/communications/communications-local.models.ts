@@ -107,7 +107,7 @@ export interface DisciplineTerm {
   residentName: string;
   warningIds: string[];
   decision: string;
-  status: 'VIGENTE' | 'ANULADO';
+  status: 'EMITIDO' | 'ANULADO';
   issuedAt: string;
   issuedBy: string;
   communicationId: string;

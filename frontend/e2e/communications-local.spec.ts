@@ -309,7 +309,7 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
         residentName: resident.name,
         warningIds: body.warningIds,
         decision: body.decision,
-        status: 'VIGENTE',
+        status: 'EMITIDO',
         issuedAt: now,
         issuedBy: actorId,
         communicationId: uuid(703),
