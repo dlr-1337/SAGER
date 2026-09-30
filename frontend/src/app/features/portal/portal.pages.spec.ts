@@ -6,6 +6,36 @@ import { OperationsDemoService } from '../operations/operations-demo.service';
 import { HomePage, ProfilePage } from './portal.pages';
 
 describe('HomePage', () => {
+  it('na conta local usa atividades autorizadas sem contagens demonstrativas', async () => {
+    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    const session = TestBed.inject(DemoSessionService);
+    const auth = TestBed.inject(LocalAuthService);
+    session.deactivate();
+    auth.principal.set({
+      id: '00000000-0000-0000-0000-000000000001',
+      nome: 'Supervisora Sintética',
+      email: 'supervisor@example.test',
+      fotoUrl: null,
+      perfis: ['supervisor'],
+      residenteId: null,
+      supervisorId: null,
+    });
+    const fixture = TestBed.createComponent(HomePage);
+    await fixture.whenStable();
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.textContent).toContain('Supervisora Sintética');
+    expect(element.querySelector('a[href="/chamada"]')).not.toBeNull();
+    expect(element.querySelector('a[href="/saidas"]')).not.toBeNull();
+    expect(element.textContent).not.toContain('Cenário de demonstração');
+    expect(element.textContent).not.toContain('Dados fictícios');
+    expect(element.textContent).not.toContain('22h30');
+    auth.principal.set({ ...auth.principal()!, perfis: ['residente'] });
+    await fixture.whenStable();
+    expect(element.querySelector('a[href="/chamada"]')).toBeNull();
+    expect(element.querySelector('a[href="/residentes"]')).toBeNull();
+    expect(element.querySelector('a[href="/minha-saude"]')).not.toBeNull();
+  });
+
   it('apresenta a jornada de saúde sem ações pessoais de residente', async () => {
     TestBed.configureTestingModule({ providers: [provideRouter([])] });
     TestBed.inject(DemoSessionService).deactivate();

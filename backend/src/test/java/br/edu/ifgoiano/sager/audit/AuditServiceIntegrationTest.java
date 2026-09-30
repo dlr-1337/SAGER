@@ -61,6 +61,46 @@ class AuditServiceIntegrationTest {
     }
 
     @Test
+    void internalTaskRecordsItsCorrelationWithNoFabricatedHumanActor() {
+        UUID resource = UUID.randomUUID();
+        UUID correlation = UUID.randomUUID();
+        transaction().executeWithoutResult(status -> audit.recordSystem(correlation,
+                AuditResource.SHORT_EXIT, resource, AuditAction.UPDATE, 1, Set.of("status", "expiryReason")));
+        Map<String, Object> event = jdbc.queryForMap("SELECT * FROM sager_audit_event WHERE resource_id = ?", resource);
+        assertThat(event).containsEntry("request_id", correlation).containsEntry("origin", "SYSTEM_JOB")
+                .containsEntry("actor_id", null).containsEntry("actor_profile", null);
+    }
+
+    @Test
+    void systemAuditRejectsHttpContextAndMissingCorrelation() {
+        UUID resource = UUID.randomUUID();
+        assertThatThrownBy(() -> transaction().executeWithoutResult(status -> audit.recordSystem(null,
+                AuditResource.SHORT_EXIT, resource, AuditAction.UPDATE, 1, Set.of("status"))))
+                .isInstanceOf(IllegalStateException.class);
+        authenticatedRequest(UUID.randomUUID(), UUID.randomUUID());
+        assertThatThrownBy(() -> transaction().executeWithoutResult(status -> audit.recordSystem(UUID.randomUUID(),
+                AuditResource.SHORT_EXIT, resource, AuditAction.UPDATE, 1, Set.of("status"))))
+                .isInstanceOf(IllegalStateException.class);
+        assertNoWrites(resource);
+    }
+
+    @Test
+    void internalTaskRequiresDomainTransactionAndRollsBackItsEvent() {
+        UUID resource = UUID.randomUUID();
+        UUID correlation = UUID.randomUUID();
+        assertThatThrownBy(() -> audit.recordSystem(correlation, AuditResource.SHORT_EXIT, resource,
+                AuditAction.UPDATE, 1, Set.of("status")))
+                .isInstanceOf(IllegalTransactionStateException.class);
+        assertThatThrownBy(() -> transaction().executeWithoutResult(status -> {
+            supervisor(resource);
+            audit.recordSystem(correlation, AuditResource.SHORT_EXIT, resource,
+                    AuditAction.UPDATE, 1, Set.of("status"));
+            throw new IllegalStateException("synthetic batch failure");
+        })).isInstanceOf(IllegalStateException.class);
+        assertNoWrites(resource);
+    }
+
+    @Test
     void recordUsesAuthenticatedPrincipalAndRequestMetadataWithOnlyAllowedFieldNames() {
         UUID actor = UUID.randomUUID();
         UUID request = UUID.randomUUID();

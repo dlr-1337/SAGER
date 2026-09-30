@@ -131,6 +131,40 @@ class ApiFoundationIntegrationTest {
     }
 
     @Test
+    void operationsContractDescribesStrictBodiesAndServerTimeRules() throws Exception {
+        account("supervisor");
+        try (HttpClient client = browser()) {
+            login(client, "supervisor@example.test", PASSWORD, csrf(client));
+            HttpResponse<String> response = get(client, "/api/v1/openapi");
+            assertThat(response.statusCode()).isEqualTo(200);
+            JsonNode document = json.readTree(response.body());
+            for (String path : new String[] { "/api/v1/chamadas", "/api/v1/chamadas/contexto",
+                    "/api/v1/chamadas/{id}", "/api/v1/chamadas/{id}/registros/{residentId}",
+                    "/api/v1/chamadas/{id}/correcoes/{residentId}", "/api/v1/chamadas/{id}/fechamento",
+                    "/api/v1/saidas-curtas", "/api/v1/saidas-curtas/elegibilidade",
+                    "/api/v1/saidas-curtas/{id}", "/api/v1/saidas-curtas/{id}/decisao",
+                    "/api/v1/saidas-curtas/{id}/cancelamento", "/api/v1/saidas-curtas/{id}/partida",
+                    "/api/v1/saidas-curtas/{id}/retorno" }) {
+                assertThat(document.path("paths").has(path)).as(path).isTrue();
+            }
+            JsonNode schemas = document.path("components").path("schemas");
+            JsonNode plan = schemas.path("ShortExitCreateRequest");
+            assertThat(plan.path("properties").has("residentId")).isFalse();
+            assertThat(plan.path("additionalProperties").asBoolean()).isFalse();
+            assertThat(plan.path("properties").path("departureMode").path("enum").toString())
+                    .contains("NOW", "SCHEDULED");
+            assertThat(plan.path("properties").path("reason").path("maxLength").asInt()).isEqualTo(2000);
+            assertThat(schemas.path("NightCallCorrectionRequest").path("properties")
+                    .path("justification").path("minLength").asInt()).isEqualTo(10);
+            JsonNode version = schemas.path("ShortExitReturnRequest").path("properties").path("version");
+            assertThat(version.path("type").asText()).isEqualTo("integer");
+            assertThat(version.path("maximum").asLong()).isEqualTo(Long.MAX_VALUE - 1);
+            assertThat(document.path("paths").path("/api/v1/saidas-curtas/{id}/partida").path("post")
+                    .path("description").asText()).contains("America/Sao_Paulo", "10 caracteres");
+        }
+    }
+
+    @Test
     void openApiIncludesActualHealthPathsAndStrictDistinctRequestSchemas() throws Exception {
         account("gestor");
         try (HttpClient client = browser()) {
