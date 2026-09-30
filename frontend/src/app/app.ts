@@ -105,6 +105,19 @@ export class App implements OnDestroy {
     const role = this.session.role();
     const items = navByRole[role];
     if (this.session.active()) return items;
+    const localItems =
+      role === 'residente'
+        ? items.map((item) =>
+            item.path === '/avisos' ? { ...item, label: 'Minhas comunicações' } : item,
+          )
+        : items;
+    const communicationItems: NavItem[] =
+      role === 'supervisor'
+        ? [
+            { label: 'Advertências', path: '/advertencias', icon: 'assignment' },
+            { label: 'Avisos institucionais', path: '/comunicacoes/avisos', icon: 'campaign' },
+          ]
+        : [];
     const healthItems: NavItem[] =
       role === 'gestor' || role === 'supervisor'
         ? [
@@ -114,7 +127,12 @@ export class App implements OnDestroy {
         : role === 'residente'
           ? [{ label: 'Minha saúde', path: '/minha-saude', icon: 'health_and_safety' }]
           : [];
-    return [...items.slice(0, -1), ...healthItems, items[items.length - 1]];
+    return [
+      ...localItems.slice(0, -1),
+      ...communicationItems,
+      ...healthItems,
+      localItems[localItems.length - 1],
+    ];
   });
   private previousBodyOverflow: string | null = null;
   private previousHtmlOverflow: string | null = null;
