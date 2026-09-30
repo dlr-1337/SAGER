@@ -73,7 +73,7 @@ import {
             </p>
             <p class="op-help">
               Saídas curtas duram até 3 horas. A partida e o retorno são confirmados presencialmente
-              pelo supervisor. Saídas longas ainda estão indisponíveis no ambiente local.
+              pelo supervisor. Para períodos maiores, solicite uma saída longa.
             </p>
             <label class="field"
               >Quando deseja sair?<select formControlName="departureMode" (change)="modeChanged()">
