@@ -9,15 +9,33 @@ public enum AuditResource {
     ACCOMMODATION(Set.of("code", "name")),
     ACCOMMODATION_UNIT(Set.of("accommodationId", "code", "name")),
     ROOM(Set.of("code", "number", "accommodationId", "unitId", "floor", "capacity", "situation")),
-    ALLOCATION(Set.of("residentId", "roomId", "startedAt", "endedAt", "endReason"));
+    ALLOCATION(Set.of("residentId", "roomId", "startedAt", "endedAt", "endReason")),
+    HEALTH_GRANT(Set.of("accountId", "profession", "registrationNumber", "registrationRegion",
+            "verificationReason", "endedAt", "endReason")),
+    CARE_ASSIGNMENT(Set.of("residentId", "professionalGrantId", "reason", "endedAt", "endReason")),
+    HEALTH_CUSTODY(Set.of("residentId", "sourceAuthorAccountId", "recipientGrantId", "reason",
+            "endedAt", "endReason")),
+    HEALTH_NOTE(Set.of("residentId", "category", "body", "relatedNoteId", "reason"), true),
+    HEALTH_SHARE(Set.of("noteId", "recipientGrantId", "recipientCareAssignmentId", "endedAt"), true),
+    HEALTH_EXPORT(Set.of("notes", "versions"), true);
 
     private final Set<String> fields;
+    private final boolean protectedHealthContent;
 
     AuditResource(Set<String> fields) {
+        this(fields, false);
+    }
+
+    AuditResource(Set<String> fields, boolean protectedHealthContent) {
         this.fields = fields;
+        this.protectedHealthContent = protectedHealthContent;
     }
 
     public Set<String> fields() {
         return fields;
+    }
+
+    public boolean protectedHealthContent() {
+        return protectedHealthContent;
     }
 }

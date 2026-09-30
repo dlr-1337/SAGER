@@ -267,9 +267,10 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
               <div>
                 <h2 id="medical-title">Informações médicas restritas</h2>
                 <p>
-                  Dados sensíveis ainda não estão integrados. O acesso depende das regras
-                  profissionais e de definição institucional.
+                  As notas assistenciais têm habilitação, vínculo e partilha próprios. O perfil de
+                  gestão não concede acesso ao conteúdo.
                 </p>
+                <a [routerLink]="['/saude/residentes', item.id]">Consultar área de saúde</a>
               </div>
             </section>
           } @else if (tab() === 'responsaveis') {

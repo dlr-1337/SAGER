@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Profile("local")
 public class LocalAccountProvisioningService {
-    private static final Set<String> PROFILES = Set.of("gestor", "supervisor", "residente");
+    private static final Set<String> PROFILES = Set.of("gestor", "supervisor", "residente", "saude");
 
     private final LocalAccountRepository accounts;
     private final PasswordEncoder passwords;
@@ -32,7 +32,7 @@ public class LocalAccountProvisioningService {
         String normalizedEmail = normalizeEmail(email);
         String normalizedName = requireName(name);
         if (!PROFILES.contains(profile)) {
-            throw new IllegalArgumentException("Perfil deve ser gestor, supervisor ou residente.");
+            throw new IllegalArgumentException("Perfil deve ser gestor, supervisor, residente ou saude.");
         }
         String hash = hashAndClear(password);
         try {

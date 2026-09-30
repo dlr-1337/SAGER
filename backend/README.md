@@ -56,7 +56,10 @@ O modo de provisionamento não inicia Tomcat e encerra ao terminar a operação.
 java -jar .\target\sager-backend-0.1.0-SNAPSHOT.jar --spring.profiles.active=local --sager-account=create --email=pessoa@exemplo.invalid --name='Pessoa de Teste' --profile=residente
 ```
 
-`--profile` aceita `gestor`, `supervisor` ou `residente`. Não informe a senha em
+`--profile` aceita `gestor`, `supervisor`, `residente` ou `saude`. O perfil `saude`
+permite entrar na conta, mas exige habilitação profissional e vínculo assistencial
+administrados pela API antes de acessar conteúdo. A CLI não cria essas permissões.
+Não informe a senha em
 argumentos nem use nomes/e-mails reais nesta prova. Para redefinir a senha ou
 desativar a conta, sem criar outra identidade:
 
@@ -95,8 +98,9 @@ Alterar ou remover um vínculo revoga as sessões da conta. Repetir o mesmo vín
 é uma operação sem alteração e preserva as sessões. A cada requisição, o servidor
 confere se a conta permanece ativa e se perfil e vínculo correspondem à sessão;
 uma sessão com vínculo antigo é recusada. Contas anteriores à V12 permanecem sem
-vínculo e podem fazer login local. O vínculo ainda não concede acesso às futuras
-operações por registro do residente.
+vínculo e podem fazer login local. O vínculo de residente permite somente caminhos
+próprios implementados, como `/api/v1/minha-saude`; não concede acesso geral à
+gestão ou a outros residentes.
 
 ## API e uso no navegador
 
@@ -133,6 +137,24 @@ da aplicação correlacionam eventos pelo `requestId`, sem registrar payloads,
 credenciais ou valores pessoais dos cadastros. O
 [contrato da fundação](../docs/fase-1/FUNDACAO.md) detalha essa implementação e
 seus limites de operação local.
+
+## Saúde com permissões separadas
+
+A V13 acrescenta habilitações profissionais, vínculos assistenciais e custódia
+administrados por gestor/supervisor. Esses perfis não recebem conteúdo de saúde
+pela autoridade de gestão. Uma conta habilitada em Medicina, Enfermagem ou
+Psicologia só acessa residentes assistidos e notas compatíveis de autoria própria,
+partilha explícita ou custódia vigente. A revogação vale na requisição seguinte,
+incluindo sessões já abertas. A renovação gera outro episódio e não recupera
+partilhas antigas.
+
+O paciente com conta vinculada lê e exporta seu próprio conjunto em
+`/api/v1/minha-saude`. Não há acesso automático do responsável legal. Notas e
+revisões são imutáveis; correções acrescentam uma versão com justificativa.
+Leituras de conteúdo e exportações só retornam após registrar auditoria na mesma
+transação. Esses eventos protegidos não aparecem no GET global da auditoria.
+O [contrato de saúde](../docs/fase-2/SAUDE_CONTRATO.md) detalha categorias, rotas,
+validação, exportação JSON, retenção e limites da implementação local.
 
 ## Cadastros persistidos da Fase 2
 

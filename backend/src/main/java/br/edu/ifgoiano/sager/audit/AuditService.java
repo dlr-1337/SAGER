@@ -38,6 +38,9 @@ public class AuditService {
     @Transactional(readOnly = true)
     public AuditPage list(UUID resourceId, UUID actorId, UUID requestId, AuditResource resource,
             int limit, Long beforeSequence) {
+        if (resource != null && resource.protectedHealthContent()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Recurso fora desta consulta de auditoria.");
+        }
         if (limit < 1 || limit > 100 || (beforeSequence != null && beforeSequence <= 0)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Informe limite entre 1 e 100 e cursor positivo.");

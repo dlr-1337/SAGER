@@ -10,4 +10,4 @@ springdoc:
     path: /api/v1/openapi
     version: OPENAPI_3_0
   paths-to-match: /api/v1/**
-  packages-to-scan: br.edu.ifgoiano.sager.auth,br.edu.ifgoiano.sager.management,br.edu.ifgoiano.sager.audit
+  packages-to-scan: br.edu.ifgoiano.sager.auth,br.edu.ifgoiano.sager.management,br.edu.ifgoiano.sager.audit,br.edu.ifgoiano.sager.health

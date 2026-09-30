@@ -73,6 +73,12 @@ const navByRole: Record<Role, NavItem[]> = {
     { label: 'Meu perfil', path: '/perfil', icon: 'person' },
     { label: 'Ajuda', path: '/ajuda', icon: 'help' },
   ],
+  saude: [
+    ...commonItems,
+    { label: 'Saúde', path: '/saude', icon: 'health_and_safety' },
+    { label: 'Meu perfil', path: '/perfil', icon: 'person' },
+    { label: 'Ajuda', path: '/ajuda', icon: 'help' },
+  ],
 };
 
 @Component({
@@ -90,11 +96,26 @@ export class App implements OnDestroy {
   private readonly document = inject(DOCUMENT);
   private readonly breakpointObserver = inject(BreakpointObserver);
   readonly publicPage = signal(false);
+  readonly healthAccessPage = signal(false);
   readonly exitError = signal('');
   readonly isMobile = signal(false);
   readonly menuOpen = signal(false);
   readonly drawerActive = computed(() => this.isMobile() && this.menuOpen());
-  readonly navItems = computed(() => navByRole[this.session.role()]);
+  readonly navItems = computed(() => {
+    const role = this.session.role();
+    const items = navByRole[role];
+    if (this.session.active()) return items;
+    const healthItems: NavItem[] =
+      role === 'gestor' || role === 'supervisor'
+        ? [
+            { label: 'Saúde', path: '/saude', icon: 'health_and_safety' },
+            { label: 'Acessos de saúde', path: '/saude/acessos', icon: 'admin_panel_settings' },
+          ]
+        : role === 'residente'
+          ? [{ label: 'Minha saúde', path: '/minha-saude', icon: 'health_and_safety' }]
+          : [];
+    return [...items.slice(0, -1), ...healthItems, items[items.length - 1]];
+  });
   private previousBodyOverflow: string | null = null;
   private previousHtmlOverflow: string | null = null;
   private focusContentAfterNavigation = false;
@@ -226,6 +247,7 @@ export class App implements OnDestroy {
       route = route.firstChild;
     }
     const path = this.router.url.split('?')[0];
+    this.healthAccessPage.set(path === '/saude/acessos');
     this.publicPage.set(isPublic || /^\/(acesso|demonstracao|ajuda|assinatura)(\/|$)/.test(path));
   }
 }

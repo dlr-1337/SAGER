@@ -119,7 +119,7 @@ public class LocalAccountProvisioningRunner implements ApplicationRunner, ExitCo
     private static void printHelp() {
         System.out.println("""
                 Comandos administrativos de contas locais (somente perfil local):
-                  --sager-account=create --email=... --name=... --profile=gestor|supervisor|residente
+                  --sager-account=create --email=... --name=... --profile=gestor|supervisor|residente|saude
                   --sager-account=reset --email=...
                   --sager-account=disable --email=...
                   --sager-account=link-resident --email=... --resident-id=UUID
@@ -129,6 +129,7 @@ public class LocalAccountProvisioningRunner implements ApplicationRunner, ExitCo
                 Create e reset solicitam a senha no terminal; nao use senha em argumentos.
                 Vínculos exigem conta ativa e registro existente. Nao criam credenciais nem alteram perfil.
                 Residente exige perfil residente; supervisor admite perfil gestor ou supervisor.
+                Perfil saude nao concede habilitacao assistencial nem vinculo a residente/supervisor.
                 Unlink exige o UUID do vinculo atual e admite conta inativa sem reativa-la.
                 Alterar ou remover um vinculo encerra as sessoes existentes da conta.
                 """);
