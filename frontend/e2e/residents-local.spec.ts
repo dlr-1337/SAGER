@@ -260,6 +260,7 @@ test('erro local não carrega demo, supervisor edita e demonstração funciona o
   await demo.route('**/api/**', (route) => route.abort('failed'));
   await demo.goto('/demonstracao');
   await demo.getByRole('button', { name: /Entrar como gestor/i }).click();
+  await expect(demo).toHaveURL(/\/inicio$/);
   await demo.goto('/residentes');
   await expect(demo.getByText('Ana Luísa Ribeiro')).toBeVisible();
   await demo.close();
@@ -294,6 +295,7 @@ test('responsável demonstrativo não aparece no acesso local e segue na demonst
   await demo.route('**/api/**', (route) => route.abort('failed'));
   await demo.goto('/demonstracao');
   await demo.getByRole('button', { name: /Entrar como gestor/i }).click();
+  await expect(demo).toHaveURL(/\/inicio$/);
   await demo.goto('/responsaveis/g-1');
   await expect(demo.getByRole('link', { name: 'Ana Luísa Ribeiro' })).toHaveAttribute(
     'href',
