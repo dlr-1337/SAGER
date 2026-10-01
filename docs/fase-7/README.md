@@ -10,6 +10,8 @@ operador institucional.
 - [Manual por perfil](MANUAL.md): acesso, tarefas, correções e suporte.
 - [Operação e recuperação](../../infra/production/README.md): instalação,
   atualização, segredos externos, HTTPS e backup criptografado.
+- [Homologação no Coolify](COOLIFY.md): instância implantada, verificações públicas,
+  comandos operacionais e pendências.
 - [Roteiro de homologação](HOMOLOGACAO.md): oito fluxos e critérios de uso.
 - [QA](QA.md): comandos, resultados medidos, capturas e limites da evidência.
 
