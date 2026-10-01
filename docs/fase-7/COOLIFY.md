@@ -1,7 +1,8 @@
 # Homologação no Coolify
 
-Estado observado em 30/09/2026, no horário de Brasília. Os horários técnicos
-abaixo são registrados em UTC. Esta instância usa somente dados fictícios e
+Implantação e verificações realizadas na noite de 30/09/2026, com registro
+concluído em 01/10/2026, no horário de Brasília. Os horários técnicos abaixo
+são registrados em UTC. Esta instância usa somente dados fictícios e
 contas próprias do SAGER. Ela serve para verificação técnica; não representa
 aceite institucional nem liberação para dados reais.
 
@@ -60,8 +61,8 @@ desabilitados. A demonstração também está desabilitada em `production`.
 Uma checagem externa com validação TLS estrita retornou `PASS` para o endereço
 acima, sem exceções de certificado. O certificado Let's Encrypt cobre
 `sager.otavio.win` e vence em **30/12/2026 às 00:42:53 UTC**. A tela pública
-mostrou o formulário de login de produção; isso não comprova autenticação de
-uma conta, ainda não provisionada nesta instância.
+mostrou o formulário de login de produção. A conta inicial e sua autenticação
+foram verificadas separadamente, conforme a seção abaixo.
 
 | Verificação                      | Resultado observado                                                                  |
 | -------------------------------- | ------------------------------------------------------------------------------------ |
@@ -72,9 +73,37 @@ uma conta, ainda não provisionada nesta instância.
 | Rotas privadas de infraestrutura | Actuator, readiness e `.env` não expostos; demonstração pública retorna HTTP 404     |
 | Cabeçalhos falsificados de proxy | Requisição pública aceita com HTTP 200 após reconstrução dos cabeçalhos pelo gateway |
 
-A verificação pública é um retrato do instante do teste. Acesso ao formulário e
-healthchecks não comprovam login real, persistência após reimplantação ou
-recuperação de dados.
+A verificação pública é um retrato do instante do teste. As evidências de
+autenticação, persistência e recuperação estão registradas nas seções abaixo.
+
+## Conta inicial e autenticação real
+
+A conta **`gestor@sager.otavio.win`**, perfil `gestor`, foi provisionada pelo
+comando administrativo do SAGER via SSH, com o perfil de execução `production`.
+A senha foi gerada criptograficamente e informada ao console oculto, sem
+argumentos, variável de ambiente ou impressão em log. Ela foi guardada somente
+no computador do operador, fora do repositório, em arquivo com ACL restrita ao
+usuário local. O comando confirmou `Conta local criada` e ausência de eco da
+senha.
+
+Uma sessão real na API pública, com validação TLS estrita, passou em dez
+verificações às **02:45:04 UTC**. Os mesmos testes passaram novamente às
+**02:48:58 UTC**, depois de recriar os três containers:
+
+| Verificação                           | Resultado observado                                                |
+| ------------------------------------- | ------------------------------------------------------------------ |
+| Login e identidade do servidor        | HTTP 204; `/api/v1/auth/me` HTTP 200 com a conta e perfil `gestor` |
+| Fixação de sessão                     | Identificador da sessão alterado após login                        |
+| Gestão com CSRF válido                | Alojamento fictício `QA-HOST` criado com HTTP 201 e lido com 200   |
+| Mutação autenticada sem CSRF          | HTTP 403; nenhum segundo registro criado                           |
+| Operações exclusivas de supervisor    | Consulta de chamadas recusada com HTTP 403                         |
+| Conteúdo assistencial sem habilitação | Consulta de residentes da saúde recusada com HTTP 403              |
+| Logout e encerramento do acesso       | HTTP 204; identidade e consulta de gestão retornaram HTTP 401      |
+
+A validação usou a API e o PostgreSQL reais da VPS. O banco contém uma conta,
+um alojamento claramente fictício e seu evento de auditoria; nenhum residente,
+quarto ou documento foi criado. A interface pública foi observada no Chrome;
+estes resultados de autenticação foram obtidos pela API HTTPS.
 
 ## Imagens e verificação na VPS
 
@@ -110,7 +139,7 @@ O banco inicialmente não continha contas, alojamentos, quartos, residentes,
 documentos ou eventos de auditoria. Sessões anônimas criadas pelas verificações
 públicas não são contas de usuário.
 
-## Reimplantação e backup inicial
+## Reimplantação, persistência e recuperação
 
 A implantação manual `i69yvcgdzgvzoweruer8axfo` repetiu o SHA `75fe265`,
 entre 02:03:20 e 02:05:19 UTC. O Coolify recriou os três containers, preservando
@@ -123,10 +152,29 @@ contagens. Os hashes canônicos de origem permanecem:
 - Schema: `977061c5c8b9191578f2441cf46dfbb345473ec932ea3da145b42901d859a5b5`.
 - Auditoria: `4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945`.
 
-Essa conferência verifica o banco inicial sem contas ou registros de domínio.
-A persistência de registros de negócio e login/logout com gestor ainda dependem
-da criação da primeira conta. HTTPS, assets, cookies, CSRF e bloqueios públicos
-passaram novamente depois da reimplantação.
+Essa primeira conferência verificou o banco inicial sem contas ou registros de
+domínio. HTTPS, assets, cookies, CSRF e bloqueios públicos passaram novamente
+depois da reimplantação.
+
+### Recriação com dados fictícios
+
+Depois de provisionar a conta e cadastrar `QA-HOST`, os três containers foram
+parados e removidos sem remover volumes. O wrapper do checkout implantado foi
+executado novamente e terminou às **02:48:30 UTC**. Os três IDs de container
+mudaram; os três volumes físicos permaneceram iguais; banco, backend e gateway
+ficaram saudáveis. Flyway validou as 19 migrações e não encontrou migração nova.
+
+A inspeção às **02:48:55 UTC** passou em 17 verificações operacionais. Todas as
+dez comparações com o estado anterior coincidiram: schema V19 e seu hash, conta,
+alojamento, auditoria, sequência e hash da auditoria, além das contagens de
+residentes, quartos e documentos. O hash do schema permaneceu
+`977061c5c8b9191578f2441cf46dfbb345473ec932ea3da145b42901d859a5b5`.
+A auditoria contém um evento, sequência 1, hash
+`b16d327d22ff112755680d7536b0751e68b615126ac16c93b567fb90538db277`.
+O novo login reconheceu a mesma conta e leu o mesmo UUID, nome, código e versão
+do alojamento. O logout continuou encerrando o acesso.
+
+### Backup inicial e restauração
 
 O backup manual `/srv/sager/homologacao/backups/bootstrap.age` foi criado antes
 dessa reimplantação, com schema V19, sequência de auditoria 0 e nenhum documento.
@@ -160,12 +208,49 @@ O bootstrap contém **zero contas e zero documentos**: este ensaio comprova a
 recuperação do banco inicial, sem comprovar dados de negócio populados ou login
 após recuperação. Não reutilizar volumes físicos da homologação.
 
+### Backup atualizado com conta e registro fictício
+
+Depois da conferência de persistência, foi criado um segundo backup manual:
+`/srv/sager/homologacao/backups/homologacao.age`. A cópia local fica em
+`C:/Users/otavi/.codex/sager-homologacao-recovery/homologacao.age`. O SHA256 dos
+dois arquivos coincidiu:
+`50573493d196ee6ed6e7e368ac5a81cbc1f17c7c78260d09bbf6f5f51f803d6c`.
+O arquivo criptografado contém **uma conta ativa de gestor, um alojamento
+fictício `QA-HOST` e um evento de auditoria**, com schema V19.
+
+A criação do arquivo levou **4,76 s**. O backend foi pausado às
+**02:57:02 UTC** e voltou saudável às **02:58:04 UTC**, com os mesmos IDs dos
+containers e os mesmos dados. A identidade privada age permaneceu somente no
+computador do operador.
+
+A restauração foi executada no projeto local exclusivo
+`sager-restore-8406043e1732c392bef4a30f`, com volumes físicos de banco e documentos
+diferentes dos volumes da homologação. O utilitário retornou
+`isolated_restore_verified` em **6,14 s**; restauração e validações levaram
+**10,39 s**. As nove comparações de dados e auditoria coincidiram com o ponto
+congelado da origem. As três sessões antigas foram expurgadas.
+
+O hash da credencial restaurada coincidiu com o da conta de origem. Essa
+comparação foi feita somente em memória; o relatório registrou
+`credentialHashMatches=true`, sem publicar hash de credencial, senha ou cookie.
+Os 1.152 metadados do schema restaurado coincidiram com os metadados da prova
+anterior. A equivalência canônica V19 foi reutilizada, com os mesmos hashes
+brutos de origem e destino já documentados.
+
+O projeto, containers, redes, volumes e arquivos temporários do ensaio foram
+removidos. `bootstrap.age`, `homologacao.age`, a identidade privada e a
+credencial local foram preservados. Backend e gateway do destino restaurado
+permaneceram parados: não houve teste HTTP/login nesse destino. Não havia
+documentos permanentes para testar, e a criptografia do armazenamento local
+não foi verificada. A autenticação HTTP real foi conferida na VPS, conforme
+a seção de conta inicial.
+
 ## Operação e evidências pendentes
 
 | Etapa                                                             | Estado nesta instância                                     |
 | ----------------------------------------------------------------- | ---------------------------------------------------------- |
-| Login de gestor e autorização com conta real                      | Pendente: conta inicial ainda não criada                   |
-| Backup criptografado e restauração isolada da instância Coolify   | Concluída para o bootstrap vazio, conforme seção acima     |
+| Login de gestor, autorização e persistência após recriação        | Concluída com a conta e alojamento fictício da seção acima |
+| Backup criptografado e restauração isolada da instância Coolify   | Concluída com uma conta, um alojamento e sua auditoria     |
 | Conferência dos IDs de imagens, quotas, isolamento e role runtime | Concluída na VPS, conforme seção acima                     |
 | Piloto na VPS, disponibilidade e aceite AE/TI                     | Pendente conforme [roteiro de homologação](HOMOLOGACAO.md) |
 
@@ -201,7 +286,7 @@ python3 "$SAGER_CHECKOUT/infra/production/recovery.py" \
   --env-file "$SAGER_CHECKOUT/.env" --project-name sager-homologacao \
   --work-dir /srv/sager/homologacao/private-work create \
   --recipient "$SAGER_AGE_RECIPIENT" \
-  --output /srv/sager/homologacao/backups/bootstrap.age
+  --output "/srv/sager/homologacao/backups/homologacao-$(date -u +%Y%m%dT%H%M%SZ).age"
 ```
 
 Copie apenas o arquivo criptografado para o posto do operador e restaure em um
