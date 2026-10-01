@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 import zipfile
 
 UUID_NAME = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+PROJECT_NAME = re.compile(r"[a-z0-9][a-z0-9_-]*")
 DB_COMMAND = 'export PGPASSWORD="$(cat /run/secrets/db_owner_password)"; exec '
 
 
@@ -73,8 +74,15 @@ def documents_from_tar(path, destination=None):
 
 class Stack:
     def __init__(self, args):
+        project_name = getattr(args, "project_name", None)
+        if project_name is not None and (not isinstance(project_name, str)
+                                         or not PROJECT_NAME.fullmatch(project_name)):
+            raise RecoveryError("Compose project names require a lowercase letter or digit first, "
+                                "followed only by lowercase letters, digits, hyphens or underscores.")
         self.command = ["docker", "compose", "--env-file", str(Path(args.env_file).resolve()),
                         "-f", str(Path(args.compose).resolve())]
+        if project_name is not None:
+            self.command.extend(["--project-name", project_name])
         self.config = json.loads(run(self.command + ["config", "--format", "json"]))
         self.name = self.config["name"]
         if not self.name or "database" not in self.config["services"]:
@@ -261,6 +269,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--compose", default=str(Path(__file__).with_name("compose.yml")))
     parser.add_argument("--env-file", required=True)
+    parser.add_argument("--project-name",
+                        help="Override the Compose project name for every recovery command")
     parser.add_argument("--work-dir", help="Private encrypted temporary filesystem; required operationally for real data")
     actions = parser.add_subparsers(dest="action", required=True)
     backup = actions.add_parser("create")

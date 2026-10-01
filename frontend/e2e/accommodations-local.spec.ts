@@ -172,6 +172,7 @@ test('alojamentos são utilizáveis na demonstração offline e acessíveis em d
   await page.route('**/api/**', (route) => route.abort('failed'));
   await page.goto('/demonstracao');
   await page.getByRole('button', { name: /Entrar como gestor/i }).click();
+  await expect(page).toHaveURL(/\/inicio$/);
   await page.goto('/alojamentos/novo');
   for (const viewport of [
     { width: 1440, height: 900 },
