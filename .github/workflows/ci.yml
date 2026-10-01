@@ -117,12 +117,16 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
       - name: Verify shell syntax
-        run: bash -n infra/production/smoke.sh infra/production/initialize-runtime.sh infra/production/start-gateway.sh
+        run: bash -n infra/production/smoke.sh infra/production/initialize-runtime.sh infra/production/start-gateway.sh infra/coolify/start.sh infra/coolify/start-gateway.sh
       - name: Recovery unit tests
         run: python3 -B -m unittest discover -s infra/production -p 'test_recovery.py' -v
+      - name: Coolify startup and gateway tests
+        run: python3 -B -m unittest discover -s infra/coolify -p 'test_*.py' -v
       - name: Verify Docker Compose
         run: |
           docker info > /dev/null
           docker compose version
       - name: Build and smoke synthetic production stack
         run: bash infra/production/smoke.sh --build
+      - name: Build and smoke synthetic Coolify stack
+        run: python3 -B infra/coolify/smoke.py --build
