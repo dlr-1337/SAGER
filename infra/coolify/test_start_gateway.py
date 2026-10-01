@@ -47,6 +47,9 @@ class StartupTests(unittest.TestCase):
             raise unittest.SkipTest("Docker daemon unavailable")
         cls.temp = tempfile.TemporaryDirectory(prefix="sager-coolify-start-")
         folder = Path(cls.temp.name)
+        # The bind mount is read by nginx uid 101; mkdtemp is 0700 on Linux.
+        # This directory contains only synthetic test executables, never secrets.
+        folder.chmod(0o755)
         (folder / "nslookup").write_text("#!/bin/sh\n[ \"$1\" = coolify-proxy ] && [ \"$2\" = 127.0.0.11 ] || exit 9\nprintf '%s\\n' \"$DNS_RESULT\"\nexit \"${DNS_EXIT_CODE:-0}\"\n", newline="\n")
         (folder / "nginx").write_text("#!/bin/sh\nif [ \"$1\" = -t ]; then if [ \"${REAL_NGINX_TEST:-0}\" = 1 ]; then exec /usr/sbin/nginx \"$@\"; fi; exit 0; fi\ncat \"$SAGER_COOLIFY_REALIP_FILE\" \"$SAGER_COOLIFY_PEERS_FILE\"\nwhile [ $# -gt 0 ]; do if [ \"$1\" = -c ]; then shift; cat \"$1\"; break; fi; shift; done\n", newline="\n")
         for file in folder.iterdir():
@@ -98,6 +101,7 @@ class StartupTests(unittest.TestCase):
                 result = self.start(["172.20.0.2", address])
                 self.assertEqual(result.returncode, 2, result.stderr)
                 self.assertEqual(result.stdout, "")
+                self.assertIn("valid unicast proxy IP addresses", result.stderr)
 
     def test_hostname_validation_precedes_dns_or_render(self):
         for host in ["", "sager.example.test;", "-sager.test", "sager..test", "sager.test.", "sager.example.test\nother.example.test", "127.0.0.1", "a" * 64 + ".test"]:
