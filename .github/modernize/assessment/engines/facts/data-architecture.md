@@ -267,20 +267,21 @@ erDiagram
     }
 ~~~
 
-### Local account cardinality and exclusivity
+### Cardinalidade e exclusividade das contas locais
 
-`sager_local_account.resident_id` and `sager_local_account.supervisor_id` are
-nullable foreign keys with separate `UNIQUE` constraints, as defined in
-`V12__local_account_links.sql`. Therefore, each resident can have zero or one
-linked local account, and each supervisor can have zero or one linked local
-account. A local account may be unlinked, or linked to exactly one resident or
-one supervisor.
+`sager_local_account.resident_id` e `sager_local_account.supervisor_id` são
+chaves estrangeiras opcionais com restrições `UNIQUE` independentes, conforme
+definido na migration `V12__local_account_links.sql`. Portanto, cada residente
+pode ter zero ou uma conta local vinculada, e cada supervisor também pode ter
+zero ou uma conta local vinculada. Uma conta local pode não ter vínculo ou pode
+estar vinculada a exatamente um residente ou a um supervisor.
 
-The `sager_local_account_single_link` check constraint rejects an account that
-has both `resident_id` and `supervisor_id` populated. The additional profile
-checks require resident links to use the `residente` profile and supervisor
-links to use either `gestor` or `supervisor`. These constraints are part of the
-identity boundary and must be preserved in any schema cleanup.
+A constraint `sager_local_account_single_link` rejeita uma conta que tenha
+`resident_id` e `supervisor_id` preenchidos ao mesmo tempo. As constraints
+adicionais de perfil exigem que os vínculos com residentes usem o perfil
+`residente` e que os vínculos com supervisores usem `gestor` ou `supervisor`.
+Essas constraints fazem parte da fronteira de identidade e devem ser
+preservadas em qualquer limpeza do schema.
 
 O acesso é transacional e baseado em JDBC. Não foram encontrados caches de aplicação,
 second-level cache ou repositories JPA; os serviços consultam diretamente suas tabelas
