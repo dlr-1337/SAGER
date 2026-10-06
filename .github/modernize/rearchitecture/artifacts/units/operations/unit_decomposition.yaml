@@ -1,0 +1,7 @@
+unit: operations
+commit: false
+candidate_splits:
+  - id: backend/src/main/java/br/edu/ifgoiano/sager/operations:1
+    drivers: [lifecycle_split, data_ownership_split]
+    rationale: "Night calls, short exits and long exits share actor/time mechanics but have different lifecycles, snapshots and authorization rules."
+    source_slice: {file: backend/src/main/java/br/edu/ifgoiano/sager/operations, lines: [1, 999]}

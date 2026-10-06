@@ -1,0 +1,9 @@
+unit: management
+bindings:
+  - type: route-declaration
+    name: "management REST controllers and Angular lazy routes"
+    source_loc: frontend/src/app/features/management/management.routes.ts:1
+    target: "management pages"
+    must_appear_in_target: true
+    notes: "Portuguese paths and route params are externally observed"
+runtime_config: []

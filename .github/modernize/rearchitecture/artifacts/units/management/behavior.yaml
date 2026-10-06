@@ -1,0 +1,23 @@
+unit: management
+side_effects:
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/management/residents/ResidentService.java:1
+    effect: "writes management resource and audit event in one transaction"
+    must_preserve: true
+branches:
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/management/allocations/AllocationService.java:1
+    condition: "active allocation already exists"
+    behavior: "rejects conflicting move rather than creating two active allocations"
+    must_preserve: true
+error_paths:
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/management/residents/ResidentController.java:1
+    trigger: "validation or version conflict"
+    outcome: "returns existing API error contract"
+    contract: "current status and ApiError shape"
+    must_preserve: true
+concurrency:
+  model: sync
+  tx_boundary:
+    source_loc: backend/src/main/java/br/edu/ifgoiano/sager/management/allocations/AllocationService.java:1
+    scope: "lock resident/room, change allocation and append audit"
+    isolation: "database default"
+    must_preserve: true

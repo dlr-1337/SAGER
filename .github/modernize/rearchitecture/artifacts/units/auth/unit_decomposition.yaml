@@ -1,0 +1,7 @@
+unit: auth
+commit: false
+candidate_splits:
+  - id: backend/src/main/java/br/edu/ifgoiano/sager/auth/ProductionFilterConfiguration.java:1
+    drivers: [concern_split]
+    rationale: "Authentication, startup profile validation and request filtering have separate change cadence and failure semantics."
+    source_slice: {file: backend/src/main/java/br/edu/ifgoiano/sager/auth/ProductionFilterConfiguration.java, lines: [1, 120]}

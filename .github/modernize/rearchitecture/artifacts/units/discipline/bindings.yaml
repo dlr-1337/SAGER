@@ -1,0 +1,9 @@
+unit: discipline
+bindings:
+  - type: route-declaration
+    name: "discipline REST controller"
+    source_loc: backend/src/main/java/br/edu/ifgoiano/sager/discipline/DisciplineController.java:15
+    target: "discipline API"
+    must_appear_in_target: true
+    notes: "source evidence and policy versions are persisted contracts"
+runtime_config: []

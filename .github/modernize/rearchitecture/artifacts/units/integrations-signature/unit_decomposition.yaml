@@ -1,0 +1,7 @@
+unit: integrations-signature
+commit: false
+candidate_splits:
+  - id: backend/src/main/java/br/edu/ifgoiano/sager/integrations/IntegrationTransactions.java:1
+    drivers: [concern_split, execution_model_split, lifecycle_split]
+    rationale: "Task leasing, signature progression, webhook inbox and WhatsApp attempts share transaction mechanics but have distinct state machines and retry policies."
+    source_slice: {file: backend/src/main/java/br/edu/ifgoiano/sager/integrations/IntegrationTransactions.java, lines: [1, 720]}

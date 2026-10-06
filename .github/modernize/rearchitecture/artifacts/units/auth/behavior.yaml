@@ -1,0 +1,26 @@
+unit: auth
+side_effects:
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/auth/LocalAccountAuthenticationProvider.java:1
+    effect: "authenticates local account and establishes Spring Security session"
+    must_preserve: true
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/auth/LoginRateLimiter.java:1
+    effect: "tracks failed login attempts in hashed rate buckets"
+    must_preserve: true
+branches:
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/auth/ProductionModeGuard.java:32
+    condition: "production profile requirements are invalid"
+    behavior: "reject startup/request rather than silently falling back"
+    must_preserve: true
+error_paths:
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/auth/AuthController.java:27
+    trigger: "missing or inactive principal"
+    outcome: "protected request is rejected with existing security response"
+    contract: "existing Spring Security status/error"
+    must_preserve: true
+concurrency:
+  model: sync
+  tx_boundary:
+    source_loc: backend/src/main/java/br/edu/ifgoiano/sager/auth/LocalAccountRepository.java:1
+    scope: "account lookup and lock during authentication/provisioning"
+    isolation: "database default"
+    must_preserve: true

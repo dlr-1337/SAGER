@@ -1,0 +1,59 @@
+contracts:
+  - name: protected-rest-api
+    unit: global
+    type: rest
+    stability: frozen
+    source_loc: backend/src/main/java/br/edu/ifgoiano/sager/api/ApiExceptionHandler.java:1
+    contract:
+      method: "GET/POST/PUT/DELETE"
+      path: "/api/v1/**"
+      request: "JSON resources and command bodies"
+      response: "JSON resource or page; errors use the existing ApiError shape"
+      error: "Existing HTTP status and application error code"
+      auth: "Spring Security session, profile and resource authorization"
+    target_contract:
+      method: "Preserve current REST paths, JSON names, status codes and error shape"
+      notes: "Refactors are internal; route and error changes require focused contract tests."
+    semantic_divergence:
+      - field: "dates and timestamps"
+        issue: "Civil dates use America/Sao_Paulo rules while instants are serialized as timestamps."
+        source_loc: backend/src/main/java/br/edu/ifgoiano/sager/api/OperationClockConfiguration.java:1
+  - name: browser-route-contract
+    unit: global
+    type: rest
+    stability: frozen
+    source_loc: frontend/src/app/app.routes.ts:116
+    contract:
+      method: "browser navigation"
+      path: "existing Portuguese feature paths"
+      request: "route params and query params"
+      response: "standalone Angular page"
+      error: "guard redirect to access/denied/not-found pages"
+      auth: "LocalAuthService and route guards"
+    target_contract:
+      method: "Preserve current route paths, lazy loading and guard outcomes"
+      notes: "Shared components may change implementation but not selectors or visible behavior relied on by e2e tests."
+    semantic_divergence:
+      - field: "demo versus API transport"
+        issue: "Some features have local/demo and API implementations selected by runtime context."
+        source_loc: frontend/src/app/features/management/management-demo.service.ts:1
+  - name: integration-provider-callback
+    unit: integrations
+    type: sdk
+    stability: frozen
+    source_loc: backend/src/main/java/br/edu/ifgoiano/sager/integrations/IntegrationWebhookController.java:1
+    contract:
+      method: "provider webhook and signature callback"
+      path: "/api/v1/integracoes/** and /api/v1/assinaturas/**"
+      request: "provider event payload plus HMAC/token"
+      response: "acknowledgement or provider-specific access response"
+      error: "reject invalid signature/token without changing approval state"
+      auth: "HMAC/token and integration configuration"
+    target_contract:
+      method: "Preserve verification, idempotency, retry and non-approval semantics"
+      notes: "Callback receipt never directly grants long-exit approval."
+    semantic_divergence:
+      - field: "event idempotency"
+        issue: "Repeated provider callbacks must be accepted without duplicated state transitions."
+        source_loc: backend/src/main/java/br/edu/ifgoiano/sager/integrations/IntegrationTransactions.java:495
+

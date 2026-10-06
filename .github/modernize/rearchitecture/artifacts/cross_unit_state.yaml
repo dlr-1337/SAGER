@@ -1,0 +1,44 @@
+flows:
+  - name: authenticated-session-account
+    medium: database
+    key: "SPRING_SESSION.PRINCIPAL_NAME -> sager_local_account.email"
+    writer:
+      unit: auth
+      source_loc: backend/src/main/resources/db/migration/V2__spring_session_jdbc.sql:1
+    reader:
+      unit: auth
+      source_loc: backend/src/main/java/br/edu/ifgoiano/sager/auth/LocalAccountAuthenticationProvider.java:1
+    pairing: matched
+    must_preserve: true
+    must_confirm: null
+    verification_hint: "Login then request /api/v1/me and a protected route."
+    notes: "Spring Security session state is shared by all protected units."
+  - name: request-audit-context
+    medium: request-attribute
+    key: "request id and actor context"
+    writer:
+      unit: auth
+      source_loc: backend/src/main/java/br/edu/ifgoiano/sager/audit/RequestCorrelationFilter.java:1
+    reader:
+      unit: operations
+      source_loc: backend/src/main/java/br/edu/ifgoiano/sager/audit/AuditContextProvider.java:1
+    pairing: matched
+    must_preserve: true
+    must_confirm: null
+    verification_hint: "Assert audit row contains the same request id as the response trace."
+    notes: "The audit layer is cross-cutting and must not be duplicated per feature."
+  - name: feature-api-local-demo-switch
+    medium: framework-context
+    key: "profile/local API service selection"
+    writer:
+      unit: auth
+      source_loc: frontend/src/app/core/local-auth.service.ts:1
+    reader:
+      unit: management
+      source_loc: frontend/src/app/features/management/management-demo.service.ts:1
+    pairing: dynamic-key
+    must_preserve: true
+    must_confirm: runtime
+    verification_hint: "Run local demo and production-like API mode and verify each feature selects the intended transport."
+    notes: "Static search shows parallel demo and API services; runtime configuration determines the active path."
+
