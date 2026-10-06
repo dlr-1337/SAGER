@@ -66,8 +66,8 @@ erDiagram
     Resident ||--o{ CleaningParticipant : "participates"
     ReportSnapshot ||--o{ ReportExport : "exports"
     LocalAccount ||--o{ HealthGrant : "holds"
-    Resident ||--o{ LocalAccount : "may link"
-    Supervisor ||--o{ LocalAccount : "may link"
+    Resident o|--o| LocalAccount : "may link"
+    Supervisor o|--o| LocalAccount : "may link"
     Accommodation {
         string id PK
         string code UK
@@ -266,6 +266,22 @@ erDiagram
         datetime occurredAt
     }
 ~~~
+
+### Cardinalidade e exclusividade das contas locais
+
+`sager_local_account.resident_id` e `sager_local_account.supervisor_id` são
+chaves estrangeiras opcionais com restrições `UNIQUE` independentes, conforme
+definido na migration `V12__local_account_links.sql`. Portanto, cada residente
+pode ter zero ou uma conta local vinculada, e cada supervisor também pode ter
+zero ou uma conta local vinculada. Uma conta local pode não ter vínculo ou pode
+estar vinculada a exatamente um residente ou a um supervisor.
+
+A constraint `sager_local_account_single_link` rejeita uma conta que tenha
+`resident_id` e `supervisor_id` preenchidos ao mesmo tempo. As constraints
+adicionais de perfil exigem que os vínculos com residentes usem o perfil
+`residente` e que os vínculos com supervisores usem `gestor` ou `supervisor`.
+Essas constraints fazem parte da fronteira de identidade e devem ser
+preservadas em qualquer limpeza do schema.
 
 O acesso é transacional e baseado em JDBC. Não foram encontrados caches de aplicação,
 second-level cache ou repositories JPA; os serviços consultam diretamente suas tabelas
