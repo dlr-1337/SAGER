@@ -66,8 +66,8 @@ erDiagram
     Resident ||--o{ CleaningParticipant : "participates"
     ReportSnapshot ||--o{ ReportExport : "exports"
     LocalAccount ||--o{ HealthGrant : "holds"
-    Resident ||--o{ LocalAccount : "may link"
-    Supervisor ||--o{ LocalAccount : "may link"
+    Resident o|--o| LocalAccount : "may link"
+    Supervisor o|--o| LocalAccount : "may link"
     Accommodation {
         string id PK
         string code UK
@@ -266,6 +266,21 @@ erDiagram
         datetime occurredAt
     }
 ~~~
+
+### Local account cardinality and exclusivity
+
+`sager_local_account.resident_id` and `sager_local_account.supervisor_id` are
+nullable foreign keys with separate `UNIQUE` constraints, as defined in
+`V12__local_account_links.sql`. Therefore, each resident can have zero or one
+linked local account, and each supervisor can have zero or one linked local
+account. A local account may be unlinked, or linked to exactly one resident or
+one supervisor.
+
+The `sager_local_account_single_link` check constraint rejects an account that
+has both `resident_id` and `supervisor_id` populated. The additional profile
+checks require resident links to use the `residente` profile and supervisor
+links to use either `gestor` or `supervisor`. These constraints are part of the
+identity boundary and must be preserved in any schema cleanup.
 
 O acesso é transacional e baseado em JDBC. Não foram encontrados caches de aplicação,
 second-level cache ou repositories JPA; os serviços consultam diretamente suas tabelas
