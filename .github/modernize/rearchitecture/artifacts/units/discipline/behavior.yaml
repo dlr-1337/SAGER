@@ -1,0 +1,26 @@
+unit: discipline
+side_effects:
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/discipline/DisciplineEvidenceService.java:38
+    effect: "derives occurrence from operational evidence and records a revision"
+    must_preserve: true
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/discipline/DisciplineIdempotency.java:28
+    effect: "deduplicates repeated commands by actor/action/key/payload hash"
+    must_preserve: true
+branches:
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/discipline/DisciplineService.java:121
+    condition: "notification is terminal"
+    behavior: "rejects further decision"
+    must_preserve: true
+error_paths:
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/discipline/DisciplineController.java:15
+    trigger: "invalid occurrence evidence or duplicate command"
+    outcome: "returns existing conflict/validation contract"
+    contract: "current ApiError shape"
+    must_preserve: true
+concurrency:
+  model: sync
+  tx_boundary:
+    source_loc: backend/src/main/java/br/edu/ifgoiano/sager/discipline/DisciplineService.java:1
+    scope: "lock evidence/notification/warning, mutate and audit"
+    isolation: "database default"
+    must_preserve: true

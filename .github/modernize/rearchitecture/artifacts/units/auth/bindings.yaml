@@ -1,0 +1,15 @@
+unit: auth
+bindings:
+  - type: filter
+    name: "Spring Security request filters"
+    source_loc: backend/src/main/java/br/edu/ifgoiano/sager/auth/ProductionFilterConfiguration.java:1
+    target: "protected API"
+    must_appear_in_target: true
+    notes: "profile and production filters are ordered framework bindings"
+runtime_config:
+  - key: "active profile and local account configuration"
+    source_loc: backend/src/main/java/br/edu/ifgoiano/sager/auth/ProductionModeGuard.java:1
+    source: env
+    default_value: "none"
+    must_appear_in_target: true
+    notes: "invalid combinations must fail explicitly"

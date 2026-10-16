@@ -1,0 +1,163 @@
+units:
+  - name: auth
+    trigger: api
+    trigger_detail: "login, logout, current account and protected-session filters"
+    source_anchors:
+      - path: backend/src/main/java/br/edu/ifgoiano/sager/auth/AuthController.java
+      - path: frontend/src/app/core/local-auth.service.ts
+    exported_signature:
+      - method: "MeResponse AuthController.me(LocalAccountPrincipal)"
+        source_loc: backend/src/main/java/br/edu/ifgoiano/sager/auth/AuthController.java:27
+        stability: frozen
+    dynamic_entrypoints:
+      - target: "LocalAccountStatusFilter"
+        mechanism: annotation-scan
+        source_loc: backend/src/main/java/br/edu/ifgoiano/sager/auth/ProductionFilterConfiguration.java:1
+    depends_on: []
+    shared_refs:
+      - module: authenticated-actor
+        used_fields: [current]
+  - name: management
+    trigger: api
+    trigger_detail: "management CRUD routes and frontend management routes"
+    source_anchors:
+      - path: backend/src/main/java/br/edu/ifgoiano/sager/management
+      - path: frontend/src/app/features/management
+    exported_signature:
+      - method: "management resource REST contracts"
+        source_loc: backend/src/main/java/br/edu/ifgoiano/sager/management/residents/ResidentController.java:1
+        stability: frozen
+    dynamic_entrypoints: []
+    depends_on:
+      - unit: auth
+        via: "authenticated actor"
+    shared_refs:
+      - module: angular-request-state
+        used_fields: [loading, error]
+      - module: review-dialog
+        used_fields: [ReviewDialogData, ReviewDialogService.open]
+      - module: jdbc-domain-primitives
+        used_fields: [requireResident, lockById, utcNow, requireVersion]
+  - name: operations
+    trigger: api
+    trigger_detail: "night calls, short exits, long exits, notifications and ranking"
+    source_anchors:
+      - path: backend/src/main/java/br/edu/ifgoiano/sager/operations
+      - path: frontend/src/app/features/operations
+    exported_signature:
+      - method: "short and long exit REST contracts"
+        source_loc: backend/src/main/java/br/edu/ifgoiano/sager/operations/shortexits/ShortExitController.java:24
+        stability: frozen
+    dynamic_entrypoints:
+      - target: "ShortExitExpiryScheduler"
+        mechanism: annotation-scan
+        source_loc: backend/src/main/java/br/edu/ifgoiano/sager/operations/shortexits/ShortExitExpiryScheduler.java:21
+    depends_on: [ {unit: auth, via: "actor"}, {unit: management, via: "resident, room, allocation"} ]
+    shared_refs:
+      - module: angular-request-state
+        used_fields: [loading, busy, error, success]
+      - module: date-time-formatters
+        used_fields: [formatOperationsTime, formatCivilDate]
+      - module: review-dialog
+        used_fields: [ReviewDialogData, ReviewDialogService.open]
+      - module: jdbc-domain-primitives
+        used_fields: [lockById, utcNow, requireVersion]
+  - name: health
+    trigger: api
+    trigger_detail: "health access, own notes and professional notes"
+    source_anchors:
+      - path: backend/src/main/java/br/edu/ifgoiano/sager/health
+      - path: frontend/src/app/features/health
+    exported_signature:
+      - method: "health resource REST contracts"
+        source_loc: backend/src/main/java/br/edu/ifgoiano/sager/health/HealthController.java:1
+        stability: frozen
+    dynamic_entrypoints: []
+    depends_on: [ {unit: auth, via: "account and grant"}, {unit: management, via: "resident"} ]
+    shared_refs:
+      - module: angular-request-state
+        used_fields: [loading, busy, error, success]
+      - module: review-dialog
+        used_fields: [ReviewDialogData, ReviewDialogService.open]
+      - module: jdbc-domain-primitives
+        used_fields: [utcNow, requireVersion]
+  - name: discipline
+    trigger: api
+    trigger_detail: "occurrences, notifications, warnings and commitment terms"
+    source_anchors:
+      - path: backend/src/main/java/br/edu/ifgoiano/sager/discipline
+    exported_signature:
+      - method: "discipline REST contracts"
+        source_loc: backend/src/main/java/br/edu/ifgoiano/sager/discipline/DisciplineController.java:15
+        stability: frozen
+    dynamic_entrypoints: []
+    depends_on: [ {unit: operations, via: "occurrence evidence"}, {unit: management, via: "resident"} ]
+    shared_refs:
+      - module: authenticated-actor
+        used_fields: [current, supervisor, resident]
+      - module: jdbc-domain-primitives
+        used_fields: [requireResident, lockById, utcNow, requireVersion]
+  - name: communications
+    trigger: api
+    trigger_detail: "notices, communications and recipient acknowledgement"
+    source_anchors:
+      - path: backend/src/main/java/br/edu/ifgoiano/sager/communications
+      - path: frontend/src/app/features/communications
+    exported_signature:
+      - method: "communication REST contracts"
+        source_loc: backend/src/main/java/br/edu/ifgoiano/sager/communications/CommunicationController.java:14
+        stability: frozen
+    dynamic_entrypoints: []
+    depends_on: [ {unit: auth, via: "actor"}, {unit: discipline, via: "warning source"} ]
+    shared_refs:
+      - module: angular-request-state
+        used_fields: [loading, busy, error, success]
+      - module: date-time-formatters
+        used_fields: [formatOperationsTime, formatCivilDate, formatCommunicationTime]
+      - module: jdbc-domain-primitives
+        used_fields: [lockById, utcNow]
+  - name: cleaning-reports
+    trigger: api
+    trigger_detail: "cleaning assessments, indicators, report snapshots and exports"
+    source_anchors:
+      - path: backend/src/main/java/br/edu/ifgoiano/sager/cleaning
+      - path: backend/src/main/java/br/edu/ifgoiano/sager/reports
+      - path: frontend/src/app/features/cleaning
+      - path: frontend/src/app/features/reports
+    exported_signature:
+      - method: "cleaning and reporting REST contracts"
+        source_loc: backend/src/main/java/br/edu/ifgoiano/sager/cleaning/CleaningController.java:10
+        stability: frozen
+    dynamic_entrypoints:
+      - target: "ReportExportScheduler"
+        mechanism: annotation-scan
+        source_loc: backend/src/main/java/br/edu/ifgoiano/sager/reports/ReportExportScheduler.java:12
+    depends_on: [ {unit: management, via: "rooms and residents"}, {unit: discipline, via: "evidence"} ]
+    shared_refs:
+      - module: angular-request-state
+        used_fields: [loading, busy, error]
+      - module: date-time-formatters
+        used_fields: [formatOperationsTime, formatCivilDate, formatCommunicationTime]
+      - module: jdbc-domain-primitives
+        used_fields: [lockById, utcNow]
+  - name: integrations-signature
+    trigger: handler
+    trigger_detail: "provider callbacks, signature access, workers and scheduled retries"
+    source_anchors:
+      - path: backend/src/main/java/br/edu/ifgoiano/sager/integrations
+      - path: frontend/src/app/features/signature
+    exported_signature:
+      - method: "provider callback and signature access contracts"
+        source_loc: backend/src/main/java/br/edu/ifgoiano/sager/integrations/IntegrationWebhookController.java:1
+        stability: frozen
+    dynamic_entrypoints:
+      - target: "IntegrationWorker"
+        mechanism: annotation-scan
+        source_loc: backend/src/main/java/br/edu/ifgoiano/sager/integrations/IntegrationWorker.java:1
+    depends_on: [ {unit: operations, via: "long exit and document"}, {unit: auth, via: "actor"} ]
+    shared_refs:
+      - module: integration-transactions
+        used_fields: [claimTask, advanceSignature, processWebhook, markWhatsAppAttempt, leaseOwner]
+      - module: jdbc-domain-primitives
+        used_fields: [utcNow, requireVersion]
+

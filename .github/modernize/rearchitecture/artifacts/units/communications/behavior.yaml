@@ -1,0 +1,26 @@
+unit: communications
+side_effects:
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/communications/CommunicationService.java:92
+    effect: "publishes communication and creates recipient rows"
+    must_preserve: true
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/communications/CommunicationService.java:145
+    effect: "records read and acknowledgement state"
+    must_preserve: true
+branches:
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/communications/CommunicationService.java:1
+    condition: "notice is draft, published or withdrawn"
+    behavior: "allows only state-valid commands"
+    must_preserve: true
+error_paths:
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/communications/CommunicationController.java:14
+    trigger: "recipient is not authorized or resource is missing"
+    outcome: "returns existing forbidden/not-found contract"
+    contract: "current ApiError shape"
+    must_preserve: true
+concurrency:
+  model: sync
+  tx_boundary:
+    source_loc: backend/src/main/java/br/edu/ifgoiano/sager/communications/CommunicationService.java:135
+    scope: "lock communication and recipient, then update receipt"
+    isolation: "database default"
+    must_preserve: true

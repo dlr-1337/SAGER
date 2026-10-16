@@ -1,0 +1,7 @@
+unit: health
+commit: false
+candidate_splits:
+  - id: frontend/src/app/features/health/health-access.page.ts:480
+    drivers: [data_ownership_split, concern_split]
+    rationale: "Professional grant administration and resident note access have separate PHI authorization concerns and should share only typed access helpers."
+    source_slice: {file: frontend/src/app/features/health/health-access.page.ts, lines: [480, 900]}

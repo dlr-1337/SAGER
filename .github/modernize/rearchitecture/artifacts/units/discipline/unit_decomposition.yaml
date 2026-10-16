@@ -1,0 +1,7 @@
+unit: discipline
+commit: false
+candidate_splits:
+  - id: backend/src/main/java/br/edu/ifgoiano/sager/discipline/DisciplineService.java:1
+    drivers: [concern_split, change_cadence_split]
+    rationale: "Evidence derivation, notification decisions and document/term issuance have different invariants and can share idempotency/audit primitives."
+    source_slice: {file: backend/src/main/java/br/edu/ifgoiano/sager/discipline/DisciplineService.java, lines: [1, 320]}

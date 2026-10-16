@@ -1,0 +1,7 @@
+unit: management
+commit: false
+candidate_splits:
+  - id: frontend/src/app/features/management:1
+    drivers: [reuse_split, concern_split]
+    rationale: "List/detail/form pages repeat a stable shell but differ in fields and permission rules; extract composition helpers, not a generic domain component."
+    source_slice: {file: frontend/src/app/features/management, lines: [1, 999]}

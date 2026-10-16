@@ -1,0 +1,23 @@
+unit: health
+side_effects:
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/health/HealthService.java:1
+    effect: "records grants, assignments, notes, revisions and access events"
+    must_preserve: true
+branches:
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/health/HealthService.java:1
+    condition: "professional grant and resident care assignment are not active"
+    behavior: "denies health access"
+    must_preserve: true
+error_paths:
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/health/HealthController.java:1
+    trigger: "unauthorized health note access"
+    outcome: "returns health-specific forbidden/not-found contract"
+    contract: "existing API error shape without management fallback"
+    must_preserve: true
+concurrency:
+  model: sync
+  tx_boundary:
+    source_loc: backend/src/main/java/br/edu/ifgoiano/sager/health/HealthService.java:1
+    scope: "lock access state and write immutable health revision"
+    isolation: "database default"
+    must_preserve: true

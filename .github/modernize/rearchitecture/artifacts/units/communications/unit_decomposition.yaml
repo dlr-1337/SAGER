@@ -1,0 +1,7 @@
+unit: communications
+commit: false
+candidate_splits:
+  - id: frontend/src/app/features/communications/warnings-local.pages.ts:1
+    drivers: [reuse_split, concern_split]
+    rationale: "Warning creation, warning detail and recurrence views repeat form, review and state patterns but retain distinct authorization and evidence rules."
+    source_slice: {file: frontend/src/app/features/communications/warnings-local.pages.ts, lines: [1, 700]}
