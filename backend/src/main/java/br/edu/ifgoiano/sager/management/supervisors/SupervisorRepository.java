@@ -19,6 +19,11 @@ public class SupervisorRepository {
         this.jdbc = jdbc;
     }
 
+    public br.edu.ifgoiano.sager.management.ManagementSearch.Page<Supervisor> search(java.util.Map<String,String> params) {
+        return br.edu.ifgoiano.sager.management.ManagementSearch.query(jdbc, COLUMNS, "sager_supervisor",
+                "concat_ws(' ',name,institutional_id,email)", "institutional_id", "sager_search_text(name), id", java.util.Map.of(), params, (r,n) -> map(r));
+    }
+
     public List<Supervisor> findAll() {
         return jdbc.query("SELECT " + COLUMNS + " FROM sager_supervisor ORDER BY name, id",
                 (result, row) -> map(result));

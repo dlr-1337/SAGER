@@ -128,6 +128,21 @@ public class LongExitService {
     }
 
     @Transactional(readOnly = true)
+    public br.edu.ifgoiano.sager.management.ManagementSearch.Page<LongExit> list(java.util.Map<String,String> input) {
+        LocalAccountPrincipal a = reader();
+        var filters=new java.util.HashMap<>(input);
+        String requested=filters.get("residentId");
+        if ("residente".equals(a.profile())) {
+            if (requested != null && !requested.isBlank() && !requested.equals(a.residentId().toString())) throw OpsInput.notFound();
+            filters.put("residentId",a.residentId().toString());
+        }
+        String status=filters.get("status");
+        if (status != null && !status.isBlank() && !STATUSES.contains(status)) throw OpsInput.invalid("Situação inválida.");
+        var page=exits.search(filters);
+        return new br.edu.ifgoiano.sager.management.ManagementSearch.Page<>(page.items().stream().map(exit->view(exit,a)).toList(),page.total());
+    }
+
+    @Transactional(readOnly = true)
     public List<LongExit> list(UUID residentId, String search, String status) {
         LocalAccountPrincipal a = reader();
         if ("residente".equals(a.profile())) {

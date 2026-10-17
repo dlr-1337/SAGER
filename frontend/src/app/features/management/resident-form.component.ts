@@ -1,3 +1,5 @@
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { UnsavedFormDirective } from '../../shared/unsaved-form';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -14,6 +16,8 @@ import {
   Validators,
 } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Course, CourseApiService } from './course-api.service';
+import { normalizeSearch } from '../../shared/search';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { ManagementDemoService } from './management-demo.service';
 import {
@@ -46,7 +50,7 @@ function validBirthDate(control: AbstractControl): { invalidDate: true } | null 
 @Component({
   selector: 'app-resident-form',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [UnsavedFormDirective, ReactiveFormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page mg-page mg-narrow">
@@ -96,7 +100,14 @@ function validBirthDate(control: AbstractControl): { invalidDate: true } | null 
             <p>Preencha os dados de identificação e vínculo acadêmico.</p>
           </div>
         </header>
-        <form class="panel mg-panel mg-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+        <form
+          sagerUnsaved
+          [sagerSaving]="pendingSave"
+          class="panel mg-panel mg-form"
+          [formGroup]="form"
+          (ngSubmit)="save()"
+          novalidate
+        >
           <h2>Dados do residente</h2>
           <p class="mg-muted">
             Campos marcados com * são obrigatórios. Use somente dados fictícios
@@ -161,24 +172,98 @@ function validBirthDate(control: AbstractControl): { invalidDate: true } | null 
                 }}</span>
               }
             </label>
-            <label
-              class="field mg-field mg-span-2"
-              [class.mg-invalid]="form.controls.course.invalid && form.controls.course.touched"
-              >Curso {{ isDemo() ? '*' : '(opcional)' }}
+            <label class="mg-field"
+              >E-mail institucional <small>Opcional</small>
               <input
-                formControlName="course"
-                autocomplete="off"
-                maxlength="200"
-                aria-describedby="resident-course-error"
+                type="email"
+                formControlName="institutionalEmail"
+                autocomplete="email"
+                maxlength="320"
               />
-              @if (form.controls.course.invalid && form.controls.course.touched) {
-                <span class="mg-field-error" id="resident-course-error">{{
-                  isDemo()
-                    ? 'Informe o curso do residente.'
-                    : 'O curso pode ter até 200 caracteres.'
-                }}</span>
+              @if (
+                form.controls.institutionalEmail.invalid && form.controls.institutionalEmail.touched
+              ) {
+                <span class="mg-field-error">Informe um e-mail válido.</span>
               }
             </label>
+            <div class="mg-field">
+              <label for="course-search">Buscar curso</label
+              ><input
+                id="course-search"
+                type="search"
+                data-filter-input
+                [value]="courseQuery()"
+                (input)="courseQuery.set($any($event.target).value)"
+                placeholder="Nome do curso"
+              />
+              <label for="resident-course">Curso <small>Opcional</small></label>
+              <select id="resident-course" formControlName="courseId">
+                <option value="">Sem curso informado</option>
+                @for (course of visibleCourses(); track course.id) {
+                  <option
+                    [value]="course.id"
+                    [disabled]="!course.active && course.id !== form.controls.courseId.value"
+                  >
+                    {{ course.name }}{{ course.active ? '' : ' (inativo)' }}
+                  </option>
+                }
+              </select>
+              @if (coursesError()) {
+                <p role="alert">{{ coursesError() }}</p>
+                <button type="button" class="btn mg-secondary" (click)="loadCourses()">
+                  Tentar novamente
+                </button>
+              }
+              <button
+                type="button"
+                class="btn mg-secondary"
+                (click)="addingCourse.set(!addingCourse())"
+              >
+                {{ addingCourse() ? 'Fechar novo curso' : 'Novo curso' }}
+              </button>
+              @if (addingCourse()) {
+                <label for="new-course">Nome do novo curso</label
+                ><input id="new-course" [formControl]="newCourse" maxlength="200" />
+                <button
+                  type="button"
+                  class="btn"
+                  [disabled]="saving() || courseSaving()"
+                  (click)="createCourse()"
+                >
+                  {{ courseSaving() ? 'Cadastrando…' : 'Cadastrar e selecionar' }}
+                </button>
+              }
+            </div>
+            @if (!editId) {
+              <label class="mg-field"
+                >Senha escolhida pelo residente<input
+                  type="password"
+                  formControlName="password"
+                  [attr.aria-invalid]="
+                    form.controls.password.invalid && form.controls.password.touched
+                  "
+                  aria-describedby="resident-password-help"
+                  autocomplete="new-password"
+                  minlength="12"
+                  maxlength="72"
+                  required
+                /><small id="resident-password-help"
+                  >De 12 a 72 caracteres; no máximo 72 bytes.</small
+                >
+                @if (form.controls.password.invalid && form.controls.password.touched) {
+                  <span class="mg-field-error"
+                    >Informe uma senha com pelo menos 12 caracteres.</span
+                  >
+                }
+              </label>
+              <label class="mg-field"
+                >Confirmar senha<input
+                  type="password"
+                  formControlName="passwordConfirmation"
+                  autocomplete="new-password"
+                  required
+              /></label>
+            }
           </div>
           <div class="mg-note">
             <span class="material-symbols-rounded" aria-hidden="true">info</span>
@@ -207,7 +292,7 @@ function validBirthDate(control: AbstractControl): { invalidDate: true } | null 
               class="btn mg-secondary"
               [routerLink]="editId ? ['/residentes', editId] : ['/residentes']"
               >Cancelar</a
-            ><button class="btn mg-primary" type="submit" [disabled]="saving()">
+            ><button class="btn mg-primary" type="submit" [disabled]="saving() || courseSaving()">
               <span class="material-symbols-rounded" aria-hidden="true">save</span>
               {{ saving() ? 'Salvando…' : 'Salvar residente' }}
             </button>
@@ -219,6 +304,51 @@ function validBirthDate(control: AbstractControl): { invalidDate: true } | null 
 })
 export class ResidentFormComponent {
   private readonly service = inject(ManagementDemoService);
+  private readonly coursesApi = inject(CourseApiService);
+  readonly courses = signal<Course[]>([]);
+  readonly courseQuery = signal('');
+  readonly coursesError = signal('');
+  readonly addingCourse = signal(false);
+  readonly courseSaving = signal(false);
+  readonly newCourse = new FormControl('', { nonNullable: true });
+  readonly visibleCourses = computed(() =>
+    this.courses().filter(
+      (c) =>
+        c.id === this.form.controls.courseId.value ||
+        (c.active && normalizeSearch(c.name).includes(normalizeSearch(this.courseQuery()))),
+    ),
+  );
+  async loadCourses(): Promise<void> {
+    this.coursesError.set('');
+    try {
+      const items = await this.coursesApi.list();
+      if (!this.destroyRef.destroyed) this.courses.set(items);
+    } catch {
+      if (!this.destroyRef.destroyed)
+        this.coursesError.set('Não foi possível carregar os cursos. Tente novamente.');
+    }
+  }
+  async createCourse(): Promise<void> {
+    if (this.saving() || this.courseSaving()) return;
+    this.courseSaving.set(true);
+    this.coursesError.set('');
+    try {
+      const course = await this.coursesApi.save(this.newCourse.value);
+      if (this.destroyRef.destroyed) return;
+      this.courses.update((items) => [...items, course]);
+      this.form.controls.courseId.setValue(course.id);
+      this.form.markAsDirty();
+      this.newCourse.reset();
+      this.addingCourse.set(false);
+    } catch (error) {
+      if (!this.destroyRef.destroyed)
+        this.coursesError.set(
+          error instanceof Error ? error.message : 'Não foi possível cadastrar o curso.',
+        );
+    } finally {
+      if (!this.destroyRef.destroyed) this.courseSaving.set(false);
+    }
+  }
   private readonly api = inject(ResidentApiService);
   private readonly session = inject(DemoSessionService);
   private readonly route = inject(ActivatedRoute);
@@ -241,6 +371,7 @@ export class ResidentFormComponent {
   readonly error = signal('');
   readonly conflict = signal(false);
   readonly saving = signal(false);
+  readonly pendingSave = computed(() => this.saving() || this.courseSaving());
   readonly today = localToday();
   readonly form = new FormGroup({
     name: new FormControl('', {
@@ -255,16 +386,32 @@ export class ResidentFormComponent {
       nonNullable: true,
       validators: [Validators.required, validBirthDate],
     }),
-    course: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    courseId: new FormControl('', { nonNullable: true }),
+    institutionalEmail: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.email, Validators.maxLength(320)],
+    }),
+    password: new FormControl('', { nonNullable: true }),
+    passwordConfirmation: new FormControl('', { nonNullable: true }),
   });
 
   constructor() {
+    this.newCourse.valueChanges.pipe(takeUntilDestroyed()).subscribe((value) => {
+      if (value) this.form.markAsDirty();
+    });
+    void this.loadCourses();
+    if (!this.editId) {
+      this.form.controls.password.setValidators([
+        Validators.required,
+        Validators.minLength(12),
+        Validators.maxLength(72),
+      ]);
+      this.form.controls.passwordConfirmation.setValidators(Validators.required);
+    }
     if (this.isDemo()) {
       const existing = this.resident();
       if (existing) this.setFields(existing);
     } else {
-      this.form.controls.course.setValidators(Validators.maxLength(200));
-      this.form.controls.course.updateValueAndValidity({ emitEvent: false });
       if (this.editId && this.canEdit()) void this.load();
     }
   }
@@ -300,7 +447,7 @@ export class ResidentFormComponent {
   }
 
   async save(): Promise<void> {
-    if (!this.canEdit() || this.saving()) return;
+    if (!this.canEdit() || this.saving() || this.courseSaving()) return;
     this.error.set('');
     this.conflict.set(false);
     const fields = this.form.getRawValue();
@@ -308,7 +455,7 @@ export class ResidentFormComponent {
       {
         name: fields.name.trim(),
         enrollment: fields.enrollment.trim(),
-        course: fields.course.trim(),
+        institutionalEmail: fields.institutionalEmail.trim(),
       },
       { emitEvent: false },
     );
@@ -318,9 +465,24 @@ export class ResidentFormComponent {
         this.form.controls.birthDate.setErrors({ future: true });
       return;
     }
+    if (
+      !this.editId &&
+      (fields.password !== fields.passwordConfirmation ||
+        new TextEncoder().encode(fields.password).length > 72)
+    ) {
+      this.error.set('Repita a mesma senha, com 12 a 72 caracteres e até 72 bytes.');
+      return;
+    }
     if (this.isDemo()) {
       try {
-        const saved = this.service.saveResident(this.form.getRawValue(), this.editId ?? undefined);
+        const saved = this.service.saveResident(
+          {
+            ...this.form.getRawValue(),
+            course: this.courses().find((c) => c.id === fields.courseId)?.name ?? '',
+          },
+          this.editId ?? undefined,
+        );
+        this.form.markAsPristine();
         void this.router.navigate(['/residentes', saved.id], { queryParams: { saved: '1' } });
       } catch (error) {
         this.error.set(
@@ -333,12 +495,22 @@ export class ResidentFormComponent {
     }
     const current = this.localResident();
     if (this.editId && !current) return;
-    const { name, enrollment, birthDate, course } = this.form.getRawValue();
+    const {
+      name,
+      enrollment,
+      birthDate,
+      courseId,
+      institutionalEmail,
+      password,
+      passwordConfirmation,
+    } = this.form.getRawValue();
     const input: ResidentPayload = {
       name,
       enrollment,
       birthDate,
-      course: course || null,
+      courseId: courseId || null,
+      institutionalEmail: institutionalEmail || null,
+      ...(!this.editId ? { password, passwordConfirmation } : {}),
     };
     this.saving.set(true);
     try {
@@ -347,6 +519,8 @@ export class ResidentFormComponent {
         this.editId && current ? { id: current.id, version: current.version } : undefined,
       );
       if (this.destroyRef.destroyed) return;
+      this.saving.set(false);
+      this.form.markAsPristine();
       await this.router.navigate(['/residentes', saved.id], { queryParams: { saved: '1' } });
     } catch (error) {
       if (this.destroyRef.destroyed) return;
@@ -381,12 +555,20 @@ export class ResidentFormComponent {
     enrollment: string;
     birthDate: string | null;
     course: string | null;
+    courseId?: string | null;
+    institutionalEmail?: string | null;
   }): void {
-    this.form.setValue({
+    this.form.reset({
       name: item.name,
       enrollment: item.enrollment,
       birthDate: item.birthDate ?? '',
-      course: item.course ?? '',
+      courseId:
+        item.courseId ??
+        this.coursesApi.demoCourses().find((c) => c.name === item.course)?.id ??
+        '',
+      institutionalEmail: item.institutionalEmail ?? '',
+      password: '',
+      passwordConfirmation: '',
     });
   }
 }

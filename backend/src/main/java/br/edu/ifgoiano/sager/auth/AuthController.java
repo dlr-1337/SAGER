@@ -29,13 +29,13 @@ public class AuthController {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         }
         LocalAccount account = accounts.findById(principal.id())
-                .filter(value -> value.active() && value.email().equals(principal.email())
+                .filter(value -> value.active() && Objects.equals(value.enrollment(), principal.enrollment())
                         && value.profile().equals(principal.profile())
                         && Objects.equals(value.residentId(), principal.residentId())
                         && Objects.equals(value.supervisorId(), principal.supervisorId()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
         MeResponse response = new MeResponse(account.id(), account.name(), account.email(),
-                null, List.of(account.profile()), account.residentId(), account.supervisorId());
+                null, List.of(account.profile()), account.residentId(), account.supervisorId(), account.enrollment());
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(response);
     }
 
@@ -45,6 +45,6 @@ public class AuthController {
     }
 
     public record MeResponse(UUID id, String nome, String email, String fotoUrl, List<String> perfis,
-            UUID residenteId, UUID supervisorId) {
+            UUID residenteId, UUID supervisorId, String matricula) {
     }
 }

@@ -1,3 +1,4 @@
+import { readArrayPage } from '../../core/list-page';
 import { Injectable } from '@angular/core';
 import { Accommodation, AccommodationInput, AccommodationUnit } from './housing.models';
 
@@ -30,6 +31,18 @@ function isUnit(value: unknown): value is AccommodationUnit {
 
 @Injectable({ providedIn: 'root' })
 export class AccommodationApiService {
+  async page(
+    params: Record<string, string>,
+    signal?: AbortSignal,
+  ): Promise<{ items: Accommodation[]; total: number }> {
+    return readArrayPage(
+      baseUrl,
+      params,
+      isAccommodation,
+      (response) => this.responseError(response),
+      signal,
+    );
+  }
   async list(): Promise<Accommodation[]> {
     const value = await this.request(baseUrl);
     if (!Array.isArray(value) || !value.every(isAccommodation))

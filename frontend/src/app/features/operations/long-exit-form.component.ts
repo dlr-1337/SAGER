@@ -1,3 +1,5 @@
+import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
+import { UnsavedFormDirective } from '../../shared/unsaved-form';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -16,7 +18,7 @@ import { guardianBlocker, longExitFormError } from './long-exit.utils';
 @Component({
   standalone: true,
   selector: 'app-long-exit-form',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [SearchableSelectDirective, UnsavedFormDirective, ReactiveFormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page op-narrow">
@@ -76,7 +78,14 @@ import { guardianBlocker, longExitFormError } from './long-exit.utils';
             </p>
           </section>
         } @else {
-          <form class="panel op-panel op-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+          <form
+            sagerUnsaved
+            [sagerSaving]="saving"
+            class="panel op-panel op-form"
+            [formGroup]="form"
+            (ngSubmit)="save()"
+            novalidate
+          >
             <h2>Dados da saída longa</h2>
             <p>
               {{ resident.residentName }} · Matrícula {{ resident.enrollment }} · Quarto
@@ -89,6 +98,7 @@ import { guardianBlocker, longExitFormError } from './long-exit.utils';
             <div class="op-form-grid">
               <label class="field"
                 >Quando deseja sair?<select
+                  sagerSearchable
                   formControlName="departureMode"
                   (change)="departureChanged()"
                 >
@@ -98,7 +108,11 @@ import { guardianBlocker, longExitFormError } from './long-exit.utils';
                   <option value="SCHEDULED">Agendar data e hora</option>
                 </select></label
               ><label class="field"
-                >Responsável para o convite<select formControlName="guardianId" required>
+                >Responsável para o convite<select
+                  sagerSearchable
+                  formControlName="guardianId"
+                  required
+                >
                   <option value="">Selecione um responsável</option>
                   @for (guardian of resident.guardians; track guardian.id) {
                     <option [value]="guardian.id" [disabled]="!guardian.eligible">
@@ -389,6 +403,8 @@ export class LongExitFormComponent {
         return;
       }
       const exit = await this.api.save(input, original ?? undefined);
+      this.saving.set(false);
+      this.form.markAsPristine();
       await this.router.navigate(['/saidas/longas', exit.id], { queryParams: { saved: '1' } });
     } catch (error) {
       this.error.set(operationsError(error));

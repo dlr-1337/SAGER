@@ -30,7 +30,7 @@ O detalhamento de cada entrega, seus contratos e limites está no [roteiro de im
 | Residente | Solicitações e consultas próprias associadas ao vínculo da conta. |
 | Saúde | Entrada na conta; acesso ao conteúdo exige também habilitação profissional e vínculo assistencial. |
 
-**Cadastro de pessoa e conta de acesso são coisas diferentes.** Cadastrar um residente não cria automaticamente login. O operador provisiona as contas e vincula explicitamente cada identidade aos registros apropriados. Não há cadastro público de contas.
+O cadastro assistido de residente cria sua conta vinculada na mesma transação, com matrícula e senha escolhida no cadastro. O operador provisiona as demais contas e seus vínculos. Não há cadastro público de contas. A recuperação do residente confere nome, nascimento e nome de um responsável ativo quando houver; a recuperação dos demais perfis é administrativa.
 
 Ter um perfil de gestão não concede acesso automático ao conteúdo de saúde. As permissões efetivas são verificadas pela API; os controles de navegação do Angular não substituem essa verificação.
 
@@ -54,7 +54,7 @@ Stack documentada: **Angular 22, Spring Boot 4.1, Java 21 e PostgreSQL 17**. O f
 | [`infra/production/`](infra/production/) | Operação com Compose, HTTPS e segredos externos. |
 | [`docs/`](docs/) | Contratos por fase, manual, homologação e evidências. |
 
-Para acompanhar o acesso às telas, consulte [`app.routes.ts`](frontend/src/app/app.routes.ts). O backend utiliza contas próprias de e-mail e senha, com sessão persistida no banco.
+Para acompanhar o acesso às telas, consulte [`app.routes.ts`](frontend/src/app/app.routes.ts). O backend utiliza contas próprias de matrícula e senha, com sessão persistida no banco.
 
 ## Como executar
 
@@ -63,25 +63,28 @@ git clone https://github.com/dlr-1337/SAGER.git
 cd SAGER
 ```
 
-### Explorar a interface
+### Iniciar tudo com Docker
 
-O ambiente documentado utiliza **Node.js 24.19.0 e npm 11.17.0**:
+Instale somente Docker com Compose. Na raiz:
 
 ```bash
-cd frontend
-npm ci
-npm start
+./sager up
+./sager account create --matricula=TESTE-GESTOR --name='Gestor de Teste' --profile=gestor
 ```
 
-Abra **http://localhost:4200/acesso**. No desenvolvimento, **Explorar demonstração** permite navegar por perfis com dados sintéticos em memória. O exemplo de assinatura longa em `/assinatura/S-1048` é simulado.
+O segundo comando solicita a senha duas vezes no terminal. Abra **http://127.0.0.1:4200/acesso** e entre com a matrícula escolhida. Não existe senha padrão. O cadastro assistido de residente cria sua conta vinculada, com a senha que ele escolher.
 
-### Usar dados persistidos
+```bash
+./sager status
+./sager logs
+./sager down
+```
 
-Prepare o banco, o backend e uma conta sintética conforme o [guia do backend](backend/README.md). São necessários JDK 21, Docker e configuração privada de `SAGER_DB_PASSWORD`. O guia inclui o Maven Wrapper, PostgreSQL local e os comandos de provisionamento.
+`up` reconstrói os serviços; `down` preserva banco, documentos e relatórios. A configuração privada fica em `.env.local` (permissão 600, excluída do Git). Não apague esse arquivo nem os volumes para redefinir uma conta. Consulte o [guia Docker e migração](docs/DOCKER.md), inclusive para reaproveitar um banco existente.
 
-O frontend utiliza proxy de `/api` para `127.0.0.1:8080`. O perfil local do backend fica restrito a loopback. **Uma falha da API não deve ser interpretada como autorização para usar dados demonstrativos:** os modos são distintos.
+A demonstração pública continua disponível em desenvolvimento, com exemplos em memória. Uma falha da API apresenta um erro; a aplicação não troca para dados demonstrativos.
 
-Não remova volumes de banco para trocar contas. O procedimento de provisionamento preserva o histórico e inclui criação, redefinição, desativação e vínculo explícito.
+Para desenvolvimento sem Docker, os comandos de Angular e Maven continuam documentados no [backend](backend/README.md) e em [guia de CI](docs/CI.md).
 
 ## Verificação
 
@@ -115,6 +118,7 @@ As regras implementadas e os testes técnicos não substituem o aceite instituci
 | [Manual por perfil](docs/fase-7/MANUAL.md) | Tarefas e uso do sistema. |
 | [Homologação](docs/fase-7/HOMOLOGACAO.md) | Roteiro de avaliação. |
 | [QA final](docs/fase-7/QA.md) | Evidências e limites da revisão. |
+| [QA de matrícula e Docker](docs/QA-2026-10-16.md) | Verificação desta revisão, incluindo persistência e recuperação. |
 | [PRD](SAGER_PRD_v2.0_Angular_SpringBoot.md) | Contexto e requisitos do produto. |
 | [Especificação técnica](SAGER_Especificacao_Tecnica_v2.0.md) | Organização técnica e contratos. |
 | [Direção visual](DESIGN.md) | Referência de interface. |

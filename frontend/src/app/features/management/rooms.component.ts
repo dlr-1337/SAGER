@@ -1,3 +1,7 @@
+import { PaginationComponent } from '../../shared/pagination.component';
+import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
+import { normalizeSearch } from '../../shared/search';
+import { rememberFilters, rememberValue } from '../../core/filter-state';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
@@ -37,7 +41,7 @@ interface RoomGroup {
   selector: 'app-rooms',
   styleUrl: './housing.scss',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [PaginationComponent, SearchableSelectDirective, ReactiveFormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page mg-page">
@@ -75,9 +79,12 @@ interface RoomGroup {
         <section class="panel mg-panel" aria-labelledby="room-filter-heading">
           <h2 id="room-filter-heading">Filtrar mapa</h2>
           <form class="mg-filters" [formGroup]="filters">
+            <label class="field mg-field"
+              >Buscar quarto, código ou bloco<input type="search" formControlName="search"
+            /></label>
             @if (isDemo()) {
               <label class="field mg-field"
-                >Bloco<select formControlName="block">
+                >Bloco<select sagerSearchable formControlName="block">
                   <option value="">Todos os blocos</option>
                   @for (block of blocks(); track block) {
                     <option [value]="block">Bloco {{ block }}</option>
@@ -86,7 +93,7 @@ interface RoomGroup {
               >
             } @else {
               <label class="field mg-field"
-                >Alojamento<select formControlName="accommodationId">
+                >Alojamento<select sagerSearchable formControlName="accommodationId">
                   <option value="">Todos os alojamentos</option>
                   @for (item of localMap().accommodations; track item.id) {
                     <option [value]="item.id">{{ item.name }}</option>
@@ -94,7 +101,7 @@ interface RoomGroup {
                 </select></label
               >
               <label class="field mg-field"
-                >Casa ou bloco<select formControlName="unitId">
+                >Casa ou bloco<select sagerSearchable formControlName="unitId">
                   <option value="">Todas as casas e blocos</option>
                   @for (item of units(); track item.id) {
                     <option [value]="item.id">{{ item.name }}</option>
@@ -103,7 +110,7 @@ interface RoomGroup {
               >
             }
             <label class="field mg-field"
-              >Piso<select formControlName="floor">
+              >Piso<select sagerSearchable formControlName="floor">
                 <option value="">Todos os pisos</option>
                 @for (floor of floors(); track floor) {
                   <option [value]="floor">{{ floor }}</option>
@@ -111,7 +118,7 @@ interface RoomGroup {
               </select></label
             >
             <label class="field mg-field"
-              >Situação<select formControlName="situation">
+              >Situação<select sagerSearchable formControlName="situation">
                 <option value="">Todas as situações</option>
                 @for (situation of situations; track situation) {
                   <option [value]="situation">{{ situation }}</option>
@@ -120,7 +127,7 @@ interface RoomGroup {
             >
             @if (!isDemo()) {
               <label class="field mg-field"
-                >Ocupação<select formControlName="occupancy">
+                >Ocupação<select sagerSearchable formControlName="occupancy">
                   <option value="">Todas as ocupações</option>
                   <option value="with-residents">Com moradores</option>
                   <option value="empty">Sem moradores</option>
@@ -286,6 +293,13 @@ interface RoomGroup {
           <a class="btn mg-primary" routerLink="/inicio">Voltar ao início</a>
         </section>
       }
+      @if (canView() && !loading() && !loadError()) {
+        <sager-pagination
+          [page]="page()"
+          [total]="filteredRooms().length"
+          (pageChange)="page.set($event)"
+        />
+      }
     </main>
   `,
 })
@@ -302,7 +316,9 @@ export class RoomsComponent {
   readonly loadError = signal('');
   readonly sessionRequired = signal(false);
   readonly localMap = signal<HousingMap>({ accommodations: [], units: [], rooms: [] });
+  readonly page = rememberValue('rooms.component.ts-page', 0);
   readonly filters = new FormGroup({
+    search: new FormControl('', { nonNullable: true }),
     block: new FormControl('', { nonNullable: true }),
     accommodationId: new FormControl('', { nonNullable: true }),
     unitId: new FormControl('', { nonNullable: true }),
@@ -361,9 +377,12 @@ export class RoomsComponent {
     ].sort((a, b) => floorPosition(a) - floorPosition(b) || a.localeCompare(b)),
   );
   readonly filteredRooms = computed(() => {
-    const { block, accommodationId, unitId, floor, situation, occupancy } = this.criteria();
+    const { search, block, accommodationId, unitId, floor, situation, occupancy } = this.criteria();
     return this.rooms().filter(
       (room) =>
+        normalizeSearch(
+          `${room.number} ${room.code ?? ''} ${room.accommodationName} ${room.unitName ?? ''}`,
+        ).includes(normalizeSearch(search)) &&
         (!this.isDemo() || !block || room.accommodationId === block) &&
         (this.isDemo() || !accommodationId || room.accommodationId === accommodationId) &&
         (this.isDemo() || !unitId || room.unitId === unitId) &&
@@ -380,7 +399,7 @@ export class RoomsComponent {
   });
   readonly groups = computed<RoomGroup[]>(() => {
     const result = new Map<string, RoomGroup>();
-    for (const room of this.filteredRooms()) {
+    for (const room of this.filteredRooms().slice(this.page() * 25, (this.page() + 1) * 25)) {
       const key = JSON.stringify([room.accommodationId, room.unitId, room.floor]);
       if (!result.has(key))
         result.set(key, {
@@ -417,10 +436,15 @@ export class RoomsComponent {
   });
 
   constructor() {
+    rememberFilters('rooms', this.filters);
+    this.filters.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => this.page.set(0));
     this.filters.controls.accommodationId.valueChanges
       .pipe(takeUntilDestroyed())
       .subscribe(() => this.filters.controls.unitId.setValue(''));
-    if (!this.isDemo() && this.canView()) void this.load();
+    if (this.isDemo()) {
+      const lastPage = Math.max(0, Math.ceil(this.filteredRooms().length / 25) - 1);
+      this.page.update((page) => Math.max(0, Math.min(page, lastPage)));
+    } else if (this.canView()) void this.load();
   }
 
   async load(): Promise<void> {
@@ -430,6 +454,8 @@ export class RoomsComponent {
     this.sessionRequired.set(false);
     try {
       this.localMap.set(await this.api.map());
+      const lastPage = Math.max(0, Math.ceil(this.filteredRooms().length / 25) - 1);
+      this.page.update((page) => Math.max(0, Math.min(page, lastPage)));
     } catch (error) {
       this.localMap.set({ accommodations: [], units: [], rooms: [] });
       this.loadError.set(roomLoadError(error));
@@ -448,7 +474,9 @@ export class RoomsComponent {
     return `Quarto ${room.number}, ${room.code ? `código ${room.code}, ` : ''}${room.accommodationName}${room.unitName ? `, ${room.unitName}` : ''}, ${room.floor ?? 'piso não informado'}, ${room.situation}, ${!this.isDemo() ? `${this.capacityLabel(room.capacity)}, ` : ''}${room.occupancyLabel}, ${room.cleaningLabel}`;
   }
   clearFilters(): void {
+    this.page.set(0);
     this.filters.reset({
+      search: '',
       block: '',
       accommodationId: '',
       unitId: '',

@@ -25,7 +25,7 @@ public class LoginRateLimitFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws IOException, ServletException {
-        if (!limiter.allow(request.getParameter("email"), request.getRemoteAddr())) {
+        if (!limiter.allow(request.getParameter("matricula"), request.getRemoteAddr())) {
             response.setHeader("Retry-After", "900");
             errors.write(request, response, 429, "rate_limited", "Muitas tentativas. Aguarde e tente novamente.");
             return;

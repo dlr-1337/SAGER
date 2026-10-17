@@ -219,9 +219,10 @@ export class CommunicationsLocalApiService {
     residentId = '',
     status = '',
     beforeSequence?: number,
+    filters: Record<string, string> = {},
   ): Promise<CursorPage<DisciplineNotification>> {
     return this.get(
-      '/notificacoes' + this.query({ residentId, status, beforeSequence }),
+      '/notificacoes' + this.query({ ...filters, residentId, status, beforeSequence }),
       page(notification),
     );
   }
@@ -249,8 +250,15 @@ export class CommunicationsLocalApiService {
   ): Promise<DisciplineWarning> {
     return this.post(`/notificacoes/${this.id(id)}/converter`, input, warning);
   }
-  warnings(residentId = '', beforeSequence?: number): Promise<CursorPage<DisciplineWarning>> {
-    return this.get('/advertencias' + this.query({ residentId, beforeSequence }), page(warning));
+  warnings(
+    residentId = '',
+    beforeSequence?: number,
+    filters: Record<string, string> = {},
+  ): Promise<CursorPage<DisciplineWarning>> {
+    return this.get(
+      '/advertencias' + this.query({ ...filters, residentId, beforeSequence }),
+      page(warning),
+    );
   }
   warning(id: string): Promise<DisciplineWarning> {
     return this.get('/advertencias/' + this.id(id), warning);
@@ -287,8 +295,11 @@ export class CommunicationsLocalApiService {
   annulTerm(id: string, version: number, reason: string): Promise<DisciplineTerm> {
     return this.post(`/termos/${this.id(id)}/anular`, { version, reason }, term);
   }
-  notices(beforeSequence?: number): Promise<CursorPage<PublishedNotice>> {
-    return this.get('/avisos' + this.query({ beforeSequence }), page(notice));
+  notices(
+    beforeSequence?: number,
+    filters: Record<string, string> = {},
+  ): Promise<CursorPage<PublishedNotice>> {
+    return this.get('/avisos' + this.query({ ...filters, beforeSequence }), page(notice));
   }
   notice(id: string): Promise<PublishedNotice> {
     return this.get('/avisos/' + this.id(id), notice);
@@ -311,8 +322,9 @@ export class CommunicationsLocalApiService {
   ownList(
     kind: 'avisos' | 'advertencias' | 'termos',
     beforeSequence?: number,
+    filters: Record<string, string> = {},
   ): Promise<CursorPage<OwnCommunication>> {
-    return this.get(`/me/${kind}` + this.query({ beforeSequence }), page(own));
+    return this.get(`/me/${kind}` + this.query({ ...filters, beforeSequence }), page(own));
   }
   own(id: string): Promise<OwnCommunication> {
     return this.get('/me/comunicacoes/' + this.id(id), own);
@@ -342,7 +354,7 @@ export class CommunicationsLocalApiService {
     return encodeURIComponent(value);
   }
   private query(values: Record<string, string | number | undefined>): string {
-    const params = new URLSearchParams({ limit: '20' });
+    const params = new URLSearchParams({ limit: '25' });
     for (const [key, value] of Object.entries(values))
       if (value !== undefined && value !== '') params.set(key, String(value));
     return '?' + params.toString();

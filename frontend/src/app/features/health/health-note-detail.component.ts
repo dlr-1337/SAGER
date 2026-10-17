@@ -1,7 +1,9 @@
+import { UnsavedFormDirective } from '../../shared/unsaved-form';
 import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ViewChild,
   ElementRef,
   effect,
   inject,
@@ -24,7 +26,7 @@ import { plainHealthText, trimmedLength } from './health.helpers';
 
 @Component({
   selector: 'app-health-note-detail',
-  imports: [DatePipe, ReactiveFormsModule, RouterLink],
+  imports: [UnsavedFormDirective, DatePipe, ReactiveFormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './health.scss',
   template: `
@@ -81,7 +83,13 @@ import { plainHealthText, trimmedLength } from './health.helpers';
           <details class="health-disclosure">
             <summary>Corrigir registro</summary>
             <p>A correção acrescenta uma nova versão e preserva o conteúdo anterior.</p>
-            <form class="health-form" [formGroup]="correction" (ngSubmit)="correct()">
+            <form
+              sagerUnsaved
+              [sagerSaving]="busy"
+              class="health-form"
+              [formGroup]="correction"
+              (ngSubmit)="correct()"
+            >
               <div class="field">
                 <label for="correction-body">Texto corrigido *</label>
                 <textarea
@@ -216,7 +224,13 @@ import { plainHealthText, trimmedLength } from './health.helpers';
             </div>
           }
           @if (record.canShare) {
-            <form class="health-form" (submit)="$event.preventDefault(); share()">
+            <form
+              sagerUnsaved
+              #sharingDraft="sagerUnsaved"
+              [sagerSaving]="busy"
+              class="health-form"
+              (submit)="$event.preventDefault(); share()"
+            >
               <fieldset>
                 <legend>Selecionar novos destinatários</legend>
                 @for (person of recipients(); track person.grantId) {
@@ -253,6 +267,7 @@ import { plainHealthText, trimmedLength } from './health.helpers';
   `,
 })
 export class HealthNoteDetailComponent {
+  @ViewChild('sharingDraft') private sharingDraft?: UnsavedFormDirective;
   private readonly api = inject(HealthApiService);
   private readonly destroy = inject(DestroyRef);
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
@@ -389,6 +404,7 @@ export class HealthNoteDetailComponent {
       () => this.api.shareNote(record.id, record.version, this.selected()),
       'Partilha registrada para os destinatários selecionados.',
     );
+    if (this.success()) this.sharingDraft?.markSaved();
   }
   async revoke(share: HealthShare): Promise<void> {
     const record = this.note();

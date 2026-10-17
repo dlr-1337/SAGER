@@ -13,6 +13,7 @@ const principal = {
   id: '00000000-0000-0000-0000-000000000001',
   nome: 'Gestora Exemplo',
   email: 'gestora@example.invalid',
+  matricula: 'TESTE-LOGIN',
   fotoUrl: null,
   perfis: ['gestor'],
   residenteId: null,
@@ -30,10 +31,45 @@ async function mockSession(page: Page, profile: 'gestor' | 'supervisor' = 'gesto
   });
 }
 
+for (const profile of ['gestor', 'supervisor'] as const) {
+  test(`${profile} percorre todas as páginas dos 28 supervisores`, async ({ page }) => {
+    await mockSession(page, profile);
+    const records: SupervisorRecord[] = Array.from({ length: 28 }, (_, index) => ({
+      id: `00000000-0000-0000-0000-${String(index + 101).padStart(12, '0')}`,
+      name: `Supervisor Sintético ${index + 1}`,
+      institutionalId: `TESTE-${index + 1}`,
+      email: `supervisor${index + 1}@example.invalid`,
+      version: 0,
+    }));
+    const offsets: number[] = [];
+    await page.route('**/api/v1/supervisores**', (route) => {
+      const params = new URL(route.request().url()).searchParams;
+      const offset = Number(params.get('offset') ?? 0);
+      offsets.push(offset);
+      return route.fulfill({
+        headers: { 'X-Total-Count': '28' },
+        json: records.slice(offset, offset + Number(params.get('limit') ?? 25)),
+      });
+    });
+    await page.goto('/supervisores');
+    const names = page.locator('article.mg-row h3');
+    await expect(names).toHaveText(records.slice(0, 25).map((item) => item.name));
+    await expect(page.getByText('1–25 de 28', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Próxima', exact: true }).click();
+    await expect(names).toHaveText(records.slice(25).map((item) => item.name));
+    await expect(page.getByText('26–28 de 28', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Próxima', exact: true })).toBeDisabled();
+    await page.getByRole('button', { name: 'Anterior', exact: true }).click();
+    await expect(names).toHaveCount(25);
+    expect(offsets).toEqual([0, 25, 0]);
+  });
+}
+
 test('demonstração funciona sem backend e usa apenas registros fictícios', async ({ page }) => {
   await page.route('**/api/**', (route) => route.abort('failed'));
   await page.goto('/demonstracao');
   await page.getByRole('button', { name: /Entrar como gestor/i }).click();
+  await expect(page).toHaveURL(/\/inicio$/);
   await page.goto('/supervisores');
   await expect(page.getByText('Helena Supervisora Exemplo')).toBeVisible();
   await expect(page.getByText('Estes registros são demonstrativos')).toBeVisible();

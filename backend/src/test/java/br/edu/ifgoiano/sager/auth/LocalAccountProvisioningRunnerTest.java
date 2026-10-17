@@ -26,6 +26,13 @@ class LocalAccountProvisioningRunnerTest {
     }
 
     @Test
+    void usesTheExplicitAccountUuidWithoutInterpretingItAsEnrollment() {
+        var id=java.util.UUID.randomUUID();
+        runner.run(new DefaultApplicationArguments("--sager-account=disable", "--account-id="+id));
+        verify(accounts).disable(id);
+    }
+
+    @Test
     void ignoresRegularServerStartup() {
         runner.run(new DefaultApplicationArguments());
         verifyNoInteractions(accounts);

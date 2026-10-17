@@ -20,6 +20,11 @@ public class GuardianRepository {
         this.jdbc = jdbc;
     }
 
+    public br.edu.ifgoiano.sager.management.ManagementSearch.Page<Guardian> search(java.util.Map<String,String> params) {
+        return br.edu.ifgoiano.sager.management.ManagementSearch.query(jdbc, COLUMNS, "sager_guardian",
+                "concat_ws(' ', name,relationship,phone,(SELECT concat_ws(' ',r.name,r.enrollment) FROM sager_resident r WHERE r.id=resident_id))", "phone", "sager_search_text(name), id", java.util.Map.of("residentId", "resident_id = ?::uuid", "active", "active = ?::boolean"), params, (r,n) -> map(r));
+    }
+
     public List<Guardian> findAll() {
         return jdbc.query("SELECT " + COLUMNS + " FROM sager_guardian ORDER BY name, id",
                 (result, row) -> map(result));

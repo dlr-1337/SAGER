@@ -146,9 +146,9 @@ class ProductionAuthIntegrationTest {
         assertThatThrownBy(() -> jdbc.execute("CREATE TABLE production_should_refuse(id INT)")).rootCause().hasMessageContaining("permission denied");
         Integer original = owner.queryForObject("SELECT checksum FROM flyway_schema_history WHERE version='1'", Integer.class);
         owner.update("UPDATE flyway_schema_history SET checksum=checksum+1 WHERE version='1'");
-        try { assertThatThrownBy(() -> verifier.run(null)).isInstanceOf(IllegalStateException.class); }
+        try { assertThatThrownBy(() -> verifier.run(new org.springframework.boot.DefaultApplicationArguments())).isInstanceOf(IllegalStateException.class); }
         finally { owner.update("UPDATE flyway_schema_history SET checksum=? WHERE version='1'", original); }
-        assertThatCode(() -> verifier.run(null)).doesNotThrowAnyException();
+        assertThatCode(() -> verifier.run(new org.springframework.boot.DefaultApplicationArguments())).doesNotThrowAnyException();
     }
 
     @Test
@@ -172,7 +172,7 @@ class ProductionAuthIntegrationTest {
 
     private String createAccount(String profile) {
         String email = "production-" + UUID.randomUUID() + "@example.test";
-        provisioning.create(email, "Pessoa Sintética Produção", profile, PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(email), email, "Pessoa Sintética Produção", profile, PASSWORD.toCharArray());
         return email;
     }
     private URI url(String path) { return URI.create("http://127.0.0.1:" + port + path); }
@@ -187,8 +187,8 @@ class ProductionAuthIntegrationTest {
         HttpResponse<String> login(String email, String password) throws Exception {
             String csrf = json.readTree(get("/api/v1/auth/csrf").body()).path("token").asText();
             return request(proxy("/api/v1/auth/login").header("Content-Type", "application/x-www-form-urlencoded")
-                    .header("X-CSRF-TOKEN", csrf).POST(HttpRequest.BodyPublishers.ofString("email=" +
-                            URLEncoder.encode(email, StandardCharsets.UTF_8) + "&password=" + URLEncoder.encode(password, StandardCharsets.UTF_8))));
+                    .header("X-CSRF-TOKEN", csrf).POST(HttpRequest.BodyPublishers.ofString("matricula=" +
+                            URLEncoder.encode(br.edu.ifgoiano.sager.TestIdentity.enrollment(email), StandardCharsets.UTF_8) + "&password=" + URLEncoder.encode(password, StandardCharsets.UTF_8))));
         }
         HttpResponse<String> send(String path, String body, String csrf) throws Exception {
             var request = proxy(path).header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(body));

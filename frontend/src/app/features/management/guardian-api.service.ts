@@ -1,3 +1,4 @@
+import { readArrayPage } from '../../core/list-page';
 import { Injectable } from '@angular/core';
 
 export interface GuardianRecord {
@@ -42,6 +43,18 @@ function isGuardian(value: unknown): value is GuardianRecord {
 
 @Injectable({ providedIn: 'root' })
 export class GuardianApiService {
+  async page(
+    params: Record<string, string>,
+    signal?: AbortSignal,
+  ): Promise<{ items: GuardianRecord[]; total: number }> {
+    return readArrayPage(
+      baseUrl,
+      params,
+      isGuardian,
+      (response) => this.responseError(response),
+      signal,
+    );
+  }
   async list(): Promise<GuardianRecord[]> {
     const value = await this.read(baseUrl);
     if (!Array.isArray(value) || !value.every(isGuardian)) {

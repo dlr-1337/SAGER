@@ -27,6 +27,10 @@ public class GuardianService {
         this.audit = audit;
     }
 
+    public br.edu.ifgoiano.sager.management.ManagementSearch.Page<Guardian> list(java.util.Map<String,String> params) {
+        return repository.search(params);
+    }
+
     public List<Guardian> list() {
         return repository.findAll();
     }

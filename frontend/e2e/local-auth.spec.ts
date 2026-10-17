@@ -37,6 +37,7 @@ test('aba nova encerra cookie de sessão local antes de abrir a demonstração',
           id: '00000000-0000-0000-0000-000000000001',
           nome: 'Operadora Exemplo',
           email: 'operadora@example.test',
+          matricula: 'TESTE-LOGIN',
           fotoUrl: null,
           perfis: ['gestor'],
           residenteId: null,
@@ -81,9 +82,7 @@ test('login local restaura a sessão, respeita o perfil do servidor e permite sa
     }
     if (path.endsWith('/login')) {
       expect(request.headers()['x-csrf-token']).toBe('csrf-test');
-      expect(new URLSearchParams(request.postData() ?? '').get('email')).toBe(
-        'operadora@example.test',
-      );
+      expect(new URLSearchParams(request.postData() ?? '').get('matricula')).toBe('TESTE-LOGIN');
       authenticated = true;
       return route.fulfill({ status: 204 });
     }
@@ -95,6 +94,7 @@ test('login local restaura a sessão, respeita o perfil do servidor e permite sa
                 id: '00000000-0000-0000-0000-000000000001',
                 nome: 'Operadora Exemplo',
                 email: 'operadora@example.test',
+                matricula: 'TESTE-LOGIN',
                 fotoUrl: null,
                 perfis: ['gestor'],
                 residenteId: null,
@@ -113,9 +113,9 @@ test('login local restaura a sessão, respeita o perfil do servidor e permite sa
   });
 
   await page.goto('/acesso');
-  await page.getByRole('textbox', { name: 'E-mail' }).fill('operadora@example.test');
+  await page.getByRole('textbox', { name: 'Matrícula' }).fill('TESTE-LOGIN');
   await page.getByLabel('Senha').fill('senha de teste');
-  await page.getByRole('button', { name: 'Entrar com e-mail e senha' }).click();
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(page).toHaveURL(/\/inicio$/);
   await expect(page.getByRole('heading', { name: 'Atividades do SAGER' })).toBeVisible();
   await expect(page.getByText('Operadora Exemplo · Acesso local')).toBeVisible();
@@ -147,10 +147,10 @@ test('senha inválida mantém o usuário fora do sistema e não impede a demonst
   });
 
   await page.goto('/acesso');
-  await page.getByRole('textbox', { name: 'E-mail' }).fill('operadora@example.test');
+  await page.getByRole('textbox', { name: 'Matrícula' }).fill('TESTE-LOGIN');
   await page.getByLabel('Senha').fill('senha incorreta');
-  await page.getByRole('button', { name: 'Entrar com e-mail e senha' }).click();
-  await expect(page.getByRole('alert')).toContainText('E-mail ou senha inválidos');
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('Matrícula ou senha inválidos');
   await expect(page).toHaveURL(/\/acesso$/);
   await page.getByRole('link', { name: 'Explorar demonstração' }).click();
   await page.getByRole('button', { name: /Entrar como residente/i }).click();
@@ -171,6 +171,7 @@ for (const profile of ['residente', 'supervisor'] as const) {
                 id: '00000000-0000-0000-0000-000000000001',
                 nome: 'Pessoa Sintética',
                 email: `${profile}@example.test`,
+                matricula: 'TESTE-LOGIN',
                 fotoUrl: null,
                 perfis: [profile],
                 residenteId: profile === 'residente' ? recordId : null,

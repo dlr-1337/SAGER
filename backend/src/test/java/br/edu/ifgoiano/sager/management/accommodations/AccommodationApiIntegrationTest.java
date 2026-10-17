@@ -76,7 +76,7 @@ class AccommodationApiIntegrationTest {
 
     @Test
     void gestorCreatesReadsAndUpdatesAccommodationAndUnitWithPersistedVersion() throws Exception {
-        provisioning.create("gestor@example.invalid", "Gestor Sintético", "gestor",
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("gestor@example.invalid"), "gestor@example.invalid", "Gestor Sintético", "gestor",
                 PASSWORD.toCharArray());
         try (HttpClient client = browser()) {
             login(client, "gestor");
@@ -135,7 +135,7 @@ class AccommodationApiIntegrationTest {
 
     @Test
     void codesAreCaseInsensitiveAndUnitCodesAreScopedToTheirAccommodation() throws Exception {
-        provisioning.create("gestor@example.invalid", "Gestor", "gestor", PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("gestor@example.invalid"), "gestor@example.invalid", "Gestor", "gestor", PASSWORD.toCharArray());
         try (HttpClient client = browser()) {
             login(client, "gestor");
             String first = create(client, "DEMO-A", "Residência A");
@@ -159,7 +159,7 @@ class AccommodationApiIntegrationTest {
 
     @Test
     void staleVersionsCannotOverwritePersistedAccommodationOrUnit() throws Exception {
-        provisioning.create("gestor@example.invalid", "Gestor", "gestor", PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("gestor@example.invalid"), "gestor@example.invalid", "Gestor", "gestor", PASSWORD.toCharArray());
         try (HttpClient client = browser()) {
             login(client, "gestor");
             String id = create(client, "DEMO-A", "Residência A");
@@ -185,7 +185,7 @@ class AccommodationApiIntegrationTest {
 
     @Test
     void validatesFieldsMissingIdsAndUnitParentWithoutMovingUnit() throws Exception {
-        provisioning.create("gestor@example.invalid", "Gestor", "gestor", PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("gestor@example.invalid"), "gestor@example.invalid", "Gestor", "gestor", PASSWORD.toCharArray());
         try (HttpClient client = browser()) {
             login(client, "gestor");
             for (String body : new String[] { "{}", "{", input(" ", "Nome"),
@@ -218,7 +218,7 @@ class AccommodationApiIntegrationTest {
 
     @Test
     void rejectsNonTextFieldsInCreateAndUpdateWithoutChangingVersion() throws Exception {
-        provisioning.create("gestor@example.invalid", "Gestor", "gestor", PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("gestor@example.invalid"), "gestor@example.invalid", "Gestor", "gestor", PASSWORD.toCharArray());
         try (HttpClient client = browser()) {
             login(client, "gestor");
             String base = input("DEMO-TEXT", "Residência Sintética");
@@ -264,7 +264,7 @@ class AccommodationApiIntegrationTest {
     @Test
     void gestorAndSupervisorReadWriteWithCsrfAndActiveSession() throws Exception {
         for (String profile : new String[] { "gestor", "supervisor", "residente" }) {
-            provisioning.create(profile + "@example.invalid", profile, profile, PASSWORD.toCharArray());
+            provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(profile + "@example.invalid"), profile + "@example.invalid", profile, profile, PASSWORD.toCharArray());
         }
         String id;
         try (HttpClient gestor = browser()) {
@@ -336,7 +336,7 @@ class AccommodationApiIntegrationTest {
     }
 
     private void login(HttpClient client, String profile) throws Exception {
-        String form = "email=" + URLEncoder.encode(profile + "@example.invalid", StandardCharsets.UTF_8)
+        String form = "matricula=" + URLEncoder.encode(br.edu.ifgoiano.sager.TestIdentity.enrollment(profile + "@example.invalid"), StandardCharsets.UTF_8)
                 + "&password=" + URLEncoder.encode(PASSWORD, StandardCharsets.UTF_8);
         assertThat(send(client, HttpRequest.newBuilder(uri("/api/v1/auth/login"))
                 .header("Content-Type", "application/x-www-form-urlencoded")

@@ -1,3 +1,5 @@
+import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
+import { UnsavedFormDirective } from '../../shared/unsaved-form';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -19,7 +21,7 @@ import {
 @Component({
   standalone: true,
   selector: 'app-exit-form-local',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [SearchableSelectDirective, UnsavedFormDirective, ReactiveFormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page op-narrow">
@@ -65,7 +67,14 @@ import {
             </p>
           </section>
         } @else {
-          <form class="panel op-panel op-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+          <form
+            sagerUnsaved
+            [sagerSaving]="saving"
+            class="panel op-panel op-form"
+            [formGroup]="form"
+            (ngSubmit)="save()"
+            novalidate
+          >
             <h2>Dados da saída</h2>
             <p>
               {{ resident.residentName }} · Matrícula {{ resident.enrollment }} · Quarto
@@ -76,7 +85,11 @@ import {
               pelo supervisor. Para períodos maiores, solicite uma saída longa.
             </p>
             <label class="field"
-              >Quando deseja sair?<select formControlName="departureMode" (change)="modeChanged()">
+              >Quando deseja sair?<select
+                sagerSearchable
+                formControlName="departureMode"
+                (change)="modeChanged()"
+              >
                 <option value="NOW">Agora, após a análise e a liberação presencial</option>
                 <option value="SCHEDULED">Agendar data e hora</option>
               </select></label
@@ -279,6 +292,8 @@ export class ExitFormLocalComponent {
         return;
       }
       const exit = await this.api.saveExit(input, original ?? undefined);
+      this.saving.set(false);
+      this.form.markAsPristine();
       await this.router.navigate(['/saidas', exit.id], { queryParams: { saved: '1' } });
     } catch (error) {
       this.error.set(operationsError(error));

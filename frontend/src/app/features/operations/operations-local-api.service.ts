@@ -1,3 +1,4 @@
+import { readArrayPage } from '../../core/list-page';
 import { Injectable } from '@angular/core';
 import {
   CallContext,
@@ -188,6 +189,18 @@ export class OperationsLocalApiService {
   }
   async eligibility(): Promise<ExitEligibility> {
     return this.checked(await this.request('/api/v1/saidas-curtas/elegibilidade'), isEligibility);
+  }
+  async exitsPage(
+    params: Record<string, string>,
+    signal?: AbortSignal,
+  ): Promise<{ items: ShortExit[]; total: number }> {
+    return readArrayPage(
+      '/api/v1/saidas-curtas',
+      params,
+      isExit,
+      async (response) => new OperationsApiError(response.status),
+      signal,
+    );
   }
   async exits(search?: string, status?: string): Promise<ShortExit[]> {
     return this.list(

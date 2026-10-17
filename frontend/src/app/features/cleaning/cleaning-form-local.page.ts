@@ -1,3 +1,5 @@
+import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
+import { UnsavedFormDirective } from '../../shared/unsaved-form';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
@@ -37,6 +39,8 @@ import { ReportingApiError, reportingError } from './reporting-local.transport';
   standalone: true,
   selector: 'sager-cleaning-form-local',
   imports: [
+    SearchableSelectDirective,
+    UnsavedFormDirective,
     RouterLink,
     ReactiveFormsModule,
     CommunicationsStateComponent,
@@ -86,18 +90,24 @@ import { ReportingApiError, reportingError } from './reporting-local.transport';
               </div>
             </dl>
           }
-          <form [formGroup]="form" (ngSubmit)="review()" novalidate>
+          <form
+            sagerUnsaved
+            [sagerSaving]="busy"
+            [formGroup]="form"
+            (ngSubmit)="review()"
+            novalidate
+          >
             @if (!id) {
               <div class="comm-form-grid">
                 <label class="field"
-                  >Quarto<select formControlName="roomId">
+                  >Quarto<select sagerSearchable formControlName="roomId">
                     <option value="">Selecione o quarto</option>
                     @for (room of rooms(); track room.id) {
                       <option [value]="room.id">{{ room.code }}</option>
                     }
                   </select></label
                 ><label class="field"
-                  >Momento da avaliação<select formControlName="timeMode">
+                  >Momento da avaliação<select sagerSearchable formControlName="timeMode">
                     <option value="NOW">Agora, pelo horário do servidor</option>
                     <option value="RETROACTIVE">Registrar uma avaliação anterior</option>
                   </select></label
@@ -326,6 +336,8 @@ export class CleaningFormLocalPage {
               reason: result.reason,
             })
           : await this.api.create({ ...input, idempotencyKey: this.intent.for(input) });
+      this.busy.set(false);
+      this.form.markAsPristine();
       await this.router.navigate(['/limpeza', saved.id]);
     } catch (error) {
       if (error instanceof ReportingApiError && error.status === 409) this.conflict.set(true);

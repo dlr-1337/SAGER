@@ -56,7 +56,7 @@ const capabilities: Guard<HealthCapabilities> = (v): v is HealthCapabilities =>
   typeof v['canAdministerAccess'] === 'boolean' &&
   typeof v['canAccessOwnRecord'] === 'boolean';
 const account: Guard<HealthAccount> = (v): v is HealthAccount =>
-  object(v) && strings(v, ['id', 'name', 'email', 'profile']);
+  object(v) && strings(v, ['id', 'name', 'profile']) && nullable(v['email']);
 const assignment: Guard<CareAssignment> = (v): v is CareAssignment =>
   object(v) &&
   strings(v, [

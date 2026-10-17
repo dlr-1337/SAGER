@@ -1,330 +1,370 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { debounceTime } from 'rxjs';
 import { RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
+import { FilterState, rememberFilters } from '../../core/filter-state';
+import { normalizeSearch } from '../../shared/search';
+import { PaginationComponent } from '../../shared/pagination.component';
 import { ManagementDemoService } from './management-demo.service';
-import { ageFromBirthDate } from './management.utils';
 import { ResidentApiError, ResidentApiService, ResidentRecord } from './resident-api.service';
+import { Course, CourseApiService } from './course-api.service';
+import { RoomApiService } from './room-api.service';
+import { HousingMap } from './housing.models';
 
 @Component({
   selector: 'app-residents',
   standalone: true,
-  imports: [RouterLink, ReactiveFormsModule],
+  imports: [SearchableSelectDirective, RouterLink, ReactiveFormsModule, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <main class="page mg-page">
-      @if (canView()) {
-        @if (isDemo()) {
-          <header class="mg-heading">
-            <div>
-              <a class="mg-back" routerLink="/inicio"
-                ><span class="material-symbols-rounded" aria-hidden="true">arrow_back</span>
-                Início</a
-              >
-              <h1>Residentes</h1>
-              <p>Encontre um cadastro, confira vínculos e consulte o histórico.</p>
-            </div>
-            @if (canEdit()) {
-              <a class="btn mg-primary" routerLink="/residentes/novo"
-                ><span class="material-symbols-rounded" aria-hidden="true">person_add</span>
-                Cadastrar residente</a
-              >
+  template: ` <main class="page mg-page">
+    <header class="mg-heading">
+      <div>
+        <a class="mg-back" routerLink="/inicio">Início</a>
+        <h1>Residentes</h1>
+        <p>Encontre um cadastro, confira vínculos e consulte o histórico.</p>
+      </div>
+      <a class="btn mg-primary" routerLink="/residentes/novo">Cadastrar residente</a>
+    </header>
+    <section class="panel mg-panel" aria-labelledby="resident-search-title">
+      <h2 id="resident-search-title">Buscar residentes</h2>
+      <form class="mg-filters" [formGroup]="filters" (submit)="$event.preventDefault()">
+        <label class="field mg-field mg-grow"
+          >Nome, matrícula ou e-mail<input
+            type="search"
+            formControlName="search"
+            placeholder="Digite o nome ou matrícula"
+            maxlength="200"
+            autocomplete="off"
+        /></label>
+        <label class="field mg-field"
+          >Curso<select sagerSearchable formControlName="courseId">
+            <option value="">Todos os cursos</option>
+            @for (c of courses(); track c.id) {
+              <option [value]="c.id">{{ c.name }}{{ c.active ? '' : ' (inativo)' }}</option>
             }
-          </header>
-
-          <section class="panel mg-panel" aria-labelledby="resident-search-title">
-            <h2 id="resident-search-title">Buscar residentes</h2>
-            <form class="mg-filters" [formGroup]="filters">
-              <label class="field mg-field mg-grow"
-                >Nome ou matrícula
-                <input
-                  type="search"
-                  formControlName="query"
-                  placeholder="Digite o nome ou matrícula"
-                  autocomplete="off"
-                />
-              </label>
-              <label class="field mg-field"
-                >Bloco
-                <select formControlName="block">
-                  <option value="">Todos os blocos</option>
-                  @for (block of blocks(); track block) {
-                    <option [value]="block">Bloco {{ block }}</option>
-                  }
-                </select>
-              </label>
-              <label class="field mg-field"
-                >Situação
-                <select formControlName="status">
-                  <option value="">Todas</option>
-                  <option value="Ativo">Ativo</option>
-                  <option value="Inativo">Inativo</option>
-                </select>
-              </label>
-            </form>
-          </section>
-
-          <section class="mg-section" aria-labelledby="resident-results-title">
-            <div class="mg-section-heading">
-              <h2 id="resident-results-title">Cadastros</h2>
-              <p aria-live="polite">
-                @if (scenario() === 'padrao') {
-                  {{ filtered().length }} de {{ service.residents().length }} residentes
-                } @else {
-                  Cenário: {{ scenarioLabel() }}
-                }
-              </p>
-            </div>
-            @if (scenario() === 'carregando') {
-              <div class="mg-empty" role="status" aria-live="polite">
-                <span class="material-symbols-rounded mg-loading-icon" aria-hidden="true"
-                  >progress_activity</span
-                >
-                <h3>Carregando residentes</h3>
-                <p>Este é um estado simulado para revisão da interface.</p>
-                <button type="button" class="btn mg-secondary" (click)="restoreScenario()">
-                  Voltar ao cenário padrão
-                </button>
-              </div>
-            } @else if (scenario() === 'erro') {
-              <div class="mg-empty" role="alert">
-                <span class="material-symbols-rounded" aria-hidden="true">error</span>
-                <h3>Não foi possível carregar residentes</h3>
-                <p>Falha simulada. Tente novamente para voltar aos dados de demonstração.</p>
-                <button type="button" class="btn mg-primary" (click)="restoreScenario()">
-                  Tentar novamente
-                </button>
-              </div>
-            } @else if (scenario() === 'vazio') {
-              <div class="mg-empty" role="status">
-                <span class="material-symbols-rounded" aria-hidden="true">person_off</span>
-                <h3>Nenhum residente cadastrado</h3>
-                <p>Este é o estado vazio da demonstração.</p>
-                <button type="button" class="btn mg-secondary" (click)="restoreScenario()">
-                  Voltar ao cenário padrão
-                </button>
-              </div>
-            } @else if (filtered().length) {
-              <div class="mg-list">
-                @for (resident of filtered(); track resident.id) {
-                  <article class="mg-row">
-                    <div class="mg-avatar" aria-hidden="true">{{ resident.name.slice(0, 1) }}</div>
-                    <div class="mg-row-main">
-                      <h3>{{ resident.name }}</h3>
-                      <p>Matrícula {{ resident.enrollment }} · {{ resident.course }}</p>
-                    </div>
-                    <div class="mg-row-detail">
-                      <strong>{{ service.roomLabel(resident.roomId) }}</strong
-                      ><span>{{ age(resident.birthDate) }} anos · {{ resident.status }}</span>
-                    </div>
-                    <a class="mg-row-link" [routerLink]="['/residentes', resident.id]"
-                      >Ver cadastro
-                      <span class="material-symbols-rounded" aria-hidden="true"
-                        >arrow_forward</span
-                      ></a
-                    >
-                  </article>
-                }
-              </div>
-            } @else {
-              <div class="mg-empty" role="status">
-                <span class="material-symbols-rounded" aria-hidden="true">search_off</span>
-                <h3>Nenhum residente encontrado</h3>
-                <p>Altere os filtros ou confira a matrícula digitada.</p>
-                <button type="button" class="btn mg-secondary" (click)="clearFilters()">
-                  Limpar filtros
-                </button>
-              </div>
-            }
-          </section>
-        } @else {
-          <header class="mg-heading">
-            <div>
-              <a class="mg-back" routerLink="/inicio"
-                ><span class="material-symbols-rounded" aria-hidden="true">arrow_back</span>
-                Início</a
-              >
-              <h1>Residentes</h1>
-              <p>Consulte os cadastros locais de estudantes.</p>
-            </div>
-            @if (canEdit()) {
-              <a class="btn mg-primary" routerLink="/residentes/novo"
-                ><span class="material-symbols-rounded" aria-hidden="true">person_add</span>
-                Cadastrar residente</a
-              >
-            }
-          </header>
-          <section class="panel mg-panel" aria-labelledby="resident-search-title">
-            <h2 id="resident-search-title">Buscar residentes</h2>
-            <label class="field mg-field mg-grow"
-              >Nome ou matrícula
-              <input
-                type="search"
-                [formControl]="localSearch"
-                placeholder="Digite o nome ou matrícula"
-                autocomplete="off"
-              />
-            </label>
-          </section>
-          <section class="mg-section" aria-labelledby="resident-results-title">
-            <div class="mg-section-heading">
-              <h2 id="resident-results-title">Cadastros</h2>
-              @if (!loading() && !loadError()) {
-                <p aria-live="polite">
-                  {{ localFiltered().length }} de {{ localResidents().length }} residentes
-                </p>
+          </select></label
+        >
+        <label class="field mg-field"
+          >{{ isDemo() ? 'Bloco' : 'Alojamento'
+          }}<select sagerSearchable formControlName="accommodationId">
+            <option value="">Todos</option>
+            @if (isDemo()) {
+              @for (block of blocks(); track block) {
+                <option [value]="block">Bloco {{ block }}</option>
               }
-            </div>
-            @if (loading()) {
-              <div class="mg-empty" role="status" aria-live="polite">
-                <span class="material-symbols-rounded mg-loading-icon" aria-hidden="true"
-                  >progress_activity</span
-                >
-                <h3>Carregando residentes</h3>
-                <p>Consultando os cadastros do ambiente local de teste.</p>
-              </div>
-            } @else if (loadError()) {
-              <div class="mg-empty" role="alert">
-                <span class="material-symbols-rounded" aria-hidden="true">error</span>
-                <h3>Não foi possível carregar residentes</h3>
-                <p>{{ loadError() }}</p>
-                <button type="button" class="btn mg-primary" (click)="load()">
-                  Tentar novamente
-                </button>
-              </div>
-            } @else if (!localResidents().length) {
-              <div class="mg-empty" role="status">
-                <span class="material-symbols-rounded" aria-hidden="true">person_off</span>
-                <h3>Nenhum residente cadastrado</h3>
-                <p>
-                  O cadastro local ainda está vazio. Use apenas dados sintéticos neste ambiente de
-                  teste.
-                </p>
-              </div>
-            } @else if (localFiltered().length) {
-              <div class="mg-list">
-                @for (resident of localFiltered(); track resident.id) {
-                  <article class="mg-row">
-                    <div class="mg-avatar" aria-hidden="true">{{ resident.name.slice(0, 1) }}</div>
-                    <div class="mg-row-main">
-                      <h3>{{ resident.name }}</h3>
-                      <p>Matrícula {{ resident.enrollment }}</p>
-                    </div>
-                    <div class="mg-row-detail">
-                      <strong>Curso</strong><span>{{ resident.course || 'Não informado' }}</span>
-                    </div>
-                    <a class="mg-row-link" [routerLink]="['/residentes', resident.id]"
-                      >Ver cadastro
-                      <span class="material-symbols-rounded" aria-hidden="true"
-                        >arrow_forward</span
-                      ></a
-                    >
-                  </article>
+            } @else {
+              @for (a of housing().accommodations; track a.id) {
+                <option [value]="a.id">{{ a.name }}</option>
+              }
+            }
+          </select></label
+        >
+        <label class="field mg-field"
+          >Quarto<select sagerSearchable formControlName="roomId">
+            <option value="">Todos os quartos</option>
+            @if (isDemo()) {
+              @for (r of service.rooms(); track r.id) {
+                <option [value]="r.id">{{ r.block }} · {{ r.number }}</option>
+              }
+            } @else {
+              @for (r of rooms(); track r.id) {
+                <option [value]="r.id">{{ r.code }} · {{ r.number }}</option>
+              }
+            }
+          </select></label
+        >
+        <label class="field mg-field"
+          >Alocação<select sagerSearchable formControlName="allocated">
+            <option value="">Todas</option>
+            <option value="true">Com quarto</option>
+            <option value="false">Sem quarto</option>
+          </select></label
+        >
+        <button class="btn mg-secondary" type="button" (click)="clearFilters()">
+          Limpar filtros
+        </button>
+      </form>
+      @if (applied().length) {
+        <ul class="filter-chips" aria-label="Filtros aplicados">
+          @for (chip of applied(); track chip.key) {
+            <li>
+              <button
+                type="button"
+                (click)="removeFilter(chip.key)"
+                [attr.aria-label]="'Remover filtro ' + chip.label"
+              >
+                {{ chip.label }}: {{ chip.value }}
+                <span class="material-symbols-rounded" aria-hidden="true">close</span>
+              </button>
+            </li>
+          }
+        </ul>
+      }
+      @if (optionsError()) {
+        <p role="alert">{{ optionsError() }}</p>
+        <button class="btn mg-secondary" (click)="loadOptions()">Recarregar opções</button>
+      }
+    </section>
+    <section class="mg-section" aria-labelledby="resident-results-title">
+      <div class="mg-section-heading">
+        <h2 id="resident-results-title">Cadastros</h2>
+        <p role="status">{{ total() }} residentes encontrados</p>
+      </div>
+      @if (loading() || (isDemo() && scenario() === 'carregando')) {
+        <div class="mg-empty" role="status">
+          <h3>Carregando residentes</h3>
+          @if (isDemo()) {
+            <button class="btn mg-secondary" (click)="restoreScenario()">
+              Voltar ao cenário padrão
+            </button>
+          }
+        </div>
+      } @else if (loadError() || (isDemo() && scenario() === 'erro')) {
+        <div class="mg-empty" role="alert">
+          <h3>Não foi possível carregar residentes</h3>
+          <p>{{ loadError() }}</p>
+          <button class="btn" (click)="isDemo() ? restoreScenario() : load()">
+            Tentar novamente
+          </button>
+        </div>
+      } @else if ((isDemo() && scenario() === 'vazio') || !total()) {
+        <div class="mg-empty" role="status">
+          <h3>
+            {{ applied().length ? 'Nenhum residente encontrado' : 'Nenhum residente cadastrado' }}
+          </h3>
+          <p>
+            {{
+              applied().length
+                ? 'Altere os filtros ou confira a matrícula digitada.'
+                : 'Cadastre um residente para começar.'
+            }}
+          </p>
+          <button class="btn mg-secondary" (click)="clearFilters(); restoreScenario()">
+            Limpar filtros
+          </button>
+        </div>
+      } @else {
+        <div class="mg-list">
+          @for (resident of visible(); track resident.id) {
+            <article class="mg-row">
+              <div class="mg-avatar" aria-hidden="true">{{ resident.name.slice(0, 1) }}</div>
+              <div class="mg-row-main">
+                <h3>{{ resident.name }}</h3>
+                <p>Matrícula {{ resident.enrollment }}</p>
+                @if (resident.institutionalEmail) {
+                  <p>{{ resident.institutionalEmail }}</p>
                 }
               </div>
-            } @else {
-              <div class="mg-empty" role="status">
-                <span class="material-symbols-rounded" aria-hidden="true">search_off</span>
-                <h3>Nenhum residente encontrado</h3>
-                <p>Confira o nome ou a matrícula digitada.</p>
-                <button type="button" class="btn mg-secondary" (click)="localSearch.setValue('')">
-                  Limpar busca
-                </button>
+              <div class="mg-row-detail">
+                <strong>Curso</strong><span>{{ resident.course || 'Não informado' }}</span>
               </div>
-            }
-          </section>
-        }
-      } @else {
-        <section class="mg-empty" role="alert">
-          <span class="material-symbols-rounded" aria-hidden="true">lock</span>
-          <h1>Acesso restrito</h1>
-          <p>Esta área está disponível para gestor e supervisor.</p>
-          <a class="btn mg-primary" routerLink="/inicio">Voltar ao início</a>
-        </section>
+              <a class="mg-row-link" [routerLink]="['/residentes', resident.id]"
+                >Ver cadastro
+                <span class="material-symbols-rounded" aria-hidden="true">arrow_forward</span></a
+              >
+            </article>
+          }
+        </div>
       }
-    </main>
-  `,
+      <sager-pagination
+        [page]="page()"
+        [total]="total()"
+        [busy]="loading()"
+        (pageChange)="changePage($event)"
+      />
+    </section>
+  </main>`,
 })
 export class ResidentsComponent {
   readonly service = inject(ManagementDemoService);
   private readonly api = inject(ResidentApiService);
+  private readonly courseApi = inject(CourseApiService);
+  private readonly roomApi = inject(RoomApiService);
   private readonly session = inject(DemoSessionService);
+  private readonly destroy = inject(DestroyRef);
+  private readonly memory = inject(FilterState);
   readonly isDemo = this.session.active;
-  readonly canView = computed(() => this.session.hasRole('gestor', 'supervisor'));
-  readonly canEdit = computed(() => this.session.hasRole('gestor', 'supervisor'));
   readonly scenario = this.session.scenario;
+  readonly courses = signal<Course[]>([]);
+  readonly housing = signal<HousingMap>({ accommodations: [], units: [], rooms: [] });
+  readonly optionsError = signal('');
   readonly filters = new FormGroup({
-    query: new FormControl('', { nonNullable: true }),
-    block: new FormControl('', { nonNullable: true }),
-    status: new FormControl('', { nonNullable: true }),
+    search: new FormControl('', { nonNullable: true }),
+    courseId: new FormControl('', { nonNullable: true }),
+    accommodationId: new FormControl('', { nonNullable: true }),
+    roomId: new FormControl('', { nonNullable: true }),
+    allocated: new FormControl('', { nonNullable: true }),
   });
   private readonly criteria = toSignal(this.filters.valueChanges, {
     initialValue: this.filters.getRawValue(),
   });
-  readonly blocks = computed(() =>
-    [...new Set(this.service.rooms().map((room) => room.block))].sort(),
-  );
-  readonly filtered = computed(() => {
-    const { query, block, status } = this.criteria();
-    const text = (query ?? '').trim().toLocaleLowerCase('pt-BR');
-    return this.service.residents().filter((resident) => {
-      const room = resident.roomId ? this.service.room(resident.roomId) : undefined;
-      return (
-        (!text ||
-          `${resident.name} ${resident.enrollment}`.toLocaleLowerCase('pt-BR').includes(text)) &&
-        (!block || room?.block === block) &&
-        (!status || resident.status === status)
-      );
-    });
-  });
-  readonly age = ageFromBirthDate;
-  readonly localSearch = new FormControl('', { nonNullable: true });
-  readonly localResidents = signal<ResidentRecord[]>([]);
+  readonly page = signal(Number(this.memory.values.get('resident-page') ?? 0));
+  readonly items = signal<ResidentRecord[]>([]);
+  readonly remoteTotal = signal(0);
   readonly loading = signal(false);
   readonly loadError = signal('');
-  private readonly localQuery = toSignal(this.localSearch.valueChanges, { initialValue: '' });
-  readonly localFiltered = computed(() => {
-    const text = this.localQuery().trim().toLocaleLowerCase('pt-BR');
-    return this.localResidents().filter(
-      (resident) =>
-        !text ||
-        `${resident.name} ${resident.enrollment}`.toLocaleLowerCase('pt-BR').includes(text),
-    );
-  });
-
-  constructor() {
-    if (!this.isDemo() && this.canView()) void this.load();
-  }
-
-  async load(): Promise<void> {
-    if (this.isDemo() || !this.canView()) return;
-    this.loading.set(true);
-    this.loadError.set('');
-    try {
-      this.localResidents.set(await this.api.list());
-    } catch (error) {
-      this.localResidents.set([]);
-      this.loadError.set(
-        error instanceof ResidentApiError && [401, 403].includes(error.status)
-          ? 'Sua sessão não permite consultar estes cadastros. Entre novamente ou confira seu perfil.'
-          : 'Confira a conexão com o backend local e tente novamente.',
+  readonly blocks = computed(() => [...new Set(this.service.rooms().map((r) => r.block))].sort());
+  readonly rooms = computed(() =>
+    this.housing().rooms.filter(
+      (r) =>
+        !this.criteria().accommodationId || r.accommodationId === this.criteria().accommodationId,
+    ),
+  );
+  readonly applied = computed(() =>
+    Object.entries(this.criteria())
+      .filter(([, value]) => !!value)
+      .map(([key, value]) => ({
+        key,
+        label: (
+          {
+            search: 'Busca',
+            courseId: 'Curso',
+            accommodationId: 'Alojamento',
+            roomId: 'Quarto',
+            allocated: 'Alocação',
+          } as Record<string, string>
+        )[key],
+        value:
+          key === 'courseId'
+            ? (this.courses().find((c) => c.id === value)?.name ?? value)
+            : key === 'accommodationId'
+              ? (this.housing().accommodations.find((a) => a.id === value)?.name ?? value)
+              : key === 'roomId'
+                ? (this.housing().rooms.find((r) => r.id === value)?.code ??
+                  this.service.room(value ?? '')?.number ??
+                  value)
+                : key === 'allocated'
+                  ? value === 'true'
+                    ? 'Com quarto'
+                    : 'Sem quarto'
+                  : value,
+      })),
+  );
+  readonly demoFiltered = computed(() => {
+    const c = this.criteria();
+    const query = normalizeSearch(c.search);
+    const course = this.courses().find((item) => item.id === c.courseId)?.name;
+    return this.service
+      .residents()
+      .filter(
+        (r) =>
+          normalizeSearch(`${r.name} ${r.enrollment} ${r.institutionalEmail ?? ''}`).includes(
+            query,
+          ) &&
+          (!c.courseId || r.course === course) &&
+          (!c.roomId || r.roomId === c.roomId) &&
+          (!c.accommodationId || this.service.room(r.roomId ?? '')?.block === c.accommodationId) &&
+          (!c.allocated || !!r.roomId === (c.allocated === 'true')),
+      )
+      .sort(
+        (a, b) =>
+          Number(normalizeSearch(b.enrollment) === query) -
+            Number(normalizeSearch(a.enrollment) === query) ||
+          a.name.localeCompare(b.name, 'pt-BR') ||
+          a.id.localeCompare(b.id),
       );
-    } finally {
-      this.loading.set(false);
+  });
+  readonly total = computed(() =>
+    this.isDemo() ? this.demoFiltered().length : this.remoteTotal(),
+  );
+  readonly visible = computed<ResidentRecord[]>(() =>
+    this.isDemo()
+      ? this.demoFiltered().slice(this.page() * 25, (this.page() + 1) * 25)
+      : this.items(),
+  );
+  private request?: AbortController;
+  constructor() {
+    rememberFilters('residents', this.filters);
+    this.filters.valueChanges.pipe(debounceTime(250), takeUntilDestroyed()).subscribe(() => {
+      this.page.set(0);
+      this.memory.values.set('resident-page', 0);
+      if (!this.isDemo()) void this.load();
+    });
+    this.filters.controls.accommodationId.valueChanges
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => this.filters.controls.roomId.setValue(''));
+    this.destroy.onDestroy(() => this.request?.abort());
+    void this.loadOptions();
+    if (!this.isDemo()) void this.load();
+  }
+  async loadOptions(): Promise<void> {
+    this.optionsError.set('');
+    try {
+      const courses = await this.courseApi.list();
+      if (this.destroy.destroyed) return;
+      this.courses.set(courses);
+      if (this.isDemo()) {
+        const lastPage = Math.max(0, Math.ceil(this.demoFiltered().length / 25) - 1);
+        this.changePage(Math.max(0, Math.min(this.page(), lastPage)));
+      } else {
+        const map = await this.roomApi.map();
+        if (!this.destroy.destroyed) this.housing.set(map);
+      }
+    } catch {
+      if (!this.destroy.destroyed)
+        this.optionsError.set('Não foi possível carregar todas as opções de curso e alojamento.');
     }
   }
-
+  async load(): Promise<void> {
+    this.request?.abort();
+    const request = (this.request = new AbortController());
+    this.loading.set(true);
+    this.loadError.set('');
+    const params = Object.fromEntries(
+      Object.entries(this.filters.getRawValue()).filter(([, value]) => value),
+    );
+    try {
+      const result = await this.api.page(
+        { ...params, limit: '25', offset: String(this.page() * 25) },
+        request.signal,
+      );
+      if (request.signal.aborted || this.destroy.destroyed) return;
+      this.items.set(result.items);
+      this.remoteTotal.set(result.total);
+      if (this.page() && this.page() * 25 >= result.total) {
+        this.changePage(Math.max(0, Math.ceil(result.total / 25) - 1));
+      }
+    } catch (error) {
+      if (request.signal.aborted || this.destroy.destroyed) return;
+      this.items.set([]);
+      this.remoteTotal.set(0);
+      this.loadError.set(
+        error instanceof ResidentApiError && [401, 403].includes(error.status)
+          ? 'Sua sessão não permite consultar estes cadastros.'
+          : 'Confira a conexão e tente novamente.',
+      );
+    } finally {
+      if (!request.signal.aborted && !this.destroy.destroyed) this.loading.set(false);
+    }
+  }
+  changePage(page: number): void {
+    this.page.set(page);
+    this.memory.values.set('resident-page', page);
+    if (!this.isDemo()) void this.load();
+  }
+  removeFilter(key: string): void {
+    this.filters.get(key)?.setValue('');
+  }
   clearFilters(): void {
-    this.filters.reset({ query: '', block: '', status: '' });
+    this.filters.reset({
+      search: '',
+      courseId: '',
+      accommodationId: '',
+      roomId: '',
+      allocated: '',
+    });
+    this.changePage(0);
   }
-
-  scenarioLabel(): string {
-    return { vazio: 'sem dados', erro: 'erro', carregando: 'carregando', padrao: 'padrão' }[
-      this.scenario()
-    ];
-  }
-
   restoreScenario(): void {
     this.session.setScenario('padrao');
   }

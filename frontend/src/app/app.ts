@@ -1,3 +1,4 @@
+import { UnsavedForms } from './shared/unsaved-form';
 import {
   Component,
   ElementRef,
@@ -49,6 +50,7 @@ const navByRole: Record<Role, NavItem[]> = {
     ...commonItems,
     residentItem,
     guardianItem,
+    { label: 'Cursos', path: '/cursos', icon: 'school' },
     supervisorItem,
     roomItem,
     { label: 'Relatórios', path: '/relatorios', icon: 'description' },
@@ -58,6 +60,7 @@ const navByRole: Record<Role, NavItem[]> = {
     ...commonItems,
     ...supervisorItems,
     guardianItem,
+    { label: 'Cursos', path: '/cursos', icon: 'school' },
     supervisorItem,
     roomItem,
     { label: 'Chamada noturna', path: '/chamada', icon: 'bedtime' },
@@ -92,6 +95,7 @@ export class App implements OnDestroy {
   @ViewChild('closeButton') private closeButton?: ElementRef<HTMLButtonElement>;
   readonly session = inject(DemoSessionService);
   private readonly auth = inject(LocalAuthService);
+  private readonly drafts = inject(UnsavedForms);
   private readonly router = inject(Router);
   private readonly document = inject(DOCUMENT);
   private readonly breakpointObserver = inject(BreakpointObserver);
@@ -179,9 +183,14 @@ export class App implements OnDestroy {
     this.unlockScroll();
   }
 
-  setRoleFromSelect(event: Event): void {
+  async setRoleFromSelect(event: Event): Promise<void> {
     const value = (event.target as HTMLSelectElement).value;
     if (value === 'gestor' || value === 'supervisor' || value === 'residente') {
+      if (!(await this.drafts.canLeave())) {
+        (event.target as HTMLSelectElement).value = this.session.role();
+        return;
+      }
+      this.drafts.discardAll();
       if (this.drawerActive()) this.navigateFromMenu();
       this.session.setRole(value);
       void this.router.navigateByUrl('/inicio');
@@ -197,6 +206,7 @@ export class App implements OnDestroy {
 
   async signOut(): Promise<void> {
     this.exitError.set('');
+    if (!(await this.drafts.canLeave())) return;
     if (!this.session.active()) {
       try {
         await this.auth.logout();
@@ -205,6 +215,7 @@ export class App implements OnDestroy {
         return;
       }
     }
+    this.drafts.discardAll();
     this.session.deactivate();
     if (this.drawerActive()) this.navigateFromMenu();
     await this.router.navigateByUrl('/acesso');

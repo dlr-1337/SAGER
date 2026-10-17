@@ -1,3 +1,4 @@
+import { UnsavedFormDirective } from '../../shared/unsaved-form';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -9,7 +10,7 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
 @Component({
   selector: 'app-supervisor-form',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [UnsavedFormDirective, ReactiveFormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page mg-page mg-narrow">
@@ -58,7 +59,14 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
             <p>Informe os dados funcionais usados na gestão da residência.</p>
           </div>
         </header>
-        <form class="panel mg-panel mg-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+        <form
+          sagerUnsaved
+          [sagerSaving]="saving"
+          class="panel mg-panel mg-form"
+          [formGroup]="form"
+          (ngSubmit)="save()"
+          novalidate
+        >
           <h2>Dados funcionais</h2>
           <p class="mg-muted">
             Campos marcados com * são obrigatórios. Use somente dados fictícios
@@ -233,6 +241,7 @@ export class SupervisorFormComponent {
     if (this.isDemo()) {
       try {
         const saved = this.demo.saveSupervisor(input, this.editId ?? undefined);
+        this.form.markAsPristine();
         await this.router.navigate(['/supervisores', saved.id], { queryParams: { saved: '1' } });
       } catch (error) {
         this.error.set(
@@ -248,6 +257,8 @@ export class SupervisorFormComponent {
         input,
         this.editId && existing ? { id: existing.id, version: existing.version } : undefined,
       );
+      this.saving.set(false);
+      this.form.markAsPristine();
       await this.router.navigate(['/supervisores', saved.id], { queryParams: { saved: '1' } });
     } catch (error) {
       if (error instanceof SupervisorApiError && error.status === 409) {

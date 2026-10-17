@@ -69,9 +69,9 @@ class DisciplineApiIntegrationTest {
         jdbc.update("INSERT INTO sager_room(id,code,number,accommodation_id,capacity,situation) VALUES (?,?,'01',?,4,'Disponível')",room,"F5-"+room.toString().substring(0,8),accommodation);
         for(var id:List.of(resident,other)) jdbc.update("INSERT INTO sager_resident(id,name,enrollment,birth_date) VALUES (?,'Estudante Sintético',?,'2009-01-01')",id,id.toString());
         jdbc.update("INSERT INTO sager_room_allocation(id,resident_id,room_id,started_at) VALUES (?,?,?,?)",UUID.randomUUID(),resident,room,OffsetDateTime.ofInstant(START.minusSeconds(3600),ZoneOffset.UTC));
-        for(var profile:List.of("supervisor","gestor","residente")) accounts.create(profile+"@example.invalid","Pessoa Sintética",profile,PASSWORD.toCharArray());
+        for(var profile:List.of("supervisor","gestor","residente")) accounts.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(profile+"@example.invalid"), profile+"@example.invalid","Pessoa Sintética",profile,PASSWORD.toCharArray());
         accounts.linkResident("residente@example.invalid",resident);
-        accounts.create("other@example.invalid","Pessoa Sintética","residente",PASSWORD.toCharArray());accounts.linkResident("other@example.invalid",other);
+        accounts.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("other@example.invalid"), "other@example.invalid","Pessoa Sintética","residente",PASSWORD.toCharArray());accounts.linkResident("other@example.invalid",other);
     }
     @Test void closedCallCreatesOneInternalOriginAndCorrectionPreservesItsHistory() throws Exception {
         try(var sup=login("supervisor");var student=login("residente")) {
@@ -148,7 +148,11 @@ class DisciplineApiIntegrationTest {
             var draft=ok(sup,"POST","/api/v1/avisos",payload);String notice=draft.path("id").asText();
             assertThat(ok(sup,"POST","/api/v1/avisos",payload).path("id").asText()).isEqualTo(notice);
             assertThat(read(student,"/api/v1/me/avisos").path("items").size()).isZero();
+            assertThat(read(sup,"/api/v1/avisos?search=AVISO+sintetico&status=RASCUNHO&residentId="+resident+"&limit=1").path("items").size()).isEqualTo(1);
+            assertThat(read(sup,"/api/v1/avisos?search=sintetico&residentId="+other+"&limit=1").path("items").size()).isZero();
             var published=ok(sup,"POST","/api/v1/avisos/"+notice+"/publicar",Map.of("version",0,"idempotencyKey",UUID.randomUUID()));String comm=published.path("communicationId").asText();
+            assertThat(read(student,"/api/v1/me/avisos?search=sintetico&acknowledged=false&status=PUBLICADO&limit=1").path("items").size()).isEqualTo(1);
+            assertThat(read(stranger,"/api/v1/me/avisos?search=sintetico&acknowledged=false&limit=1").path("items").size()).isZero();
             var own=read(student,"/api/v1/me/comunicacoes/"+comm);assertThat(own.path("readAt").isNull()).isTrue();assertThat(own.path("acknowledgedAt").isNull()).isTrue();
             assertThat(get(stranger,"/api/v1/me/comunicacoes/"+comm).statusCode()).isEqualTo(404);
             ok(student,"POST","/api/v1/me/comunicacoes/"+comm+"/leitura",Map.of("version",1));assertThat(read(student,"/api/v1/me/comunicacoes/"+comm).path("acknowledgedAt").isNull()).isTrue();
@@ -156,6 +160,9 @@ class DisciplineApiIntegrationTest {
             var a=CompletableFuture.supplyAsync(()->rawWrite(student,"POST","/api/v1/me/comunicacoes/"+comm+"/ciencia",raw,token));
             var b=CompletableFuture.supplyAsync(()->rawWrite(student,"POST","/api/v1/me/comunicacoes/"+comm+"/ciencia",raw,token));
             assertThat(a.join().statusCode()).isEqualTo(200);assertThat(b.join().statusCode()).isEqualTo(200);
+            assertThat(read(student,"/api/v1/me/avisos?acknowledged=true&limit=1").path("items").size()).isEqualTo(1);
+            assertThat(read(student,"/api/v1/me/avisos?acknowledged=false&limit=1").path("items").size()).isZero();
+            assertThat(get(student,"/api/v1/me/avisos?from=2026-10-16&to=2026-10-15").statusCode()).isEqualTo(400);
             String firstAck=json.readTree(a.join().body()).path("acknowledgedAt").asText();assertThat(json.readTree(b.join().body()).path("acknowledgedAt").asText()).isEqualTo(firstAck);
             var revised=ok(sup,"POST","/api/v1/avisos/"+notice+"/revisar",Map.of("version",1,"title","Aviso revisado","body","Nova orientação publicada para os mesmos destinatários.","idempotencyKey",UUID.randomUUID()));String current=revised.path("communicationId").asText();
             assertThat(current).isNotEqualTo(comm);assertThat(read(student,"/api/v1/me/comunicacoes/"+current).path("acknowledgedAt").isNull()).isTrue();
@@ -255,7 +262,7 @@ class DisciplineApiIntegrationTest {
     private int count(String table) {return jdbc.queryForObject("SELECT COUNT(*) FROM "+table,Integer.class);}
     private HttpClient login(String name) throws Exception {
         var client=HttpClient.newBuilder().cookieHandler(new CookieManager(null,CookiePolicy.ACCEPT_ALL)).build();String token=csrf(client);
-        String body="email="+URLEncoder.encode(name+"@example.invalid",StandardCharsets.UTF_8)+"&password="+URLEncoder.encode(PASSWORD,StandardCharsets.UTF_8);
+        String body="matricula="+URLEncoder.encode(br.edu.ifgoiano.sager.TestIdentity.enrollment(name+"@example.invalid"),StandardCharsets.UTF_8)+"&password="+URLEncoder.encode(PASSWORD,StandardCharsets.UTF_8);
         var response=client.send(request("/api/v1/auth/login").header("Content-Type","application/x-www-form-urlencoded").header("X-CSRF-TOKEN",token).POST(HttpRequest.BodyPublishers.ofString(body)).build(),HttpResponse.BodyHandlers.ofString());assertThat(response.statusCode()).isEqualTo(204);return client;
     }
     private HttpRequest.Builder request(String path) {return HttpRequest.newBuilder(URI.create("http://127.0.0.1:"+port+path));}

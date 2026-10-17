@@ -1,6 +1,8 @@
 # Backend SAGER — contas próprias e API persistida
 
-O solicitante escolheu em 30/09/2026 o login próprio do SAGER por e-mail e senha.
+O acesso próprio do SAGER usa matrícula e senha desde a revisão de 16/10/2026. E-mail é contato e não é aceito no login.
+
+A execução recomendada é `./sager up` na raiz: frontend, Java e PostgreSQL ficam em Docker. Veja [Docker e migração](../docs/DOCKER.md). As instruções abaixo também cobrem o desenvolvimento direto no host.
 Os perfis `local` e `production` atendem a API persistida com contas próprias.
 Um operador cria as contas e atribui um perfil; não há cadastro público.
 O [roteiro](../docs/ROADMAP_IMPLEMENTACAO.md) e o
@@ -53,7 +55,7 @@ interativo com entrada oculta; o comando falha se esse console não estiver disp
 O modo de provisionamento não inicia Tomcat e encerra ao terminar a operação.
 
 ```powershell
-java -jar .\target\sager-backend-0.1.0-SNAPSHOT.jar --spring.profiles.active=local --sager-account=create --email=pessoa@exemplo.invalid --name='Pessoa de Teste' --profile=residente
+java -jar .\target\sager-backend-0.1.0-SNAPSHOT.jar --spring.profiles.active=local --sager-account=create --matricula=TESTE-RESIDENTE --email=pessoa@exemplo.invalid --name='Pessoa de Teste' --profile=residente
 ```
 
 `--profile` aceita `gestor`, `supervisor`, `residente` ou `saude`. O perfil `saude`
@@ -64,8 +66,8 @@ argumentos nem use nomes/e-mails reais nesta prova. Para redefinir a senha ou
 desativar a conta, sem criar outra identidade:
 
 ```powershell
-java -jar .\target\sager-backend-0.1.0-SNAPSHOT.jar --spring.profiles.active=local --sager-account=reset --email=pessoa@exemplo.invalid
-java -jar .\target\sager-backend-0.1.0-SNAPSHOT.jar --spring.profiles.active=local --sager-account=disable --email=pessoa@exemplo.invalid
+java -jar .\target\sager-backend-0.1.0-SNAPSHOT.jar --spring.profiles.active=local --sager-account=reset --matricula=TESTE-RESIDENTE
+java -jar .\target\sager-backend-0.1.0-SNAPSHOT.jar --spring.profiles.active=local --sager-account=disable --matricula=TESTE-RESIDENTE
 ```
 
 Não existe rota HTTP de criação, redefinição ou atribuição de perfis. Redefinir a
@@ -74,7 +76,7 @@ impede novos logins.
 
 ### Vínculo explícito com cadastros
 
-Criar um residente ou supervisor na API não cria credenciais. A migração V12
+Criar um residente pela API exige `password` e `passwordConfirmation` e cria a conta vinculada na mesma transação. Editar um residente não troca a senha. Criar um supervisor não cria credenciais. A migração V12
 permite que o operador vincule uma conta já provisionada ao UUID de um cadastro
 existente. Não há associação automática por nome, e-mail ou matrícula. Nos
 exemplos abaixo, substitua os UUIDs pelos IDs dos registros sintéticos consultados
@@ -99,8 +101,7 @@ execute no serviço backend pelo Compose, com seus segredos externos; o
 Alterar ou remover um vínculo revoga as sessões da conta. Repetir o mesmo vínculo
 é uma operação sem alteração e preserva as sessões. A cada requisição, o servidor
 confere se a conta permanece ativa e se perfil e vínculo correspondem à sessão;
-uma sessão com vínculo antigo é recusada. Contas anteriores à V12 permanecem sem
-vínculo e podem fazer login local. O vínculo de residente permite somente caminhos
+uma sessão com vínculo antigo é recusada. Contas antigas sem vínculo precisam receber uma matrícula explícita pelo operador antes de entrar. Use `list` e `assign-enrollment --account-id=UUID --matricula=...`; nenhuma matrícula é deduzida do e-mail. O vínculo de residente permite somente caminhos
 próprios implementados, como `/api/v1/minha-saude`; não concede acesso geral à
 gestão ou a outros residentes.
 
@@ -127,7 +128,7 @@ não expira nem recebe retorno automático. Consulte o
 | Rota                       | Contrato                                                                                                                                                                                     |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GET /api/v1/auth/csrf`    | Retorna `headerName`, `parameterName` e `token`.                                                                                                                                             |
-| `POST /api/v1/auth/login`  | Formulário `application/x-www-form-urlencoded` com `email` e `password` e cabeçalho CSRF; `204` no sucesso, `401` genérico para conta inválida/desativada, `403` para CSRF ausente/inválido. |
+| `POST /api/v1/auth/login`  | Formulário `application/x-www-form-urlencoded` com `matricula` e `password` e cabeçalho CSRF; `204` no sucesso, `401` genérico para conta inválida/desativada, `403` para CSRF ausente/inválido. |
 | `GET /api/v1/auth/me`      | Com sessão, retorna `id`, `nome`, `email`, `fotoUrl: null`, `perfis`, `residenteId` e `supervisorId`; os IDs de cadastro são UUIDs ou `null`. Sem sessão válida, `401`.                      |
 | `POST /api/v1/auth/logout` | Requer CSRF, invalida a sessão e retorna `204`.                                                                                                                                              |
 
@@ -285,3 +286,15 @@ permanece distinta da evidência técnica.
 O [CI](../docs/CI.md) executa o `verify` em Ubuntu com JDK 21 e Docker,
 sem credenciais da aplicação. O [pacote AE/TI](../docs/fase-2/PACOTE_AE_TI.md)
 reúne as decisões necessárias para homologação.
+
+## Revisão de cadastros e acesso — 16/10/2026
+
+`POST /api/v1/residentes` recebe nome, matrícula textual, nascimento, `courseId` opcional, `institutionalEmail` opcional e senha com confirmação. O e-mail não precisa pertencer a um domínio específico. Senhas possuem 12–72 caracteres e até 72 bytes UTF-8. Conflitos de matrícula não deixam residente ou conta parcial. Alterar a matrícula do residente atualiza seu login vinculado e encerra as sessões anteriores.
+
+`/api/v1/cursos` permite listar e cadastrar; `PUT /{id}` exige nome, `active` e versão. Gestor e supervisor administram o catálogo. A desativação mantém vínculos existentes; novas atribuições exigem curso ativo. `course` continua no resultado como rótulo de leitura; escritas usam exclusivamente `courseId`.
+
+`POST /api/v1/auth/login` recebe formulário `matricula`/`password`. `/auth/me` inclui `matricula`; `email` pode ser nulo. O principal de sessão é o UUID da conta. A migração V20 preserva os UUIDs, hashes e perfis e encerra as sessões antigas.
+
+`POST /api/v1/auth/recover` recebe formulário `matricula`, `name`, `birthDate`, `guardianName`, `password` e `passwordConfirmation`, com CSRF. Exige o nome completo normalizado, o nascimento exato e o nome de um responsável ativo quando houver. Cadastros sem responsável não ganham essa obrigatoriedade. Contas sem vínculo/nascimento e servidores usam o operador. O sucesso encerra as sessões e exige novo login. Não há envio por e-mail/telefone, palavra secreta nem código de recuperação. O risco de alguém conhecer os dados pessoais foi aceito na definição desta revisão; limites independentes por conta/IP reduzem tentativas, sem eliminar esse risco.
+
+Listas de gestão e saídas aceitam `search`, `limit` (1–100) e `offset`, mantendo o corpo como array e informando `X-Total-Count`. As telas usam páginas de 25. Chamadas preservam a população congelada; seu filtro de marcação não altera o total nem o fechamento. Comunicações e saúde mantêm seus cursores; autorização precede filtro, contagem e paginação. Os critérios de tela ficam em memória por sessão e são apagados ao sair. Notas de saúde e senhas não são persistidas nesse estado.

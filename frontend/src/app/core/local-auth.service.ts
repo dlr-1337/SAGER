@@ -1,10 +1,12 @@
-import { Injectable, signal } from '@angular/core';
+import { FilterState } from './filter-state';
+import { Injectable, inject, signal } from '@angular/core';
 import type { Role } from './demo-session.service';
 
 export interface LocalPrincipal {
   id: string;
   nome: string;
-  email: string;
+  email: string | null;
+  matricula: string;
   fotoUrl: string | null;
   perfis: Role[];
   residenteId: string | null;
@@ -32,7 +34,8 @@ function validPrincipal(value: unknown): value is LocalPrincipal {
   return (
     typeof principal.id === 'string' &&
     typeof principal.nome === 'string' &&
-    typeof principal.email === 'string' &&
+    (principal.email === null || typeof principal.email === 'string') &&
+    typeof principal.matricula === 'string' &&
     (principal.fotoUrl === null || typeof principal.fotoUrl === 'string') &&
     Array.isArray(principal.perfis) &&
     principal.perfis.length === 1 &&
@@ -48,6 +51,7 @@ function validPrincipal(value: unknown): value is LocalPrincipal {
 /** Sessão local em memória. O cookie HttpOnly e a autorização pertencem ao servidor. */
 @Injectable({ providedIn: 'root' })
 export class LocalAuthService {
+  private readonly filters = inject(FilterState);
   readonly principal = signal<LocalPrincipal | null>(null);
 
   async refresh(): Promise<LocalPrincipal | null> {
@@ -58,23 +62,24 @@ export class LocalAuthService {
         headers: { Accept: 'application/json' },
       });
       if (!response.ok) {
-        this.principal.set(null);
+        this.clearPrincipal();
         return null;
       }
       const value: unknown = await response.json();
       if (!validPrincipal(value)) {
-        this.principal.set(null);
+        this.clearPrincipal();
         return null;
       }
+      this.filters.setUser(value.id);
       this.principal.set(value);
       return value;
     } catch {
-      this.principal.set(null);
+      this.clearPrincipal();
       return null;
     }
   }
 
-  async login(email: string, password: string): Promise<'success' | 'invalid'> {
+  async login(matricula: string, password: string): Promise<'success' | 'invalid'> {
     const csrf = await this.csrfToken();
     const response = await fetch('/api/v1/auth/login', {
       method: 'POST',
@@ -84,15 +89,37 @@ export class LocalAuthService {
         'Content-Type': 'application/x-www-form-urlencoded',
         [csrf.headerName]: csrf.token,
       },
-      body: new URLSearchParams({ email, password }),
+      body: new URLSearchParams({ matricula, password }),
     });
     if (response.status === 401) {
-      this.principal.set(null);
+      this.clearPrincipal();
       return 'invalid';
     }
+    if (response.status === 429)
+      throw new Error('Muitas tentativas. Aguarde 15 minutos e tente novamente.');
     if (!response.ok) throw new Error('Não foi possível iniciar a sessão local.');
     if (!(await this.refresh())) throw new Error('A sessão local não pôde ser confirmada.');
     return 'success';
+  }
+
+  async recover(input: Record<string, string>): Promise<void> {
+    const csrf = await this.csrfToken();
+    const response = await fetch('/api/v1/auth/recover', {
+      method: 'POST',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        [csrf.headerName]: csrf.token,
+      },
+      body: new URLSearchParams(input),
+    });
+    if (response.status === 429)
+      throw new Error('Muitas tentativas. Aguarde 15 minutos e tente novamente.');
+    if (!response.ok)
+      throw new Error(
+        'Não foi possível redefinir. Confira os dados e a senha ou procure a equipe responsável.',
+      );
   }
 
   async logout(): Promise<void> {
@@ -105,10 +132,14 @@ export class LocalAuthService {
     });
     if (!response.ok) throw new Error('Não foi possível encerrar a sessão local.');
     this.principal.set(null);
+    this.filters.setUser(null);
+    this.filters.clear();
   }
 
   clearPrincipal(): void {
     this.principal.set(null);
+    this.filters.setUser(null);
+    this.filters.clear();
   }
 
   private async csrfToken(): Promise<CsrfToken> {

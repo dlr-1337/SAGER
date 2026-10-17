@@ -18,7 +18,7 @@ public class DisciplineActor {
         if (auth == null || !auth.isAuthenticated() || !(auth.getPrincipal() instanceof LocalAccountPrincipal principal))
             throw new DisciplineApiException(HttpStatus.UNAUTHORIZED,"unauthorized","Autenticação necessária.");
         return accounts.findById(principal.id()).filter(account -> account.active()
-                && account.email().equals(principal.email()) && account.profile().equals(principal.profile())
+                && java.util.Objects.equals(account.email(), principal.email()) && account.profile().equals(principal.profile())
                 && java.util.Objects.equals(account.residentId(), principal.residentId())
                 && java.util.Objects.equals(account.supervisorId(), principal.supervisorId()))
                 .orElseThrow(() -> new DisciplineApiException(HttpStatus.UNAUTHORIZED,"unauthorized","Sessão revogada."));

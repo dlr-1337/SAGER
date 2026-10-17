@@ -1,0 +1,72 @@
+name: sager-local
+services:
+  postgres:
+    image: postgres:17.11
+    environment:
+      POSTGRES_DB: sager
+      POSTGRES_USER: sager
+      POSTGRES_PASSWORD: ${SAGER_DB_PASSWORD:?Use ./sager up para preparar o ambiente}
+    volumes:
+      - sager_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U sager -d sager']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  prepare-data:
+    image: sager-local-backend
+    build:
+      context: .
+      dockerfile: infra/production/backend.Dockerfile
+    user: '0:0'
+    entrypoint: [sh, -c, 'chown -R 10001:10001 /data/documents /data/reports && chmod 700 /data/documents /data/reports']
+    volumes:
+      - documents:/data/documents
+      - reports:/data/reports
+    network_mode: none
+  backend:
+    image: sager-local-backend
+    build:
+      context: .
+      dockerfile: infra/production/backend.Dockerfile
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SAGER_DB_URL: jdbc:postgresql://postgres:5432/sager
+      SAGER_DB_USER: sager
+      SAGER_DB_PASSWORD: ${SAGER_DB_PASSWORD:?Use ./sager up}
+      SAGER_DOCUMENTS_PRIVATE_ROOT: /data/documents
+      SAGER_REPORTS_PRIVATE_ROOT: /data/reports
+      SAGER_PRODUCTION_RATE_LIMIT_SECRET: ${SAGER_RATE_LIMIT_SECRET:?Use ./sager up}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      prepare-data:
+        condition: service_completed_successfully
+    ports:
+      - '127.0.0.1:${SAGER_PORT:-4200}:4200'
+    volumes:
+      - documents:/data/documents
+      - reports:/data/reports
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m,uid=10001,gid=10001
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+  frontend:
+    build:
+      context: .
+      dockerfile: infra/local/frontend.Dockerfile
+    # Angular reaches the loopback-only API through this shared namespace.
+    network_mode: service:backend
+    depends_on:
+      backend:
+        condition: service_started
+        restart: true
+    restart: unless-stopped
+volumes:
+  sager_postgres_data:
+    name: ${SAGER_DB_VOLUME:-sager-local_sager_postgres_data}
+  documents:
+  reports:

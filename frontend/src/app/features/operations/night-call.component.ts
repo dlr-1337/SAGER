@@ -1,3 +1,4 @@
+import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -12,7 +13,13 @@ import { NightCallLocalComponent } from './night-call-local.component';
 @Component({
   standalone: true,
   selector: 'app-night-call',
-  imports: [NightCallLocalComponent, CommonModule, ReactiveFormsModule, RouterLink],
+  imports: [
+    SearchableSelectDirective,
+    NightCallLocalComponent,
+    CommonModule,
+    ReactiveFormsModule,
+    RouterLink,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (!session.active()) {
@@ -81,7 +88,7 @@ import { NightCallLocalComponent } from './night-call-local.component';
                     [formControl]="search"
                     placeholder="Digite nome ou matrícula" /></label
                 ><label class="field"
-                  >Bloco<select [formControl]="block">
+                  >Bloco<select sagerSearchable [formControl]="block">
                     <option value="">Todos</option>
                     <option value="A">Bloco A</option>
                     <option value="B">Bloco B</option>

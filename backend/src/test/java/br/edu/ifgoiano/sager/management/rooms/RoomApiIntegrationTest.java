@@ -275,7 +275,7 @@ class RoomApiIntegrationTest {
     @Test
     void enforcesReadWriteProfilesCsrfAndAccountRevocationForEveryRoomEndpoint() throws Exception {
         for (String profile : new String[] { "gestor", "supervisor", "residente" }) {
-            provisioning.create(profile + "@example.invalid", profile, profile, PASSWORD.toCharArray());
+            provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(profile + "@example.invalid"), profile + "@example.invalid", profile, profile, PASSWORD.toCharArray());
         }
         String id;
         String input;
@@ -430,7 +430,7 @@ class RoomApiIntegrationTest {
     }
 
     private void gestorAccount() {
-        provisioning.create("gestor@example.invalid", "Gestor Sintético", "gestor", PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("gestor@example.invalid"), "gestor@example.invalid", "Gestor Sintético", "gestor", PASSWORD.toCharArray());
     }
 
     private String accommodation(HttpClient client, String code) throws Exception {
@@ -479,7 +479,7 @@ class RoomApiIntegrationTest {
     }
 
     private void login(HttpClient client, String profile) throws Exception {
-        String form = "email=" + URLEncoder.encode(profile + "@example.invalid", StandardCharsets.UTF_8)
+        String form = "matricula=" + URLEncoder.encode(br.edu.ifgoiano.sager.TestIdentity.enrollment(profile + "@example.invalid"), StandardCharsets.UTF_8)
                 + "&password=" + URLEncoder.encode(PASSWORD, StandardCharsets.UTF_8);
         assertThat(send(client, HttpRequest.newBuilder(uri("/api/v1/auth/login"))
                 .header("Content-Type", "application/x-www-form-urlencoded")

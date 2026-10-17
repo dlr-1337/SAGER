@@ -1,3 +1,4 @@
+import { readArrayPage } from '../../core/list-page';
 import { Injectable } from '@angular/core';
 import { LongExit, LongExitEligibility, LongExitInput } from './long-exit.models';
 import { OperationsApiError } from './operations-local-api.service';
@@ -122,6 +123,18 @@ function isLongExit(value: unknown): value is LongExit {
 export class LongExitApiService {
   async eligibility(): Promise<LongExitEligibility> {
     return this.checked(await this.request('/api/v1/saidas-longas/elegibilidade'), isEligibility);
+  }
+  async page(
+    params: Record<string, string>,
+    signal?: AbortSignal,
+  ): Promise<{ items: LongExit[]; total: number }> {
+    return readArrayPage(
+      '/api/v1/saidas-longas',
+      params,
+      isLongExit,
+      async (response) => new OperationsApiError(response.status),
+      signal,
+    );
   }
   async list(search = '', status = ''): Promise<LongExit[]> {
     const query = new URLSearchParams();

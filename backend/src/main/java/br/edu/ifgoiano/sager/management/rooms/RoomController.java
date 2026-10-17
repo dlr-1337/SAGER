@@ -28,8 +28,9 @@ public class RoomController {
     }
 
     @GetMapping
-    public ResponseEntity<List<RoomRecord>> list() {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.list());
+    public ResponseEntity<List<RoomRecord>> list(@org.springframework.web.bind.annotation.RequestParam java.util.Map<String,String> params) {
+        var page = service.list(params);
+        return ResponseEntity.ok().header("X-Total-Count", Long.toString(page.total())).cacheControl(CacheControl.noStore()).body(page.items());
     }
 
     @GetMapping("/mapa")

@@ -102,15 +102,15 @@ public class HealthRepository {
     }
 
     Page<AccountChoice> accounts(String query, UUID afterId, int limit) {
-        String where = " WHERE a.active AND (position(lower(?) in lower(a.display_name)) > 0"
-                + " OR position(lower(?) in lower(a.email)) > 0)";
-        List<Object> args = new ArrayList<>(List.of(query, query));
+        String where = " WHERE a.active AND (position(sager_search_text(?) in sager_search_text(a.display_name)) > 0"
+                + " OR position(sager_search_text(?) in sager_search_text(a.email)) > 0 OR position(sager_search_text(?) in sager_search_text(a.enrollment)) > 0)";
+        List<Object> args = new ArrayList<>(List.of(query, query, query));
         long count = count("SELECT COUNT(*) FROM sager_local_account a" + where, args);
-        String sql = "SELECT a.id,a.display_name,a.email,a.profile FROM sager_local_account a" + where;
+        String sql = "SELECT a.id,a.display_name,a.email,a.profile,a.enrollment FROM sager_local_account a" + where;
         if (afterId != null) { sql += " AND a.id > ?"; args.add(afterId); }
         sql += " ORDER BY a.id LIMIT ?"; args.add(limit + 1);
         List<AccountChoice> items = jdbc.query(sql, (row, index) -> new AccountChoice(uuid(row, "id"),
-                row.getString("display_name"), row.getString("email"), row.getString("profile")), args.toArray());
+                row.getString("display_name"), row.getString("email"), row.getString("profile"), row.getString("enrollment")), args.toArray());
         boolean more = items.size() > limit;
         if (more) items = items.subList(0, limit);
         return new Page<>(items, more ? items.getLast().id() : null, count);
@@ -170,7 +170,7 @@ public class HealthRepository {
         String where = """
                  WHERE EXISTS (SELECT 1 FROM sager_health_care_assignment c
                     WHERE c.resident_id=r.id AND c.professional_grant_id=? AND c.ended_at IS NULL)
-                  AND (position(lower(?) in lower(r.name)) > 0 OR position(lower(?) in lower(r.enrollment)) > 0)
+                  AND (position(sager_search_text(?) in sager_search_text(r.name)) > 0 OR position(sager_search_text(?) in sager_search_text(r.enrollment)) > 0)
                 """;
         List<Object> args = new ArrayList<>(List.of(grant.id(), query, query));
         long count = count("SELECT COUNT(*) FROM sager_resident r" + where, args);

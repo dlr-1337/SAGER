@@ -1,3 +1,4 @@
+import { unsavedFormGuard } from './shared/unsaved-form';
 import { Injector, inject } from '@angular/core';
 import { CanActivateFn, Router, Routes } from '@angular/router';
 import { DemoSessionService, Role } from './core/demo-session.service';
@@ -113,12 +114,17 @@ const operationRoutes: Routes = OPERATIONS_ROUTES.map((route) => {
   return { ...route, canActivate: [accessGuard], data: { ...route.data, roles } };
 });
 
-export const routes: Routes = [
+const appRoutes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'acesso' },
   {
     path: 'acesso',
     data: { public: true },
     loadComponent: () => import('./features/portal/portal.pages').then((m) => m.AccessPage),
+  },
+  {
+    path: 'recuperar-senha',
+    data: { public: true },
+    loadComponent: () => import('./features/portal/recovery.page').then((m) => m.RecoveryPage),
   },
   {
     path: 'demonstracao',
@@ -239,3 +245,8 @@ export const routes: Routes = [
     loadComponent: () => import('./features/portal/portal.pages').then((m) => m.NotFoundPage),
   },
 ];
+
+export const routes: Routes = appRoutes.map((route) => ({
+  ...route,
+  canDeactivate: [...(route.canDeactivate ?? []), unsavedFormGuard],
+}));

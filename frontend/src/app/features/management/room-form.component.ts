@@ -1,3 +1,5 @@
+import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
+import { UnsavedFormDirective } from '../../shared/unsaved-form';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -34,7 +36,7 @@ const positiveInteger: ValidatorFn = (control) =>
   selector: 'app-room-form',
   styleUrl: './housing.scss',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [SearchableSelectDirective, UnsavedFormDirective, ReactiveFormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page mg-page mg-narrow">
@@ -90,7 +92,14 @@ const positiveInteger: ValidatorFn = (control) =>
           </div>
         </header>
         @if (isDemo()) {
-          <form class="panel mg-panel mg-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+          <form
+            sagerUnsaved
+            [sagerSaving]="saving"
+            class="panel mg-panel mg-form"
+            [formGroup]="form"
+            (ngSubmit)="save()"
+            novalidate
+          >
             <h2>Dados do quarto</h2>
             <p class="mg-muted">
               Campos marcados com * são obrigatórios. Estes registros são demonstrativos.
@@ -103,7 +112,7 @@ const positiveInteger: ValidatorFn = (control) =>
                 }
               </label>
               <label class="field mg-field"
-                >Bloco *<select formControlName="block">
+                >Bloco *<select sagerSearchable formControlName="block">
                   <option value="">Selecione o bloco</option>
                   <option value="A">Bloco A</option>
                   <option value="B">Bloco B</option>
@@ -113,7 +122,7 @@ const positiveInteger: ValidatorFn = (control) =>
                 }
               </label>
               <label class="field mg-field"
-                >Piso *<select formControlName="floor">
+                >Piso *<select sagerSearchable formControlName="floor">
                   <option value="">Selecione o piso</option>
                   <option value="Térreo">Térreo</option>
                   <option value="1º piso">1º piso</option>
@@ -123,7 +132,7 @@ const positiveInteger: ValidatorFn = (control) =>
                 }
               </label>
               <label class="field mg-field"
-                >Situação *<select formControlName="situation">
+                >Situação *<select sagerSearchable formControlName="situation">
                   <option value="">Selecione a situação</option>
                   @for (item of situations; track item) {
                     <option [value]="item">{{ item }}</option>
@@ -156,6 +165,8 @@ const positiveInteger: ValidatorFn = (control) =>
           </form>
         } @else {
           <form
+            sagerUnsaved
+            [sagerSaving]="saving"
             class="panel mg-panel mg-form"
             [formGroup]="localForm"
             (ngSubmit)="save()"
@@ -203,6 +214,7 @@ const positiveInteger: ValidatorFn = (control) =>
               </label>
               <label class="field mg-field" [class.mg-invalid]="invalid('accommodationId')"
                 >Alojamento *<select
+                  sagerSearchable
                   formControlName="accommodationId"
                   [attr.aria-invalid]="invalid('accommodationId') ? 'true' : null"
                   [attr.aria-describedby]="
@@ -221,7 +233,7 @@ const positiveInteger: ValidatorFn = (control) =>
                 }
               </label>
               <label class="field mg-field"
-                >Casa ou bloco (opcional)<select formControlName="unitId">
+                >Casa ou bloco (opcional)<select sagerSearchable formControlName="unitId">
                   <option value="">Sem casa ou bloco</option>
                   @for (item of units(); track item.id) {
                     <option [value]="item.id">{{ item.name }}</option>
@@ -264,6 +276,7 @@ const positiveInteger: ValidatorFn = (control) =>
               </label>
               <label class="field mg-field" [class.mg-invalid]="invalid('situation')"
                 >Situação *<select
+                  sagerSearchable
                   formControlName="situation"
                   [attr.aria-invalid]="invalid('situation') ? 'true' : null"
                   [attr.aria-describedby]="invalid('situation') ? 'room-situation-error' : null"
@@ -453,6 +466,7 @@ export class RoomFormComponent {
           { number, block, floor, situation: situation as RoomSituation },
           this.editId ?? undefined,
         );
+        this.form.markAsPristine();
         await this.router.navigate(['/quartos', room.id], { queryParams: { saved: '1' } });
       } catch (error) {
         this.error.set(
@@ -506,6 +520,8 @@ export class RoomFormComponent {
         this.editId && existing ? { id: existing.id, version: existing.version } : undefined,
       );
       if (this.destroyRef.destroyed) return;
+      this.saving.set(false);
+      this.localForm.markAsPristine();
       await this.router.navigate(['/quartos', saved.id], { queryParams: { saved: '1' } });
     } catch (error) {
       const stale =

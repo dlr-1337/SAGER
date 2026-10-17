@@ -1,3 +1,4 @@
+import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import {
   Component,
   ElementRef,
@@ -142,7 +143,7 @@ const KIND_LABELS: Record<ReportKind, string> = {
 @Component({
   standalone: true,
   selector: 'sager-reports',
-  imports: [ReactiveFormsModule, RouterLink, ReportsLocalPage],
+  imports: [SearchableSelectDirective, ReactiveFormsModule, RouterLink, ReportsLocalPage],
   template: `
     @if (!session.active()) {
       <sager-reports-local />
@@ -167,7 +168,7 @@ const KIND_LABELS: Record<ReportKind, string> = {
             <div class="filter-grid">
               <div class="field">
                 <label for="report-type">Tipo de relatório</label
-                ><select id="report-type" formControlName="type">
+                ><select sagerSearchable id="report-type" formControlName="type">
                   @for (kind of kinds; track kind) {
                     <option [value]="kind">{{ labels[kind] }}</option>
                   }
@@ -213,7 +214,7 @@ const KIND_LABELS: Record<ReportKind, string> = {
                   </div>
                   <div class="field">
                     <label for="resident-filter">Residente</label
-                    ><select id="resident-filter" formControlName="resident">
+                    ><select sagerSearchable id="resident-filter" formControlName="resident">
                       <option value="">Todos os residentes</option>
                       <option>Ana Luísa Ribeiro</option>
                       <option>Pedro Henrique Silva</option>
@@ -222,7 +223,7 @@ const KIND_LABELS: Record<ReportKind, string> = {
                   </div>
                   <div class="field">
                     <label for="occurrence-filter">Ocorrência</label
-                    ><select id="occurrence-filter" formControlName="occurrence">
+                    ><select sagerSearchable id="occurrence-filter" formControlName="occurrence">
                       <option value="">Todas as ocorrências</option>
                       <option>Presença</option>
                       <option>Saída curta</option>
@@ -234,7 +235,7 @@ const KIND_LABELS: Record<ReportKind, string> = {
                   </div>
                   <div class="field">
                     <label for="status-filter">Status</label
-                    ><select id="status-filter" formControlName="status">
+                    ><select sagerSearchable id="status-filter" formControlName="status">
                       <option value="">Todos os status</option>
                       <option>Registrada</option>
                       <option>Aprovada</option>

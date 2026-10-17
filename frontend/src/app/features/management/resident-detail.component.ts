@@ -1,7 +1,10 @@
+import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
+import { UnsavedFormDirective, UnsavedForms } from '../../shared/unsaved-form';
 import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ViewChild,
   computed,
   inject,
   signal,
@@ -28,7 +31,7 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
 @Component({
   selector: 'app-resident-detail',
   standalone: true,
-  imports: [RouterLink, ReactiveFormsModule],
+  imports: [SearchableSelectDirective, UnsavedFormDirective, RouterLink, ReactiveFormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page mg-page">
@@ -138,6 +141,10 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
                   <dt>Curso</dt>
                   <dd>{{ item.course || 'Não informado' }}</dd>
                 </div>
+                <div>
+                  <dt>E-mail institucional</dt>
+                  <dd>{{ localResident()?.institutionalEmail || 'Não informado' }}</dd>
+                </div>
               </dl>
             </section>
             <section class="panel mg-panel" aria-labelledby="resident-allocation-heading">
@@ -169,10 +176,16 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
                   <p class="mg-muted">Nenhum quarto ativo vinculado a este residente.</p>
                 }
                 @if (canEdit()) {
-                  <form class="mg-inline-form" (submit)="$event.preventDefault(); saveAllocation()">
+                  <form
+                    sagerUnsaved
+                    #allocationDraft="sagerUnsaved"
+                    [sagerSaving]="allocationSaving"
+                    class="mg-inline-form"
+                    (submit)="$event.preventDefault(); saveAllocation()"
+                  >
                     <label class="field mg-field"
                       >{{ activeAllocation() ? 'Transferir para' : 'Alocar em' }}
-                      <select [formControl]="selectedRoom" required>
+                      <select sagerSearchable [formControl]="selectedRoom" required>
                         <option value="">Selecione um quarto</option>
                         @for (room of allocationMap().rooms; track room.id) {
                           <option
@@ -566,6 +579,7 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
               }
               @if (editingGuardian()) {
                 <form
+                  sagerUnsaved
                   class="mg-inline-form"
                   [formGroup]="guardianForm"
                   (ngSubmit)="saveGuardian()"
@@ -694,6 +708,8 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
   `,
 })
 export class ResidentDetailComponent {
+  @ViewChild('allocationDraft') private allocationDraft?: UnsavedFormDirective;
+  private readonly drafts = inject(UnsavedForms);
   readonly service = inject(ManagementDemoService);
   private readonly api = inject(ResidentApiService);
   private readonly guardianApi = inject(GuardianApiService);
@@ -844,6 +860,7 @@ export class ResidentDetailComponent {
       const current = this.activeAllocation();
       if (current) await this.allocationApi.transfer(current.id, roomId, current.version);
       else await this.allocationApi.create(this.id, roomId);
+      this.allocationDraft?.markSaved();
       await this.loadAllocations();
     } catch (error) {
       this.allocationActionError.set(allocationErrorMessage(error));
@@ -890,7 +907,7 @@ export class ResidentDetailComponent {
     if (!this.canEdit()) return;
     this.guardianError.set('');
     this.guardianId.set(guardian?.id ?? null);
-    this.guardianForm.setValue({
+    this.guardianForm.reset({
       name: guardian?.name ?? '',
       relationship: guardian?.relationship ?? '',
       phone: guardian?.phone ?? '',
@@ -900,7 +917,9 @@ export class ResidentDetailComponent {
     this.editingGuardian.set(true);
   }
 
-  closeGuardianForm(): void {
+  async closeGuardianForm(): Promise<void> {
+    if (!(await this.drafts.canLeave())) return;
+    this.guardianForm.markAsPristine();
     this.editingGuardian.set(false);
     this.guardianId.set(null);
     this.guardianError.set('');
@@ -919,7 +938,8 @@ export class ResidentDetailComponent {
         this.guardianForm.getRawValue(),
         this.guardianId() ?? undefined,
       );
-      this.closeGuardianForm();
+      this.guardianForm.markAsPristine();
+      void this.closeGuardianForm();
     } catch (error) {
       this.guardianError.set(
         error instanceof Error

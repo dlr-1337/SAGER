@@ -174,6 +174,7 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
         id: actorId,
         nome: state.role === 'residente' ? resident.name : 'Supervisora Sintética',
         email: 'sessao@example.test',
+        matricula: 'TESTE-LOGIN',
         fotoUrl: null,
         perfis: [state.role],
         residenteId: state.role === 'residente' ? residentId : null,
@@ -200,7 +201,15 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
         return ok({ ...state.occurrence, id: path.split('/').pop() });
       if (path === '/advertencias') {
         const filter = url.searchParams.get('residentId');
-        return ok(list(state.warnings.filter((item) => !filter || item.residentId === filter)));
+        const status = url.searchParams.get('status');
+        return ok(
+          list(
+            state.warnings.filter(
+              (item) =>
+                (!filter || item.residentId === filter) && (!status || item.status === status),
+            ),
+          ),
+        );
       }
       if (path.startsWith('/advertencias/')) {
         const item = state.warnings.find((item) => path.endsWith(item.id));
@@ -229,7 +238,12 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
           : path.endsWith('advertencias')
             ? 'ADVERTENCIA'
             : 'TERMO';
-        return ok(list(state.own.kind === kind ? [state.own] : []));
+        const status = url.searchParams.get('status');
+        return ok(
+          list(
+            state.own.kind === kind && (!status || state.own.status === status) ? [state.own] : [],
+          ),
+        );
       }
       return route.fulfill({ status: 404, json: { message: 'private-db-schema' } });
     }
@@ -530,6 +544,11 @@ test('candidato é revisto, termo exige confirmação humana e PDF privado prese
     .getByLabel('Justificativa', { exact: true })
     .fill('A base foi reavaliada com novas informações e o termo foi anulado.');
   await confirm(page, 'Confirmar anulação do termo');
+  await expect(
+    page.getByText(
+      'Termo anulado por decisão humana. O documento e o histórico foram preservados.',
+    ),
+  ).toBeVisible();
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Termo anulado' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Baixar PDF original' })).toBeEnabled();
@@ -561,6 +580,70 @@ test('base corrigida e conflito impedem escrita até recarregar evidência atual
   await page.getByRole('button', { name: 'Recarregar notificação' }).click();
   await expect(page.getByRole('button', { name: 'Registrar visualização' })).toBeEnabled();
   expect(state.writes).toHaveLength(1);
+});
+
+for (const target of ['Cancelar', 'Residentes']) {
+  test(`destinatário selecionado sozinho exige confirmação ao sair por ${target}`, async ({
+    page,
+  }) => {
+    const state = await mockApi(page);
+    await page.goto('/comunicacoes/avisos/novo');
+    const checkbox = page.getByRole('checkbox', { name: /Estudante Sintético/ });
+    await checkbox.check();
+    await expect(page.getByLabel('Título', { exact: true })).toHaveValue('');
+    await expect(page.getByLabel('Mensagem', { exact: true })).toHaveValue('');
+    await page.getByRole('link', { name: target, exact: true }).click();
+    const dialog = page.getByRole('alertdialog');
+    await expect(dialog).toContainText('Descartar alterações?');
+    await dialog.getByRole('button', { name: 'Continuar preenchendo', exact: true }).click();
+    await expect(page).toHaveURL('/comunicacoes/avisos/novo');
+    await expect(checkbox).toBeChecked();
+    await page.getByRole('link', { name: target, exact: true }).click();
+    await dialog.getByRole('button', { name: 'Descartar e sair', exact: true }).click();
+    await expect(page).toHaveURL(target === 'Cancelar' ? '/comunicacoes/avisos' : '/residentes');
+    expect(state.writes).toHaveLength(0);
+  });
+}
+
+test('buscar destinatários sem selecionar permite sair sem confirmação', async ({ page }) => {
+  const state = await mockApi(page);
+  await page.goto('/comunicacoes/avisos/novo');
+  const search = page.getByRole('searchbox', { name: 'Buscar residente', exact: true });
+  await expect(search).toHaveClass(/ng-valid/);
+  await search.fill('Sintético');
+  await expect(page.getByRole('checkbox')).toHaveCount(1);
+  await page.getByRole('link', { name: 'Cancelar', exact: true }).click();
+  await expect(page).toHaveURL('/comunicacoes/avisos');
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  expect(state.writes).toHaveLength(0);
+});
+
+test('aviso mantém seleção após falha e sai sem alerta de descarte após salvar', async ({
+  page,
+}) => {
+  const state = await mockApi(page, { failWriteOnce: true });
+  await page.goto('/comunicacoes/avisos/novo');
+  const checkbox = page.getByRole('checkbox', { name: /Estudante Sintético/ });
+  await checkbox.check();
+  await page.getByLabel('Título', { exact: true }).fill('Aviso Sintético');
+  await page
+    .getByLabel('Mensagem', { exact: true })
+    .fill('Mensagem sintética para testar a gravação.');
+  const save = page.getByRole('button', { name: 'Revisar e salvar rascunho', exact: true });
+  await save.click();
+  await confirm(page, 'Salvar rascunho');
+  await expect(page.getByRole('alert').filter({ hasText: 'conexão' })).toBeVisible();
+  await page.getByRole('link', { name: 'Cancelar', exact: true }).click();
+  const dialog = page.getByRole('alertdialog');
+  await expect(dialog).toContainText('Descartar alterações?');
+  await dialog.getByRole('button', { name: 'Continuar preenchendo', exact: true }).click();
+  await expect(checkbox).toBeChecked();
+  await save.click();
+  await confirm(page, 'Salvar rascunho');
+  await expect(page).toHaveURL('/comunicacoes/avisos/' + noticeId);
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  expect(state.writes).toHaveLength(2);
+  expect(state.writes.map((write) => write.body.residentIds)).toEqual([[residentId], [residentId]]);
 });
 
 test('supervisor publica aviso por UUID, revisa preservando destinatários e retira com motivo', async ({
@@ -606,6 +689,9 @@ test('supervisor publica aviso por UUID, revisa preservando destinatários e ret
     .getByLabel('Justificativa', { exact: true })
     .fill('A reunião foi cancelada pela organização responsável.');
   await confirm(page, 'Confirmar retirada');
+  await expect(
+    page.getByText('Aviso retirado com justificativa. Histórico preservado.'),
+  ).toBeVisible();
   await page.reload();
   await expect(page.getByText('Versão 3 · Retirado')).toBeVisible();
 });
@@ -705,6 +791,124 @@ test('termo próprio usa UUID da fonte para PDF e preserva ciência histórica e
   expect((await download).suggestedFilename()).toBe('sager-termo-' + termId + '.pdf');
   expect(state.gets).toContain('/me/termos/' + termId + '/documento');
   expect(state.gets.some((path) => path.startsWith('/ocorrencias'))).toBe(false);
+  expect(state.writes).toHaveLength(0);
+});
+
+test('filtro Ativa consulta advertências VIGENTE e exclui as anuladas', async ({ page }) => {
+  const active = warning(1);
+  const annulled = {
+    ...warning(2),
+    status: 'ANULADA' as const,
+    annulmentReason: 'Correção sintética.',
+  };
+  const state = await mockApi(page, { warnings: [active, annulled] });
+  await page.goto('/advertencias');
+  await expect(page.getByText(annulled.description, { exact: true })).toBeVisible();
+  await page
+    .getByRole('combobox', { name: 'Situação', exact: true })
+    .selectOption({ label: 'Ativa' });
+  await expect(page.getByRole('combobox', { name: 'Situação', exact: true })).toHaveValue(
+    'VIGENTE',
+  );
+  await expect(page.getByText(active.description, { exact: true })).toBeVisible();
+  await expect(page.getByText(annulled.description, { exact: true })).toHaveCount(0);
+  expect(
+    state.gets.some(
+      (request) =>
+        request.startsWith('/advertencias?') &&
+        new URL(request, 'http://local').searchParams.get('status') === 'VIGENTE',
+    ),
+  ).toBe(true);
+  await page
+    .getByRole('combobox', { name: 'Situação', exact: true })
+    .selectOption({ label: 'Anulada' });
+  await expect(page.getByText(annulled.description, { exact: true })).toBeVisible();
+  await expect(page.getByText(active.description, { exact: true })).toHaveCount(0);
+});
+
+test('falha tardia da paginação de avisos não altera os resultados da nova busca', async ({
+  page,
+}) => {
+  await mockApi(page);
+  const initial: PublishedNotice = {
+    id: noticeId,
+    title: 'Aviso inicial',
+    body: 'Conteúdo sintético.',
+    residentIds: [residentId],
+    status: 'RASCUNHO',
+    version: 0,
+    publishedAt: null,
+    communicationId: null,
+    withdrawalReason: null,
+  };
+  const current = { ...initial, id: uuid(802), title: 'Aviso atual' };
+  const next = { ...initial, id: uuid(803), title: 'Aviso seguinte' };
+  let release!: () => void;
+  let started!: () => void;
+  const pending = new Promise<void>((resolve) => (release = resolve));
+  const paging = new Promise<void>((resolve) => (started = resolve));
+  await page.route('**/api/v1/avisos**', async (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    if (params.get('beforeSequence') === '10') {
+      started();
+      await pending;
+      return route.fulfill({ status: 500, json: { code: 'unavailable' } });
+    }
+    if (params.get('beforeSequence') === '20')
+      return route.fulfill({ json: { items: [next], nextCursor: null } });
+    return route.fulfill({
+      json: params.get('search')
+        ? { items: [current], nextCursor: 20 }
+        : { items: [initial], nextCursor: 10 },
+    });
+  });
+  await page.goto('/comunicacoes/avisos');
+  const more = page.getByRole('button', { name: 'Carregar mais avisos', exact: true });
+  await more.click();
+  await paging;
+  await page.getByRole('searchbox', { name: 'Título', exact: true }).fill('atual');
+  await expect(page.getByRole('heading', { name: current.title, exact: true })).toBeVisible();
+  await expect(more).toBeEnabled();
+  const oldResponse = page.waitForResponse(
+    (response) => new URL(response.url()).searchParams.get('beforeSequence') === '10',
+  );
+  release();
+  await (await oldResponse).finished();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: initial.title, exact: true })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: current.title, exact: true })).toBeVisible();
+  await more.click();
+  await expect(page.getByRole('heading', { name: next.title, exact: true })).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+test('filtro Anulado nas próprias comunicações envia ANULADO', async ({ page }) => {
+  const state = await mockApi(page, {
+    role: 'residente',
+    own: {
+      ...ownCommunication(),
+      kind: 'ADVERTENCIA',
+      status: 'ANULADO',
+      stateReason: 'Correção sintética.',
+    },
+  });
+  await page.goto('/avisos?tipo=advertencias');
+  const status = page.getByRole('combobox', { name: 'Situação', exact: true });
+  await expect(status.getByRole('option', { name: 'Anulada', exact: true })).toHaveCount(0);
+  await status.selectOption({ label: 'Anulado' });
+  await expect(status).toHaveValue('ANULADO');
+  await expect
+    .poll(() =>
+      state.gets.some(
+        (request) =>
+          request.startsWith('/me/advertencias?') &&
+          new URL(request, 'http://local').searchParams.get('status') === 'ANULADO',
+      ),
+    )
+    .toBe(true);
+  await expect(page.getByRole('heading', { name: state.own.title })).toBeVisible();
+  await status.selectOption('PUBLICADO');
+  await expect(page.getByRole('heading', { name: state.own.title })).toHaveCount(0);
   expect(state.writes).toHaveLength(0);
 });
 

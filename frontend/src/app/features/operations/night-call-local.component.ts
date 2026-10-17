@@ -1,3 +1,7 @@
+import { normalizeSearch } from '../../shared/search';
+import { rememberFilters } from '../../core/filter-state';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
@@ -19,7 +23,7 @@ import {
 @Component({
   standalone: true,
   selector: 'app-night-call-local',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [SearchableSelectDirective, ReactiveFormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page">
@@ -41,7 +45,7 @@ import {
             <h2 id="call-selection">Alojamento e data</h2>
             <div class="op-filters">
               <label class="field"
-                >Alojamento<select [formControl]="accommodation" (change)="load()">
+                >Alojamento<select sagerSearchable [formControl]="accommodation" (change)="load()">
                   @for (option of ctx.accommodations; track option.id) {
                     <option [value]="option.id">{{ option.name }} · {{ option.code }}</option>
                   }
@@ -142,6 +146,24 @@ import {
                   [formControl]="search"
                   (input)="searchValue.set(search.value)"
               /></label>
+              <label class="field"
+                >Marcação<select
+                  [value]="markFilter()"
+                  (change)="markFilter.set($any($event.target).value)"
+                >
+                  <option value="">Todas</option>
+                  <option value="PENDENTE">Pendente</option>
+                  <option value="PRESENTE">Presente</option>
+                  <option value="AUSENTE">Ausente</option>
+                  <option value="AUSENCIA_JUSTIFICADA">Ausência justificada</option>
+                </select></label
+              >
+              <button class="btn op-secondary" (click)="search.setValue(''); markFilter.set('')">
+                Limpar filtros
+              </button>
+              <p role="status">
+                {{ filtered().length }} de {{ current.records.length }} residentes
+              </p>
               @if (!current.records.length) {
                 <div class="op-empty" role="status"><h3>Nenhum residente nesta chamada</h3></div>
               } @else if (!filtered().length) {
@@ -363,11 +385,14 @@ export class NightCallLocalComponent {
   readonly date = new FormControl('', { nonNullable: true });
   readonly search = new FormControl('', { nonNullable: true });
   readonly searchValue = signal('');
+  readonly markFilter = signal('');
   readonly filtered = computed(() =>
-    (this.call()?.records ?? []).filter((row) =>
-      `${row.residentName} ${row.enrollment}`
-        .toLocaleLowerCase('pt-BR')
-        .includes(this.searchValue().trim().toLocaleLowerCase('pt-BR')),
+    (this.call()?.records ?? []).filter(
+      (row) =>
+        normalizeSearch(`${row.residentName} ${row.enrollment}`).includes(
+          normalizeSearch(this.searchValue()),
+        ) &&
+        (!this.markFilter() || (row.mark ?? 'PENDENTE') === this.markFilter()),
     ),
   );
   readonly formatDate = formatCivilDate;
@@ -375,6 +400,11 @@ export class NightCallLocalComponent {
   readonly labels = callMarkLabels;
   private sequence = 0;
   constructor() {
+    rememberFilters('call-roster-search', this.search);
+    this.searchValue.set(this.search.value);
+    this.search.valueChanges
+      .pipe(takeUntilDestroyed())
+      .subscribe((value) => this.searchValue.set(value));
     if (this.session.hasRole('supervisor')) void this.load();
   }
   async load(): Promise<void> {

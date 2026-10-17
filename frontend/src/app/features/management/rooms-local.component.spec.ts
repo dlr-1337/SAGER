@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DemoScenario, DemoSessionService, Role } from '../../core/demo-session.service';
+import { FilterState } from '../../core/filter-state';
 import { AllocationApiService } from './allocation-api.service';
 import { HousingMap, RoomRecord } from './housing.models';
 import { ManagementDemoService } from './management-demo.service';
@@ -123,6 +124,51 @@ describe('Quartos em sessão local', () => {
     fixture.componentInstance.filters.controls.occupancy.setValue('with-vacancies');
     expect(fixture.componentInstance.filteredRooms().map((item) => item.id)).toEqual(['quarto-2']);
   });
+
+  it.each([
+    { total: 25, initialPage: 1, expectedPage: 0 },
+    { total: 0, initialPage: 1, expectedPage: 0 },
+    { total: 26, initialPage: 1, expectedPage: 1 },
+    { total: 55, initialPage: 4, expectedPage: 2 },
+  ])(
+    'limita a página restaurada $initialPage aos $total quartos filtrados',
+    async ({ total, initialPage, expectedPage }) => {
+      const records = Array.from({ length: total }, (_, index) => ({
+        ...room,
+        id: `quarto-${index + 1}`,
+        code: `TESTE-Q${index + 1}`,
+        number: String(index + 1),
+      }));
+      api.map.mockResolvedValue({
+        ...map,
+        rooms: [...records, { ...room, id: 'outro', situation: 'Manutenção' }],
+      });
+      const memory = TestBed.inject(FilterState);
+      const filters = {
+        search: 'TESTE-Q',
+        block: '',
+        accommodationId: room.accommodationId,
+        unitId: room.unitId,
+        floor: '',
+        situation: 'Disponível',
+        occupancy: 'unknown',
+      };
+      memory.values.set('rooms', filters);
+      memory.values.set('rooms.component.ts-page', initialPage);
+      const fixture = TestBed.createComponent(RoomsComponent);
+      await fixture.whenStable();
+      const component = fixture.componentInstance;
+      expect(component.filteredRooms()).toHaveLength(total);
+      expect(component.page()).toBe(expectedPage);
+      expect(component.groups().flatMap((group) => group.rooms.map((item) => item.id))).toEqual(
+        records.slice(expectedPage * 25, (expectedPage + 1) * 25).map((item) => item.id),
+      );
+      expect(component.filters.getRawValue()).toEqual(filters);
+      expect(memory.values.get('rooms.component.ts-page')).toBe(expectedPage);
+      expect(api.map).toHaveBeenCalledOnce();
+      if (total === 25) expect(fixture.nativeElement.textContent).toContain('1–25 de 25');
+    },
+  );
 
   it('falha de backend nunca preenche o mapa com registros demonstrativos', async () => {
     api.map.mockRejectedValue(new Error('offline'));

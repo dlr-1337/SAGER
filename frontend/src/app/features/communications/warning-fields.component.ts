@@ -1,3 +1,4 @@
+import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { DisciplineCategory, WarningInput, WarningSeverity } from './communications-local.models';
@@ -37,7 +38,7 @@ export function warningInput(form: WarningForm): WarningInput {
 @Component({
   standalone: true,
   selector: 'sager-warning-fields',
-  imports: [ReactiveFormsModule],
+  imports: [SearchableSelectDirective, ReactiveFormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="comm-form" [formGroup]="form">
@@ -49,7 +50,7 @@ export function warningInput(form: WarningForm): WarningInput {
           </div>
         } @else {
           <label class="field"
-            >Categoria<select formControlName="category">
+            >Categoria<select sagerSearchable formControlName="category">
               @for (item of categoryOptions; track item) {
                 <option [value]="item">{{ categories[item] }}</option>
               }
@@ -57,7 +58,7 @@ export function warningInput(form: WarningForm): WarningInput {
           >
         }
         <label class="field"
-          >Gravidade decidida pelo supervisor<select formControlName="severity">
+          >Gravidade decidida pelo supervisor<select sagerSearchable formControlName="severity">
             @for (item of severityOptions; track item) {
               <option [value]="item">{{ severities[item] }}</option>
             }

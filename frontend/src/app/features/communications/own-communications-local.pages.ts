@@ -1,3 +1,4 @@
+import { CommunicationFiltersComponent } from './communication-filters.component';
 import { ChangeDetectionStrategy, Component, OnDestroy, inject, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -25,7 +26,7 @@ type OwnTab = 'avisos' | 'advertencias' | 'termos';
 @Component({
   standalone: true,
   selector: 'sager-own-communications-local',
-  imports: [RouterLink, CommunicationsStateComponent],
+  imports: [CommunicationFiltersComponent, RouterLink, CommunicationsStateComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page comm-page">
@@ -36,6 +37,9 @@ type OwnTab = 'avisos' | 'advertencias' | 'termos';
           <p>Consulte os avisos, advertências e termos publicados para sua conta.</p>
         </div>
       </header>
+      @if (!session.active() && session.hasRole('residente')) {
+        <sager-communication-filters mode="own" (changed)="searchFilters = $event; load()" />
+      }
       <sager-communications-state
         [demo]="session.active()"
         [blocked]="!session.hasRole('residente')"
@@ -131,6 +135,9 @@ type OwnTab = 'avisos' | 'advertencias' | 'termos';
   styleUrl: './communications-local.scss',
 })
 export class OwnCommunicationsLocalPage {
+  searchFilters: Record<string, string> = {};
+  private appliedSearch: Record<string, string> = {};
+
   readonly session = inject(DemoSessionService);
   private readonly api = inject(CommunicationsLocalApiService);
   private readonly route = inject(ActivatedRoute);
@@ -163,14 +170,16 @@ export class OwnCommunicationsLocalPage {
     void this.load();
   }
   async load(): Promise<void> {
+    this.appliedSearch = { ...this.searchFilters };
     if (this.session.active() || !this.session.hasRole('residente')) return;
     const generation = ++this.generation;
     this.loading.set(true);
+    this.moreLoading.set(false);
     this.error.set('');
     this.moreError.set('');
     this.items.set([]);
     try {
-      const page = await this.api.ownList(this.tab());
+      const page = await this.api.ownList(this.tab(), undefined, this.appliedSearch);
       if (generation === this.generation) {
         this.items.set(page.items);
         this.nextCursor.set(page.nextCursor);
@@ -188,7 +197,7 @@ export class OwnCommunicationsLocalPage {
     this.moreLoading.set(true);
     this.moreError.set('');
     try {
-      const page = await this.api.ownList(this.tab(), cursor);
+      const page = await this.api.ownList(this.tab(), cursor, this.appliedSearch);
       if (generation === this.generation) {
         this.items.update((items) => [
           ...items,
@@ -199,7 +208,7 @@ export class OwnCommunicationsLocalPage {
     } catch (error) {
       if (generation === this.generation) this.moreError.set(communicationsError(error));
     } finally {
-      this.moreLoading.set(false);
+      if (generation === this.generation) this.moreLoading.set(false);
     }
   }
 }

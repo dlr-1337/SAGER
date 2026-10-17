@@ -241,6 +241,7 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
         id: actorId,
         nome: state.role === 'residente' ? resident.name : 'Conta Sintética',
         email: 'sessao@example.test',
+        matricula: 'TESTE-LOGIN',
         fotoUrl: null,
         perfis: [state.role],
         residenteId: state.role === 'residente' ? residentId : null,

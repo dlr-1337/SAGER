@@ -7,10 +7,17 @@ export interface ResidentRecord {
   birthDate: string | null;
   course: string | null;
   version: number;
+  courseId?: string | null;
+  institutionalEmail?: string | null;
 }
 
-export type ResidentPayload = Pick<ResidentRecord, 'name' | 'enrollment' | 'course'> & {
+export type ResidentPayload = Pick<
+  ResidentRecord,
+  'name' | 'enrollment' | 'courseId' | 'institutionalEmail'
+> & {
   birthDate: string;
+  password?: string;
+  passwordConfirmation?: string;
 };
 
 const baseUrl = '/api/v1/residentes';
@@ -45,6 +52,25 @@ export class ResidentApiService {
       throw new Error('A lista de residentes recebida é inválida.');
     }
     return value;
+  }
+
+  async page(
+    params: Record<string, string>,
+    signal?: AbortSignal,
+  ): Promise<{ items: ResidentRecord[]; total: number }> {
+    const response = await fetch(`${baseUrl}?${new URLSearchParams(params)}`, {
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+      signal,
+    });
+    if (!response.ok) throw await this.responseError(response);
+    const value: unknown = await response.json();
+    if (!Array.isArray(value) || !value.every(isResident))
+      throw new Error('Lista de residentes inválida.');
+    const total = Number(response.headers.get('X-Total-Count') ?? value.length);
+    if (!Number.isSafeInteger(total) || total < 0) throw new Error('Total de residentes inválido.');
+    return { items: value, total };
   }
 
   async get(id: string): Promise<ResidentRecord> {

@@ -19,7 +19,8 @@ const input: ResidentPayload = {
   name: record.name,
   enrollment: record.enrollment,
   birthDate: '2009-05-14',
-  course: null,
+  courseId: null,
+  institutionalEmail: null,
 };
 
 describe('ResidentApiService', () => {

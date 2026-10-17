@@ -1,3 +1,8 @@
+import { debounceTime } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { PaginationComponent } from '../../shared/pagination.component';
+import { normalizeSearch } from '../../shared/search';
+import { rememberFilters, rememberValue } from '../../core/filter-state';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
@@ -10,7 +15,7 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
 @Component({
   selector: 'app-supervisors',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [PaginationComponent, ReactiveFormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page mg-page">
@@ -35,8 +40,10 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
               type="search"
               [formControl]="search"
               placeholder="Digite um nome ou identificação"
-              autocomplete="off"
-          /></label>
+              autocomplete="off" /></label
+          ><button type="button" class="btn mg-secondary" (click)="search.setValue('')">
+            Limpar filtros
+          </button>
         </section>
         <section class="mg-section" aria-labelledby="supervisor-results-title">
           <div class="mg-section-heading">
@@ -45,7 +52,7 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
               @if (isDemo() && scenario() !== 'padrao') {
                 Cenário demonstrativo
               } @else if (!loading() && !loadError()) {
-                {{ filtered().length }} de {{ supervisors().length }} supervisores
+                {{ total() }} supervisores encontrados
               }
             </p>
           </div>
@@ -97,7 +104,7 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
             </div>
           } @else if (filtered().length) {
             <div class="mg-list">
-              @for (supervisor of filtered(); track supervisor.id) {
+              @for (supervisor of paged(); track supervisor.id) {
                 <article class="mg-row">
                   <div class="mg-avatar" aria-hidden="true">{{ supervisor.name.slice(0, 1) }}</div>
                   <div class="mg-row-main">
@@ -138,6 +145,7 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
               </button>
             </div>
           }
+          <sager-pagination [page]="page()" [total]="total()" (pageChange)="changePage($event)" />
         </section>
         <div class="mg-note">
           <span class="material-symbols-rounded" aria-hidden="true">info</span>
@@ -176,24 +184,60 @@ export class SupervisorsComponent {
   );
   private readonly query = toSignal(this.search.valueChanges, { initialValue: '' });
   readonly filtered = computed(() => {
-    const value = this.query().trim().toLocaleLowerCase('pt-BR');
+    if (!this.isDemo()) return this.localSupervisors();
+    const value = normalizeSearch(this.query());
     return this.supervisors().filter(
       (item) =>
-        !value || `${item.name} ${item.institutionalId}`.toLocaleLowerCase('pt-BR').includes(value),
+        !value ||
+        normalizeSearch(`${item.name} ${item.institutionalId} ${item.email}`).includes(value),
     );
   });
 
+  readonly remoteTotal = signal(0);
+  readonly total = computed(() => (this.isDemo() ? this.filtered().length : this.remoteTotal()));
+  readonly page = rememberValue('supervisors.component.ts-page', 0);
+  readonly paged = computed(() =>
+    this.isDemo()
+      ? this.filtered().slice(this.page() * 25, (this.page() + 1) * 25)
+      : this.filtered(),
+  );
+
   constructor() {
-    if (!this.isDemo() && this.canEdit()) void this.load();
+    rememberFilters('supervisors', this.search);
+    this.search.valueChanges.pipe(debounceTime(250), takeUntilDestroyed()).subscribe(() => {
+      this.page.set(0);
+      if (!this.isDemo()) void this.load();
+    });
+    if (this.isDemo()) {
+      const lastPage = Math.max(0, Math.ceil(this.filtered().length / 25) - 1);
+      this.page.update((page) => Math.max(0, Math.min(page, lastPage)));
+    } else if (this.canEdit()) void this.load();
   }
 
+  private generation = 0;
+  changePage(page: number): void {
+    this.page.set(page);
+    if (!this.isDemo()) void this.load();
+  }
   async load(): Promise<void> {
     if (this.isDemo() || !this.canEdit()) return;
+    const generation = ++this.generation;
     this.loading.set(true);
     this.loadError.set('');
     try {
-      this.localSupervisors.set(await this.api.list());
+      const result = await this.api.page({
+        search: this.search.value,
+        limit: '25',
+        offset: String(this.page() * 25),
+      });
+      if (generation !== this.generation) return;
+      this.localSupervisors.set(result.items);
+      this.remoteTotal.set(result.total);
+      if (this.page() && this.page() * 25 >= result.total) {
+        this.changePage(Math.max(0, Math.ceil(result.total / 25) - 1));
+      }
     } catch (error) {
+      if (generation !== this.generation) return;
       this.localSupervisors.set([]);
       this.loadError.set(
         error instanceof SupervisorApiError && error.status === 403
@@ -201,7 +245,7 @@ export class SupervisorsComponent {
           : 'Confira a conexão com o backend local e tente novamente.',
       );
     } finally {
-      this.loading.set(false);
+      if (generation === this.generation) this.loading.set(false);
     }
   }
 

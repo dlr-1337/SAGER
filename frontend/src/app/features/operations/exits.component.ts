@@ -1,3 +1,5 @@
+import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
+import { rememberFilters } from '../../core/filter-state';
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -10,7 +12,13 @@ import { ExitsLocalComponent } from './exits-local.component';
 @Component({
   standalone: true,
   selector: 'app-exits',
-  imports: [ExitsLocalComponent, CommonModule, ReactiveFormsModule, RouterLink],
+  imports: [
+    SearchableSelectDirective,
+    ExitsLocalComponent,
+    CommonModule,
+    ReactiveFormsModule,
+    RouterLink,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (!session.active()) {
@@ -58,14 +66,14 @@ import { ExitsLocalComponent } from './exits-local.component';
                 placeholder="Digite para buscar"
             /></label>
             <label class="field"
-              >Tipo<select formControlName="kind">
+              >Tipo<select sagerSearchable formControlName="kind">
                 <option value="">Todas</option>
                 <option value="Curta">Curta</option>
                 <option value="Longa">Longa</option>
               </select></label
             >
             <label class="field"
-              >Situação<select formControlName="status">
+              >Situação<select sagerSearchable formControlName="status">
                 <option value="">Todas</option>
                 <option value="pendente">Pendentes</option>
                 <option value="concluida">Concluídas</option>

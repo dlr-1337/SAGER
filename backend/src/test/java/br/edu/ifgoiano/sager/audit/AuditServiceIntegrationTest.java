@@ -226,7 +226,7 @@ class AuditServiceIntegrationTest {
 
     private void authenticatedRequest(UUID actor, UUID correlation) {
         var principal = new LocalAccountPrincipal(actor, "actor@example.invalid", "Ator Sintético",
-                "gestor", null, null);
+                "gestor", null, null, "actor");
         SecurityContextHolder.getContext().setAuthentication(
                 UsernamePasswordAuthenticationToken.authenticated(principal, null,
                         List.of(new SimpleGrantedAuthority("ROLE_GESTOR"))));

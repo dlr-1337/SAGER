@@ -28,8 +28,9 @@ public class AccommodationController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Accommodation>> list() {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.list());
+    public ResponseEntity<List<Accommodation>> list(@org.springframework.web.bind.annotation.RequestParam java.util.Map<String,String> params) {
+        var page = service.list(params);
+        return ResponseEntity.ok().header("X-Total-Count", Long.toString(page.total())).cacheControl(CacheControl.noStore()).body(page.items());
     }
 
     @GetMapping("/{id}")

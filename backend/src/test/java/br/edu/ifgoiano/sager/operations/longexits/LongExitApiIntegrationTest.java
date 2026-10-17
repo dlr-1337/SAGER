@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import br.edu.ifgoiano.sager.auth.LocalAccountProvisioningService;
+import br.edu.ifgoiano.sager.auth.LocalAccountPrincipal;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,6 +16,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -80,6 +83,7 @@ class LongExitApiIntegrationTest {
     @Autowired ObjectMapper json;
     @Autowired MutableClock clock;
     @Autowired LongExitExpiryService expiry;
+    @Autowired LongExitService service;
     @Autowired PlatformTransactionManager transactionManager;
     @LocalServerPort int port;
     UUID resident;
@@ -144,11 +148,39 @@ class LongExitApiIntegrationTest {
                 resident);
         for (String profile : List.of("residente", "supervisor", "gestor"))
             provisioning.create(
-                    profile + "@example.invalid",
+                    br.edu.ifgoiano.sager.TestIdentity.enrollment(profile + "@example.invalid"), profile + "@example.invalid",
                     "Pessoa sintética",
                     profile,
                     PASSWORD.toCharArray());
         provisioning.linkResident("residente@example.invalid", resident);
+    }
+
+    @Test
+    void legacyListsBindNameAndEnrollmentSearch() throws Exception {
+        UUID exitId;
+        try (HttpClient student = login("residente")) {
+            exitId = UUID.fromString(created(post(student, ROOT, plan(4 * 3600))).path("id").asText());
+        }
+        UUID actorId = jdbc.queryForObject("SELECT id FROM sager_local_account WHERE email=?",
+                UUID.class, "supervisor@example.invalid");
+        var principal = new LocalAccountPrincipal(actorId, "supervisor@example.invalid",
+                "Supervisor Sintético", "supervisor", null, null, "TESTE-SUPERVISOR");
+        SecurityContextHolder.getContext().setAuthentication(
+                UsernamePasswordAuthenticationToken.authenticated(principal, null, List.of()));
+        try {
+            for (String query : new String[] {"  ESTUDANTE sintetico  ", "  f4-a  ", null, "   "}) {
+                assertThat(service.list(null, query, null)).extracting(LongExit::id)
+                        .containsExactly(exitId);
+                assertThat(service.list(resident, query, "AGUARDANDO_ANALISE"))
+                        .extracting(LongExit::id).containsExactly(exitId);
+            }
+            assertThat(service.list(null, "Sem correspondência", null)).isEmpty();
+            assertThat(service.list(null, "%", null)).isEmpty();
+            assertThat(service.list(UUID.randomUUID(), "sintetico", null)).isEmpty();
+            assertThat(service.list(resident, "F4-A", "CANCELADA")).isEmpty();
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 
     @Test
@@ -445,7 +477,7 @@ FROM sager_document_version WHERE exit_id=?
                 other,
                 LocalDate.of(2009, 2, 2));
         provisioning.create(
-                "outra@example.invalid",
+                br.edu.ifgoiano.sager.TestIdentity.enrollment("outra@example.invalid"), "outra@example.invalid",
                 "Outra pessoa sintética",
                 "residente",
                 PASSWORD.toCharArray());
@@ -526,8 +558,8 @@ FROM sager_document_version WHERE exit_id=?
                         .cookieHandler(new CookieManager(null, CookiePolicy.ACCEPT_ALL))
                         .build();
         String body =
-                "email="
-                        + URLEncoder.encode(profile + "@example.invalid", StandardCharsets.UTF_8)
+                "matricula="
+                        + URLEncoder.encode(br.edu.ifgoiano.sager.TestIdentity.enrollment(profile + "@example.invalid"), StandardCharsets.UTF_8)
                         + "&password="
                         + URLEncoder.encode(PASSWORD, StandardCharsets.UTF_8);
         assertThat(

@@ -28,15 +28,15 @@ public class LocalAccountAuthenticationProvider implements AuthenticationProvide
 
     @Override
     public Authentication authenticate(Authentication authentication) throws AuthenticationException {
-        String email = authentication.getName().trim().toLowerCase(Locale.ROOT);
+        String enrollment = authentication.getName().trim();
         String password = String.valueOf(authentication.getCredentials());
-        LocalAccount account = accounts.findByEmail(email).orElse(null);
+        LocalAccount account = accounts.findByEnrollment(enrollment).orElse(null);
         boolean valid = passwords.matches(password, account == null ? dummyPasswordHash : account.passwordHash());
-        if (account == null || !account.active() || !valid) {
+        if (account == null || enrollment.contains("@") || !account.active() || !valid) {
             throw new BadCredentialsException("Credenciais invalidas");
         }
         LocalAccountPrincipal principal = new LocalAccountPrincipal(account.id(), account.email(),
-                account.name(), account.profile(), account.residentId(), account.supervisorId());
+                account.name(), account.profile(), account.residentId(), account.supervisorId(), account.enrollment());
         return new UsernamePasswordAuthenticationToken(principal, null,
                 List.of(new SimpleGrantedAuthority("ROLE_" + account.profile().toUpperCase(Locale.ROOT))));
     }

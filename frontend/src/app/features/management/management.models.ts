@@ -6,12 +6,16 @@ export interface Resident {
   enrollment: string;
   birthDate: string;
   course: string;
+  institutionalEmail?: string | null;
   roomId: string | null;
   status: 'Ativo' | 'Inativo';
   version: number;
 }
 
-export type ResidentInput = Pick<Resident, 'name' | 'enrollment' | 'birthDate' | 'course'>;
+export type ResidentInput = Pick<
+  Resident,
+  'name' | 'enrollment' | 'birthDate' | 'course' | 'institutionalEmail'
+>;
 
 export interface LegalGuardian {
   id: string;
@@ -24,7 +28,10 @@ export interface LegalGuardian {
   version: number;
 }
 
-export type LegalGuardianInput = Pick<LegalGuardian, 'name' | 'relationship' | 'phone' | 'active' | 'authorized'>;
+export type LegalGuardianInput = Pick<
+  LegalGuardian,
+  'name' | 'relationship' | 'phone' | 'active' | 'authorized'
+>;
 
 export interface Supervisor {
   id: string;

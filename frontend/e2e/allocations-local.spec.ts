@@ -52,6 +52,7 @@ async function mockLocal(context: BrowserContext, role: 'gestor' | 'supervisor' 
           id: 'user-1',
           nome: 'Gestor Sintético',
           email: 'teste@example.invalid',
+          matricula: 'TESTE-LOGIN',
           fotoUrl: null,
           perfis: [role],
           residenteId: null,

@@ -65,6 +65,15 @@ public class LongExitRepository implements AuthorizedExitLookup, ExitOccupancyLo
                 .findFirst();
     }
 
+    public br.edu.ifgoiano.sager.management.ManagementSearch.Page<Row> search(java.util.Map<String,String> filters) {
+        return br.edu.ifgoiano.sager.management.ManagementSearch.query(jdbc,"*","sager_long_exit",
+                "concat_ws(' ',resident_name,enrollment)","enrollment","created_at DESC,id DESC",
+                java.util.Map.of("residentId","resident_id=?::uuid","status","status=?",
+                    "from","(requested_departure_at AT TIME ZONE 'America/Sao_Paulo')::date>=?::date",
+                    "to","(requested_departure_at AT TIME ZONE 'America/Sao_Paulo')::date<=?::date",
+                    "accommodationId","EXISTS (SELECT 1 FROM sager_room_allocation al JOIN sager_room room ON room.id=al.room_id WHERE al.resident_id=sager_long_exit.resident_id AND al.started_at<=sager_long_exit.requested_departure_at AND (al.ended_at IS NULL OR al.ended_at>sager_long_exit.requested_departure_at) AND room.accommodation_id=?::uuid)"),filters,(r,n)->row(r));
+    }
+
     public List<Row> list(UUID residentId, String search, String status) {
         StringBuilder query = new StringBuilder("SELECT * FROM sager_long_exit WHERE TRUE");
         List<Object> args = new ArrayList<>();
@@ -78,14 +87,8 @@ public class LongExitRepository implements AuthorizedExitLookup, ExitOccupancyLo
         }
         if (search != null && !search.isBlank()) {
             query.append(
-                    " AND (resident_name ILIKE ? ESCAPE '\\' OR enrollment ILIKE ? ESCAPE '\\')");
-            String escaped =
-                    "%"
-                            + search.trim()
-                                    .replace("\\", "\\\\")
-                                    .replace("%", "\\%")
-                                    .replace("_", "\\_")
-                            + "%";
+                    " AND (position(sager_search_text(?) in sager_search_text(resident_name)) > 0 OR position(sager_search_text(?) in sager_search_text(enrollment)) > 0)");
+            String escaped = search.trim();
             args.add(escaped);
             args.add(escaped);
         }

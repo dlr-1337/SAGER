@@ -9,6 +9,7 @@ import {
   AllocationRecord,
 } from './allocation-api.service';
 import { GuardianApiService, GuardianRecord } from './guardian-api.service';
+import { Course, CourseApiService } from './course-api.service';
 import { HousingMap } from './housing.models';
 import { ManagementDemoService } from './management-demo.service';
 import { ResidentApiError, ResidentApiService, ResidentRecord } from './resident-api.service';
@@ -72,6 +73,7 @@ describe('Residentes em sessão local', () => {
     snapshot: { paramMap: convertToParamMap({}), queryParamMap: convertToParamMap({}) },
   };
   let api: {
+    page: ReturnType<typeof vi.fn>;
     list: ReturnType<typeof vi.fn>;
     get: ReturnType<typeof vi.fn>;
     save: ReturnType<typeof vi.fn>;
@@ -92,6 +94,12 @@ describe('Residentes em sessão local', () => {
     route.snapshot.paramMap = convertToParamMap({});
     route.snapshot.queryParamMap = convertToParamMap({});
     api = {
+      page: vi.fn().mockImplementation((params) =>
+        Promise.resolve({
+          items: params.search && params.search !== 'teste-001' ? [] : [structuredClone(resident)],
+          total: params.search && params.search !== 'teste-001' ? 0 : 1,
+        }),
+      ),
       list: vi.fn().mockResolvedValue([structuredClone(resident)]),
       get: vi.fn().mockResolvedValue(structuredClone(resident)),
       save: vi.fn().mockResolvedValue(structuredClone(resident)),
@@ -111,6 +119,10 @@ describe('Residentes em sessão local', () => {
         { provide: ActivatedRoute, useValue: route },
         { provide: ResidentApiService, useValue: api },
         { provide: GuardianApiService, useValue: guardianApi },
+        {
+          provide: CourseApiService,
+          useValue: { list: vi.fn().mockResolvedValue([]), save: vi.fn(), demoCourses: signal([]) },
+        },
         { provide: AllocationApiService, useValue: allocationApi },
         { provide: RoomApiService, useValue: roomApi },
         {
@@ -135,20 +147,22 @@ describe('Residentes em sessão local', () => {
     expect(fixture.nativeElement.textContent).toContain('Não informado');
     expect(fixture.nativeElement.textContent).not.toContain('Ana Luísa Ribeiro');
     expect(fixture.nativeElement.textContent).not.toContain('Sem quarto atribuído');
-    fixture.componentInstance.localSearch.setValue('teste-001');
-    expect(fixture.componentInstance.localFiltered()).toHaveLength(1);
-    fixture.componentInstance.localSearch.setValue('outra matrícula');
-    expect(fixture.componentInstance.localFiltered()).toHaveLength(0);
+    fixture.componentInstance.filters.controls.search.setValue('teste-001');
+    await fixture.componentInstance.load();
+    expect(fixture.componentInstance.visible()).toHaveLength(1);
+    fixture.componentInstance.filters.controls.search.setValue('outra matrícula');
+    await fixture.componentInstance.load();
+    expect(fixture.componentInstance.visible()).toHaveLength(0);
   });
 
   it('erro da API não exibe residentes da demonstração', async () => {
-    api.list.mockRejectedValue(new Error('offline'));
+    api.page.mockRejectedValue(new Error('offline'));
     const fixture = TestBed.createComponent(ResidentsComponent);
     await fixture.whenStable();
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Não foi possível carregar residentes');
     expect(fixture.nativeElement.textContent).not.toContain('Ana Luísa Ribeiro');
-    expect(fixture.componentInstance.localResidents()).toEqual([]);
+    expect(fixture.componentInstance.items()).toEqual([]);
   });
 
   it('supervisor pode cadastrar residentes', async () => {
@@ -287,7 +301,10 @@ describe('Residentes em sessão local', () => {
       name: ' Estudante Sintético ',
       enrollment: ' TESTE-A1 ',
       birthDate: '',
-      course: ' ',
+      courseId: '',
+      institutionalEmail: '',
+      password: 'Senha teste 123!',
+      passwordConfirmation: 'Senha teste 123!',
     });
     await fixture.componentInstance.save();
     expect(api.save).not.toHaveBeenCalled();
@@ -299,7 +316,10 @@ describe('Residentes em sessão local', () => {
         name: 'Estudante Sintético',
         enrollment: 'TESTE-A1',
         birthDate: '2009-05-14',
-        course: null,
+        courseId: null,
+        institutionalEmail: null,
+        password: 'Senha teste 123!',
+        passwordConfirmation: 'Senha teste 123!',
       },
       undefined,
     );
@@ -311,11 +331,140 @@ describe('Residentes em sessão local', () => {
       name: 'Pessoa Sintética',
       enrollment: 'ABC-2',
       birthDate: '2999-01-01',
-      course: '',
+      courseId: '',
+      institutionalEmail: '',
+      password: 'Senha teste 123!',
+      passwordConfirmation: 'Senha teste 123!',
     });
     await fixture.componentInstance.save();
     expect(api.save).not.toHaveBeenCalled();
   });
+
+  it.each(['success', 'failure'])(
+    'aguarda a criação do curso antes de salvar (%s)',
+    async (result) => {
+      let finish!: (value: Course) => void;
+      let fail!: (error: Error) => void;
+      const course = { id: 'curso-teste', name: 'Curso Sintético', active: true, version: 0 };
+      const create = vi.spyOn(TestBed.inject(CourseApiService), 'save').mockReturnValue(
+        new Promise<Course>((resolve, reject) => {
+          finish = resolve;
+          fail = reject;
+        }),
+      );
+      const fixture = TestBed.createComponent(ResidentFormComponent);
+      await fixture.whenStable();
+      const component = fixture.componentInstance;
+      component.form.patchValue({
+        name: 'Pessoa Sintética',
+        enrollment: 'TESTE-002',
+        birthDate: '2009-05-14',
+        password: 'Senha teste 123!',
+        passwordConfirmation: 'Senha teste 123!',
+      });
+      component.form.markAsDirty();
+      component.newCourse.setValue(course.name);
+      const creating = component.createCourse();
+      fixture.detectChanges();
+      const submit: HTMLButtonElement =
+        fixture.nativeElement.querySelector('button[type="submit"]');
+      expect(component.form.valid).toBe(true);
+      expect(submit.disabled).toBe(true);
+      await component.save();
+      fixture.nativeElement
+        .querySelector('form')
+        .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      expect(api.save).not.toHaveBeenCalled();
+      expect(TestBed.inject(Router).navigate).not.toHaveBeenCalled();
+      if (result === 'success') finish(course);
+      else fail(new Error('Falha sintética do curso'));
+      await creating;
+      fixture.detectChanges();
+      expect(submit.disabled).toBe(false);
+      expect(component.form.controls.name.value).toBe('Pessoa Sintética');
+      expect(component.form.dirty).toBe(true);
+      expect(api.save).not.toHaveBeenCalled();
+      expect(create).toHaveBeenCalledOnce();
+      if (result === 'success') expect(component.form.controls.courseId.value).toBe(course.id);
+      else {
+        expect(component.coursesError()).toBe('Falha sintética do curso');
+        expect(component.newCourse.value).toBe(course.name);
+        expect(component.form.controls.courseId.value).toBe('');
+      }
+      await component.save();
+      expect(api.save).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ courseId: result === 'success' ? course.id : null }),
+        undefined,
+      );
+    },
+  );
+
+  it.each([
+    { edit: false, result: 'success' },
+    { edit: false, result: 'failure' },
+    { edit: true, result: 'success' },
+    { edit: true, result: 'failure' },
+  ])(
+    'não cria curso enquanto o residente está sendo salvo (edição=$edit, $result)',
+    async ({ edit, result }) => {
+      if (edit) route.snapshot.paramMap = convertToParamMap({ id: resident.id });
+      let finish!: (value: ResidentRecord) => void;
+      let fail!: (error: Error) => void;
+      api.save.mockReturnValueOnce(
+        new Promise<ResidentRecord>((resolve, reject) => {
+          finish = resolve;
+          fail = reject;
+        }),
+      );
+      const courses = TestBed.inject(CourseApiService);
+      const fixture = TestBed.createComponent(ResidentFormComponent);
+      await fixture.whenStable();
+      const component = fixture.componentInstance;
+      component.form.patchValue({
+        name: 'Pessoa Sintética',
+        enrollment: 'TESTE-002',
+        birthDate: '2009-05-14',
+        password: 'Senha teste 123!',
+        passwordConfirmation: 'Senha teste 123!',
+      });
+      component.addingCourse.set(true);
+      component.newCourse.setValue('Curso Sintético');
+      const saving = component.save();
+      fixture.detectChanges();
+      const create: HTMLButtonElement = Array.from(
+        fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>,
+      ).find((button) => button.textContent?.includes('Cadastrar e selecionar'))!;
+      const disabled = create.disabled;
+      await component.createCourse();
+      expect(courses.save).not.toHaveBeenCalled();
+      expect(disabled).toBe(true);
+      expect(component.form.controls.courseId.value).toBe('');
+      expect(component.newCourse.value).toBe('Curso Sintético');
+      expect(api.save).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ courseId: null }),
+        edit ? { id: resident.id, version: resident.version } : undefined,
+      );
+      if (result === 'success') finish(resident);
+      else fail(new Error('Falha sintética do residente'));
+      await saving;
+      fixture.detectChanges();
+      if (result === 'success') {
+        expect(TestBed.inject(Router).navigate).toHaveBeenCalledOnce();
+      } else {
+        expect(component.form.dirty).toBe(true);
+        expect(create.disabled).toBe(false);
+        expect(TestBed.inject(Router).navigate).not.toHaveBeenCalled();
+        vi.mocked(courses.save).mockResolvedValueOnce({
+          id: 'curso-teste',
+          name: 'Curso Sintético',
+          active: true,
+          version: 0,
+        });
+        await component.createCourse();
+        expect(component.form.controls.courseId.value).toBe('curso-teste');
+      }
+    },
+  );
 
   it('distingue duplicidade de versão obsoleta e recarrega a versão atual', async () => {
     route.snapshot.paramMap = convertToParamMap({ id: resident.id });
@@ -352,7 +501,10 @@ describe('Residentes em sessão local', () => {
       name: 'Pessoa Sintética',
       enrollment: 'TESTE-002',
       birthDate: '2009-05-14',
-      course: '',
+      courseId: '',
+      institutionalEmail: '',
+      password: 'Senha teste 123!',
+      passwordConfirmation: 'Senha teste 123!',
     });
     const saving = fixture.componentInstance.save();
     expect(api.save).toHaveBeenCalledOnce();

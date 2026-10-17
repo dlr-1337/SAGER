@@ -88,7 +88,7 @@ class AuthFlowIntegrationTest {
                 """, Integer.class)).isEqualTo(320);
 
         char[] supplied = PASSWORD.toCharArray();
-        provisioning.create("  GESTOR@example.invalid  ", " Gestor Sintetico ", "gestor", supplied);
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("  GESTOR@example.invalid  "), "  GESTOR@example.invalid  ", " Gestor Sintetico ", "gestor", supplied);
         LocalAccount account = repository.findByEmail("gestor@example.invalid").orElseThrow();
         assertThat(account.email()).isEqualTo("gestor@example.invalid");
         assertThat(account.name()).isEqualTo("Gestor Sintetico");
@@ -98,13 +98,13 @@ class AuthFlowIntegrationTest {
         assertThat(passwords.matches(PASSWORD, account.passwordHash())).isTrue();
         assertThat(supplied).containsOnly('\0');
 
-        assertThatThrownBy(() -> provisioning.create("gestor@example.invalid", "Outro", "gestor",
+        assertThatThrownBy(() -> provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("gestor@example.invalid"), "gestor@example.invalid", "Outro", "gestor",
                 PASSWORD.toCharArray())).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void handlesLoginSessionCsrfAndLogoutOverRealHttp() throws Exception {
-        provisioning.create("supervisor@example.invalid", "Supervisor Sintetico", "supervisor",
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("supervisor@example.invalid"), "supervisor@example.invalid", "Supervisor Sintetico", "supervisor",
                 PASSWORD.toCharArray());
         try (HttpClient client = browser()) {
             HttpResponse<String> tokenResponse = get(client, "/api/v1/auth/csrf");
@@ -137,7 +137,7 @@ class AuthFlowIntegrationTest {
             assertThat(identity.path("email").asText()).isEqualTo("supervisor@example.invalid");
             assertThat(identity.path("fotoUrl").isNull()).isTrue();
             assertThat(identity.path("perfis").get(0).asText()).isEqualTo("supervisor");
-            assertThat(identity.has("matricula")).isFalse();
+            assertThat(identity.path("matricula").asText()).isEqualTo("supervisor");
             assertThat(identity.has("passwordHash")).isFalse();
             assertThat(me.headers().firstValue("Cache-Control").orElseThrow())
                     .contains("no-store");
@@ -155,7 +155,7 @@ class AuthFlowIntegrationTest {
 
     @Test
     void healthProfileRequiresIndependentProfessionalAccessAndCannotManageResidents() throws Exception {
-        provisioning.create("saude@example.invalid", "Profissional Sintetica", "saude",
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("saude@example.invalid"), "saude@example.invalid", "Profissional Sintetica", "saude",
                 PASSWORD.toCharArray());
         try (HttpClient client = browser()) {
             String csrf = csrfToken(client);
@@ -179,7 +179,7 @@ class AuthFlowIntegrationTest {
     void onlyOperatorAssignedProfilesAreExposed() throws Exception {
         for (String profile : List.of("gestor", "supervisor", "residente")) {
             String email = profile + "@example.invalid";
-            provisioning.create(email, "Conta " + profile, profile, PASSWORD.toCharArray());
+            provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(email), email, "Conta " + profile, profile, PASSWORD.toCharArray());
             try (HttpClient client = browser()) {
                 assertThat(login(client, email, PASSWORD, csrfToken(client)).statusCode())
                         .isEqualTo(204);
@@ -188,14 +188,14 @@ class AuthFlowIntegrationTest {
                 assertThat(me.path("perfis").get(0).asText()).isEqualTo(profile);
             }
         }
-        assertThatThrownBy(() -> provisioning.create("outro@example.invalid", "Outro", "admin",
+        assertThatThrownBy(() -> provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("outro@example.invalid"), "outro@example.invalid", "Outro", "admin",
                 PASSWORD.toCharArray())).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void resetAndDisableRevokeExistingSessions() throws Exception {
         String email = "residente@example.invalid";
-        provisioning.create(email, "Residente Sintetico", "residente", PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(email), email, "Residente Sintetico", "residente", PASSWORD.toCharArray());
         try (HttpClient client = browser()) {
             assertThat(login(client, email, PASSWORD, csrfToken(client)).statusCode()).isEqualTo(204);
             assertThat(get(client, "/api/v1/auth/me").statusCode()).isEqualTo(200);
@@ -214,15 +214,15 @@ class AuthFlowIntegrationTest {
     }
 
     @Test
-    void preservesALongEmailInTheSessionIndex() throws Exception {
+    void usesTheImmutableAccountIdInTheSessionIndex() throws Exception {
         String email = "a".repeat(60) + "@" + "b".repeat(60) + "." + "c".repeat(60)
                 + "." + "d".repeat(60) + "." + "e".repeat(60);
-        provisioning.create(email, "Conta Sintetica", "gestor", PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(email), email, "Conta Sintetica", "gestor", PASSWORD.toCharArray());
         try (HttpClient client = browser()) {
             assertThat(login(client, email, PASSWORD, csrfToken(client)).statusCode()).isEqualTo(204);
             assertThat(get(client, "/api/v1/auth/me").statusCode()).isEqualTo(200);
             assertThat(jdbc.queryForObject("SELECT principal_name FROM spring_session",
-                    String.class)).isEqualTo(email);
+                    String.class)).isEqualTo(repository.findByEmail(email).orElseThrow().id().toString());
         }
     }
 
@@ -243,7 +243,7 @@ class AuthFlowIntegrationTest {
                 HttpResponse<String> login = request(client,
                         HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + closedPort
                                 + "/api/v1/auth/login"))
-                                .POST(HttpRequest.BodyPublishers.ofString("email=x&password=y"))
+                                .POST(HttpRequest.BodyPublishers.ofString("matricula=x&password=y"))
                                 .header("Content-Type", "application/x-www-form-urlencoded")
                                 .build());
                 assertThat(login.statusCode()).isIn(401, 403);
@@ -287,7 +287,7 @@ class AuthFlowIntegrationTest {
 
     private HttpResponse<String> login(HttpClient client, String email, String password, String csrf)
             throws Exception {
-        String form = "email=" + URLEncoder.encode(email, StandardCharsets.UTF_8)
+        String form = "matricula=" + URLEncoder.encode(br.edu.ifgoiano.sager.TestIdentity.enrollment(email), StandardCharsets.UTF_8)
                 + "&password=" + URLEncoder.encode(password, StandardCharsets.UTF_8);
         return post(client, "/api/v1/auth/login", form, csrf);
     }

@@ -25,6 +25,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import br.edu.ifgoiano.sager.auth.LocalAccountProvisioningService;
+import br.edu.ifgoiano.sager.auth.LocalAccountPrincipal;
+import br.edu.ifgoiano.sager.operations.shortexits.ShortExit;
+import br.edu.ifgoiano.sager.operations.shortexits.ShortExitService;
 import br.edu.ifgoiano.sager.operations.shortexits.ShortExitExpiryScheduler;
 import br.edu.ifgoiano.sager.operations.shortexits.ShortExitExpiryService;
 import ch.qos.logback.classic.Logger;
@@ -44,6 +47,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -79,6 +84,7 @@ class OperationsApiIntegrationTest {
     @Autowired private MutableClock clock;
     @Autowired private ApplicationContext context;
     @Autowired private LongExitFixture longExits;
+    @Autowired private ShortExitService shortExits;
     @LocalServerPort private int port;
     private UUID accommodation;
     private UUID room;
@@ -121,6 +127,34 @@ class OperationsApiIntegrationTest {
         account("gestor", "gestor");
         account("student", "residente");
         provisioning.linkResident("student@example.invalid", resident);
+    }
+
+    @Test
+    void legacyListsBindNameAndEnrollmentSearch() throws Exception {
+        UUID exitId;
+        try (HttpClient student = logged("student")) {
+            exitId = UUID.fromString(createExit(student, "NOW", 0, 3600).path("id").asText());
+        }
+        UUID actorId = jdbc.queryForObject("SELECT id FROM sager_local_account WHERE email=?",
+                UUID.class, "supervisor@example.invalid");
+        var principal = new LocalAccountPrincipal(actorId, "supervisor@example.invalid",
+                "Supervisor Sintético", "supervisor", null, null, "TESTE-SUPERVISOR");
+        SecurityContextHolder.getContext().setAuthentication(
+                UsernamePasswordAuthenticationToken.authenticated(principal, null, List.of()));
+        try {
+            for (String query : new String[] {"  ESTUDANTE sintetico  ", "  ops-a  ", null, "   "}) {
+                assertThat(shortExits.list(null, query, null)).extracting(ShortExit::id)
+                        .containsExactly(exitId);
+                assertThat(shortExits.list(resident, query, "AGUARDANDO_ANALISE"))
+                        .extracting(ShortExit::id).containsExactly(exitId);
+            }
+            assertThat(shortExits.list(null, "Sem correspondência", null)).isEmpty();
+            assertThat(shortExits.list(null, "%", null)).isEmpty();
+            assertThat(shortExits.list(UUID.randomUUID(), "sintetico", null)).isEmpty();
+            assertThat(shortExits.list(resident, "OPS-A", "CANCELADA")).isEmpty();
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 
     @Test
@@ -738,12 +772,12 @@ class OperationsApiIntegrationTest {
     }
 
     private void account(String name, String profile) {
-        provisioning.create(name + "@example.invalid", "Pessoa Sintética", profile, PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(name + "@example.invalid"), name + "@example.invalid", "Pessoa Sintética", profile, PASSWORD.toCharArray());
     }
 
     private HttpClient logged(String name) throws Exception {
         HttpClient client = browser();
-        String body = "email=" + URLEncoder.encode(name + "@example.invalid", StandardCharsets.UTF_8)
+        String body = "matricula=" + URLEncoder.encode(br.edu.ifgoiano.sager.TestIdentity.enrollment(name + "@example.invalid"), StandardCharsets.UTF_8)
                 + "&password=" + URLEncoder.encode(PASSWORD, StandardCharsets.UTF_8);
         HttpRequest.Builder request = HttpRequest.newBuilder(uri("/api/v1/auth/login"))
                 .header("Content-Type", "application/x-www-form-urlencoded").header("X-CSRF-TOKEN", csrf(client));

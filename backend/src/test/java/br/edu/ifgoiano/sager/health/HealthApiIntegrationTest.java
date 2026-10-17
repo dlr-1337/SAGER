@@ -510,7 +510,7 @@ class HealthApiIntegrationTest {
 
     private Actor actor(String profile) throws Exception {
         String email = UUID.randomUUID() + "@example.invalid";
-        provisioning.create(email, "Pessoa Sintetica " + profile, profile, PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(email), email, "Pessoa Sintetica " + profile, profile, PASSWORD.toCharArray());
         UUID id = jdbc.queryForObject("SELECT id FROM sager_local_account WHERE email = ?", UUID.class, email);
         HttpClient client = browser();
         Actor actor = new Actor(id, email, client);
@@ -526,7 +526,7 @@ class HealthApiIntegrationTest {
 
     private void login(Actor actor) throws Exception {
         String token = csrf(actor);
-        String form = "email=" + URLEncoder.encode(actor.email(), StandardCharsets.UTF_8) + "&password="
+        String form = "matricula=" + URLEncoder.encode(br.edu.ifgoiano.sager.TestIdentity.enrollment(actor.email()), StandardCharsets.UTF_8) + "&password="
                 + URLEncoder.encode(PASSWORD, StandardCharsets.UTF_8);
         HttpResponse<String> response = actor.client().send(HttpRequest.newBuilder(uri("/api/v1/auth/login"))
                 .header("Content-Type", "application/x-www-form-urlencoded")

@@ -16,12 +16,14 @@ import java.util.UUID;
 import java.util.stream.Stream;
 
 import br.edu.ifgoiano.sager.auth.LocalAccountProvisioningService;
+import br.edu.ifgoiano.sager.auth.LocalAccount;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -70,8 +72,8 @@ class SupervisorApiIntegrationTest {
     @BeforeEach
     void cleanDatabase() {
         jdbc.update("DELETE FROM spring_session");
-        jdbc.update("DELETE FROM sager_supervisor");
         jdbc.update("DELETE FROM sager_local_account");
+        jdbc.update("DELETE FROM sager_supervisor");
     }
 
     @Test
@@ -79,7 +81,7 @@ class SupervisorApiIntegrationTest {
             throws Exception {
         assertThat(jdbc.queryForObject("SELECT to_regclass('sager_supervisor')", String.class))
                 .isNotNull();
-        provisioning.create("gestor@example.invalid", "Gestor Sintetico", "gestor",
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("gestor@example.invalid"), "gestor@example.invalid", "Gestor Sintetico", "gestor",
                 PASSWORD.toCharArray());
         try (HttpClient client = browser()) {
             login(client, "gestor@example.invalid");
@@ -128,7 +130,7 @@ class SupervisorApiIntegrationTest {
 
     @Test
     void rejectsInvalidDuplicateMissingAndStaleWritesWithoutOverwritingData() throws Exception {
-        provisioning.create("gestor@example.invalid", "Gestor Sintetico", "gestor",
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("gestor@example.invalid"), "gestor@example.invalid", "Gestor Sintetico", "gestor",
                 PASSWORD.toCharArray());
         try (HttpClient client = browser()) {
             login(client, "gestor@example.invalid");
@@ -180,7 +182,7 @@ class SupervisorApiIntegrationTest {
     @ParameterizedTest
     @MethodSource("nonTextRequests")
     void rejectsNonTextCreationWithoutWritingOrAuditing(Map<String, Object> invalid) throws Exception {
-        provisioning.create("gestor@example.invalid", "Gestor Sintético", "gestor", PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("gestor@example.invalid"), "gestor@example.invalid", "Gestor Sintético", "gestor", PASSWORD.toCharArray());
         UUID actor = jdbc.queryForObject("SELECT id FROM sager_local_account WHERE email = ?",
                 UUID.class, "gestor@example.invalid");
         try (HttpClient client = browser()) {
@@ -197,7 +199,7 @@ class SupervisorApiIntegrationTest {
     @MethodSource("invalidUpdateRequests")
     void rejectsNonTextOrNonIntegerUpdatesWithoutWritingOrAuditing(Map<String, Object> invalid)
             throws Exception {
-        provisioning.create("gestor@example.invalid", "Gestor Sintético", "gestor", PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("gestor@example.invalid"), "gestor@example.invalid", "Gestor Sintético", "gestor", PASSWORD.toCharArray());
         try (HttpClient client = browser()) {
             login(client, "gestor@example.invalid");
             HttpResponse<String> created = post(client, PATH,
@@ -233,11 +235,11 @@ class SupervisorApiIntegrationTest {
 
     @Test
     void gestorAndSupervisorCanManageWithCsrfWhileOthersCannot() throws Exception {
-        provisioning.create("gestor@example.invalid", "Gestor", "gestor",
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("gestor@example.invalid"), "gestor@example.invalid", "Gestor", "gestor",
                 PASSWORD.toCharArray());
-        provisioning.create("supervisor@example.invalid", "Supervisor", "supervisor",
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("supervisor@example.invalid"), "supervisor@example.invalid", "Supervisor", "supervisor",
                 PASSWORD.toCharArray());
-        provisioning.create("residente@example.invalid", "Residente", "residente",
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("residente@example.invalid"), "residente@example.invalid", "Residente", "residente",
                 PASSWORD.toCharArray());
         String unknown = UUID.randomUUID().toString();
         try (HttpClient anonymous = browser()) {
@@ -293,6 +295,74 @@ class SupervisorApiIntegrationTest {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void unrelatedUpdatePreservesAssignedLoginAndSession(boolean originalEnrollmentOccupied) throws Exception {
+        try (HttpClient manager = browser(); HttpClient supervisor = browser()) {
+            LocalAccount assigned = linkedSupervisor(manager);
+            UUID id = assigned.supervisorId();
+            if (originalEnrollmentOccupied)
+                provisioning.create("cad-sup-001", null, "Outra Conta Sintética", "saude", PASSWORD.toCharArray());
+            login(supervisor, assigned.enrollment());
+
+            HttpResponse<String> updated = put(manager, PATH + "/" + id,
+                    updateInput("Nome Editado", " cad-sup-001 ", "editado@example.invalid", 0), csrfToken(manager));
+            assertThat(updated.statusCode()).isEqualTo(200);
+            assertThat(json.readTree(updated.body()).path("name").asText()).isEqualTo("Nome Editado");
+            assertThat(json.readTree(updated.body()).path("institutionalId").asText()).isEqualTo("cad-sup-001");
+            assertThat(provisioning.list()).contains(assigned);
+            assertAudit(id.toString(), "UPDATE", 1, "name", "email");
+            HttpResponse<String> me = get(supervisor, "/api/v1/auth/me");
+            assertThat(me.statusCode()).isEqualTo(200);
+            assertThat(json.readTree(me.body()).path("matricula").asText()).isEqualTo(assigned.enrollment());
+            assertThat(json.readTree(me.body()).path("supervisorId").asText()).isEqualTo(id.toString());
+        }
+    }
+
+    @Test
+    void enrollmentChangeRollsBackCollisionAndOtherwisePreservesAccountAndRevokesSession() throws Exception {
+        try (HttpClient manager = browser(); HttpClient supervisor = browser()) {
+            LocalAccount assigned = linkedSupervisor(manager);
+            UUID id = assigned.supervisorId();
+            provisioning.create("ocupada-sup-001", null, "Outra Conta Sintética", "saude", PASSWORD.toCharArray());
+            login(supervisor, assigned.enrollment());
+            String before = get(manager, PATH + "/" + id).body();
+            Integer audits = jdbc.queryForObject("SELECT COUNT(*) FROM sager_audit_event WHERE resource_id=?", Integer.class, id);
+
+            assertError(put(manager, PATH + "/" + id,
+                    updateInput("Não Persistir", "ocupada-sup-001", "editado@example.invalid", 0), csrfToken(manager)),
+                    409, "duplicate_enrollment");
+            assertThat(get(manager, PATH + "/" + id).body()).isEqualTo(before);
+            assertThat(provisioning.list()).contains(assigned);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_audit_event WHERE resource_id=?", Integer.class, id)).isEqualTo(audits);
+            assertThat(get(supervisor, "/api/v1/auth/me").statusCode()).isEqualTo(200);
+
+            assertThat(put(manager, PATH + "/" + id,
+                    updateInput("Nome Editado", "nova-sup-001", "sup@example.invalid", 0), csrfToken(manager)).statusCode()).isEqualTo(200);
+            LocalAccount changed = provisioning.list().stream().filter(a -> a.id().equals(assigned.id())).findFirst().orElseThrow();
+            assertThat(changed.enrollment()).isEqualTo("nova-sup-001");
+            assertThat(changed).usingRecursiveComparison().ignoringFields("enrollment").isEqualTo(assigned);
+            assertAudit(id.toString(), "UPDATE", 1, "name", "institutionalId");
+            assertThat(get(supervisor, "/api/v1/auth/me").statusCode()).isEqualTo(401);
+            login(supervisor, changed.enrollment());
+            assertThat(get(supervisor, "/api/v1/auth/me").statusCode()).isEqualTo(200);
+        }
+    }
+
+    private LocalAccount linkedSupervisor(HttpClient manager) throws Exception {
+        provisioning.create("gestor", "gestor@example.invalid", "Gestor Sintético", "gestor", PASSWORD.toCharArray());
+        login(manager, "gestor");
+        HttpResponse<String> created = post(manager, PATH,
+                input("Pessoa Sintética", "cad-sup-001", "sup@example.invalid"), csrfToken(manager));
+        assertThat(created.statusCode()).isEqualTo(201);
+        UUID id = UUID.fromString(json.readTree(created.body()).path("id").asText());
+        provisioning.create("temporaria-sup", null, "Conta Sintética", "supervisor", PASSWORD.toCharArray());
+        LocalAccount linked = provisioning.list().stream().filter(a -> a.enrollment().equals("temporaria-sup")).findFirst().orElseThrow();
+        provisioning.linkSupervisor(linked.id(), id);
+        provisioning.assignEnrollment(linked.id(), "acesso-sup-001");
+        return provisioning.list().stream().filter(a -> a.id().equals(linked.id())).findFirst().orElseThrow();
+    }
+
     @Test
     void nonLocalModeDoesNotExposeSupervisorApi() throws Exception {
         SpringApplication application = new SpringApplication(SagerApplication.class);
@@ -312,7 +382,7 @@ class SupervisorApiIntegrationTest {
     }
 
     private void login(HttpClient client, String email) throws Exception {
-        String form = "email=" + URLEncoder.encode(email, StandardCharsets.UTF_8)
+        String form = "matricula=" + URLEncoder.encode(br.edu.ifgoiano.sager.TestIdentity.enrollment(email), StandardCharsets.UTF_8)
                 + "&password=" + URLEncoder.encode(PASSWORD, StandardCharsets.UTF_8);
         HttpRequest request = HttpRequest.newBuilder(uri("/api/v1/auth/login"))
                 .header("Content-Type", "application/x-www-form-urlencoded")

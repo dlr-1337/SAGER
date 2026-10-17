@@ -50,6 +50,7 @@ async function mockSession(context: BrowserContext, profile = 'gestor'): Promise
           id: '00000000-0000-0000-0000-000000000001',
           nome: 'Pessoa Fictícia',
           email: 'teste@example.invalid',
+          matricula: 'TESTE-LOGIN',
           fotoUrl: null,
           perfis: [profile],
           residenteId: null,
@@ -127,6 +128,48 @@ async function fillNewRoom(page: Page, code = 'TESTE-Q01', number = '01'): Promi
   await page.getByRole('combobox', { name: 'Alojamento *' }).selectOption(accommodationId);
   await page.getByRole('combobox', { name: 'Situação *' }).selectOption('Disponível');
 }
+
+test('mapa corrige a página restaurada após a edição reduzir 26 quartos filtrados a 25', async ({
+  page,
+  context,
+}) => {
+  await mockSession(context);
+  const records = Array.from({ length: 26 }, (_, index) => ({
+    ...original,
+    id: `00000000-0000-0000-0000-${String(index + 301).padStart(12, '0')}`,
+    code: `TESTE-Q${String(index + 1).padStart(2, '0')}`,
+    number: String(index + 1).padStart(2, '0'),
+  }));
+  const writes = await mockRooms(context, records);
+  await page.goto('/quartos');
+  const search = page.getByRole('searchbox', {
+    name: 'Buscar quarto, código ou bloco',
+    exact: true,
+  });
+  const situation = page.getByRole('combobox', { name: 'Situação', exact: true });
+  await search.fill('TESTE-Q');
+  await situation.selectOption('Disponível');
+  await expect(page.getByText('1–25 de 26', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Próxima', exact: true }).click();
+  await expect(page.getByText('26–26 de 26', { exact: true })).toBeVisible();
+  await expect(page.locator('.mg-room-tile')).toHaveCount(1);
+  await page.locator('.mg-room-tile').click();
+  await page.getByRole('link', { name: 'Editar quarto', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Situação *', exact: true }).selectOption('Manutenção');
+  await page.getByRole('button', { name: 'Salvar quarto', exact: true }).click();
+  await expect(page.locator('.mg-success')).toContainText('Quarto salvo');
+  expect(writes).toHaveLength(1);
+  expect(writes[0]).toMatchObject({ method: 'PUT', body: { situation: 'Manutenção', version: 0 } });
+  await page.getByRole('link', { name: 'Mapa de quartos', exact: true }).click();
+  await expect(page.getByText('1–25 de 25', { exact: true })).toBeVisible();
+  await expect(page.locator('.mg-room-tile')).toHaveCount(25);
+  await expect(
+    page.getByRole('heading', { name: 'Nenhum quarto encontrado', exact: true }),
+  ).toHaveCount(0);
+  await expect(search).toHaveValue('TESTE-Q');
+  await expect(situation).toHaveValue('Disponível');
+  await expect(page.getByText('25 de 26 quartos', { exact: true })).toBeVisible();
+});
 
 test('cadastro local preserva 01, nulos, capacidade editável e mapa após recarga', async ({
   page,
@@ -322,6 +365,7 @@ test('demonstração de quartos funciona e mantém seus vínculos sem backend', 
   });
   await page.goto('/demonstracao');
   await page.getByRole('button', { name: /Entrar como gestor/i }).click();
+  await expect(page).toHaveURL(/\/inicio$/);
   await page.goto('/quartos/q-102');
   await expect(page.getByText('Ana Luísa Ribeiro')).toBeVisible();
   await page.getByRole('link', { name: 'Editar quarto' }).click();

@@ -1,3 +1,4 @@
+import { readArrayPage } from '../../core/list-page';
 import { Injectable } from '@angular/core';
 import { Supervisor, SupervisorInput } from './management.models';
 
@@ -26,6 +27,18 @@ function isSupervisor(value: unknown): value is Supervisor {
 
 @Injectable({ providedIn: 'root' })
 export class SupervisorApiService {
+  async page(
+    params: Record<string, string>,
+    signal?: AbortSignal,
+  ): Promise<{ items: Supervisor[]; total: number }> {
+    return readArrayPage(
+      baseUrl,
+      params,
+      isSupervisor,
+      (response) => this.responseError(response),
+      signal,
+    );
+  }
   async list(): Promise<Supervisor[]> {
     const value = await this.read(baseUrl);
     if (!Array.isArray(value) || !value.every(isSupervisor)) {
