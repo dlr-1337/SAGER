@@ -29,6 +29,9 @@
   --info: #185a82;
   --info-bg: #e7f4fe;
   --focus: #f4ba35;
+  /* Borda de campo com contraste não textual ≥ 3:1 sobre branco (WCAG 1.4.11). */
+  --field-border: #758a94;
+  --btn-secondary-border: #9fb8ae;
   --shadow: 0 8px 25px rgba(24, 47, 44, 0.07);
   --space-1: 4px;
   --space-2: 8px;
@@ -98,10 +101,12 @@ h4 {
   letter-spacing: -0.025em;
 }
 h1 {
-  font-size: clamp(1.8rem, 2.6vw, 2.8rem);
+  font-size: clamp(1.8rem, 2.6vw, 2.25rem);
+  font-weight: 800;
+  line-height: 1.15;
 }
 h2 {
-  font-size: clamp(1.3rem, 1.9vw, 1.8rem);
+  font-size: clamp(1.3rem, 1.9vw, 1.5rem);
 }
 h3 {
   font-size: 1.15rem;
@@ -181,13 +186,14 @@ textarea {
 .page-header p {
   margin-bottom: 0;
   color: var(--muted);
-  font-size: 1.04rem;
+  font-size: 1.1rem;
 }
 .panel {
   background: #fff;
   border: 1px solid var(--line);
   border-radius: var(--radius-card);
-  padding: clamp(var(--space-5), 2vw, var(--space-8));
+  box-shadow: var(--shadow);
+  padding: clamp(var(--space-5), 2vw, var(--space-6));
 }
 .panel + .panel {
   margin-top: var(--space-5);
@@ -233,16 +239,15 @@ a.btn {
 .btn:hover,
 button.btn:hover,
 a.btn:hover {
-  background: var(--green-800);
-  border-color: var(--green-800);
+  background: var(--green-950);
+  border-color: var(--green-950);
   color: #fff;
-  box-shadow: 0 5px 14px rgba(9, 67, 48, 0.17);
 }
 .btn-secondary,
 button.btn-secondary,
 a.btn-secondary {
   background: #fff;
-  border: 1px solid var(--green-800);
+  border: 1px solid var(--btn-secondary-border);
   color: var(--green-900);
 }
 .btn-secondary:hover,
@@ -256,23 +261,38 @@ a.btn-secondary:hover {
   transform: translateY(1px);
 }
 .btn:disabled,
-.btn-secondary:disabled {
+.btn-secondary:disabled,
+button.btn:disabled:hover,
+button.btn-secondary:disabled:hover {
+  background: #eef2f3;
+  border-color: #dfe6e9;
+  color: #6b7b88;
   box-shadow: none;
   transform: none;
+  opacity: 1;
+}
+.btn .material-symbols-rounded,
+.btn .material-symbols-outlined,
+.btn-secondary .material-symbols-rounded,
+.btn-secondary .material-symbols-outlined {
+  font-size: 20px;
 }
 .status {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   width: fit-content;
-  min-height: 32px;
-  border-radius: 99px;
-  padding: 4px 10px;
-  background: #eef2f5;
-  color: #344651;
+  min-height: 30px;
+  border-radius: 999px;
+  padding: 2px 12px;
+  background: #eef2f3;
+  color: #3f505e;
   font-size: var(--text-meta);
   line-height: 1.25;
   font-weight: 700;
+}
+.status :is(.material-symbols-rounded, .material-symbols-outlined) {
+  font-size: 18px;
 }
 .status[data-tone='success'],
 .status.success {
@@ -311,6 +331,7 @@ a.btn-secondary:hover {
 .field label,
 label.field {
   font-weight: 700;
+  font-size: 0.95rem;
   color: var(--ink);
 }
 .field input,
@@ -321,11 +342,11 @@ select.field,
 textarea.field {
   width: 100%;
   min-height: 48px;
-  border: 1px solid #879ca4;
-  border-radius: 8px;
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius-control);
   background: #fff;
   color: var(--ink);
-  padding: 10px 13px;
+  padding: 10px 14px;
 }
 .field textarea {
   min-height: 112px;
@@ -344,6 +365,7 @@ textarea.field {
 .field select[aria-invalid='true'],
 .field textarea[aria-invalid='true'] {
   border-color: var(--danger);
+  box-shadow: 0 0 0 1px var(--danger);
 }
 .field-hint {
   font-size: var(--text-meta);
@@ -379,18 +401,29 @@ table,
 }
 th,
 td {
-  padding: 14px 12px;
+  padding: 14px 18px;
   border-bottom: 1px solid var(--line);
   text-align: left;
   vertical-align: top;
 }
 th {
-  color: var(--green-950);
-  font-size: var(--text-meta);
-  font-weight: 800;
+  background: #f4f8f6;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
 }
 tbody tr:hover {
   background: var(--green-50);
+}
+tbody tr:last-child td {
+  border-bottom: 0;
+}
+/* Tabelas largas rolam dentro da própria caixa, nunca a página. */
+.table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: #fff;
 }
 .report-mobile-list {
   display: none;
@@ -414,9 +447,6 @@ tbody tr:hover {
   }
   .panel {
     padding: 18px;
-  }
-  .table-scroll {
-    overflow-x: auto;
   }
   .reports-page .results-panel > .table-scroll {
     display: none;
@@ -523,18 +553,15 @@ tbody tr:hover {
   min-height: 44px;
   padding: 8px 12px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 999px;
   color: var(--ink);
-  background: var(--surface, #fff);
+  background: #fff;
   font: inherit;
+  font-weight: 600;
   cursor: pointer;
 }
 .filter-chips button:hover {
-  background: var(--green-soft, #eef5ef);
-}
-.filter-chips button:focus-visible {
-  outline: 3px solid var(--focus, #a45c00);
-  outline-offset: 2px;
+  background: var(--green-50);
 }
 .filter-chips .material-symbols-rounded {
   font-size: 18px;

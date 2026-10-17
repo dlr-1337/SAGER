@@ -62,6 +62,15 @@
           </div>
         </div>
       }
+      @if (userName()) {
+        <div class="session-user">
+          <span class="material-symbols-rounded" aria-hidden="true">account_circle</span>
+          <span
+            ><strong>{{ userName() }}</strong
+            ><small>{{ roleLabel() }}</small></span
+          >
+        </div>
+      }
       <button
         class="exit-link"
         type="button"
@@ -134,6 +143,9 @@
         </div>
         <nav>
           @for (item of navItems(); track item.path) {
+            @if (item.groupStart) {
+              <span class="nav-separator" aria-hidden="true"></span>
+            }
             <a
               [routerLink]="item.path"
               routerLinkActive="active"

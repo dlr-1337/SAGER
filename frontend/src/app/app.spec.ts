@@ -42,6 +42,31 @@ describe('App', () => {
     ]);
   });
 
+  it('agrupa o menu em rotina, cadastros e apoio, com separador no início de cada grupo', async () => {
+    TestBed.inject(DemoSessionService).deactivate();
+    TestBed.inject(LocalAuthService).principal.set({
+      id: '00000000-0000-0000-0000-000000000001',
+      nome: 'Supervisora Sintética',
+      email: 'supervisor@example.test',
+      matricula: 'TESTE-LOGIN',
+      fotoUrl: null,
+      perfis: ['supervisor'],
+      residenteId: null,
+      supervisorId: null,
+    });
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const items = fixture.componentInstance.navItems();
+    const paths = items.map((item) => item.path);
+    expect(paths.indexOf('/chamada')).toBeLessThan(paths.indexOf('/residentes'));
+    expect(paths.indexOf('/relatorios')).toBeLessThan(paths.indexOf('/ajuda'));
+    expect(items.filter((item) => item.groupStart).map((item) => item.path)).toEqual([
+      '/residentes',
+      '/ajuda',
+    ]);
+    expect(fixture.componentInstance.userName()).toBe('Supervisora Sintética');
+  });
+
   it('identifica a demonstração e a marca no shell', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
