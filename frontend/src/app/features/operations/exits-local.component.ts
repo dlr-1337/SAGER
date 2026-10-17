@@ -185,8 +185,13 @@ import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
       .exit-modalities {
         display: flex;
         flex-wrap: wrap;
-        gap: 8px;
+        width: fit-content;
+        max-width: 100%;
         margin: 20px 0 24px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        overflow: hidden;
+        background: #fff;
       }
       .exit-modalities a {
         min-height: 48px;
@@ -194,17 +199,19 @@ import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        border: 1px solid var(--line);
-        border-radius: var(--radius-control);
-        padding: 8px 20px;
-        color: var(--green-800);
-        font-weight: 700;
+        padding: 0 20px;
+        border-right: 1px solid var(--line);
+        color: var(--ink);
+        font-weight: 600;
         text-decoration: none;
+      }
+      .exit-modalities a:last-child {
+        border-right: 0;
       }
       .exit-modalities a.selected {
         background: var(--green-900);
-        border-color: var(--green-900);
-        color: var(--white);
+        color: #fff;
+        font-weight: 700;
       }
     `,
   ],

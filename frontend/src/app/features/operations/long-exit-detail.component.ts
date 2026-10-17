@@ -459,9 +459,6 @@ import {
       :host {
         display: block;
       }
-      .op-definition dd {
-        overflow-wrap: anywhere;
-      }
       .op-definition small {
         display: block;
         color: var(--muted);
@@ -493,10 +490,6 @@ import {
       }
       .long-bindings p {
         margin: 6px 0;
-      }
-      .action-disabled {
-        opacity: 0.55;
-        cursor: not-allowed;
       }
     `,
   ],

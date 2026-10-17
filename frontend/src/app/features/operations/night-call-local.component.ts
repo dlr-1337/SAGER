@@ -120,6 +120,26 @@ import {
                   <dd>{{ current.summary.justified }}</dd>
                 </div>
               </dl>
+              <div
+                class="op-progress"
+                role="img"
+                [attr.aria-label]="
+                  current.summary.total -
+                  current.summary.unmarked +
+                  ' de ' +
+                  current.summary.total +
+                  ' marcações registradas'
+                "
+              >
+                <span
+                  [style.width.%]="
+                    current.summary.total
+                      ? (100 * (current.summary.total - current.summary.unmarked)) /
+                        current.summary.total
+                      : 0
+                  "
+                ></span>
+              </div>
               <p class="op-help">
                 Aberta em {{ formatTime(current.openedAt) }}. A relação de residentes e saídas
                 justificadoras preserva a situação no momento da abertura.
@@ -140,27 +160,29 @@ import {
             </section>
             <section class="op-section" aria-labelledby="call-roster">
               <div class="op-section-heading"><h2 id="call-roster">Residentes da chamada</h2></div>
-              <label class="field"
-                >Buscar por nome ou matrícula<input
-                  type="search"
-                  [formControl]="search"
-                  (input)="searchValue.set(search.value)"
-              /></label>
-              <label class="field"
-                >Marcação<select
-                  [value]="markFilter()"
-                  (change)="markFilter.set($any($event.target).value)"
+              <div class="op-filters">
+                <label class="field"
+                  >Buscar por nome ou matrícula<input
+                    type="search"
+                    [formControl]="search"
+                    (input)="searchValue.set(search.value)"
+                /></label>
+                <label class="field"
+                  >Marcação<select
+                    [value]="markFilter()"
+                    (change)="markFilter.set($any($event.target).value)"
+                  >
+                    <option value="">Todas</option>
+                    <option value="PENDENTE">Pendente</option>
+                    <option value="PRESENTE">Presente</option>
+                    <option value="AUSENTE">Ausente</option>
+                    <option value="AUSENCIA_JUSTIFICADA">Ausência justificada</option>
+                  </select></label
                 >
-                  <option value="">Todas</option>
-                  <option value="PENDENTE">Pendente</option>
-                  <option value="PRESENTE">Presente</option>
-                  <option value="AUSENTE">Ausente</option>
-                  <option value="AUSENCIA_JUSTIFICADA">Ausência justificada</option>
-                </select></label
-              >
-              <button class="btn op-secondary" (click)="search.setValue(''); markFilter.set('')">
-                Limpar filtros
-              </button>
+                <button class="btn op-secondary" (click)="search.setValue(''); markFilter.set('')">
+                  Limpar filtros
+                </button>
+              </div>
               <p role="status">
                 {{ filtered().length }} de {{ current.records.length }} residentes
               </p>

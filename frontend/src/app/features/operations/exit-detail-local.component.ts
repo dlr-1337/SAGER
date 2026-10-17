@@ -296,18 +296,11 @@ import {
       :host {
         display: block;
       }
-      .op-definition dd {
-        overflow-wrap: anywhere;
-      }
       .op-definition small {
         display: block;
         color: var(--muted);
         font-weight: 400;
         margin-top: 5px;
-      }
-      .action-disabled {
-        opacity: 0.55;
-        cursor: not-allowed;
       }
     `,
   ],
