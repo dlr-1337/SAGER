@@ -193,7 +193,7 @@ test('gestor cadastra e edita responsável e consulta detalhe do supervisor', as
   await page.goto('/responsaveis');
   await expect(page.getByRole('heading', { name: 'Responsáveis legais' })).toBeVisible();
   await page.getByRole('link', { name: /Cadastrar responsável/ }).click();
-  await page.getByLabel(/Residente vinculado/).selectOption('r-ana');
+  await page.getByLabel('Residente vinculado *').selectOption('r-ana');
   await page.getByLabel(/Nome completo/).fill('Carla Ribeiro');
   await page.getByLabel(/Vínculo com o residente/).fill('Tia');
   await page.getByLabel(/Telefone com DDD/).fill('62999990011');
