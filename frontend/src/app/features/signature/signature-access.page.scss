@@ -1,3 +1,5 @@
+@use '../../shared/chip';
+
 :host {
   display: block;
   min-height: 100vh;
@@ -131,6 +133,7 @@ dd {
 }
 // Situação informada pelo servidor: pílula com texto, tom pelo código do status.
 .signature-status {
+  @include chip.chip;
   background: var(--info-bg);
   color: var(--info);
 }

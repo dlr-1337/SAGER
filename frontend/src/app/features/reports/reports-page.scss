@@ -1,3 +1,5 @@
+@use '../../shared/chip';
+
 :host {
   display: block;
 }
@@ -113,6 +115,7 @@ table {
   min-width: 880px;
 }
 .status-label {
+  @include chip.chip;
   background: #eef2f3;
   color: #3f505e;
   white-space: nowrap;

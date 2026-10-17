@@ -131,6 +131,8 @@ const staffTasks: HomeTask[] = [
   standalone: true,
   selector: 'sager-local-home',
   imports: [RouterLink],
+  // Timers param durante o repouso do aparelho; ao voltar, a data é conferida de novo.
+  host: { '(document:visibilitychange)': 'refreshDate()', '(window:focus)': 'refreshDate()' },
   template: `
     <main class="page local-home">
       <header class="page-header">
@@ -279,6 +281,9 @@ export class LocalHomePage {
   readonly auth = inject(LocalAuthService);
   // A página pode ficar aberta durante o turno da noite; a data acompanha a virada do dia.
   private readonly now = signal(new Date());
+  refreshDate(): void {
+    this.now.set(new Date());
+  }
   readonly today = computed(() => todayFormat.format(this.now()));
   readonly heading = computed(() =>
     this.session.role() === 'residente' ? 'Meu espaço' : 'Atividades do SAGER',

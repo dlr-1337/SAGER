@@ -76,3 +76,9 @@ test('menu fecha ao navegar e ao voltar ao desktop', async ({ page }) => {
   await expect(page.locator('body')).not.toHaveCSS('overflow', 'hidden');
   await expect(page.locator('.brand-organization img')).toBeVisible();
 });
+
+test('acesso mantém a marca oficial visível no celular', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/acesso');
+  await expect(page.locator('.public-masthead img[alt*="Instituto Federal Goiano"]')).toBeVisible();
+});

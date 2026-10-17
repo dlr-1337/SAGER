@@ -1,0 +1,18 @@
+// Forma única dos chips de status. Cada área inclui o mixin na própria regra e define só o tom,
+// sem depender da ordem da cascata entre as folhas globais.
+@mixin chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  min-height: 30px;
+  border-radius: 999px;
+  padding: 2px 12px;
+  font-size: var(--text-meta);
+  line-height: 1.25;
+  font-weight: 700;
+
+  :is(.material-symbols-rounded, .material-symbols-outlined) {
+    font-size: 18px;
+  }
+}

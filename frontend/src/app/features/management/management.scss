@@ -1,3 +1,5 @@
+@use '../../shared/chip';
+
 .mg-page {
   color: var(--ink);
   max-width: var(--content-wide);
@@ -431,6 +433,7 @@
   text-underline-offset: 4px;
 }
 .mg-status {
+  @include chip.chip;
   color: var(--green-950);
   background: var(--green-100);
   white-space: nowrap;
@@ -682,7 +685,8 @@
     width: 100%;
     flex: none;
   }
-  .mg-tabs {
+  // Composta para vencer o .segmented global, declarado depois na cascata.
+  .mg-tabs.segmented {
     width: 100%;
   }
   .mg-section {

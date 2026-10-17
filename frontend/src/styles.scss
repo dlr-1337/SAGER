@@ -1,6 +1,7 @@
 @use './app/features/management/management.scss';
 @use './app/features/operations/operations.scss';
 @use './app/app.scss';
+@use './app/shared/chip';
 
 @import '@fontsource/open-sans/latin-400.css';
 @import '@fontsource/open-sans/latin-600.css';
@@ -305,32 +306,10 @@ textarea {
 .segmented > :is(a, button):focus-visible {
   outline-offset: -4px;
 }
-/* Forma única dos chips de status; cada área define só o tom. */
-.status,
-.mg-status,
-.op-status,
-.op-demo-label,
-.op-inline-note,
-.op-own-tag,
-.status-label,
-.signature-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  width: fit-content;
-  min-height: 30px;
-  border-radius: 999px;
-  padding: 2px 12px;
-  font-size: var(--text-meta);
-  line-height: 1.25;
-  font-weight: 700;
-}
 .status {
+  @include chip.chip;
   background: #eef2f3;
   color: #3f505e;
-}
-:is(.status, .mg-status, .op-status) :is(.material-symbols-rounded, .material-symbols-outlined) {
-  font-size: 18px;
 }
 .status[data-tone='success'],
 .status.success {
@@ -444,7 +423,8 @@ td {
   text-align: left;
   vertical-align: top;
 }
-th {
+/* Só o cabeçalho de colunas; rótulos de linha (tbody th) mantêm a cor do corpo. */
+thead th {
   background: #f4f8f6;
   color: var(--muted);
   font-size: 0.85rem;

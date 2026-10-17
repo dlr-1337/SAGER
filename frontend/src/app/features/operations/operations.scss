@@ -1,3 +1,5 @@
+@use '../../shared/chip';
+
 // Largura/padding vêm de `.page`, cartão de `.panel`, botão primário de `.btn` e foco do global.
 .op-narrow {
   max-width: var(--content-narrow);
@@ -44,6 +46,7 @@
 .op-demo-label,
 .op-inline-note,
 .op-own-tag {
+  @include chip.chip;
   background: var(--green-100);
   color: var(--green-950);
 }
