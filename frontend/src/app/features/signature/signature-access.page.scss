@@ -131,15 +131,8 @@ dd {
 }
 // Situação informada pelo servidor: pílula com texto, tom pelo código do status.
 .signature-status {
-  display: inline-flex;
-  align-items: center;
-  min-height: 30px;
-  padding: 2px 12px;
-  border-radius: 999px;
   background: var(--info-bg);
   color: var(--info);
-  font-size: var(--text-meta);
-  font-weight: 700;
 }
 .signature-status[data-status='VALID'] {
   background: var(--green-100);

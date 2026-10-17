@@ -12,7 +12,11 @@ async function chooseProfile(
 test.beforeEach(async ({ page }) => enterDemo(page));
 
 test('cartão de perfis do acesso entra direto na demonstração', async ({ page }) => {
+  // Parte de uma sessão limpa: sem demonstração ativa e sem conta local.
+  await page.route('**/api/v1/auth/me', (route) => route.fulfill({ status: 401 }));
+  await page.evaluate(() => sessionStorage.clear());
   await page.goto('/acesso');
+  expect(await page.evaluate(() => sessionStorage.getItem('sager.demo.active'))).toBeNull();
   await page.getByRole('button', { name: /^Gestor/ }).click();
   await expect(page).toHaveURL(/\/inicio$/);
   await expect(page.getByRole('heading', { name: 'Olá, gestor' })).toBeVisible();

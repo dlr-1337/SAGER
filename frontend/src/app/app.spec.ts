@@ -65,6 +65,13 @@ describe('App', () => {
       '/ajuda',
     ]);
     expect(fixture.componentInstance.userName()).toBe('Supervisora Sintética');
+    // Sem perfil de saúde, a gestão vê só a administração de acessos, nunca o conteúdo.
+    expect(paths).not.toContain('/saude');
+    expect(paths).toContain('/saude/acessos');
+    TestBed.inject(LocalAuthService).principal.update((account) =>
+      account ? { ...account, perfis: ['supervisor', 'saude'] } : account,
+    );
+    expect(fixture.componentInstance.navItems().map((item) => item.path)).toContain('/saude');
   });
 
   it('identifica a demonstração e a marca no shell', async () => {

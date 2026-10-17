@@ -397,42 +397,7 @@
   font-size: 22px;
 }
 .mg-tabs {
-  display: inline-flex;
-  flex-wrap: wrap;
-  max-width: 100%;
   margin-bottom: 24px;
-  overflow: hidden;
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-}
-.mg-tabs button {
-  flex: none;
-  min-height: 48px;
-  padding: 0 20px;
-  color: var(--ink);
-  background: transparent;
-  border: 0;
-  border-right: 1px solid var(--line);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-.mg-tabs button:last-child {
-  border-right: 0;
-}
-.mg-tabs button:hover {
-  color: var(--green-950);
-  background: var(--green-50);
-}
-.mg-tabs button.active {
-  color: #fff;
-  background: var(--green-900);
-  font-weight: 700;
-}
-// overflow: hidden recortaria o anel externo
-.mg-page .mg-tabs button:focus-visible {
-  outline-offset: -4px;
 }
 .mg-details {
   display: grid;
@@ -466,22 +431,9 @@
   text-underline-offset: 4px;
 }
 .mg-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  width: fit-content;
-  min-height: 30px;
-  padding: 2px 12px;
   color: var(--green-950);
   background: var(--green-100);
-  border-radius: 999px;
-  font-size: 0.875rem;
-  font-weight: 700;
-  line-height: 1.25;
   white-space: nowrap;
-}
-.mg-status .material-symbols-rounded {
-  font-size: 18px;
 }
 .mg-status[data-tone='neutral'] {
   color: #3f505e;
@@ -731,10 +683,7 @@
     flex: none;
   }
   .mg-tabs {
-    display: flex;
-  }
-  .mg-tabs button {
-    flex: 1 1 auto;
+    width: 100%;
   }
   .mg-section {
     margin-top: 30px;

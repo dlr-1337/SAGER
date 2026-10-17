@@ -113,15 +113,8 @@ table {
   min-width: 880px;
 }
 .status-label {
-  display: inline-flex;
-  align-items: center;
-  min-height: 30px;
-  padding: 2px 12px;
-  border-radius: 999px;
   background: #eef2f3;
   color: #3f505e;
-  font-size: var(--text-meta);
-  font-weight: 700;
   white-space: nowrap;
 }
 .empty-results {

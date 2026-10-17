@@ -42,7 +42,7 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
             <p>Aguarde enquanto os itens são preparados nesta demonstração.</p>
           </section>
         } @else {
-          <div class="tabs" role="tablist" aria-label="Categorias de comunicação">
+          <div class="tabs segmented" role="tablist" aria-label="Categorias de comunicação">
             <button
               type="button"
               id="tab-avisos"
@@ -202,38 +202,7 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
         margin: 24px 0;
       }
       .tabs {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 1px;
-        width: fit-content;
-        max-width: 100%;
         margin-bottom: 20px;
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        overflow: hidden;
-        background: var(--line);
-      }
-      .tabs button {
-        flex: 1 1 auto;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        min-height: 48px;
-        padding: 0 20px;
-        border: 0;
-        background: #fff;
-        color: var(--ink);
-        font-weight: 600;
-        cursor: pointer;
-      }
-      .tabs button:hover {
-        background: var(--green-50);
-      }
-      .tabs button[aria-selected='true'] {
-        background: var(--green-900);
-        color: #fff;
-        font-weight: 700;
       }
       .tabs button span {
         font-size: var(--text-meta);
@@ -243,7 +212,6 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
         color: var(--green-950);
         padding: 2px 8px;
       }
-      .tabs button:focus-visible,
       .notice-row:focus-visible {
         outline-offset: -3px;
       }

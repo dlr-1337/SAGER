@@ -51,7 +51,7 @@ import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
         }}
         Os horários são apresentados no horário de Brasília.
       </p>
-      <nav class="exit-modalities" aria-label="Modalidade da saída">
+      <nav class="exit-modalities segmented" aria-label="Modalidade da saída">
         <a
           routerLink="/saidas"
           [class.selected]="!longMode()"
@@ -183,35 +183,10 @@ import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
         display: block;
       }
       .exit-modalities {
-        display: flex;
-        flex-wrap: wrap;
-        width: fit-content;
-        max-width: 100%;
         margin: 20px 0 24px;
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        overflow: hidden;
-        background: #fff;
       }
       .exit-modalities a {
-        min-height: 48px;
         min-width: 90px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0 20px;
-        border-right: 1px solid var(--line);
-        color: var(--ink);
-        font-weight: 600;
-        text-decoration: none;
-      }
-      .exit-modalities a:last-child {
-        border-right: 0;
-      }
-      .exit-modalities a.selected {
-        background: var(--green-900);
-        color: #fff;
-        font-weight: 700;
       }
     `,
   ],

@@ -53,6 +53,10 @@ app-root {
   line-height: 1.35;
   color: #edf7f1;
 }
+/* Cabeçalho das páginas públicas (acesso): quebra linha e mantém a marca oficial no celular. */
+.public-masthead {
+  flex-wrap: wrap;
+}
 .demo-flag {
   display: flex;
   flex-direction: column;
@@ -290,6 +294,9 @@ app-root {
   }
   .brand-organization {
     display: none;
+  }
+  .public-masthead .brand-organization {
+    display: block;
   }
   .brand-product {
     flex: 1 1 auto;

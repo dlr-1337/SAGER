@@ -264,7 +264,56 @@ textarea {
 .btn-secondary .material-symbols-outlined {
   font-size: 20px;
 }
-.status {
+/* Controle segmentado (abas e modalidades): o fundo de linha aparece no gap e separa os
+   itens, inclusive quando quebram de linha. */
+.segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--line);
+}
+.segmented > :is(a, button) {
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 20px;
+  border: 0;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.segmented > :is(a, button):hover {
+  background: var(--green-50);
+  color: var(--green-950);
+}
+.segmented > :is(a, button):is(.active, .selected, [aria-current='page'], [aria-selected='true']) {
+  background: var(--green-900);
+  color: #fff;
+  font-weight: 700;
+}
+/* overflow: hidden recortaria o anel de foco externo. */
+.segmented > :is(a, button):focus-visible {
+  outline-offset: -4px;
+}
+/* Forma única dos chips de status; cada área define só o tom. */
+.status,
+.mg-status,
+.op-status,
+.op-demo-label,
+.op-inline-note,
+.op-own-tag,
+.status-label,
+.signature-status {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -272,13 +321,15 @@ textarea {
   min-height: 30px;
   border-radius: 999px;
   padding: 2px 12px;
-  background: #eef2f3;
-  color: #3f505e;
   font-size: var(--text-meta);
   line-height: 1.25;
   font-weight: 700;
 }
-.status :is(.material-symbols-rounded, .material-symbols-outlined) {
+.status {
+  background: #eef2f3;
+  color: #3f505e;
+}
+:is(.status, .mg-status, .op-status) :is(.material-symbols-rounded, .material-symbols-outlined) {
   font-size: 18px;
 }
 .status[data-tone='success'],

@@ -7,6 +7,19 @@ const todayFormat = new Intl.DateTimeFormat('pt-BR', {
   dateStyle: 'full',
   timeZone: 'America/Sao_Paulo',
 });
+const clockFormat = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'America/Sao_Paulo',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hourCycle: 'h23',
+});
+
+/** Milissegundos até a próxima meia-noite civil em America/Sao_Paulo. */
+export function msUntilNextMidnight(now: Date): number {
+  const [hours, minutes, seconds] = clockFormat.format(now).split(':').map(Number);
+  return ((24 - hours) * 3600 - minutes * 60 - seconds) * 1000 - now.getMilliseconds();
+}
 
 interface HomeTask {
   title: string;
@@ -284,7 +297,18 @@ export class LocalHomePage {
   });
 
   constructor() {
-    const timer = setInterval(() => this.now.set(new Date()), 60_000);
-    inject(DestroyRef).onDestroy(() => clearInterval(timer));
+    // Um disparo por dia, logo após a meia-noite, em vez de acordar a cada minuto.
+    let timer: ReturnType<typeof setTimeout>;
+    const schedule = () => {
+      timer = setTimeout(
+        () => {
+          this.now.set(new Date());
+          schedule();
+        },
+        msUntilNextMidnight(new Date()) + 1000,
+      );
+    };
+    schedule();
+    inject(DestroyRef).onDestroy(() => clearTimeout(timer));
   }
 }

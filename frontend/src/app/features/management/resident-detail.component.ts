@@ -87,7 +87,7 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
               salvo no ambiente local de teste.
             </p>
           }
-          <nav class="mg-tabs" aria-label="Seções do residente">
+          <nav class="mg-tabs segmented" aria-label="Seções do residente">
             <button
               type="button"
               [class.active]="tab() === 'dados'"
@@ -447,7 +447,7 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
             salvo nesta demonstração.
           </p>
         }
-        <nav class="mg-tabs" aria-label="Seções do residente">
+        <nav class="mg-tabs segmented" aria-label="Seções do residente">
           <button
             type="button"
             [class.active]="tab() === 'dados'"

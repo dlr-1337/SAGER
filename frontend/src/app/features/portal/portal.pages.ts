@@ -13,19 +13,18 @@ import { LocalHomePage } from './local-home.page';
   imports: [RouterLink, ReactiveFormsModule],
   providers: [DemoEntry],
   template: `
-    <header class="masthead">
+    <header class="masthead public-masthead">
       <div class="brand-organization">
         <img src="/if-goiano-urutai.png" alt="Instituto Federal Goiano, Campus Urutaí" />
       </div>
       <div class="brand-product">
         <strong>SAGER</strong><span>Sistema de Apoio à Gestão da<br />Residência Estudantil</span>
       </div>
-      <div class="demo-flag">
-        <strong>{{ session.production ? 'SAGER' : 'Acesso local' }}</strong
-        ><span>{{
-          session.production ? 'Acesso à residência estudantil' : 'Desenvolvimento e testes'
-        }}</span>
-      </div>
+      @if (!session.production) {
+        <div class="demo-flag">
+          <strong>Acesso local</strong><span>Desenvolvimento e testes</span>
+        </div>
+      }
     </header>
     <main class="access-main" [class.solo]="!session.demoAvailable">
       <section class="access-login" aria-labelledby="access-title">
@@ -118,13 +117,6 @@ import { LocalHomePage } from './local-home.page';
         display: block;
         min-height: 100vh;
         background: var(--surface);
-      }
-      /* Cabeçalho global do shell; no acesso a marca oficial fica visível também no celular. */
-      .masthead {
-        flex-wrap: wrap;
-      }
-      .brand-organization {
-        display: block;
       }
       .access-main {
         display: flex;

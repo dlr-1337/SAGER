@@ -161,10 +161,14 @@ export class App implements OnDestroy {
           : role === 'supervisor'
             ? [{ label: 'Ranking', path: '/ranking', icon: 'leaderboard' }]
             : [];
+    // Gestão não dá acesso ao conteúdo de saúde: /saude exige habilitação profissional.
+    const healthProfessional = this.auth.principal()?.perfis.includes('saude') ?? false;
     const healthItems: NavItem[] =
       role === 'gestor' || role === 'supervisor'
         ? [
-            { label: 'Saúde', path: '/saude', icon: 'health_and_safety' },
+            ...(healthProfessional
+              ? [{ label: 'Saúde', path: '/saude', icon: 'health_and_safety' }]
+              : []),
             { label: 'Acessos de saúde', path: '/saude/acessos', icon: 'admin_panel_settings' },
           ]
         : role === 'residente'
