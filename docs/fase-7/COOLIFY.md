@@ -1,5 +1,9 @@
 # Homologação no Coolify
 
+Para a atualização de 17/10/2026, com matrícula e schema V21, consulte a
+[validação da entrega](../QA-RELEASE-2026-10-17.md). O registro abaixo preserva
+as evidências históricas de 01/10/2026; os exemplos operacionais usam o contrato atual.
+
 Implantação e verificações realizadas na noite de 30/09/2026, com registro
 concluído em 01/10/2026, no horário de Brasília. Os horários técnicos abaixo
 são registrados em UTC. Esta instância usa somente dados fictícios e
@@ -266,13 +270,15 @@ docker compose --project-name sager-homologacao \
 
 Depois de confirmar migração, HTTPS e saúde do stack, o operador pode criar a
 primeira conta em terminal interativo. A senha é definida e confirmada no
-console oculto, sem argumento, variável ou registro em log:
+console oculto, sem argumento, variável ou registro em log. Não recrie contas
+existentes; use `list` e `assign-enrollment` conforme o [backend](../../backend/README.md).
 
 ```bash
 docker compose --project-name sager-homologacao \
   --project-directory "$SAGER_CHECKOUT" --env-file "$SAGER_CHECKOUT/.env" \
   -f "$SAGER_CHECKOUT/compose.coolify.yml" run --rm --no-deps \
-  backend --sager-account=create --email=gestor@sager.otavio.win \
+  backend --sager-account=create --matricula=GESTOR-HOMOLOGACAO \
+  --email=gestor@sager.otavio.win \
   '--name=Gestor de Homologação' --profile=gestor
 ```
 

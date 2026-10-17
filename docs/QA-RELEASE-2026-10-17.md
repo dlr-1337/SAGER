@@ -42,10 +42,78 @@ Nenhuma credencial de conta existente foi redefinida neste ensaio.
 
 ## Publicação e implantação
 
-A entrega será registrada nesta seção após a conclusão da CI e da atualização da
-instância existente no Coolify. O estado da VPS foi conferido antes da intervenção:
-V19, três contas ativas e três containers saudáveis. Migração, backup e implantação
-permanecem etapas distintas desta validação local.
+O [PR #18](https://github.com/dlr-1337/SAGER/pull/18) foi integrado em `main` pelo
+commit `eaed1362c9b5decac482eae844ddee79e0e96b5b`. A
+[CI do PR](https://github.com/dlr-1337/SAGER/actions/runs/39040306757) aprovou os três
+jobs: 275 testes backend, 353 frontend, build, 138 jornadas Chromium em uma execução,
+39 testes de infraestrutura e os dois smokes HTTPS com containers descartáveis.
+A [CI de `main`](https://github.com/dlr-1337/SAGER/actions/runs/39041036232)
+também concluiu os três jobs com sucesso antes da implantação.
+
+Antes da atualização, a VPS estava na V19, com três contas ativas e três containers
+saudáveis. Foram preservadas as imagens anteriores e criados dois backups age com
+permissão 600: banco/documentos e relatórios. As cópias privadas locais conferiram
+com os SHA256 da VPS. A identidade privada de descriptografia permaneceu somente
+no computador do operador, fora do Git e da VPS.
+
+A restauração local real retornou `isolated_restore_verified`: schema V19,
+auditoria na sequência 3, nenhum documento, sessões expurgadas e aplicação parada.
+O arquivo de relatórios também foi descriptografado e sua estrutura tar conferida.
+Na cópia restaurada, V20/V21 e a inicialização dos privilégios foram executadas;
+o mapeamento da conta de gestor foi ensaiado pelo CLI. As três contas preservaram
+UUID, perfil, estado, fingerprint do hash de senha e vínculos. As matrículas dos
+vínculos existentes foram migradas e o gestor recebeu a matrícula de teste prevista.
+
+Os projetos locais de ensaio e restauração foram encerrados e seus volumes
+exclusivos removidos. O stack local existente e as cópias privadas de recuperação
+foram mantidos.
+
+### VPS atualizada e reinicialização verificada
+
+O Coolify implantou o SHA `eaed1362c9b5decac482eae844ddee79e0e96b5b`
+em dois deployments manuais, ambos com sucesso (horários UTC):
+
+| Deployment                 | Início   | Serviços saudáveis | Objetivo                                                            |
+| -------------------------- | -------- | ------------------ | ------------------------------------------------------------------- |
+| `m6whejwd7s6qj9xj0cc7dkvn` | 14:39:18 | 14:44:39           | Aplicar V20/V21 e atribuir matrícula ao gestor existente.           |
+| `ip2ekgsrlqkuicz60ysqdstp` | 14:47:28 | 14:49:14           | Recriar os containers com o comando padrão e conferir persistência. |
+
+O comando temporário de migração foi substituído por
+`bash infra/coolify/start.sh` no painel antes do segundo deploy. A migração
+repetida validou as 21 versões e não encontrou alterações pendentes. O Docker
+confirmou banco, backend e gateway saudáveis, sem portas publicadas, somente
+gateway na rede `coolify` e os três volumes originais reutilizados. A role runtime
+pode inserir cursos e continua sem permissão para alterar ou excluir auditoria.
+
+As três contas mantiveram UUID, perfil, estado, fingerprint do hash e vínculos
+após os dois deployments. As matrículas de acesso são:
+
+- Gestor: `TESTE-GESTOR`.
+- Supervisor: `SAGER-QA-SUPERVISOR-001`.
+- Residente: `SAGER-QA-RESIDENT-001`.
+
+Imagens observadas após a segunda implantação:
+
+| Serviço    | ID Docker                                                                 |
+| ---------- | ------------------------------------------------------------------------- |
+| PostgreSQL | `sha256:639ab7ceb90e13123085b741fb31ef493fba25463002f6da665352e7b534b652` |
+| Backend    | `sha256:575ed83519e6ae4920e048ebb6a7b8115285f272869736ab8cf43a13918276a9` |
+| Gateway    | `sha256:19e782ce1389ef7c797a3c2d7bf90398b872256dca3ba2709937aa0a463b951d` |
+
+A verificação externa em `https://sager.otavio.win`, com TLS estrito, confirmou
+`/acesso` 200, marcador de produção, CSP e HSTS; CSRF 200, `/auth/me` 401 sem
+sessão, `/.env` e `/actuator/health` 404 e `/api/v1/demo` 401. Foi usado User-Agent
+compatível com navegador, sem mudar a configuração do Cloudflare. O Chrome
+também exibiu o formulário novo por matrícula.
+
+**Pendente: autenticação das contas existentes na VPS.** A senha de teste
+informada foi recusada nas três contas (401), inclusive no Chrome para gestor.
+Nenhuma senha foi redefinida; a comparação dos hashes confirma preservação.
+O operador solicitou a troca administrativa das três senhas. O CLI foi preparado
+no terminal privado e aguarda a entrada e confirmação pessoal da nova senha.
+Isso impede afirmar que o Chrome ficou autenticado ou que as permissões
+foram verificadas com essas contas na VPS. As jornadas completas com contas
+sintéticas passaram no ambiente Docker isolado descrito acima.
 
 ## Limites
 
