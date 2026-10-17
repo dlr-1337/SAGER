@@ -221,8 +221,8 @@ type SignatureStep = 'access' | 'review' | 'confirm' | 'result';
       :host {
         display: block;
         min-height: 100vh;
-        background: #f3f7f2;
-        color: #1f3728;
+        background: var(--surface);
+        color: var(--ink);
       }
       .signature-shell {
         min-height: 100vh;
@@ -231,11 +231,11 @@ type SignatureStep = 'access' | 'review' | 'confirm' | 'result';
       }
       .signature-header {
         background: #fff;
-        border-bottom: 1px solid #d8e4d9;
+        border-bottom: 1px solid var(--line);
         display: flex;
         align-items: center;
         gap: 18px;
-        padding: 13px clamp(20px, 4vw, 64px);
+        padding: 14px clamp(16px, 4vw, 64px);
       }
       .signature-header img {
         height: 56px;
@@ -244,7 +244,7 @@ type SignatureStep = 'access' | 'review' | 'confirm' | 'result';
         object-position: left center;
       }
       .signature-header > div {
-        border-left: 1px solid #d5e1d7;
+        border-left: 1px solid var(--line);
         padding-left: 18px;
         display: flex;
         flex-direction: column;
@@ -252,179 +252,194 @@ type SignatureStep = 'access' | 'review' | 'confirm' | 'result';
       }
       .signature-header strong {
         font-size: 1.4rem;
-        color: #125637;
-        letter-spacing: -0.03em;
+        font-weight: 800;
+        color: var(--green-900);
+        letter-spacing: -0.02em;
       }
-      .signature-header span {
-        font-size: 0.84rem;
-        color: #5c695e;
+      .signature-header span,
+      .signature-footer {
+        font-size: var(--text-meta);
+        color: var(--muted);
       }
       .signature-content {
         width: min(850px, calc(100% - 32px));
-        margin: 36px auto 60px;
+        margin: 32px auto 56px;
         flex: 1;
       }
-      .simulation-banner {
+      .simulation-banner,
+      .result-warning {
         display: flex;
         align-items: flex-start;
-        gap: 12px;
-        background: #fff1d9;
-        border: 1px solid #e8c983;
-        color: #60440b;
-        padding: 17px;
-        border-radius: 10px;
+        gap: 14px;
+        padding: 16px 18px;
+        border-radius: 12px;
+        background: var(--warning-bg);
+        color: #5c3906;
         line-height: 1.5;
       }
       .simulation-banner .material-symbols-outlined {
         flex: none;
       }
       .steps {
-        display: flex;
-        justify-content: space-between;
-        gap: 8px;
-        margin: 30px 0 22px;
-        counter-reset: step;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px 6px;
+        margin: 28px 0 24px;
       }
       .steps span {
-        font-size: 0.81rem;
-        font-weight: 800;
-        color: #69776d;
-        padding-bottom: 9px;
-        border-bottom: 2px solid #d6e2d8;
-        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        color: var(--muted);
+        font-size: var(--text-meta);
+      }
+      .steps span::before {
+        content: '';
+        height: 10px;
+        border-radius: 999px;
+        background: #e6edf0;
       }
       .steps span.active,
       .steps span.done {
-        color: #155d3b;
-        border-color: #197148;
+        color: var(--ink);
+      }
+      .steps span.active {
+        font-weight: 700;
+      }
+      .steps span.active::before,
+      .steps span.done::before {
+        background: var(--green-800);
       }
       .signature-card {
         background: #fff;
-        border: 1px solid #d8e5da;
-        box-shadow: 0 10px 36px #153b2010;
-        border-radius: 16px;
-        padding: clamp(24px, 5vw, 48px);
+        border: 1px solid var(--line);
+        box-shadow: var(--shadow);
+        border-radius: var(--radius-card);
+        padding: 24px;
       }
       .signature-card h1 {
-        font-size: clamp(1.8rem, 3vw, 2.4rem);
-        letter-spacing: -0.035em;
-        line-height: 1.2;
-        margin: 11px 0;
+        font-size: clamp(1.8rem, 2.6vw, 2.25rem);
+        font-weight: 800;
+        letter-spacing: -0.025em;
+        line-height: 1.15;
+        margin: 10px 0;
       }
       .signature-card > p {
-        color: #526356;
-        font-size: 1.04rem;
+        color: var(--muted);
+        font-size: 1.1rem;
         line-height: 1.6;
-        max-width: 660px;
+        max-width: 70ch;
       }
       .eyebrow {
-        font-size: 0.78rem;
-        font-weight: 800;
-        color: #17683f;
-        letter-spacing: 0.09em;
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: var(--muted);
+        letter-spacing: 0.06em;
         text-transform: uppercase;
       }
       .icon-well {
         display: grid;
         place-items: center;
-        width: 60px;
-        height: 60px;
-        background: #e7f2e8;
-        color: #17683f;
+        width: 56px;
+        height: 56px;
+        background: var(--green-100);
+        color: var(--green-900);
         border-radius: 12px;
         margin-bottom: 24px;
       }
       .icon-well .material-symbols-outlined {
-        font-size: 35px;
+        font-size: 32px;
       }
       .summary,
       .document dl {
-        border-top: 1px solid #e1eae2;
-        border-bottom: 1px solid #e1eae2;
-        margin: 25px 0;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        margin: 24px 0;
       }
       .summary div,
       .document dl div {
         display: grid;
         grid-template-columns: 160px 1fr;
-        gap: 15px;
-        padding: 13px 0;
+        gap: 4px 20px;
+        padding: 14px 0;
       }
       .summary div + div,
       .document dl div + div {
-        border-top: 1px solid #edf1ed;
+        border-top: 1px solid var(--line);
       }
       dt {
-        color: #5a6a5e;
-        font-size: 0.87rem;
+        color: var(--muted);
       }
       dd {
         margin: 0;
-        font-weight: 700;
+        font-weight: 600;
+        color: var(--ink);
       }
       .document {
-        border: 1px solid #d8e3d9;
+        border: 1px solid var(--line);
         border-radius: 12px;
-        padding: 25px;
-        margin: 25px 0;
-        background: #fcfefc;
+        padding: 20px;
+        margin: 24px 0;
+        background: var(--surface);
       }
       .document-heading {
         display: flex;
         align-items: center;
-        gap: 13px;
+        gap: 14px;
       }
       .document-heading > .material-symbols-outlined {
-        font-size: 34px;
-        color: #17683f;
+        font-size: 32px;
+        color: var(--green-800);
       }
       .document-heading strong,
       .document-heading small {
         display: block;
       }
-      .document-heading small {
-        margin-top: 5px;
-        color: #627064;
+      .document-heading small,
+      .document-footnote {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: var(--text-meta);
+        line-height: 1.5;
       }
       .document dl {
         margin: 20px 0;
       }
-      .document-footnote {
-        font-size: 0.84rem;
-        color: #627064;
-        line-height: 1.5;
-      }
       .decision-summary {
         display: flex;
         flex-direction: column;
-        gap: 7px;
-        border: 1px solid #cbe2d0;
-        background: #f1f8f2;
-        padding: 16px;
+        gap: 6px;
+        border: 1px solid #cfe3d5;
+        border-radius: 12px;
+        background: var(--green-50);
+        color: var(--green-950);
+        padding: 16px 18px;
         margin: 24px 0;
       }
       .decision-summary span {
-        color: #4f6053;
+        color: var(--muted);
       }
       .check-row {
         display: flex;
-        gap: 13px;
+        gap: 12px;
         align-items: flex-start;
+        min-height: 44px;
         line-height: 1.5;
-        font-weight: 700;
+        font-weight: 600;
         cursor: pointer;
         padding: 12px 0;
       }
       .check-row input {
-        width: 23px;
-        height: 23px;
+        width: 22px;
+        height: 22px;
         flex: none;
-        accent-color: #17683f;
+        accent-color: var(--green-900);
         margin: 1px 0;
       }
       .field-error {
-        color: #9b3025;
-        font-weight: 700;
+        color: var(--danger);
+        font-size: var(--text-meta);
+        font-weight: 600;
       }
       .action-row {
         display: flex;
@@ -433,30 +448,23 @@ type SignatureStep = 'access' | 'review' | 'confirm' | 'result';
         margin-top: 24px;
       }
       .success-icon {
-        color: #17683f;
+        color: var(--green-800);
       }
       .success-icon .material-symbols-outlined {
         font-size: 56px;
       }
       .result-warning {
-        display: flex;
         flex-direction: column;
-        gap: 5px;
-        background: #fff2d9;
-        color: #62470e;
-        border-radius: 9px;
-        padding: 15px;
-        margin: 23px 0;
+        gap: 6px;
+        margin: 24px 0;
       }
       .signature-footer {
-        color: #607064;
         text-align: center;
         padding: 20px;
-        font-size: 0.8rem;
       }
       @media (max-width: 590px) {
         .signature-header img {
-          width: 100px;
+          width: 96px;
           height: 46px;
         }
         .signature-header {
@@ -465,16 +473,15 @@ type SignatureStep = 'access' | 'review' | 'confirm' | 'result';
         .signature-header > div {
           padding-left: 10px;
         }
-        .signature-header span {
-          font-size: 0.72rem;
+        .steps {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
         }
-        .steps span {
-          font-size: 0.66rem;
+        .signature-card {
+          padding: 18px;
         }
         .summary div,
         .document dl div {
           grid-template-columns: 1fr;
-          gap: 4px;
         }
         .document {
           padding: 18px;

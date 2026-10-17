@@ -184,62 +184,75 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
       :host {
         display: block;
       }
-      .notices-page {
-        max-width: 1460px;
-      }
       .scope-note {
         display: flex;
-        gap: 10px;
+        gap: 14px;
         align-items: flex-start;
-        color: #4d6254;
-        background: #ebf3ec;
-        border: 1px solid #d3e4d6;
-        border-radius: 10px;
-        padding: 14px 18px;
-        margin: 23px 0;
+        color: #123f5c;
+        background: var(--info-bg);
+        border-radius: 12px;
+        padding: 16px 18px;
+        margin: 24px 0;
         line-height: 1.5;
-      }
-      .scope-note .material-symbols-outlined {
-        color: #1a6e45;
       }
       .tabs {
         display: flex;
-        gap: 8px;
-        border-bottom: 1px solid #d6e2d9;
+        flex-wrap: wrap;
+        gap: 1px;
+        width: fit-content;
+        max-width: 100%;
         margin-bottom: 20px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        overflow: hidden;
+        background: var(--line);
       }
       .tabs button {
+        flex: 1 1 auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 48px;
+        padding: 0 20px;
         border: 0;
-        background: transparent;
-        padding: 14px 18px;
-        min-height: 52px;
-        color: #506155;
-        font-weight: 800;
+        background: #fff;
+        color: var(--ink);
+        font-weight: 600;
         font-size: 1rem;
         cursor: pointer;
-        border-bottom: 2px solid transparent;
+      }
+      .tabs button:hover {
+        background: var(--green-50);
       }
       .tabs button[aria-selected='true'] {
-        color: #115837;
-        border-bottom-color: #17683f;
+        background: var(--green-900);
+        color: #fff;
+        font-weight: 700;
       }
       .tabs button span {
-        font-size: 0.82rem;
-        border-radius: 100px;
-        background: #e5eee6;
-        padding: 3px 8px;
-        margin-left: 4px;
+        font-size: var(--text-meta);
+        font-weight: 700;
+        border-radius: 999px;
+        background: var(--green-100);
+        color: var(--green-950);
+        padding: 2px 8px;
+      }
+      .tabs button:focus-visible,
+      .notice-row:focus-visible {
+        outline-offset: -3px;
       }
       .notices-layout {
         display: grid;
         grid-template-columns: minmax(310px, 0.92fr) minmax(0, 1.08fr);
-        gap: 20px;
+        gap: 24px;
         align-items: start;
       }
       .notice-list {
         background: #fff;
-        border: 1px solid #d7e3d8;
-        border-radius: 12px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-card);
+        box-shadow: var(--shadow);
         overflow: hidden;
       }
       .notice-row {
@@ -251,34 +264,34 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
         text-align: left;
         display: grid;
         grid-template-columns: 42px 1fr;
-        gap: 7px 14px;
+        gap: 6px 14px;
         cursor: pointer;
-        color: #20392a;
+        color: var(--ink);
       }
       .notice-row + .notice-row {
-        border-top: 1px solid #e1e9e2;
+        border-top: 1px solid var(--line);
       }
       .notice-row:hover,
       .notice-row.selected {
-        background: #f4f9f4;
+        background: var(--green-50);
       }
-      .notice-row:focus-visible {
-        outline: 3px solid #a65f00;
-        outline-offset: -3px;
+      .notice-row.selected {
+        box-shadow: inset 4px 0 0 var(--green-900);
       }
       .notice-icon {
         width: 42px;
         height: 42px;
         display: grid;
         place-items: center;
-        background: #e8f2e9;
-        color: #17683f;
-        border-radius: 9px;
+        background: var(--green-100);
+        color: var(--green-900);
+        border-radius: var(--radius-control);
         grid-row: 1/3;
       }
-      .notice-icon.warning {
-        background: #fff0dd;
-        color: #915714;
+      .notice-icon.warning,
+      .type-tag.warning {
+        background: var(--warning-bg);
+        color: var(--warning);
       }
       .notice-info strong,
       .notice-info span {
@@ -287,22 +300,36 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
       .notice-info strong {
         font-size: 1rem;
       }
+      .notice-info span,
+      .detail-top,
+      .source,
+      .reading-state,
+      .select-prompt {
+        color: var(--muted);
+      }
       .notice-info span {
-        color: #607065;
-        font-size: 0.81rem;
-        margin-top: 5px;
+        margin-top: 4px;
+      }
+      .notice-status,
+      .type-tag {
+        display: inline-flex;
+        align-items: center;
+        width: fit-content;
+        min-height: 30px;
+        padding: 2px 12px;
+        border-radius: 999px;
+        font-weight: 700;
+        background: var(--green-100);
+        color: var(--green-950);
       }
       .notice-status {
         grid-column: 2;
-        color: #17683f;
-        font-size: 0.79rem;
-        font-weight: 800;
       }
       .notice-status.pending {
-        color: #915714;
+        background: var(--info-bg);
+        color: var(--info);
       }
       .notice-detail {
-        padding: 30px;
         min-height: 400px;
       }
       .detail-top {
@@ -310,73 +337,56 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
         justify-content: space-between;
         align-items: center;
         gap: 12px;
-        color: #627168;
-        font-size: 0.83rem;
-      }
-      .type-tag {
-        background: #e6f2e9;
-        color: #17683f;
-        border-radius: 5px;
-        padding: 5px 9px;
-        font-weight: 800;
-      }
-      .type-tag.warning {
-        background: #fff0dd;
-        color: #915714;
       }
       .notice-detail h2 {
-        font-size: 1.5rem;
-        margin: 22px 0 6px;
+        font-size: 1.4rem;
+        margin: 20px 0 6px;
       }
       .source {
-        color: #5a6a5f;
-        font-size: 0.87rem;
         margin: 0;
       }
       .message {
         font-size: 1.05rem;
         line-height: 1.7;
-        margin: 30px 0;
+        margin: 28px 0;
         white-space: pre-line;
       }
       .reading-state {
         display: flex;
         align-items: center;
         gap: 8px;
-        color: #5d6b61;
-        border-top: 1px solid #e3eae4;
+        border-top: 1px solid var(--line);
         padding-top: 18px;
-        font-size: 0.83rem;
       }
       .reading-state strong {
-        font-weight: 800;
+        display: block;
+        color: var(--ink);
+        font-weight: 700;
       }
       .notice-detail > .btn {
         margin-top: 24px;
       }
+      .acknowledged,
+      .confirm-box {
+        border: 1px solid #cfe3d5;
+        border-radius: 12px;
+        background: var(--green-50);
+        color: var(--green-950);
+        padding: 16px 18px;
+        margin-top: 24px;
+      }
       .acknowledged {
         display: flex;
-        gap: 11px;
+        gap: 14px;
         align-items: center;
-        background: #e8f3ea;
-        color: #155f3b;
-        padding: 15px;
-        border-radius: 9px;
-        margin-top: 24px;
       }
       .acknowledged strong,
       .acknowledged small {
         display: block;
       }
       .acknowledged small {
-        margin-top: 3px;
-      }
-      .confirm-box {
-        border: 1px solid #afcbb6;
-        background: #f5faf5;
-        padding: 18px;
-        margin-top: 24px;
-        border-radius: 10px;
+        margin-top: 4px;
+        font-size: var(--text-meta);
       }
       .select-prompt {
         text-align: center;
@@ -384,50 +394,26 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
         place-items: center;
         align-content: center;
         min-height: 320px;
-        color: #5d6c61;
       }
       .select-prompt h2 {
         margin: 12px 0 6px;
-        color: #20392a;
+        color: var(--ink);
       }
       .select-prompt p {
         max-width: 320px;
         line-height: 1.5;
       }
       .empty {
-        padding: 30px;
+        padding: 32px;
         text-align: center;
-      }
-      @media (max-width: 980px) {
-        .notices-layout {
-          grid-template-columns: 1fr;
-        }
-        .notice-detail {
-          min-height: 330px;
-        }
-      }
-      @media (max-width: 540px) {
-        .tabs button {
-          padding: 13px 10px;
-          font-size: 0.9rem;
-        }
-        .notice-detail {
-          padding: 20px;
-        }
-        .detail-top {
-          align-items: flex-start;
-          flex-direction: column;
-        }
       }
       .notice-info span,
       .notice-status,
       .detail-top,
       .source,
-      .reading-state {
-        font-size: 0.9rem;
-      }
-      .reading-state strong {
-        display: block;
+      .reading-state,
+      .type-tag {
+        font-size: var(--text-meta);
       }
       .back-to-list {
         display: none;
@@ -436,14 +422,19 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
         min-height: 44px;
         border: 0;
         background: transparent;
-        color: #17683f;
+        color: var(--green-800);
         font: inherit;
-        font-weight: 800;
+        font-weight: 600;
         cursor: pointer;
         padding: 8px 4px;
       }
-
+      .back-to-list:hover {
+        text-decoration: underline;
+      }
       @media (max-width: 980px) {
+        .notices-layout {
+          grid-template-columns: 1fr;
+        }
         .notices-page:not(.detail-open) .notice-detail,
         .notices-page.detail-open .notice-list,
         .notices-page.detail-open .scope-note {
@@ -463,11 +454,23 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
         .confirm-box .action-row {
           display: grid;
           grid-template-columns: 1fr;
-          gap: 10px;
+          gap: 12px;
         }
         .confirm-box .action-row button {
           width: 100%;
           min-height: 48px;
+        }
+      }
+      @media (max-width: 540px) {
+        .tabs {
+          width: 100%;
+        }
+        .tabs button {
+          padding: 0 10px;
+        }
+        .detail-top {
+          align-items: flex-start;
+          flex-direction: column;
         }
       }
     `,

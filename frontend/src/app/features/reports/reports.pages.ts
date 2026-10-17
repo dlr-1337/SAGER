@@ -759,7 +759,7 @@ export class IndividualReportPage implements OnDestroy {
           {
             label: 'Ocorrências',
             data: [0, 1, 1],
-            backgroundColor: '#197148',
+            backgroundColor: '#155c43', // --green-800
             borderRadius: 5,
             maxBarThickness: 70,
           },
@@ -773,7 +773,7 @@ export class IndividualReportPage implements OnDestroy {
           y: {
             beginAtZero: true,
             ticks: { stepSize: 1, precision: 0 },
-            grid: { color: '#e2eae3' },
+            grid: { color: '#d6e0e5' }, // --line
           },
           x: { grid: { display: false } },
         },

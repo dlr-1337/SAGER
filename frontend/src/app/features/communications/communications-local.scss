@@ -1,17 +1,5 @@
-:host {
-  display: block;
-  color: var(--ink);
-}
-.comm-page {
-  max-width: 1280px;
-}
-.comm-narrow {
-  max-width: 960px;
-}
+@use '../cleaning/cleaning-local.shared.scss';
 .comm-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
   margin: 20px 0;
 }
 .comm-grid {
@@ -20,55 +8,12 @@
   gap: 24px;
   align-items: start;
 }
-.comm-definition {
-  margin: 16px 0 24px;
-}
-.comm-definition div {
-  display: grid;
-  grid-template-columns: minmax(130px, 32%) minmax(0, 1fr);
-  gap: 12px;
-  border-bottom: 1px solid var(--line);
-  padding: 12px 0;
-}
-.comm-definition dt {
-  color: var(--muted);
-}
-.comm-definition dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-  white-space: pre-line;
-  font-weight: 600;
-}
-.comm-help {
-  color: var(--muted);
-  font-size: var(--text-meta);
-  line-height: 1.6;
-}
-.comm-warning {
-  background: var(--warning-bg);
-  color: var(--warning);
-  border: 1px solid #e5d4a6;
-  padding: 16px;
-  margin: 20px 0;
-  border-radius: 8px;
-  line-height: 1.6;
-}
-.comm-error {
-  color: var(--danger);
-  font-weight: 700;
-  overflow-wrap: anywhere;
-}
 .comm-success {
-  padding: 12px 16px;
-  border: 1px solid var(--line);
+  padding: 16px 18px;
+  border: 1px solid #cfe3d5;
+  border-radius: 12px;
   background: var(--green-50);
   color: var(--green-950);
-}
-.comm-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin: 24px 0 12px;
 }
 .comm-form {
   display: grid;
@@ -77,11 +22,6 @@
 .comm-form h2,
 .comm-form h3 {
   margin: 0;
-}
-.comm-form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
 }
 .comm-message {
   white-space: pre-line;
@@ -99,18 +39,19 @@
   cursor: pointer;
 }
 .comm-check input {
-  width: 23px;
-  height: 23px;
+  width: 22px;
+  height: 22px;
   margin: 1px 0 0;
   flex: none;
-  accent-color: var(--green-800);
+  accent-color: var(--green-900);
 }
 .comm-recipient-list {
   max-height: 360px;
   overflow-y: auto;
   border: 1px solid var(--line);
   padding: 8px 16px;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
+  background: #fff;
 }
 .comm-recipient-list small {
   display: block;
@@ -121,26 +62,39 @@
   border-top: 1px solid var(--line);
   padding-top: 12px;
 }
+// Controle segmentado: o fundo da linha aparece no gap e separa os itens, inclusive ao quebrar.
 .comm-tabs {
   display: flex;
   flex-wrap: wrap;
-  border-bottom: 1px solid var(--line);
+  gap: 1px;
+  width: fit-content;
+  max-width: 100%;
   margin: 24px 0;
-  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--line);
 }
 .comm-tabs button {
-  background: transparent;
-  color: var(--muted);
-  border: 0;
-  border-bottom: 2px solid transparent;
+  flex: 1 1 auto;
   min-height: 48px;
-  padding: 10px 14px;
-  font-weight: 700;
+  padding: 0 20px;
+  border: 0;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 600;
   cursor: pointer;
 }
+.comm-tabs button:hover {
+  background: var(--green-50);
+}
 .comm-tabs button[aria-current='page'] {
-  color: var(--green-900);
-  border-bottom-color: var(--green-800);
+  background: var(--green-900);
+  color: #fff;
+  font-weight: 700;
+}
+.comm-tabs button:focus-visible {
+  outline-offset: -3px;
 }
 .comm-check-description {
   display: block;
@@ -170,31 +124,18 @@
 .comm-stack .panel {
   min-width: 0;
 }
-.comm-history {
-  padding-left: 22px;
-}
-.comm-history li {
-  margin: 20px 0;
-}
-.comm-history p {
-  margin: 6px 0;
-}
-.comm-history time {
-  display: block;
-  color: var(--muted);
-  font-size: var(--text-meta);
-}
 summary {
   min-height: 44px;
   cursor: pointer;
   display: flex;
   align-items: center;
   color: var(--green-800);
+  font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
 mat-dialog-actions {
-  gap: 10px;
+  gap: 12px;
   padding: 16px 24px;
 }
 @media (max-width: 800px) {
@@ -203,21 +144,15 @@ mat-dialog-actions {
   }
 }
 @media (max-width: 540px) {
-  .comm-definition div,
-  .comm-form-grid {
-    grid-template-columns: 1fr;
-  }
-  .comm-definition div {
-    gap: 4px;
-  }
-  .comm-actions > *,
   .comm-links > .btn,
   .comm-links > .btn-secondary {
     width: 100%;
   }
+  .comm-tabs {
+    width: 100%;
+  }
   .comm-tabs button {
-    padding: 10px 8px;
-    font-size: var(--text-meta);
+    padding: 0 12px;
   }
   .comm-page .op-row-side small {
     text-align: left;

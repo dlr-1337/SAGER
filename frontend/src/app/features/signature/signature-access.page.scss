@@ -32,8 +32,9 @@
 }
 .invitation-header strong {
   font-size: 1.4rem;
+  font-weight: 800;
   color: var(--green-900);
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
 }
 .invitation-header span {
   font-size: var(--text-meta);
@@ -45,37 +46,45 @@
   flex: 1;
 }
 .invitation-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
   background: #fff;
   border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: clamp(22px, 4vw, 40px);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow);
+  padding: 24px;
 }
 .invitation-card + .invitation-card {
-  margin-top: 20px;
+  margin-top: 24px;
+}
+.invitation-card > * {
+  margin: 0;
+  max-width: 100%;
 }
 h1 {
-  font-size: clamp(1.8rem, 3vw, 2.4rem);
-  letter-spacing: -0.035em;
-  line-height: 1.2;
-  margin: 10px 0 18px;
+  font-size: clamp(1.8rem, 2.6vw, 2.25rem);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
 }
 h2 {
-  margin: 0 0 18px;
-  font-size: 1.4rem;
-  line-height: 1.3;
+  font-size: 1.15rem;
+  line-height: 1.25;
 }
 .invitation-card > p {
-  line-height: 1.65;
+  line-height: 1.6;
 }
 .invitation-summary {
+  align-self: stretch;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
-  margin: 24px 0;
 }
 .invitation-summary div {
   display: grid;
   grid-template-columns: 170px minmax(0, 1fr);
-  gap: 16px;
+  gap: 4px 20px;
   padding: 14px 0;
 }
 .invitation-summary div + div {
@@ -83,11 +92,11 @@ h2 {
 }
 dt {
   color: var(--muted);
-  font-size: var(--text-meta);
 }
 dd {
   margin: 0;
-  font-weight: 700;
+  font-weight: 600;
+  color: var(--ink);
   overflow-wrap: anywhere;
 }
 .invitation-help {
@@ -99,54 +108,72 @@ dd {
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
-  margin-top: 22px;
 }
 .document-actions > span {
   color: var(--muted);
   font-size: var(--text-meta);
 }
-.invitation-error {
-  color: var(--danger);
-  font-weight: 700;
+.invitation-error,
+.invitation-notice {
+  align-self: stretch;
+  padding: 16px 18px;
+  border-radius: 12px;
   overflow-wrap: anywhere;
 }
-.signature-status {
-  border: 1px solid var(--line);
-  padding: 10px 14px;
-  background: var(--green-50);
-  color: var(--green-950);
-  font-weight: 700;
+.invitation-error {
+  background: var(--danger-bg);
+  color: #7a1520;
+  font-weight: 600;
 }
 .invitation-notice {
-  padding: 16px;
-  border: 1px solid #e8d198;
+  background: var(--warning-bg);
+  color: #5c3906;
+}
+// Situação informada pelo servidor: pílula com texto, tom pelo código do status.
+.signature-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 2px 12px;
+  border-radius: 999px;
+  background: var(--info-bg);
+  color: var(--info);
+  font-size: var(--text-meta);
+  font-weight: 700;
+}
+.signature-status[data-status='VALID'] {
+  background: var(--green-100);
+  color: var(--green-950);
+}
+.signature-status:is([data-status='UNAVAILABLE'], [data-status='UNCERTAIN']) {
   background: var(--warning-bg);
   color: var(--warning);
+}
+.signature-status:is([data-status='FAILED'], [data-status='EXPIRED'], [data-status='INVALIDATED']) {
+  background: var(--danger-bg);
+  color: var(--danger);
 }
 .invitation-check {
   display: flex;
   align-items: flex-start;
   gap: 12px;
+  min-height: 44px;
   line-height: 1.5;
-  margin: 20px 0;
   cursor: pointer;
 }
 .invitation-check input {
-  width: 23px;
-  height: 23px;
+  width: 22px;
+  height: 22px;
   flex: none;
   margin: 1px 0 0;
-  accent-color: var(--green-800);
-}
-.refresh-action {
-  margin-top: 24px;
+  accent-color: var(--green-900);
 }
 .signing-container {
   display: none;
+  align-self: stretch;
   width: 100%;
   min-width: 0;
   height: 640px;
-  margin-top: 24px;
 }
 .signing-container-visible {
   display: block;
@@ -168,18 +195,19 @@ dd {
   .invitation-header > div {
     padding-left: 10px;
   }
-  .invitation-header span {
-    font-size: 0.75rem;
+  .invitation-card {
+    padding: 18px;
   }
   .invitation-summary div {
     grid-template-columns: 1fr;
-    gap: 4px;
   }
   .invitation-content {
     margin-top: 20px;
   }
+  .document-actions,
   .document-actions > button,
   .signature-action > button,
+  .refresh-action,
   .refresh-action > button {
     width: 100%;
   }
