@@ -1,3 +1,4 @@
+import { UnsavedFormDirective } from '../../shared/unsaved-form';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -17,7 +18,7 @@ import { Accommodation } from './housing.models';
   selector: 'app-accommodation-form',
   styleUrl: './housing.scss',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [UnsavedFormDirective, ReactiveFormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page mg-page mg-narrow">
@@ -53,7 +54,14 @@ import { Accommodation } from './housing.models';
             <p>Informe a identificação da residência ou conjunto de casas.</p>
           </div>
         </header>
-        <form class="panel mg-panel mg-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+        <form
+          sagerUnsaved
+          [sagerSaving]="saving"
+          class="panel mg-panel mg-form"
+          [formGroup]="form"
+          (ngSubmit)="save()"
+          novalidate
+        >
           <h2>Dados do alojamento</h2>
           <p class="mg-muted">Campos marcados com * são obrigatórios.</p>
           <div class="mg-form-grid">
@@ -194,6 +202,8 @@ export class AccommodationFormComponent {
     try {
       const item = await this.data.save(input, this.existing() ?? undefined);
       if (!this.destroyRef.destroyed) {
+        this.saving.set(false);
+        this.form.markAsPristine();
         await this.router.navigate(['/alojamentos', item.id], { queryParams: { saved: '1' } });
       }
     } catch (error) {

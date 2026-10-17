@@ -151,6 +151,7 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
         id: '00000000-0000-0000-0000-000000000001',
         nome: state.role === 'residente' ? 'Estudante Sintético' : 'Supervisora Sintética',
         email: 'sessao@example.test',
+        matricula: 'TESTE-LOGIN',
         fotoUrl: null,
         perfis: [state.role],
         residenteId: state.role === 'residente' ? residentId : null,
@@ -346,6 +347,72 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
 
 test.use({ timezoneId: 'Pacific/Auckland' });
 
+test('redução de 26 para 25 saídas curtas retorna à página válida com filtros preservados', async ({
+  page,
+}) => {
+  await mockApi(page);
+  const records = Array.from({ length: 25 }, (_, index) => ({
+    ...exitFixture(),
+    id: `saida-sintetica-${index}`,
+    status: 'APROVADA',
+  }));
+  let reduced = false;
+  const queries: URLSearchParams[] = [];
+  await page.route('**/api/v1/saidas-curtas?*', (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    queries.push(params);
+    if (params.get('offset') === '25') reduced = true;
+    return route.fulfill({
+      headers: { 'X-Total-Count': String(reduced ? 25 : 26) },
+      json: params.get('offset') === '25' ? [] : records,
+    });
+  });
+  await page.goto('/saidas');
+  const search = page.getByRole('searchbox', { name: 'Nome ou matrícula' });
+  await expect(search).toHaveClass(/ng-valid/);
+  await search.fill('TESTE-001');
+  await page.getByLabel('Situação', { exact: true }).selectOption('APROVADA');
+  const pagination = page.getByRole('navigation', { name: 'Paginação' });
+  await expect.poll(() => queries.at(-1)?.get('status')).toBe('APROVADA');
+  await expect(pagination).toContainText('1–25 de 26');
+  await pagination.getByRole('button', { name: 'Próxima' }).click();
+  await expect(pagination).toContainText('1–25 de 25');
+  await expect(page.getByRole('link', { name: 'Ver solicitação' })).toHaveCount(25);
+  await expect(page.getByRole('heading', { name: 'Nenhuma saída encontrada' })).toHaveCount(0);
+  await expect(search).toHaveValue('TESTE-001');
+  await expect(page.getByLabel('Situação', { exact: true })).toHaveValue('APROVADA');
+  expect(queries.slice(-2).map((params) => params.get('offset'))).toEqual(['25', '0']);
+  for (const query of queries.slice(-2)) {
+    expect(query.get('search')).toBe('TESTE-001');
+    expect(query.get('status')).toBe('APROVADA');
+  }
+});
+
+test('situação Aprovada permanece ao abrir uma saída curta e retornar à lista', async ({
+  page,
+}) => {
+  await mockApi(page, { exits: [{ ...exitFixture(), status: 'APROVADA' }] });
+  await page.goto('/saidas');
+  await page.getByLabel('Situação', { exact: true }).selectOption('APROVADA');
+  const filtered = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      url.pathname === '/api/v1/saidas-curtas' && url.searchParams.get('status') === 'APROVADA'
+    );
+  });
+  await page.getByRole('button', { name: 'Buscar', exact: true }).click();
+  await filtered;
+  await page.getByRole('link', { name: 'Ver solicitação' }).click();
+  await expect(page.getByRole('heading', { name: 'Solicitação de saída curta' })).toBeVisible();
+  const restored = page.waitForRequest(
+    (request) => new URL(request.url()).pathname === '/api/v1/saidas-curtas',
+  );
+  await page.getByRole('link', { name: '← Saídas', exact: true }).click();
+  await expect(page.getByLabel('Situação', { exact: true })).toHaveValue('APROVADA');
+  expect(new URL((await restored).url()).searchParams.get('status')).toBe('APROVADA');
+  await expect(page.getByRole('link', { name: 'Ver solicitação' })).toHaveCount(1);
+});
+
 test('chamada persiste após recarga, confirma alerta e preserva correção da chamada fechada', async ({
   page,
 }) => {
@@ -365,7 +432,7 @@ test('chamada persiste após recarga, confirma alerta e preserva correção da c
     .fill('Ronda presencial concluída antes da janela.');
   await dialog.getByLabel('Confirmo o registro fora da janela').check();
   await dialog.getByRole('button', { name: 'Abrir chamada', exact: true }).click();
-  await expect(page.getByRole('status')).toContainText('Chamada aberta');
+  await expect(page.getByRole('status').filter({ hasText: 'Chamada aberta' })).toBeVisible();
   const first = page.getByRole('group', { name: 'Presença de Estudante Sintético' });
   await first.getByRole('button', { name: 'Presente', exact: true }).click();
   await expect(first.getByRole('button', { name: 'Presente', exact: true })).toHaveAttribute(
@@ -398,7 +465,7 @@ test('chamada persiste após recarga, confirma alerta e preserva correção da c
     .getByLabel('Justificativa', { exact: true })
     .fill('Correção conferida presencialmente com a portaria.');
   await dialog.getByRole('button', { name: 'Salvar correção' }).click();
-  await expect(page.getByRole('status').last()).toContainText('Correção registrada');
+  await expect(page.getByRole('status').filter({ hasText: 'Correção registrada' })).toBeVisible();
   await page.reload();
   await page.getByText('Histórico da marcação (2)').click();
   await expect(

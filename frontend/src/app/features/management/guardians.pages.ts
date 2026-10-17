@@ -1,3 +1,10 @@
+import { debounceTime, merge } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
+import { PaginationComponent } from '../../shared/pagination.component';
+import { normalizeSearch } from '../../shared/search';
+import { rememberFilters, rememberValue } from '../../core/filter-state';
+import { UnsavedFormDirective } from '../../shared/unsaved-form';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -30,7 +37,7 @@ function trimmedLength(min: number, max: number) {
 @Component({
   selector: 'app-guardians',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [SearchableSelectDirective, PaginationComponent, ReactiveFormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page mg-page">
@@ -65,17 +72,36 @@ function trimmedLength(min: number, max: number) {
             [formControl]="search"
             placeholder="Digite um nome"
             autocomplete="off"
-          />
-        </label>
+          /> </label
+        ><label class="field mg-field"
+          >Situação<select sagerSearchable [formControl]="activeFilter">
+            <option value="">Todas</option>
+            <option value="true">Ativo</option>
+            <option value="false">Inativo</option>
+          </select></label
+        >
+        <label class="field mg-field"
+          >Residente vinculado<select sagerSearchable [formControl]="residentFilter">
+            <option value="">Todos</option>
+            @for (resident of isDemo() ? service.residents() : residents(); track resident.id) {
+              <option [value]="resident.id">{{ resident.name }} · {{ resident.enrollment }}</option>
+            }
+          </select></label
+        >
+        <button
+          type="button"
+          class="btn mg-secondary"
+          (click)="search.setValue(''); activeFilter.setValue(''); residentFilter.setValue('')"
+        >
+          Limpar filtros
+        </button>
       </section>
       <section class="mg-section" aria-labelledby="guardian-results-title">
         <div class="mg-section-heading">
           <h2 id="guardian-results-title">Responsáveis cadastrados</h2>
           <p aria-live="polite">
             {{
-              isDemo() && scenario() !== 'padrao'
-                ? 'Cenário demonstrativo'
-                : filtered().length + ' registros'
+              isDemo() && scenario() !== 'padrao' ? 'Cenário demonstrativo' : total() + ' registros'
             }}
           </p>
         </div>
@@ -130,7 +156,7 @@ function trimmedLength(min: number, max: number) {
           </div>
         } @else if (filtered().length) {
           <div class="mg-list">
-            @for (item of filtered(); track item.id) {
+            @for (item of paged(); track item.id) {
               <article class="mg-row">
                 <div class="mg-avatar" aria-hidden="true">{{ item.name.slice(0, 1) }}</div>
                 <div class="mg-row-main">
@@ -161,6 +187,7 @@ function trimmedLength(min: number, max: number) {
             </button>
           </div>
         }
+        <sager-pagination [page]="page()" [total]="total()" (pageChange)="changePage($event)" />
       </section>
       <div class="mg-note">
         <span class="material-symbols-rounded" aria-hidden="true">info</span>
@@ -186,24 +213,56 @@ export class GuardiansPage {
   readonly scenario = this.session.scenario;
   readonly search = new FormControl('', { nonNullable: true });
   readonly query = toSignal(this.search.valueChanges, { initialValue: '' });
+  readonly activeFilter = new FormControl('', { nonNullable: true });
+  readonly residentFilter = new FormControl('', { nonNullable: true });
+  private readonly activeQuery = toSignal(this.activeFilter.valueChanges, { initialValue: '' });
+  private readonly residentQuery = toSignal(this.residentFilter.valueChanges, { initialValue: '' });
   readonly localGuardians = signal<GuardianRecord[]>([]);
   readonly residents = signal<ResidentRecord[]>([]);
   readonly loading = signal(false);
   readonly loadError = signal(false);
   readonly filtered = computed(() => {
-    const query = this.query().trim().toLocaleLowerCase('pt-BR');
+    if (!this.isDemo()) return this.localGuardians();
+    const query = normalizeSearch(this.query());
     const items = this.isDemo() ? this.service.guardians() : this.localGuardians();
     return items.filter(
       (item) =>
-        !query ||
-        `${item.name} ${this.residentName(item.residentId)}`
-          .toLocaleLowerCase('pt-BR')
-          .includes(query),
+        (!this.activeQuery() || item.active === (this.activeQuery() === 'true')) &&
+        (!this.residentQuery() || item.residentId === this.residentQuery()) &&
+        (!query ||
+          normalizeSearch(
+            `${item.name} ${item.phone ?? ''} ${this.residentName(item.residentId)} ${this.isDemo() ? this.service.resident(item.residentId)?.enrollment : (this.residents().find((r) => r.id === item.residentId)?.enrollment ?? '')}`,
+          ).includes(query)),
     );
   });
 
+  readonly remoteTotal = signal(0);
+  readonly total = computed(() => (this.isDemo() ? this.filtered().length : this.remoteTotal()));
+  readonly page = rememberValue('guardians.pages.ts-page', 0);
+  readonly paged = computed(() =>
+    this.isDemo()
+      ? this.filtered().slice(this.page() * 25, (this.page() + 1) * 25)
+      : this.filtered(),
+  );
+
   constructor() {
-    if (!this.isDemo()) void this.load();
+    rememberFilters('guardians', this.search);
+    rememberFilters('guardian-active', this.activeFilter);
+    rememberFilters('guardian-resident', this.residentFilter);
+    merge(
+      this.search.valueChanges,
+      this.activeFilter.valueChanges,
+      this.residentFilter.valueChanges,
+    )
+      .pipe(debounceTime(250), takeUntilDestroyed())
+      .subscribe(() => {
+        this.page.set(0);
+        if (!this.isDemo()) void this.load();
+      });
+    if (this.isDemo()) {
+      const lastPage = Math.max(0, Math.ceil(this.filtered().length / 25) - 1);
+      this.page.update((page) => Math.max(0, Math.min(page, lastPage)));
+    } else void this.load();
   }
 
   residentName(id: string): string {
@@ -223,22 +282,42 @@ export class GuardiansPage {
     else void this.load();
   }
 
+  private generation = 0;
+  changePage(page: number): void {
+    this.page.set(page);
+    if (!this.isDemo()) void this.load();
+  }
   async load(): Promise<void> {
     if (this.isDemo()) return;
+    const generation = ++this.generation;
     this.loading.set(true);
     this.loadError.set(false);
     try {
-      const [guardians, residents] = await Promise.all([this.api.list(), this.residentApi.list()]);
+      const [guardians, residents] = await Promise.all([
+        this.api.page({
+          search: this.search.value,
+          active: this.activeFilter.value,
+          residentId: this.residentFilter.value,
+          limit: '25',
+          offset: String(this.page() * 25),
+        }),
+        this.residentApi.list(),
+      ]);
       if (this.destroyRef.destroyed) return;
-      this.localGuardians.set(guardians);
+      if (generation !== this.generation) return;
+      this.localGuardians.set(guardians.items);
+      this.remoteTotal.set(guardians.total);
       this.residents.set(residents);
+      if (this.page() && this.page() * 25 >= guardians.total) {
+        this.changePage(Math.max(0, Math.ceil(guardians.total / 25) - 1));
+      }
     } catch {
-      if (this.destroyRef.destroyed) return;
+      if (this.destroyRef.destroyed || generation !== this.generation) return;
       this.localGuardians.set([]);
       this.residents.set([]);
       this.loadError.set(true);
     } finally {
-      if (!this.destroyRef.destroyed) this.loading.set(false);
+      if (!this.destroyRef.destroyed && generation === this.generation) this.loading.set(false);
     }
   }
 }
@@ -418,7 +497,7 @@ export class GuardianDetailPage {
 @Component({
   selector: 'app-guardian-form',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [SearchableSelectDirective, UnsavedFormDirective, ReactiveFormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page mg-page mg-narrow">
@@ -455,7 +534,14 @@ export class GuardianDetailPage {
             <p>Vincule o contato a um residente.</p>
           </div>
         </header>
-        <form class="panel mg-panel mg-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+        <form
+          sagerUnsaved
+          [sagerSaving]="saving"
+          class="panel mg-panel mg-form"
+          [formGroup]="form"
+          (ngSubmit)="save()"
+          novalidate
+        >
           <h2>Dados do responsável</h2>
           <p class="mg-muted">
             Campos marcados com * são obrigatórios. Use somente dados fictícios
@@ -468,7 +554,11 @@ export class GuardianDetailPage {
                 form.controls.residentId.invalid && form.controls.residentId.touched
               "
               >Residente vinculado *
-              <select formControlName="residentId" aria-describedby="guardian-resident-error">
+              <select
+                sagerSearchable
+                formControlName="residentId"
+                aria-describedby="guardian-resident-error"
+              >
                 <option value="">Selecione um residente</option>
                 @for (resident of residents(); track resident.id) {
                   <option [value]="resident.id">{{ resident.name }}</option>
@@ -561,9 +651,9 @@ export class GuardianDetailPage {
               class="btn mg-secondary"
               [routerLink]="editId ? ['/responsaveis', editId] : ['/responsaveis']"
               >Cancelar</a
-            ><button class="btn mg-primary" type="submit" [disabled]="saving()">
+            ><button class="btn mg-primary" type="submit" [disabled]="submitting()">
               <span class="material-symbols-rounded" aria-hidden="true">save</span>
-              {{ saving() ? 'Salvando…' : 'Salvar responsável' }}
+              {{ submitting() ? 'Salvando…' : 'Salvar responsável' }}
             </button>
           </div>
         </form>
@@ -590,6 +680,7 @@ export class GuardianFormPage {
   readonly error = signal('');
   readonly conflict = signal(false);
   readonly saving = signal(false);
+  readonly submitting = signal(false);
   readonly form = new FormGroup({
     residentId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     name: new FormControl('', {
@@ -695,7 +786,7 @@ export class GuardianFormPage {
   }
 
   async save(): Promise<void> {
-    if (!this.canEdit() || this.saving()) return;
+    if (!this.canEdit() || this.submitting()) return;
     this.error.set('');
     this.conflict.set(false);
     if (this.form.invalid) {
@@ -703,39 +794,50 @@ export class GuardianFormPage {
       return;
     }
     const value = this.form.getRawValue();
-    if (this.isDemo()) {
-      try {
+    this.submitting.set(true);
+    try {
+      let item: GuardianRecord;
+      if (this.isDemo()) {
         const { residentId, ...input } = value;
-        const item = this.service.saveGuardian(
+        item = this.service.saveGuardian(
           residentId,
           { ...input, phone: input.phone.trim() },
-          this.editId ?? undefined,
+          this.localGuardian()?.id ?? this.editId ?? undefined,
         );
-        await this.router.navigate(['/responsaveis', item.id], { queryParams: { saved: '1' } });
-      } catch (error) {
+      } else {
+        this.saving.set(true);
+        item = await this.api.save(
+          {
+            residentId: value.residentId,
+            name: value.name.trim(),
+            relationship: value.relationship.trim(),
+            phone: value.phone.trim() || null,
+            active: value.active,
+          },
+          this.localGuardian() ?? undefined,
+        );
+      }
+      if (this.destroyRef.destroyed) return;
+      this.localGuardian.set(item);
+      this.saving.set(false);
+      this.form.markAsPristine();
+      const navigationError =
+        'O responsável foi salvo, mas não foi possível abrir o cadastro. Tente novamente ou volte à lista.';
+      try {
+        const navigated = await this.router.navigate(['/responsaveis', item.id], {
+          queryParams: { saved: '1' },
+        });
+        if (!navigated && !this.destroyRef.destroyed) this.error.set(navigationError);
+      } catch {
+        if (!this.destroyRef.destroyed) this.error.set(navigationError);
+      }
+    } catch (error) {
+      if (this.destroyRef.destroyed) return;
+      if (this.isDemo()) {
         this.error.set(
           error instanceof Error ? error.message : 'Não foi possível salvar o responsável.',
         );
-      }
-      return;
-    }
-    this.saving.set(true);
-    try {
-      const item = await this.api.save(
-        {
-          residentId: value.residentId,
-          name: value.name.trim(),
-          relationship: value.relationship.trim(),
-          phone: value.phone.trim() || null,
-          active: value.active,
-        },
-        this.localGuardian() ?? undefined,
-      );
-      if (this.destroyRef.destroyed) return;
-      await this.router.navigate(['/responsaveis', item.id], { queryParams: { saved: '1' } });
-    } catch (error) {
-      if (this.destroyRef.destroyed) return;
-      if (
+      } else if (
         error instanceof GuardianApiError &&
         (error.status === 409 || error.code === 'stale_version')
       ) {
@@ -753,7 +855,10 @@ export class GuardianFormPage {
         );
       }
     } finally {
-      if (!this.destroyRef.destroyed) this.saving.set(false);
+      if (!this.destroyRef.destroyed) {
+        this.saving.set(false);
+        this.submitting.set(false);
+      }
     }
   }
 }

@@ -108,6 +108,7 @@ function fixtureData(empty = false) {
             id: viewer === 'recipient' ? recipientId : authorId,
             nome: 'Conta Sintética Saúde',
             email: 'saude@exemplo.invalid',
+            matricula: 'TESTE-LOGIN',
             fotoUrl: null,
             perfis: [viewer === 'admin' ? 'gestor' : viewer === 'patient' ? 'residente' : 'saude'],
             residenteId: viewer === 'patient' ? residentId : null,
@@ -440,6 +441,46 @@ test('paciente lê notas e histórico próprios e baixa JSON sem residentId envi
   expect(json.notes).toHaveLength(1);
   expect(data.writes.at(-1)).toEqual({ path: '/api/v1/minha-saude/exportacoes', body: {} });
 });
+
+for (const kind of ['habilitação', 'vínculo'] as const) {
+  test(`${kind} salvo libera a navegação e uma nova edição continua protegida`, async ({
+    page,
+  }) => {
+    const data = fixtureData(true);
+    await data.attach(page, 'admin');
+    await page.goto('/saude/acessos');
+    await page.getByLabel('Conta a habilitar *').selectOption(authorId);
+    await page.getByText('Conferir e habilitar profissional', { exact: true }).click();
+    await page.getByLabel('Número do registro profissional *').fill('TESTE-2');
+    await page.getByLabel('UF do registro *').fill('GO');
+    await page
+      .getByLabel('Justificativa da verificação *')
+      .fill('Conferência sintética de documentos');
+    await page.getByRole('button', { name: 'Habilitar profissional', exact: true }).click();
+    await expect(page.getByText('Habilitação registrada.', { exact: true })).toBeVisible();
+    if (kind === 'vínculo') {
+      await page.getByLabel('Residente *', { exact: true }).selectOption(residentId);
+      await page.getByLabel('Habilitação vigente *', { exact: true }).selectOption(authorGrantId);
+      await page.getByLabel('Justificativa do vínculo *').fill('Vínculo assistencial sintético');
+      await page.getByRole('button', { name: 'Criar vínculo assistencial', exact: true }).click();
+      await expect(
+        page.getByText('Vínculo assistencial registrado.', { exact: true }),
+      ).toBeVisible();
+    }
+    await page.getByRole('link', { name: 'Residentes', exact: true }).click();
+    await expect(page).toHaveURL('/residentes');
+    await expect(page.getByRole('alertdialog')).toHaveCount(0);
+    await page.getByRole('link', { name: 'Acessos de saúde', exact: true }).click();
+    if (kind === 'habilitação') {
+      await page.getByText('Conferir e habilitar profissional', { exact: true }).click();
+      await page.getByLabel('Justificativa da verificação *').fill('Novo rascunho sintético');
+    } else await page.getByLabel('Justificativa do vínculo *').fill('Novo rascunho sintético');
+    await page.getByRole('link', { name: 'Residentes', exact: true }).click();
+    await expect(page.getByRole('alertdialog', { name: 'Descartar alterações?' })).toBeVisible();
+    await page.getByRole('button', { name: 'Continuar preenchendo', exact: true }).click();
+    await expect(page).toHaveURL('/saude/acessos');
+  });
+}
 
 test('gestão habilita, vincula e autoriza custódia usando apenas metadados em 320px', async ({
   page,

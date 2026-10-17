@@ -10,7 +10,8 @@ export interface HealthPage<T> {
 export interface HealthAccount {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
+  matricula?: string | null;
   profile: string;
 }
 

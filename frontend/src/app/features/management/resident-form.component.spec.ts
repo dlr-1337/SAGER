@@ -23,7 +23,10 @@ describe('ResidentFormComponent', () => {
       name: 'Pessoa Demonstrativa',
       enrollment: '',
       birthDate: '2009-05-14',
-      course: 'Agropecuária',
+      courseId: '',
+      institutionalEmail: '',
+      password: 'Senha teste 123!',
+      passwordConfirmation: 'Senha teste 123!',
     });
 
     fixture.nativeElement.querySelector('button[type="submit"]').click();
@@ -44,7 +47,10 @@ describe('ResidentFormComponent', () => {
       name: 'Pessoa Demonstrativa',
       enrollment: 'DEMO-999',
       birthDate: '',
-      course: 'Agropecuária',
+      courseId: '',
+      institutionalEmail: '',
+      password: 'Senha teste 123!',
+      passwordConfirmation: 'Senha teste 123!',
     });
     fixture.componentInstance.save();
     fixture.detectChanges();

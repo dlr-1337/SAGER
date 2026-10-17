@@ -1,3 +1,4 @@
+import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -68,7 +69,7 @@ export interface CommunicationReviewResult {
 @Component({
   standalone: true,
   selector: 'sager-communication-review',
-  imports: [MatDialogModule, ReactiveFormsModule],
+  imports: [SearchableSelectDirective, MatDialogModule, ReactiveFormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h2 mat-dialog-title>{{ data.title }}</h2>
@@ -90,7 +91,7 @@ export interface CommunicationReviewResult {
       </dl>
       @if (data.archive) {
         <label class="field"
-          >Motivo do arquivamento<select [formControl]="code">
+          >Motivo do arquivamento<select sagerSearchable [formControl]="code">
             @for (item of archiveCodes; track item) {
               <option [value]="item">{{ codes[item] }}</option>
             }

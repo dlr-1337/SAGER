@@ -1,3 +1,4 @@
+import { readArrayPage } from '../../core/list-page';
 import { Injectable } from '@angular/core';
 import {
   Accommodation,
@@ -66,6 +67,18 @@ function isRoom(value: unknown): value is RoomRecord {
 
 @Injectable({ providedIn: 'root' })
 export class RoomApiService {
+  async page(
+    params: Record<string, string>,
+    signal?: AbortSignal,
+  ): Promise<{ items: RoomRecord[]; total: number }> {
+    return readArrayPage(
+      baseUrl,
+      params,
+      isRoom,
+      (response) => this.responseError(response),
+      signal,
+    );
+  }
   async list(): Promise<RoomRecord[]> {
     const value = await this.read(baseUrl);
     if (!Array.isArray(value) || !value.every(isRoom)) {

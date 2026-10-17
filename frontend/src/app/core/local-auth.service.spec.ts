@@ -6,6 +6,7 @@ const principal = {
   id: '00000000-0000-0000-0000-000000000001',
   nome: 'Operadora Exemplo',
   email: 'operadora@example.test',
+  matricula: 'TESTE-LOGIN',
   fotoUrl: null,
   perfis: ['gestor' as const],
   residenteId: null,
@@ -28,13 +29,13 @@ describe('LocalAuthService', () => {
     vi.stubGlobal('fetch', fetchMock);
     const auth = TestBed.inject(LocalAuthService);
 
-    expect(await auth.login(principal.email, 'senha de teste')).toBe('success');
+    expect(await auth.login(principal.matricula, 'senha de teste')).toBe('success');
     expect(auth.principal()?.perfis).toEqual(['gestor']);
     const [url, request] = fetchMock.mock.calls[1] as [string, RequestInit];
     expect(url).toBe('/api/v1/auth/login');
     expect(request.credentials).toBe('same-origin');
     expect(request.headers).toMatchObject({ 'X-CSRF-TOKEN': 'csrf-test' });
-    expect(new URLSearchParams(request.body as string).get('email')).toBe(principal.email);
+    expect(new URLSearchParams(request.body as string).get('matricula')).toBe(principal.matricula);
     expect(new URLSearchParams(request.body as string).get('password')).toBe('senha de teste');
   });
 

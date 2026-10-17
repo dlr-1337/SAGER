@@ -29,6 +29,7 @@ async function session(page: Page, profile: 'gestor' | 'supervisor' = 'gestor') 
           id: '00000000-0000-0000-0000-000000000001',
           nome: 'Conta Sintética',
           email: 'conta@example.invalid',
+          matricula: 'TESTE-LOGIN',
           fotoUrl: null,
           perfis: [profile],
           residenteId: null,
@@ -39,14 +40,18 @@ async function session(page: Page, profile: 'gestor' | 'supervisor' = 'gestor') 
   });
 }
 
-function registry(initial: Guardian[] = []) {
+function registry(initial: Guardian[] = [], residents = [resident]) {
   const records = initial;
   const writes: Record<string, unknown>[] = [];
   let failList = false;
   async function attach(page: Page) {
     await page.route('**/api/v1/residentes**', (route) => {
       const path = new URL(route.request().url()).pathname;
-      return route.fulfill({ json: path.endsWith('/residentes') ? [resident] : resident });
+      return route.fulfill({
+        json: path.endsWith('/residentes')
+          ? residents
+          : residents.find((item) => path.endsWith(item.id)),
+      });
     });
     await page.route('**/api/v1/responsaveis**', (route) => {
       const request = route.request();
@@ -92,6 +97,90 @@ function registry(initial: Guardian[] = []) {
     },
   };
 }
+
+for (const edit of [false, true]) {
+  test(`responsável mantém envio único com navegação lenta (${edit ? 'edição' : 'criação'})`, async ({
+    page,
+  }) => {
+    await session(page);
+    const guardian: Guardian = {
+      id: guardianId,
+      residentId,
+      name: 'Responsável Sintético',
+      relationship: 'Mãe',
+      phone: null,
+      active: true,
+      version: 0,
+    };
+    const data = registry(edit ? [guardian] : []);
+    await data.attach(page);
+    await page.goto(edit ? `/responsaveis/${guardianId}/editar` : '/responsaveis/novo');
+    await page.getByLabel('Residente vinculado *').selectOption(residentId);
+    await page.getByRole('textbox', { name: 'Nome completo *' }).fill('Responsável Sintético');
+    await page.getByRole('textbox', { name: 'Vínculo com o residente *' }).fill('Mãe');
+    let authPending = false;
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route('**/api/v1/auth/me', async (route) => {
+      authPending = true;
+      await pending;
+      await route.fallback();
+    });
+    const submit = page.getByRole('button', { name: 'Salvar responsável', exact: true });
+    await submit.click();
+    try {
+      await expect.poll(() => authPending).toBe(true);
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+      await expect(page.locator('button[type="submit"]')).toBeDisabled();
+      await page.locator('form.mg-form').dispatchEvent('submit');
+      expect(data.writes).toHaveLength(1);
+    } finally {
+      release();
+    }
+    await expect(page).toHaveURL(`/responsaveis/${guardianId}?saved=1`);
+    await expect(page.getByRole('heading', { name: guardian.name, exact: true })).toBeVisible();
+    expect(data.writes).toHaveLength(1);
+    expect(data.records).toHaveLength(1);
+  });
+}
+
+test('Enter na busca do seletor não salva antes de escolher o residente', async ({ page }) => {
+  await session(page);
+  const residents = Array.from({ length: 9 }, (_, index) => ({
+    ...resident,
+    id:
+      index === 0 ? residentId : `00000000-0000-0000-0000-${String(index + 41).padStart(12, '0')}`,
+    name: `Estudante Sintético ${index + 1}`,
+    enrollment: `TESTE-${index + 1}`,
+  }));
+  const guardian: Guardian = {
+    id: guardianId,
+    residentId,
+    name: 'Responsável Sintético',
+    relationship: 'Mãe',
+    phone: null,
+    active: true,
+    version: 0,
+  };
+  const data = registry([guardian], residents);
+  await data.attach(page);
+  await page.goto(`/responsaveis/${guardianId}/editar`);
+  const search = page.getByRole('searchbox', { name: /Buscar opções de Residente vinculado/ });
+  const select = page.getByRole('combobox', { name: /^Residente vinculado/ });
+  await search.fill(residents[1].name);
+  await search.press('Enter');
+  await expect(search).toBeFocused();
+  await expect(select).toHaveValue(residentId);
+  await expect(page).toHaveURL(`/responsaveis/${guardianId}/editar`);
+  expect(data.writes).toHaveLength(0);
+  await select.selectOption(residents[1].id);
+  await page.getByRole('button', { name: 'Salvar responsável', exact: true }).click();
+  await expect(page.getByRole('heading', { name: guardian.name, exact: true })).toBeVisible();
+  expect(data.writes).toHaveLength(1);
+  expect(data.writes[0]).toMatchObject({ residentId: residents[1].id, version: 0 });
+});
 
 test('gestor cadastra, consulta, edita e recarrega responsável sem autorização fictícia', async ({
   page,

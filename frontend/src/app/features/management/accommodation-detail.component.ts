@@ -1,3 +1,4 @@
+import { UnsavedFormDirective, UnsavedForms } from '../../shared/unsaved-form';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -10,7 +11,7 @@ import { Accommodation, AccommodationUnit } from './housing.models';
   selector: 'app-accommodation-detail',
   styleUrl: './housing.scss',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [UnsavedFormDirective, ReactiveFormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page mg-page mg-narrow">
@@ -100,6 +101,8 @@ import { Accommodation, AccommodationUnit } from './housing.models';
           }
           @if (unitOpen()) {
             <form
+              sagerUnsaved
+              [sagerSaving]="unitSaving"
               class="panel mg-panel mg-form"
               [formGroup]="unitForm"
               (ngSubmit)="saveUnit()"
@@ -183,6 +186,7 @@ import { Accommodation, AccommodationUnit } from './housing.models';
   `,
 })
 export class AccommodationDetailComponent {
+  private readonly drafts = inject(UnsavedForms);
   private readonly data = inject(AccommodationDataService);
   private readonly session = inject(DemoSessionService);
   private readonly route = inject(ActivatedRoute);
@@ -252,7 +256,8 @@ export class AccommodationDetailComponent {
     this.unitConflict.set(false);
     this.unitSuccess.set('');
   }
-  cancelUnit(): void {
+  async cancelUnit(): Promise<void> {
+    if (!(await this.drafts.canLeave())) return;
     this.unitOpen.set(false);
     this.unitError.set('');
     this.unitConflict.set(false);
@@ -286,6 +291,7 @@ export class AccommodationDetailComponent {
     try {
       const unit = await this.data.saveUnit(this.id, input, this.editingUnit() ?? undefined);
       this.units.update((items) => [...items.filter((entry) => entry.id !== unit.id), unit]);
+      this.unitForm.markAsPristine();
       this.unitOpen.set(false);
       this.unitSuccess.set(
         this.isDemo()

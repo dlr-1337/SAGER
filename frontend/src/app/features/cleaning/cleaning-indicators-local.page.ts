@@ -1,3 +1,4 @@
+import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -14,6 +15,7 @@ import { reportingError } from './reporting-local.transport';
   standalone: true,
   selector: 'sager-cleaning-indicators-local',
   imports: [
+    SearchableSelectDirective,
     RouterLink,
     ReactiveFormsModule,
     CommunicationsStateComponent,
@@ -43,7 +45,7 @@ import { reportingError } from './reporting-local.transport';
         <h2>Residente e período</h2>
         <form class="comm-form-grid" [formGroup]="form" (ngSubmit)="load()">
           <label class="field"
-            >Residente<select formControlName="residentId">
+            >Residente<select sagerSearchable formControlName="residentId">
               <option value="">Selecione um residente</option>
               @for (resident of residents(); track resident.id) {
                 <option [value]="resident.id">

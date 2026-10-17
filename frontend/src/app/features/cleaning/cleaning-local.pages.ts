@@ -1,3 +1,5 @@
+import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
+import { rememberFilters } from '../../core/filter-state';
 import { ChangeDetectionStrategy, Component, forwardRef, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -43,7 +45,12 @@ export class CleaningPage {
 @Component({
   standalone: true,
   selector: 'sager-cleaning-list-local',
-  imports: [RouterLink, ReactiveFormsModule, CommunicationsStateComponent],
+  imports: [
+    SearchableSelectDirective,
+    RouterLink,
+    ReactiveFormsModule,
+    CommunicationsStateComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page comm-page">
@@ -84,14 +91,14 @@ export class CleaningPage {
             ><label class="field">Data final<input type="date" formControlName="to" /></label>
             @if (!own) {
               <label class="field"
-                >Quarto<select formControlName="roomId">
+                >Quarto<select sagerSearchable formControlName="roomId">
                   <option value="">Todos os quartos</option>
                   @for (room of rooms(); track room.id) {
                     <option [value]="room.id">{{ room.code }}</option>
                   }
                 </select></label
               ><label class="field"
-                >Residente participante<select formControlName="residentId">
+                >Residente participante<select sagerSearchable formControlName="residentId">
                   <option value="">Todos os participantes</option>
                   @for (resident of residents(); track resident.id) {
                     <option [value]="resident.id">
@@ -198,6 +205,7 @@ export class CleaningListLocalPage {
   readonly formatTime = formatCommunicationTime;
   readonly decimal = decimal;
   constructor() {
+    rememberFilters('cleaning-local.pages', this.filters);
     void this.load();
   }
   allowed(): boolean {
@@ -501,7 +509,12 @@ export class RankingPage {
 @Component({
   standalone: true,
   selector: 'sager-ranking-local',
-  imports: [RouterLink, ReactiveFormsModule, CommunicationsStateComponent],
+  imports: [
+    SearchableSelectDirective,
+    RouterLink,
+    ReactiveFormsModule,
+    CommunicationsStateComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page comm-narrow">
@@ -525,7 +538,7 @@ export class RankingPage {
           <h2>Período de comparação</h2>
           <form class="comm-form-grid" [formGroup]="form" (ngSubmit)="load()">
             <label class="field"
-              >Período<select formControlName="period">
+              >Período<select sagerSearchable formControlName="period">
                 <option value="WEEK">Semana</option>
                 <option value="MONTH">Mês</option>
                 <option value="SEMESTER">Semestre</option>

@@ -36,16 +36,16 @@ import { LocalHomePage } from './local-home.page';
         <p>
           {{
             session.production
-              ? 'Entre com a conta do SAGER fornecida pela instituição.'
-              : 'Entre com a conta local fornecida pelo operador. As telas usam dados sintéticos neste ambiente de teste.'
+              ? 'Entre com sua matrícula e a senha do SAGER.'
+              : 'Entre com a matrícula e a senha local. Este ambiente usa dados sintéticos.'
           }}
         </p>
         <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
-          <label for="login-email">E-mail</label>
+          <label for="login-enrollment">Matrícula</label>
           <input
-            id="login-email"
-            type="email"
-            formControlName="email"
+            id="login-enrollment"
+            type="text"
+            formControlName="matricula"
             autocomplete="username"
             required
           />
@@ -61,9 +61,10 @@ import { LocalHomePage } from './local-home.page';
             <p class="login-error" role="alert">{{ error() }}</p>
           }
           <button class="btn" type="submit" [disabled]="busy()">
-            {{ busy() ? 'Entrando...' : 'Entrar com e-mail e senha' }}
+            {{ busy() ? 'Entrando...' : 'Entrar' }}
           </button>
         </form>
+        <p><a routerLink="/recuperar-senha">Esqueci minha senha</a></p>
         @if (session.demoAvailable) {
           <div class="access-divider"><span>ou</span></div>
           <p class="demo-intro">
@@ -80,7 +81,7 @@ import { LocalHomePage } from './local-home.page';
         } @else {
           <div class="access-support">
             <a routerLink="/ajuda">Ajuda para acessar</a
-            ><span>Para recuperar sua conta, procure o operador do SAGER.</span>
+            ><span>Servidores devem procurar o operador para recuperar o acesso.</span>
           </div>
         }
       </section>
@@ -272,9 +273,9 @@ export class AccessPage {
   readonly busy = signal(false);
   readonly error = signal('');
   readonly form = new FormGroup({
-    email: new FormControl('', {
+    matricula: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.required, Validators.email],
+      validators: [Validators.required, Validators.maxLength(64)],
     }),
     password: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
   });
@@ -283,27 +284,29 @@ export class AccessPage {
     this.error.set('');
     if (this.form.invalid) {
       this.form.markAllAsTouched();
-      this.error.set('Informe um e-mail válido e a senha.');
+      this.error.set('Informe sua matrícula e senha.');
       return;
     }
     this.busy.set(true);
     try {
       const result = await this.auth.login(
-        this.form.controls.email.value.trim(),
+        this.form.controls.matricula.value.trim(),
         this.form.controls.password.value,
       );
       if (result === 'invalid') {
-        this.error.set('E-mail ou senha inválidos, ou conta desativada.');
+        this.error.set('Matrícula ou senha inválidos, ou conta desativada.');
         return;
       }
       this.session.deactivate();
       this.form.controls.password.reset();
       await this.router.navigateByUrl('/inicio');
-    } catch {
+    } catch (error) {
       this.error.set(
-        this.session.production
-          ? 'Não foi possível acessar o SAGER. Tente novamente mais tarde.'
-          : 'O login local está indisponível. Você ainda pode explorar a demonstração.',
+        error instanceof Error
+          ? error.message
+          : this.session.production
+            ? 'Não foi possível acessar o SAGER. Tente novamente mais tarde.'
+            : 'O login local está indisponível. Você ainda pode explorar a demonstração.',
       );
     } finally {
       this.busy.set(false);
@@ -1180,8 +1183,8 @@ export class HomePage {
           } @else {
             <h2>Usar sua conta SAGER</h2>
             <p>
-              Entre com o e-mail e a senha fornecidos pela instituição. Seu perfil determina as
-              tarefas disponíveis. Confira os dados antes de confirmar uma ação.
+              Entre com sua matrícula e a senha do SAGER. Seu perfil determina as tarefas
+              disponíveis. Confira os dados antes de confirmar uma ação.
             </p>
             <a routerLink="/perfil">Consultar meu perfil e vínculo</a>
           }
@@ -1439,7 +1442,9 @@ export class HelpPage {
       </div>
       <div>
         <strong>{{ session.active() ? label() : auth.principal()?.nome }}</strong
-        ><span>{{ session.active() ? 'IF Goiano · Campus Urutaí' : auth.principal()?.email }}</span>
+        ><span>{{
+          session.active() ? 'IF Goiano · Campus Urutaí' : auth.principal()?.matricula
+        }}</span>
         @if (session.active()) {
           <small>Dados fictícios da demonstração</small>
         } @else {

@@ -1,3 +1,5 @@
+import { CommunicationFiltersComponent } from './communication-filters.component';
+import { UnsavedFormDirective } from '../../shared/unsaved-form';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -48,7 +50,7 @@ const statusLabels = { RASCUNHO: 'Rascunho', PUBLICADO: 'Publicado', RETIRADO: '
 @Component({
   standalone: true,
   selector: 'sager-notices-management-local',
-  imports: [RouterLink, CommunicationsStateComponent],
+  imports: [CommunicationFiltersComponent, RouterLink, CommunicationsStateComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page comm-page">
@@ -62,6 +64,9 @@ const statusLabels = { RASCUNHO: 'Rascunho', PUBLICADO: 'Publicado', RETIRADO: '
           <a class="btn" routerLink="/comunicacoes/avisos/novo">Preparar aviso</a>
         }
       </header>
+      @if (!session.active() && session.hasRole('supervisor')) {
+        <sager-communication-filters mode="notices" (changed)="searchFilters = $event; load()" />
+      }
       <sager-communications-state
         [demo]="session.active()"
         [blocked]="!session.hasRole('supervisor')"
@@ -120,6 +125,9 @@ const statusLabels = { RASCUNHO: 'Rascunho', PUBLICADO: 'Publicado', RETIRADO: '
   styleUrl: './communications-local.scss',
 })
 export class NoticesManagementLocalPage {
+  searchFilters: Record<string, string> = {};
+  private appliedSearch: Record<string, string> = {};
+
   readonly session = inject(DemoSessionService);
   private readonly api = inject(CommunicationsLocalApiService);
   readonly items = signal<PublishedNotice[]>([]);
@@ -130,40 +138,47 @@ export class NoticesManagementLocalPage {
   readonly moreError = signal('');
   readonly labels = statusLabels;
   readonly formatTime = formatCommunicationTime;
+  private generation = 0;
   constructor() {
     void this.load();
   }
   async load(): Promise<void> {
+    this.appliedSearch = { ...this.searchFilters };
+    const generation = ++this.generation;
     if (this.session.active() || !this.session.hasRole('supervisor')) return;
     this.loading.set(true);
+    this.moreLoading.set(false);
     this.error.set('');
     this.moreError.set('');
     try {
-      const page = await this.api.notices();
+      const page = await this.api.notices(undefined, this.appliedSearch);
+      if (generation !== this.generation) return;
       this.items.set(page.items);
       this.nextCursor.set(page.nextCursor);
     } catch (error) {
-      this.error.set(communicationsError(error));
+      if (generation === this.generation) this.error.set(communicationsError(error));
     } finally {
-      this.loading.set(false);
+      if (generation === this.generation) this.loading.set(false);
     }
   }
   async more(): Promise<void> {
+    const generation = this.generation;
     const cursor = this.nextCursor();
     if (cursor === null || this.moreLoading()) return;
     this.moreLoading.set(true);
     this.moreError.set('');
     try {
-      const page = await this.api.notices(cursor);
+      const page = await this.api.notices(cursor, this.appliedSearch);
+      if (generation !== this.generation) return;
       this.items.update((items) => [
         ...items,
         ...page.items.filter((item) => !items.some((old) => old.id === item.id)),
       ]);
       this.nextCursor.set(page.nextCursor);
     } catch (error) {
-      this.moreError.set(communicationsError(error));
+      if (generation === this.generation) this.moreError.set(communicationsError(error));
     } finally {
-      this.moreLoading.set(false);
+      if (generation === this.generation) this.moreLoading.set(false);
     }
   }
 }
@@ -171,7 +186,7 @@ export class NoticesManagementLocalPage {
 @Component({
   standalone: true,
   selector: 'sager-notice-form-local',
-  imports: [RouterLink, ReactiveFormsModule, CommunicationsStateComponent],
+  imports: [UnsavedFormDirective, RouterLink, ReactiveFormsModule, CommunicationsStateComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page comm-narrow">
@@ -190,7 +205,14 @@ export class NoticesManagementLocalPage {
         (retry)="load()"
       />
       @if (!session.active() && session.hasRole('supervisor') && !loading() && !loadError()) {
-        <form class="panel op-panel comm-form" [formGroup]="form" (ngSubmit)="review()" novalidate>
+        <form
+          sagerUnsaved
+          [sagerSaving]="busy"
+          class="panel op-panel comm-form"
+          [formGroup]="form"
+          (ngSubmit)="review()"
+          novalidate
+        >
           <h2>Conteúdo do aviso</h2>
           <label class="field"
             >Título<input type="text" maxlength="200" formControlName="title" /></label
@@ -202,6 +224,7 @@ export class NoticesManagementLocalPage {
             <label class="field"
               >Buscar residente<input
                 type="search"
+                data-filter-input
                 [formControl]="search"
                 placeholder="Nome ou matrícula"
             /></label>
@@ -357,6 +380,8 @@ export class NoticeFormLocalPage {
         ...input,
         idempotencyKey: this.intent.for(input),
       });
+      this.busy.set(false);
+      this.form.markAsPristine();
       await this.router.navigate(['/comunicacoes/avisos', notice.id]);
     } catch (error) {
       this.error.set(communicationsError(error));
@@ -370,7 +395,7 @@ export class NoticeFormLocalPage {
 @Component({
   standalone: true,
   selector: 'sager-notice-detail-local',
-  imports: [RouterLink, ReactiveFormsModule, CommunicationsStateComponent],
+  imports: [UnsavedFormDirective, RouterLink, ReactiveFormsModule, CommunicationsStateComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page comm-narrow">
@@ -444,7 +469,14 @@ export class NoticeFormLocalPage {
             }
           </div>
           @if (edit() && notice.status === 'PUBLICADO') {
-            <form class="comm-form" [formGroup]="form" (ngSubmit)="revise()" novalidate>
+            <form
+              sagerUnsaved
+              [sagerSaving]="busy"
+              class="comm-form"
+              [formGroup]="form"
+              (ngSubmit)="revise()"
+              novalidate
+            >
               <h3>Nova versão do conteúdo</h3>
               <p class="comm-help">
                 Destinatários preservados. A versão anterior e sua leitura e ciência continuam no

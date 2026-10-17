@@ -1,3 +1,4 @@
+import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import { ChangeDetectionStrategy, Component, OnDestroy, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
@@ -44,7 +45,12 @@ import {
 @Component({
   standalone: true,
   selector: 'sager-reports-local',
-  imports: [RouterLink, ReactiveFormsModule, CommunicationsStateComponent],
+  imports: [
+    SearchableSelectDirective,
+    RouterLink,
+    ReactiveFormsModule,
+    CommunicationsStateComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `<main class="page op-page comm-page">
     <header class="op-heading">
@@ -74,6 +80,7 @@ import {
           <div class="comm-form-grid">
             <label class="field"
               >Tipo de relatório<select
+                sagerSearchable
                 formControlName="catalogCode"
                 (change)="form.controls.status.setValue('')"
               >
@@ -85,6 +92,7 @@ import {
             ><label class="field">Data final<input type="date" formControlName="to" /></label
             ><label class="field"
               >Alojamento<select
+                sagerSearchable
                 formControlName="accommodationId"
                 (change)="form.controls.roomId.setValue('')"
               >
@@ -94,21 +102,21 @@ import {
                 }
               </select></label
             ><label class="field"
-              >Quarto<select formControlName="roomId">
+              >Quarto<select sagerSearchable formControlName="roomId">
                 <option value="">Todos os quartos</option>
                 @for (item of visibleRooms(); track item.id) {
                   <option [value]="item.id">{{ item.code }}</option>
                 }
               </select></label
             ><label class="field"
-              >Residente<select formControlName="residentId">
+              >Residente<select sagerSearchable formControlName="residentId">
                 <option value="">Todos os residentes</option>
                 @for (item of residents(); track item.id) {
                   <option [value]="item.id">{{ item.name }} · {{ item.enrollment }}</option>
                 }
               </select></label
             ><label class="field"
-              >Situação<select formControlName="status">
+              >Situação<select sagerSearchable formControlName="status">
                 <option value="">Todas as situações</option>
                 @for (status of statuses(); track status) {
                   <option [value]="status">{{ statusLabels[status] || status }}</option>

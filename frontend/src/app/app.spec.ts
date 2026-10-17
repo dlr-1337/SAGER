@@ -1,3 +1,5 @@
+import { vi } from 'vitest';
+import { UnsavedForms } from './shared/unsaved-form';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { App } from './app';
@@ -24,6 +26,7 @@ describe('App', () => {
       id: '00000000-0000-0000-0000-000000000001',
       nome: 'Profissional Sintética',
       email: 'saude@example.test',
+      matricula: 'TESTE-LOGIN',
       fotoUrl: null,
       perfis: ['saude'],
       residenteId: null,
@@ -56,6 +59,7 @@ describe('App', () => {
       id: '00000000-0000-0000-0000-000000000001',
       nome: 'Supervisora Sintética',
       email: 'supervisor@example.test',
+      matricula: 'TESTE-LOGIN',
       fotoUrl: null,
       perfis: ['supervisor' as const],
       residenteId: null,
@@ -81,5 +85,13 @@ describe('App', () => {
     expect(ownItems.map((item) => item.path)).not.toContain('/limpeza');
     expect(ownItems.find((item) => item.path === '/avisos')?.label).toBe('Minhas comunicações');
     expect(ownItems.map((item) => item.path)).not.toContain('/comunicacoes/avisos');
+  });
+  it('confirma alterações antes de encerrar a sessão', async () => {
+    TestBed.inject(DemoSessionService).deactivate();
+    const logout = vi.spyOn(TestBed.inject(LocalAuthService), 'logout').mockResolvedValue();
+    vi.spyOn(TestBed.inject(UnsavedForms), 'canLeave').mockResolvedValue(false);
+    const fixture = TestBed.createComponent(App);
+    await fixture.componentInstance.signOut();
+    expect(logout).not.toHaveBeenCalled();
   });
 });

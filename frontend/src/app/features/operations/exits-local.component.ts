@@ -1,4 +1,10 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { PaginationComponent } from '../../shared/pagination.component';
+import { debounceTime } from 'rxjs';
+import { AccommodationApiService } from '../management/accommodation-api.service';
+import { Accommodation } from '../management/housing.models';
+import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
+import { FilterState, rememberFilters } from '../../core/filter-state';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -13,7 +19,7 @@ import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
 @Component({
   standalone: true,
   selector: 'app-exits-local',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [PaginationComponent, SearchableSelectDirective, ReactiveFormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page">
@@ -71,22 +77,40 @@ import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
             <label class="field"
               >Nome ou matrícula<input type="search" formControlName="search" /></label
             ><label class="field"
-              >Situação<select formControlName="status">
+              >Situação<select sagerSearchable formControlName="status">
                 <option value="">Todas</option>
                 @for (status of statuses; track status) {
                   <option [value]="status">{{ labels[status] }}</option>
                 }
               </select></label
-            ><button type="submit" class="btn op-secondary" [disabled]="loading()">Buscar</button>
+            >
+            <label class="field"
+              >Saída a partir de<input type="date" formControlName="from" /></label
+            ><label class="field">Saída até<input type="date" formControlName="to" /></label>
+            @if (session.hasRole('supervisor')) {
+              <label class="field"
+                >Alojamento<select sagerSearchable formControlName="accommodationId">
+                  <option value="">Todos</option>
+                  @for (a of accommodations(); track a.id) {
+                    <option [value]="a.id">{{ a.name }}</option>
+                  }
+                </select></label
+              >
+            }
+            <button type="button" class="btn op-secondary" (click)="clear()">Limpar filtros</button>
+            <button type="submit" class="btn op-secondary" [disabled]="loading()">Buscar</button>
           </form>
         </section>
+        @if (optionsError()) {
+          <p class="op-help">{{ optionsError() }}</p>
+        }
         <section class="op-section" aria-labelledby="local-exit-results">
           <div class="op-section-heading">
             <h2 id="local-exit-results">
               {{ longMode() ? 'Solicitações de saída longa' : 'Solicitações de saída curta' }}
             </h2>
             @if (!loading() && !error()) {
-              <p aria-live="polite">{{ items().length }} registro(s)</p>
+              <p aria-live="polite">{{ total() }} registro(s)</p>
             }
           </div>
           @if (loading()) {
@@ -143,6 +167,12 @@ import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
               }
             </div>
           }
+          <sager-pagination
+            [page]="page()"
+            [total]="total()"
+            [busy]="loading()"
+            (pageChange)="changePage($event)"
+          />
         </section>
       }
     </main>
@@ -184,7 +214,19 @@ export class ExitsLocalComponent {
   private readonly api = inject(OperationsLocalApiService);
   private readonly longApi = inject(LongExitApiService);
   private readonly route = inject(ActivatedRoute);
-  readonly longMode = signal(false);
+  private readonly filterState = inject(FilterState);
+  private readonly destroy = inject(DestroyRef);
+  private readonly accommodationApi = inject(AccommodationApiService);
+  readonly accommodations = signal<Accommodation[]>([]);
+  readonly optionsError = signal('');
+  readonly total = signal(0);
+  readonly page = signal(0);
+  private request?: AbortController;
+  changePage(page: number): void {
+    this.page.set(page);
+    void this.load();
+  }
+  readonly longMode = signal(this.route.snapshot.queryParamMap.get('tipo') === 'longa');
   readonly items = signal<(ShortExit | LongExit)[]>([]);
   readonly signatures = signatureStatusLabels;
   readonly messages = messageStatusLabels;
@@ -196,12 +238,41 @@ export class ExitsLocalComponent {
   readonly filters = new FormGroup({
     search: new FormControl('', { nonNullable: true }),
     status: new FormControl('', { nonNullable: true }),
+    from: new FormControl('', { nonNullable: true }),
+    to: new FormControl('', { nonNullable: true }),
+    accommodationId: new FormControl('', { nonNullable: true }),
   });
   private sequence = 0;
   constructor() {
+    rememberFilters('exits-local.component', this.filters);
+    this.filters.valueChanges.pipe(debounceTime(250), takeUntilDestroyed()).subscribe(() => {
+      this.page.set(0);
+      void this.load();
+    });
+    if (this.session.hasRole('supervisor'))
+      void this.accommodationApi
+        .list()
+        .then((items) => {
+          if (!this.destroy.destroyed) this.accommodations.set(items);
+        })
+        .catch(() => {
+          if (!this.destroy.destroyed)
+            this.optionsError.set(
+              'Não foi possível carregar os alojamentos. Recarregue a página para tentar novamente.',
+            );
+        });
+    this.destroy.onDestroy(() => {
+      this.sequence++;
+      this.request?.abort();
+    });
     this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((params) => {
-      this.longMode.set(params.get('tipo') === 'longa');
-      this.filters.controls.status.setValue('');
+      const longMode = params.get('tipo') === 'longa';
+      if (longMode !== this.longMode()) {
+        this.filters.controls.status.setValue('', { emitEvent: false });
+        this.filterState.values.set('exits-local.component', this.filters.getRawValue());
+      }
+      this.longMode.set(longMode);
+      this.page.set(0);
       if (this.session.hasRole('supervisor', 'residente')) void this.load();
     });
   }
@@ -211,15 +282,30 @@ export class ExitsLocalComponent {
   async load(): Promise<void> {
     if (!this.session.hasRole('supervisor', 'residente')) return;
     const sequence = ++this.sequence;
+    this.request?.abort();
+    const request = (this.request = new AbortController());
     this.loading.set(true);
     this.error.set('');
     this.items.set([]);
     try {
       const value = this.filters.getRawValue();
-      const items = this.longMode()
-        ? await this.longApi.list(value.search.trim(), value.status)
-        : await this.api.exits(value.search.trim(), value.status);
-      if (sequence === this.sequence) this.items.set(items);
+      if (value.from && value.to && value.from > value.to)
+        throw new Error('A data inicial deve ser anterior ou igual à final.');
+      const params = {
+        ...Object.fromEntries(Object.entries(value).filter(([, value]) => !!value)),
+        limit: '25',
+        offset: String(this.page() * 25),
+      };
+      const result = this.longMode()
+        ? await this.longApi.page(params, request.signal)
+        : await this.api.exitsPage(params, request.signal);
+      if (sequence === this.sequence) {
+        this.items.set(result.items);
+        this.total.set(result.total);
+        if (this.page() && this.page() * 25 >= result.total) {
+          this.changePage(Math.max(0, Math.ceil(result.total / 25) - 1));
+        }
+      }
     } catch (error) {
       if (sequence === this.sequence) this.error.set(operationsError(error));
     } finally {
@@ -227,7 +313,8 @@ export class ExitsLocalComponent {
     }
   }
   clear(): void {
-    this.filters.reset({ search: '', status: '' });
+    this.filters.reset({ search: '', status: '', from: '', to: '', accommodationId: '' });
+    this.page.set(0);
     void this.load();
   }
 }

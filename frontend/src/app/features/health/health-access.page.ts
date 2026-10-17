@@ -1,3 +1,5 @@
+import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
+import { UnsavedFormDirective } from '../../shared/unsaved-form';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -33,7 +35,13 @@ type EndAction = {
 
 @Component({
   selector: 'app-health-access',
-  imports: [DatePipe, ReactiveFormsModule, RouterLink],
+  imports: [
+    SearchableSelectDirective,
+    UnsavedFormDirective,
+    DatePipe,
+    ReactiveFormsModule,
+    RouterLink,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './health.scss',
   template: `
@@ -81,6 +89,7 @@ type EndAction = {
           <div class="field health-section">
             <label for="grant-account">Conta a habilitar *</label>
             <select
+              sagerSearchable
               id="grant-account"
               [formControl]="grantForm.controls.accountId"
               (change)="loadGrants()"
@@ -89,7 +98,10 @@ type EndAction = {
             >
               <option value="">Selecione uma conta</option>
               @for (account of accounts(); track account.id) {
-                <option [value]="account.id">{{ account.name }} · {{ account.email }}</option>
+                <option [value]="account.id">
+                  {{ account.name }} ·
+                  {{ account.matricula || account.email || 'Sem matrícula atribuída' }}
+                </option>
               }</select
             ><span
               id="grant-account-help"
@@ -113,11 +125,17 @@ type EndAction = {
           }
           <details class="health-disclosure">
             <summary>Conferir e habilitar profissional</summary>
-            <form class="health-form" [formGroup]="grantForm" (ngSubmit)="createGrant()">
+            <form
+              sagerUnsaved
+              [sagerSaving]="busy"
+              class="health-form"
+              [formGroup]="grantForm"
+              (ngSubmit)="createGrant()"
+            >
               <div class="form-grid">
                 <div class="field">
                   <label for="grant-profession">Profissão *</label
-                  ><select id="grant-profession" formControlName="profession">
+                  ><select sagerSearchable id="grant-profession" formControlName="profession">
                     <option value="MEDICINA">Medicina</option>
                     <option value="ENFERMAGEM">Enfermagem</option>
                     <option value="PSICOLOGIA">Psicologia</option>
@@ -226,6 +244,7 @@ type EndAction = {
           <div class="field">
             <label for="care-resident">Residente *</label
             ><select
+              sagerSearchable
               id="care-resident"
               [formControl]="residentId"
               (change)="loadResidentAccess()"
@@ -245,11 +264,18 @@ type EndAction = {
               >Selecione o cadastro a vincular.</span
             >
           </div>
-          <form class="health-form" [formGroup]="assignmentForm" (ngSubmit)="createAssignment()">
+          <form
+            sagerUnsaved
+            [sagerSaving]="busy"
+            class="health-form"
+            [formGroup]="assignmentForm"
+            (ngSubmit)="createAssignment()"
+          >
             <div class="form-grid">
               <div class="field">
                 <label for="care-grant">Habilitação vigente *</label
                 ><select
+                  sagerSearchable
                   id="care-grant"
                   formControlName="professionalGrantId"
                   aria-describedby="care-grant-help"
@@ -337,7 +363,13 @@ type EndAction = {
             Transfira o acesso ao conjunto do residente selecionado e do autor que perdeu acesso. O
             destinatário precisa de profissão compatível e vínculo vigente.
           </p>
-          <form class="health-form" [formGroup]="custodyForm" (ngSubmit)="createCustody()">
+          <form
+            sagerUnsaved
+            [sagerSaving]="busy"
+            class="health-form"
+            [formGroup]="custodyForm"
+            (ngSubmit)="createCustody()"
+          >
             <div class="form-grid">
               <div class="field">
                 <label for="custody-source">UUID da conta do autor desligado *</label
@@ -356,6 +388,7 @@ type EndAction = {
               <div class="field">
                 <label for="custody-recipient">Habilitação do custodiante *</label
                 ><select
+                  sagerSearchable
                   id="custody-recipient"
                   formControlName="recipientGrantId"
                   aria-describedby="custody-recipient-help"
@@ -442,7 +475,13 @@ type EndAction = {
               Encerrar o acesso de <strong>{{ target.label }}</strong
               >? O histórico permanece preservado; o acesso correspondente será bloqueado.
             </p>
-            <form class="health-form" [formGroup]="endForm" (ngSubmit)="confirmEnd()">
+            <form
+              sagerUnsaved
+              [sagerSaving]="busy"
+              class="health-form"
+              [formGroup]="endForm"
+              (ngSubmit)="confirmEnd()"
+            >
               <div class="field">
                 <label for="access-end-reason">Justificativa do encerramento *</label
                 ><textarea
@@ -675,6 +714,7 @@ export class HealthAccessPage {
         registrationRegion: v.registrationRegion.trim().toUpperCase(),
         verificationReason: v.verificationReason.trim(),
       });
+      this.grantForm.markAsPristine();
       await this.loadGrants();
     }, 'Habilitação registrada.');
   }
@@ -691,8 +731,9 @@ export class HealthAccessPage {
         residentId: this.residentId.value,
         reason: value.reason.trim(),
       });
-      await this.loadResidentAccess();
       this.assignmentForm.controls.reason.reset();
+      this.assignmentForm.markAsPristine();
+      await this.loadResidentAccess();
     }, 'Vínculo assistencial registrado.');
   }
   async createCustody(): Promise<void> {

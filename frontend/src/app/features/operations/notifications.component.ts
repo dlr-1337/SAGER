@@ -1,3 +1,5 @@
+import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
+import { rememberFilters } from '../../core/filter-state';
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -10,7 +12,13 @@ import { NotificationsLocalPage } from '../communications/notifications-local.pa
 @Component({
   standalone: true,
   selector: 'app-notifications',
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, NotificationsLocalPage],
+  imports: [
+    SearchableSelectDirective,
+    CommonModule,
+    ReactiveFormsModule,
+    RouterLink,
+    NotificationsLocalPage,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (!session.active()) {
@@ -40,7 +48,7 @@ import { NotificationsLocalPage } from '../communications/notifications-local.pa
                   placeholder="Digite nome ou origem"
               /></label>
               <label class="field"
-                >Situação<select formControlName="status">
+                >Situação<select sagerSearchable formControlName="status">
                   <option value="">Todas</option>
                   <option value="Pendente">Pendente</option>
                   <option value="Visualizada">Visualizada</option>

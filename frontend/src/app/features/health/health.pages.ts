@@ -1,3 +1,5 @@
+import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
+import { UnsavedFormDirective } from '../../shared/unsaved-form';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -179,7 +181,14 @@ export class HealthResidentsPage extends LocalHealthState {
 
 @Component({
   selector: 'app-health-resident',
-  imports: [DatePipe, ReactiveFormsModule, RouterLink, HealthNoteListComponent],
+  imports: [
+    SearchableSelectDirective,
+    UnsavedFormDirective,
+    DatePipe,
+    ReactiveFormsModule,
+    RouterLink,
+    HealthNoteListComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './health.scss',
   template: `
@@ -259,7 +268,12 @@ export class HealthResidentsPage extends LocalHealthState {
           <h2 id="resident-notes-title">Registros disponíveis</h2>
           <div class="field">
             <label for="resident-note-category">Filtrar categoria</label
-            ><select id="resident-note-category" [formControl]="filter" (change)="load()">
+            ><select
+              sagerSearchable
+              id="resident-note-category"
+              [formControl]="filter"
+              (change)="load()"
+            >
               <option value="">Todas as categorias acessíveis</option>
               @for (category of allCategories; track category) {
                 <option [value]="category">{{ categories[category] }}</option>
@@ -291,10 +305,17 @@ export class HealthResidentsPage extends LocalHealthState {
             @if (relatedNoteId) {
               <p class="health-meta">Continuidade do registro selecionado, com autoria própria.</p>
             }
-            <form class="health-form" [formGroup]="form" (ngSubmit)="create()">
+            <form
+              sagerUnsaved
+              [sagerSaving]="busy"
+              class="health-form"
+              [formGroup]="form"
+              (ngSubmit)="create()"
+            >
               <div class="field">
                 <label for="new-note-category">Categoria *</label
                 ><select
+                  sagerSearchable
                   id="new-note-category"
                   formControlName="category"
                   aria-describedby="new-note-category-help"
@@ -452,7 +473,9 @@ export class HealthResidentPage extends LocalHealthState {
         ...(this.relatedNoteId ? { relatedNoteId: this.relatedNoteId } : {}),
       });
       if (!this.destroy.destroyed && id === this.id()) {
+        this.busy.set(false);
         this.form.reset();
+        this.form.markAsPristine();
         await this.router.navigate(['/saude/notas', note.id], { queryParams: { salvo: '1' } });
       }
     } catch (error) {
@@ -530,7 +553,12 @@ export class HealthNotePage {
 
 @Component({
   selector: 'app-own-health',
-  imports: [ReactiveFormsModule, HealthNoteListComponent, HealthNoteDetailComponent],
+  imports: [
+    SearchableSelectDirective,
+    ReactiveFormsModule,
+    HealthNoteListComponent,
+    HealthNoteDetailComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './health.scss',
   template: `
@@ -577,7 +605,12 @@ export class HealthNotePage {
             <h2 id="own-records-title" tabindex="-1">Meus registros</h2>
             <div class="field">
               <label for="own-note-category">Filtrar categoria</label
-              ><select id="own-note-category" [formControl]="filter" (change)="load()">
+              ><select
+                sagerSearchable
+                id="own-note-category"
+                [formControl]="filter"
+                (change)="load()"
+              >
                 <option value="">Todas as categorias</option>
                 @for (category of allCategories; track category) {
                   <option [value]="category">{{ categories[category] }}</option>

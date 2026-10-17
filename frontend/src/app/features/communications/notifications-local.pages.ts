@@ -1,3 +1,7 @@
+import { CommunicationFiltersComponent } from './communication-filters.component';
+import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
+import { rememberFilters } from '../../core/filter-state';
+import { UnsavedFormDirective } from '../../shared/unsaved-form';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
@@ -38,7 +42,13 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
 @Component({
   standalone: true,
   selector: 'sager-notifications-local',
-  imports: [RouterLink, ReactiveFormsModule, CommunicationsStateComponent],
+  imports: [
+    CommunicationFiltersComponent,
+    SearchableSelectDirective,
+    RouterLink,
+    ReactiveFormsModule,
+    CommunicationsStateComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page comm-page">
@@ -53,6 +63,12 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
         <a routerLink="/advertencias">Advertências</a
         ><a routerLink="/comunicacoes/avisos">Avisos aos residentes</a>
       </nav>
+      @if (!session.active() && session.hasRole('supervisor')) {
+        <sager-communication-filters
+          mode="notifications"
+          (changed)="searchFilters = $event; load()"
+        />
+      }
       <sager-communications-state
         [demo]="session.active()"
         [blocked]="!session.hasRole('supervisor')"
@@ -69,7 +85,7 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
           <h2>Filtrar notificações</h2>
           <form class="op-filters" [formGroup]="filters" (ngSubmit)="load()">
             <label class="field"
-              >Residente<select formControlName="residentId">
+              >Residente<select sagerSearchable formControlName="residentId">
                 <option value="">Todos os residentes</option>
                 @for (resident of residents(); track resident.id) {
                   <option [value]="resident.id">
@@ -78,7 +94,7 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
                 }
               </select></label
             ><label class="field"
-              >Situação<select formControlName="status">
+              >Situação<select sagerSearchable formControlName="status">
                 <option value="">Todas</option>
                 @for (status of statuses; track status) {
                   <option [value]="status">{{ labels[status] }}</option>
@@ -142,6 +158,9 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
   styleUrl: './communications-local.scss',
 })
 export class NotificationsLocalPage {
+  searchFilters: Record<string, string> = {};
+  private appliedSearch: Record<string, string> = {};
+
   readonly session = inject(DemoSessionService);
   private readonly api = inject(CommunicationsLocalApiService);
   private readonly registry = inject(ResidentApiService);
@@ -163,19 +182,22 @@ export class NotificationsLocalPage {
   private generation = 0;
   private appliedFilters = { residentId: '', status: '' };
   constructor() {
+    rememberFilters('notifications-local.pages', this.filters);
     void this.load();
   }
   async load(): Promise<void> {
+    this.appliedSearch = { ...this.searchFilters };
     if (this.session.active() || !this.session.hasRole('supervisor')) return;
     const generation = ++this.generation;
     this.loading.set(true);
+    this.moreLoading.set(false);
     this.error.set('');
     this.moreError.set('');
     this.items.set([]);
     try {
       const value = this.filters.getRawValue();
       const [items, residents] = await Promise.all([
-        this.api.notifications(value.residentId, value.status),
+        this.api.notifications(value.residentId, value.status, undefined, this.appliedSearch),
         this.registry.list(),
       ]);
       if (generation === this.generation) {
@@ -197,12 +219,17 @@ export class NotificationsLocalPage {
     this.moreError.set('');
     try {
       const value = this.appliedFilters;
-      const page = await this.api.notifications(value.residentId, value.status, cursor);
+      const page = await this.api.notifications(
+        value.residentId,
+        value.status,
+        cursor,
+        this.appliedSearch,
+      );
       if (generation === this.generation) this.apply(page, true);
     } catch (error) {
       if (generation === this.generation) this.moreError.set(communicationsError(error));
     } finally {
-      this.moreLoading.set(false);
+      if (generation === this.generation) this.moreLoading.set(false);
     }
   }
   private apply(page: CursorPage<DisciplineNotification>, append = false): void {
@@ -224,6 +251,7 @@ export class NotificationsLocalPage {
   standalone: true,
   selector: 'sager-notification-detail-local',
   imports: [
+    UnsavedFormDirective,
     RouterLink,
     ReactiveFormsModule,
     CommunicationsStateComponent,
@@ -359,7 +387,14 @@ export class NotificationsLocalPage {
               </button>
             }
             @if (showWarning() && !terminal(notification)) {
-              <form class="comm-form" [formGroup]="form" (ngSubmit)="convert()" novalidate>
+              <form
+                sagerUnsaved
+                [sagerSaving]="busy"
+                class="comm-form"
+                [formGroup]="form"
+                (ngSubmit)="convert()"
+                novalidate
+              >
                 <h3>Advertência vinculada à ocorrência</h3>
                 <sager-warning-fields
                   [form]="form"
@@ -604,6 +639,8 @@ export class NotificationDetailLocalPage {
               ...payload,
               idempotencyKey: this.intent.for(payload),
             });
+            this.busy.set(false);
+            this.form.markAsPristine();
             await this.router.navigate(['/advertencias', warning.id]);
           }, 'Advertência emitida.'),
         trigger,

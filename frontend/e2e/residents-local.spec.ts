@@ -8,6 +8,8 @@ interface ResidentRecord {
   birthDate: string | null;
   course: string | null;
   version: number;
+  courseId?: string | null;
+  institutionalEmail?: string | null;
 }
 
 const id = '00000000-0000-0000-0000-000000000041';
@@ -15,6 +17,7 @@ const principal = (profile: 'gestor' | 'supervisor' = 'gestor') => ({
   id: '00000000-0000-0000-0000-000000000001',
   nome: 'Conta Sintética',
   email: 'conta@example.invalid',
+  matricula: 'TESTE-LOGIN',
   fotoUrl: null,
   perfis: [profile],
   residenteId: null,
@@ -22,6 +25,7 @@ const principal = (profile: 'gestor' | 'supervisor' = 'gestor') => ({
 });
 
 async function mockSession(page: Page, profile: 'gestor' | 'supervisor' = 'gestor') {
+  page.on('dialog', (dialog) => dialog.accept());
   await page.route('**/api/v1/auth/**', (route) => {
     if (route.request().url().endsWith('/me')) return route.fulfill({ json: principal(profile) });
     return route.fulfill({ json: { headerName: 'X-CSRF-TOKEN', token: 'csrf-synthetic' } });
@@ -30,10 +34,22 @@ async function mockSession(page: Page, profile: 'gestor' | 'supervisor' = 'gesto
 
 function mockRegistry(initial: ResidentRecord[] = []) {
   const records = initial;
+  const courses: { id: string; name: string; active: boolean; version: number }[] = [];
   const writes: { method: string; body: Record<string, unknown> }[] = [];
   let failList = false;
   let failNextWrite = false;
   async function attach(page: Page) {
+    await page.route('**/api/v1/cursos**', (route) => {
+      if (route.request().method() === 'GET') return route.fulfill({ json: courses });
+      const course = {
+        id: '00000000-0000-0000-0000-000000000201',
+        name: route.request().postDataJSON().name,
+        active: true,
+        version: 0,
+      };
+      courses.push(course);
+      return route.fulfill({ status: 201, json: course });
+    });
     await page.route('**/api/v1/alocacoes**', (route) => route.fulfill({ json: [] }));
     await page.route('**/api/v1/quartos/mapa', (route) =>
       route.fulfill({
@@ -80,7 +96,9 @@ function mockRegistry(initial: ResidentRecord[] = []) {
         name: body['name'] as string,
         enrollment: body['enrollment'] as string,
         birthDate: body['birthDate'] as string | null,
-        course: body['course'] as string | null,
+        course: courses.find((c) => c.id === body['courseId'])?.name ?? null,
+        courseId: (body['courseId'] as string | null) ?? null,
+        institutionalEmail: (body['institutionalEmail'] as string | null) ?? null,
         version: previous ? previous.version + 1 : 0,
       };
       if (previous) Object.assign(previous, result);
@@ -117,12 +135,16 @@ test('cadastro local cria, consulta, busca e edita após recarga, sem dados inve
   await expect(page.getByText('Informe a data de nascimento.')).toBeVisible();
   expect(registry.writes).toHaveLength(0);
   await page.getByLabel('Data de nascimento *').fill('2009-05-14');
+  if (await page.getByLabel('Senha escolhida pelo residente').count()) {
+    await page.getByLabel('Senha escolhida pelo residente').fill('Senha teste 123!');
+    await page.getByLabel('Confirmar senha', { exact: true }).fill('Senha teste 123!');
+  }
   await page.getByRole('button', { name: 'Salvar residente' }).click();
   await expect(page.getByRole('heading', { name: 'Estudante Sintético' })).toBeVisible();
   await expect(page.getByRole('status')).toContainText(
     'Cadastro salvo no ambiente local de teste.',
   );
-  await expect(page.getByText('Não informado')).toHaveCount(1);
+  await expect(page.getByText('Não informado')).toHaveCount(2);
   await expect(
     page.getByText('A ausência da data de nascimento não indica maioridade'),
   ).toHaveCount(0);
@@ -132,11 +154,16 @@ test('cadastro local cria, consulta, busca e edita após recarga, sem dados inve
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Estudante Sintético' })).toBeVisible();
   await page.getByRole('link', { name: 'Editar cadastro' }).click();
-  await page.getByRole('textbox', { name: 'Curso (opcional)' }).fill('Curso de Teste');
+  await page.getByRole('button', { name: 'Novo curso', exact: true }).click();
+  await page.getByLabel('Nome do novo curso').fill('Curso de Teste');
+  await page.getByRole('button', { name: 'Cadastrar e selecionar' }).click();
+  await expect(page.getByRole('combobox', { name: 'Curso Opcional' })).toHaveValue(
+    '00000000-0000-0000-0000-000000000201',
+  );
   await page.getByRole('button', { name: 'Salvar residente' }).click();
   await expect(page.getByText('Curso de Teste')).toBeVisible();
   await page.goto('/residentes');
-  await page.getByRole('searchbox', { name: 'Nome ou matrícula' }).fill('teste-a1');
+  await page.getByRole('searchbox', { name: 'Nome, matrícula ou e-mail' }).fill('teste-a1');
   await expect(page.getByRole('heading', { name: 'Estudante Sintético' })).toBeVisible();
   expect(registry.writes).toEqual([
     {
@@ -145,7 +172,10 @@ test('cadastro local cria, consulta, busca e edita após recarga, sem dados inve
         name: 'Estudante Sintético',
         enrollment: 'TESTE-A1',
         birthDate: '2009-05-14',
-        course: null,
+        courseId: null,
+        institutionalEmail: null,
+        password: 'Senha teste 123!',
+        passwordConfirmation: 'Senha teste 123!',
       },
     },
     {
@@ -154,11 +184,108 @@ test('cadastro local cria, consulta, busca e edita após recarga, sem dados inve
         name: 'Estudante Sintético',
         enrollment: 'TESTE-A1',
         birthDate: '2009-05-14',
-        course: 'Curso de Teste',
+        courseId: '00000000-0000-0000-0000-000000000201',
+        institutionalEmail: null,
         version: 0,
       },
     },
   ]);
+});
+
+test('aguarda o curso pendente e só salva o residente com seu vínculo após confirmação', async ({
+  page,
+}) => {
+  await mockSession(page);
+  const registry = mockRegistry([
+    {
+      id,
+      name: 'Pessoa Sintética',
+      enrollment: 'TESTE-001',
+      birthDate: '2009-05-14',
+      course: null,
+      version: 0,
+    },
+  ]);
+  await registry.attach(page);
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => (release = resolve));
+  const course = {
+    id: '00000000-0000-0000-0000-000000000201',
+    name: 'Curso Sintético',
+    active: true,
+    version: 0,
+  };
+  let courseWrites = 0;
+  await page.route('**/api/v1/cursos**', async (route) => {
+    if (route.request().method() === 'GET') return route.fulfill({ json: [] });
+    expect(route.request().postDataJSON().name).toBe(course.name);
+    courseWrites++;
+    await pending;
+    return route.fulfill({ status: 201, json: course });
+  });
+  await page.goto(`/residentes/${id}/editar`);
+  await page.getByRole('button', { name: 'Novo curso', exact: true }).click();
+  await page.getByLabel('Nome do novo curso').fill(course.name);
+  await page.getByRole('button', { name: 'Cadastrar e selecionar', exact: true }).click();
+  await expect.poll(() => courseWrites).toBe(1);
+  const save = page.getByRole('button', { name: 'Salvar residente', exact: true });
+  await expect(save).toBeDisabled();
+  await page.keyboard.press('Enter');
+  await page.locator('form[sagerUnsaved]').dispatchEvent('submit');
+  expect(registry.writes).toHaveLength(0);
+  await expect(page).toHaveURL(new RegExp(`/residentes/${id}/editar$`));
+  release();
+  await expect(page.getByRole('combobox', { name: 'Curso Opcional' })).toHaveValue(course.id);
+  await expect(save).toBeEnabled();
+  expect(registry.writes).toHaveLength(0);
+  await save.click();
+  await expect(page.getByRole('heading', { name: 'Pessoa Sintética', exact: true })).toBeVisible();
+  expect(registry.writes).toHaveLength(1);
+  expect(registry.writes[0]).toMatchObject({ method: 'PUT', body: { courseId: course.id } });
+});
+
+test('não inicia a criação do curso enquanto o residente está sendo salvo', async ({ page }) => {
+  await mockSession(page);
+  const registry = mockRegistry([
+    {
+      id,
+      name: 'Pessoa Sintética',
+      enrollment: 'TESTE-001',
+      birthDate: '2009-05-14',
+      course: null,
+      version: 0,
+    },
+  ]);
+  await registry.attach(page);
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => (release = resolve));
+  let residentWrites = 0;
+  let courseWrites = 0;
+  await page.route(`**/api/v1/residentes/${id}`, async (route) => {
+    if (route.request().method() !== 'PUT') return route.fallback();
+    residentWrites++;
+    await pending;
+    return route.fallback();
+  });
+  await page.route('**/api/v1/cursos**', (route) => {
+    if (route.request().method() !== 'GET') courseWrites++;
+    return route.fallback();
+  });
+  await page.goto(`/residentes/${id}/editar`);
+  await page.getByRole('button', { name: 'Novo curso', exact: true }).click();
+  await page.getByLabel('Nome do novo curso').fill('Curso Sintético');
+  await page.getByRole('button', { name: 'Salvar residente', exact: true }).click();
+  await expect.poll(() => residentWrites).toBe(1);
+  const create = page.getByRole('button', { name: 'Cadastrar e selecionar', exact: true });
+  await expect(create).toBeDisabled();
+  await create.dispatchEvent('click');
+  await expect(page.getByRole('combobox', { name: 'Curso Opcional' })).toHaveValue('');
+  expect(courseWrites).toBe(0);
+  release();
+  await expect(page.getByRole('heading', { name: 'Pessoa Sintética', exact: true })).toBeVisible();
+  expect(courseWrites).toBe(0);
+  expect(registry.writes).toHaveLength(1);
+  expect(registry.writes[0]).toMatchObject({ method: 'PUT', body: { courseId: null } });
 });
 
 test('duplicidade, entrada inválida e conflito de duas abas não anunciam sucesso', async ({
@@ -181,6 +308,8 @@ test('duplicidade, entrada inválida e conflito de duas abas não anunciam suces
   await page.getByRole('textbox', { name: 'Nome completo *' }).fill('Outra Pessoa');
   await page.getByRole('textbox', { name: 'Matrícula *' }).fill('teste-001');
   await page.getByLabel('Data de nascimento *').fill('2009-05-14');
+  await page.getByLabel('Senha escolhida pelo residente').fill('Senha teste 123!');
+  await page.getByLabel('Confirmar senha', { exact: true }).fill('Senha teste 123!');
   registry.setFailNextWrite();
   await page.getByRole('button', { name: 'Salvar residente' }).click();
   await expect(page.getByRole('alert')).toContainText('Os dados foram recusados');
@@ -205,6 +334,10 @@ test('duplicidade, entrada inválida e conflito de duas abas não anunciam suces
   await expect(other.getByRole('heading', { name: 'Alteração da Outra Aba' })).toBeVisible();
   await page.getByRole('textbox', { name: 'Nome completo *' }).fill('Alteração Desatualizada');
   await page.getByLabel('Data de nascimento *').fill('2009-05-14');
+  if (await page.getByLabel('Senha escolhida pelo residente').count()) {
+    await page.getByLabel('Senha escolhida pelo residente').fill('Senha teste 123!');
+    await page.getByLabel('Confirmar senha', { exact: true }).fill('Senha teste 123!');
+  }
   await page.getByRole('button', { name: 'Salvar residente' }).click();
   await expect(page.getByRole('alert')).toContainText('alterado por outra sessão');
   await expect(page).toHaveURL(new RegExp(`/residentes/${id}/editar$`));
@@ -302,4 +435,99 @@ test('responsável demonstrativo não aparece no acesso local e segue na demonst
     '/residentes/r-ana',
   );
   await demo.close();
+});
+
+for (const outcome of ['success', 'failure'] as const) {
+  test(`edição intacta bloqueia Cancelar durante o PUT (${outcome})`, async ({ page }) => {
+    await mockSession(page);
+    const record = {
+      id,
+      name: 'Pessoa Sintética',
+      enrollment: 'TESTE-001',
+      birthDate: '2009-05-14',
+      course: null,
+      version: 0,
+    };
+    const registry = mockRegistry([record]);
+    await registry.attach(page);
+    if (outcome === 'failure') registry.setFailNextWrite();
+    let release!: () => void;
+    let started!: () => void;
+    const pending = new Promise<void>((resolve) => (release = resolve));
+    const saving = new Promise<void>((resolve) => (started = resolve));
+    let attempts = 0;
+    await page.route(`**/api/v1/residentes/${id}`, async (route) => {
+      if (route.request().method() === 'PUT') {
+        attempts++;
+        started();
+        await pending;
+      }
+      return route.fallback();
+    });
+    await page.goto(`/residentes/${id}/editar`);
+    await expect(page.getByRole('textbox', { name: 'Nome completo *' })).toHaveValue(record.name);
+    await expect(page.locator('form[sagerUnsaved]')).toHaveClass(/ng-pristine/);
+    await page.getByRole('button', { name: 'Salvar residente', exact: true }).click();
+    await saving;
+    await page.getByRole('link', { name: 'Cancelar', exact: true }).click();
+    const dialog = page.getByRole('alertdialog');
+    await expect(dialog).toContainText('Salvamento em andamento');
+    await dialog.getByRole('button', { name: 'Aguardar', exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/residentes/${id}/editar$`));
+    expect(attempts).toBe(1);
+    release();
+    if (outcome === 'success') {
+      await expect(page).toHaveURL(new RegExp(`/residentes/${id}\\?saved=1$`));
+      await expect(page.getByRole('status').filter({ hasText: 'Cadastro salvo' })).toBeVisible();
+    } else {
+      await expect(page.getByRole('alert')).toContainText('Os dados foram recusados');
+      await expect(page.getByRole('textbox', { name: 'Nome completo *' })).toHaveValue(record.name);
+      await page.getByRole('link', { name: 'Cancelar', exact: true }).click();
+      await expect(page).toHaveURL(new RegExp(`/residentes/${id}$`));
+    }
+    await expect(dialog).toHaveCount(0);
+    expect(attempts).toBe(1);
+    expect(registry.writes).toHaveLength(1);
+  });
+}
+
+test('buscar curso sem alterar o cadastro permite cancelar sem confirmação', async ({ page }) => {
+  await mockSession(page);
+  const registry = mockRegistry([
+    {
+      id,
+      name: 'Pessoa Sintética',
+      enrollment: 'TESTE-001',
+      birthDate: '2009-05-14',
+      course: null,
+      version: 0,
+    },
+  ]);
+  await registry.attach(page);
+  await page.goto(`/residentes/${id}/editar`);
+  await expect(page.locator('form[sagerUnsaved]')).toHaveClass(/ng-pristine/);
+  await page.getByRole('searchbox', { name: 'Buscar curso', exact: true }).fill('Sintético');
+  await page.getByRole('link', { name: 'Cancelar', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/residentes/${id}$`));
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  expect(registry.writes).toHaveLength(0);
+});
+
+test('confirma sair do cadastro alterado e preserva os campos ao continuar', async ({ page }) => {
+  await mockSession(page);
+  const registry = mockRegistry();
+  await registry.attach(page);
+  await page.goto('/residentes/novo');
+  await page.getByRole('textbox', { name: 'Nome completo *' }).fill('Rascunho Sintético');
+  await page.getByRole('link', { name: 'Cancelar', exact: true }).click();
+  const dialog = page.getByRole('alertdialog');
+  await expect(dialog).toContainText('Descartar alterações?');
+  await dialog.getByRole('button', { name: 'Continuar preenchendo' }).click();
+  await expect(page.getByRole('textbox', { name: 'Nome completo *' })).toHaveValue(
+    'Rascunho Sintético',
+  );
+  await page.getByRole('link', { name: 'Cancelar', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Descartar e sair' }).click();
+  await expect(page).toHaveURL(/\/residentes$/);
+  expect(registry.writes).toHaveLength(0);
 });

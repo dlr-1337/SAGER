@@ -207,6 +207,7 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
         id: '00000000-0000-0000-0000-000000000001',
         nome: state.role === 'residente' ? 'Estudante Sintético' : 'Supervisora Sintética',
         email: 'sessao@example.test',
+        matricula: 'TESTE-LOGIN',
         fotoUrl: null,
         perfis: [state.role],
         residenteId: state.role === 'residente' ? residentId : null,
@@ -371,6 +372,80 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
 }
 
 test.use({ timezoneId: 'Pacific/Auckland' });
+
+test('redução de 26 para 25 saídas longas retorna à página válida com filtros preservados', async ({
+  page,
+}) => {
+  await mockApi(page);
+  const records = Array.from({ length: 25 }, (_, index) => ({
+    ...exitFixture(),
+    id: `saida-longa-sintetica-${index}`,
+    status: 'APROVADA',
+  }));
+  let reduced = false;
+  const queries: URLSearchParams[] = [];
+  await page.route('**/api/v1/saidas-longas?*', (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    queries.push(params);
+    if (params.get('offset') === '25') reduced = true;
+    return route.fulfill({
+      headers: { 'X-Total-Count': String(reduced ? 25 : 26) },
+      json: params.get('offset') === '25' ? [] : records,
+    });
+  });
+  await page.goto('/saidas?tipo=longa');
+  const search = page.getByRole('searchbox', { name: 'Nome ou matrícula' });
+  await expect(search).toHaveClass(/ng-valid/);
+  await search.fill('TESTE-001');
+  await page.getByLabel('Situação', { exact: true }).selectOption('APROVADA');
+  const pagination = page.getByRole('navigation', { name: 'Paginação' });
+  await expect.poll(() => queries.at(-1)?.get('status')).toBe('APROVADA');
+  await expect(pagination).toContainText('1–25 de 26');
+  await pagination.getByRole('button', { name: 'Próxima' }).click();
+  await expect(pagination).toContainText('1–25 de 25');
+  await expect(page.getByRole('link', { name: 'Ver solicitação' })).toHaveCount(25);
+  await expect(page.getByRole('heading', { name: 'Nenhuma saída encontrada' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Longas', exact: true })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  await expect(search).toHaveValue('TESTE-001');
+  await expect(page.getByLabel('Situação', { exact: true })).toHaveValue('APROVADA');
+  expect(queries.slice(-2).map((params) => params.get('offset'))).toEqual(['25', '0']);
+  for (const query of queries.slice(-2)) {
+    expect(query.get('search')).toBe('TESTE-001');
+    expect(query.get('status')).toBe('APROVADA');
+  }
+});
+
+test('situação Aprovada permanece no retorno à lista longa e limpa ao trocar modalidade', async ({
+  page,
+}) => {
+  await mockApi(page, { role: 'supervisor', exits: [{ ...exitFixture(), status: 'APROVADA' }] });
+  await page.goto('/saidas?tipo=longa');
+  await page.getByLabel('Situação', { exact: true }).selectOption('APROVADA');
+  const filtered = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      url.pathname === '/api/v1/saidas-longas' && url.searchParams.get('status') === 'APROVADA'
+    );
+  });
+  await page.getByRole('button', { name: 'Buscar', exact: true }).click();
+  await filtered;
+  await page.getByRole('link', { name: 'Ver solicitação' }).click();
+  await expect(page.getByRole('heading', { name: 'Solicitação de saída longa' })).toBeVisible();
+  const restored = page.waitForRequest(
+    (request) => new URL(request.url()).pathname === '/api/v1/saidas-longas',
+  );
+  await page.getByRole('link', { name: '← Saídas longas', exact: true }).click();
+  await expect(page.getByLabel('Situação', { exact: true })).toHaveValue('APROVADA');
+  expect(new URL((await restored).url()).searchParams.get('status')).toBe('APROVADA');
+  await expect(page.getByRole('link', { name: 'Ver solicitação' })).toHaveCount(1);
+  await page.getByRole('link', { name: 'Curtas', exact: true }).click();
+  await expect(page.getByLabel('Situação', { exact: true })).toHaveValue('');
+  await page.getByRole('link', { name: 'Longas', exact: true }).click();
+  await expect(page.getByLabel('Situação', { exact: true })).toHaveValue('');
+});
 
 test('residente cria NOW, mantém revisão persistida no mock e edição substitui documento', async ({
   page,

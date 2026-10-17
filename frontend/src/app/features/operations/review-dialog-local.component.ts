@@ -1,3 +1,4 @@
+import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -39,7 +40,7 @@ export interface LocalReviewResult {
 @Component({
   standalone: true,
   selector: 'app-local-operation-review',
-  imports: [ReactiveFormsModule, MatDialogModule],
+  imports: [SearchableSelectDirective, ReactiveFormsModule, MatDialogModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h2 mat-dialog-title>{{ data.title }}</h2>
@@ -57,7 +58,7 @@ export interface LocalReviewResult {
       </dl>
       @if (data.initialMark) {
         <label class="field"
-          >Marcação corrigida<select [formControl]="mark">
+          >Marcação corrigida<select sagerSearchable [formControl]="mark">
             <option value="PRESENTE">Presente</option>
             <option value="AUSENTE">Ausente</option>
             @if (data.authorizedExits?.length) {
@@ -68,7 +69,7 @@ export interface LocalReviewResult {
       }
       @if (mark.value === 'AUSENCIA_JUSTIFICADA' && (data.authorizedExits?.length ?? 0) > 1) {
         <label class="field"
-          >Saída vinculada à ausência<select [formControl]="authorizedExit">
+          >Saída vinculada à ausência<select sagerSearchable [formControl]="authorizedExit">
             <option value="">Selecione a saída</option>
             @for (exit of data.authorizedExits; track exit.id) {
               <option [value]="exit.id">
@@ -80,7 +81,7 @@ export interface LocalReviewResult {
       }
       @if (data.physical; as physical) {
         <label class="field"
-          >Horário do registro<select [formControl]="timeMode">
+          >Horário do registro<select sagerSearchable [formControl]="timeMode">
             <option value="NOW">Agora, no momento da confirmação</option>
             <option value="RETROACTIVE">Informar horário anterior</option>
           </select></label

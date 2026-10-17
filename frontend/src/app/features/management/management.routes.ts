@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 
 export const MANAGEMENT_ROUTES: Routes = [
+  { path: 'cursos', loadComponent: () => import('./courses.page').then((m) => m.CoursesPage) },
   {
     path: 'alojamentos',
     loadComponent: () =>

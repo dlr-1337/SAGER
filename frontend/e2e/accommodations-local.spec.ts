@@ -21,6 +21,7 @@ async function mockSession(page: Page, profile = 'gestor') {
           id: '00000000-0000-0000-0000-000000000001',
           nome: 'Conta Fictícia',
           email: 'ficticia@example.invalid',
+          matricula: 'TESTE-LOGIN',
           fotoUrl: null,
           perfis: [profile],
           residenteId: null,
@@ -195,9 +196,7 @@ test('alojamentos são utilizáveis na demonstração offline e acessíveis em d
   await expect(page.getByRole('heading', { name: 'Alojamento Fictício' })).toBeVisible();
 });
 
-test('cancelar um salvamento pendente não redireciona a página após sair do formulário', async ({
-  page,
-}) => {
+test('aguarda um salvamento pendente antes de sair do formulário', async ({ page }) => {
   await mockSession(page);
   const record = {
     id: firstId,
@@ -225,17 +224,10 @@ test('cancelar um salvamento pendente não redireciona a página após sair do f
   await page.getByRole('button', { name: 'Salvar alojamento' }).click();
   await saveStarted;
   await page.getByRole('link', { name: 'Cancelar', exact: true }).click();
-  await expect(page).toHaveURL(/\/alojamentos$/);
-
-  const redirected = page.waitForURL(new RegExp(`/alojamentos/${firstId}`), { timeout: 1000 }).then(
-    () => true,
-    () => false,
-  );
-  const response = page.waitForResponse(
-    (item) => item.url().endsWith('/api/v1/alojamentos') && item.request().method() === 'POST',
-  );
+  const dialog = page.getByRole('alertdialog');
+  await expect(dialog).toContainText('Salvamento em andamento');
+  await dialog.getByRole('button', { name: 'Aguardar' }).click();
+  await expect(page).toHaveURL(/\/alojamentos\/novo$/);
   releaseSave();
-  await response;
-  expect(await redirected).toBe(false);
-  await expect(page).toHaveURL(/\/alojamentos$/);
+  await expect(page).toHaveURL(new RegExp(`/alojamentos/${firstId}`));
 });

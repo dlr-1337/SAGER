@@ -1,3 +1,4 @@
+import { UnsavedFormDirective } from '../../shared/unsaved-form';
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -14,7 +15,13 @@ import { ExitFormLocalComponent } from './exit-form-local.component';
 @Component({
   standalone: true,
   selector: 'app-exit-form',
-  imports: [ExitFormLocalComponent, CommonModule, ReactiveFormsModule, RouterLink],
+  imports: [
+    UnsavedFormDirective,
+    ExitFormLocalComponent,
+    CommonModule,
+    ReactiveFormsModule,
+    RouterLink,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (!session.active()) {
@@ -42,7 +49,13 @@ import { ExitFormLocalComponent } from './exit-form-local.component';
             </div>
             <span class="op-demo-label">Simulação</span>
           </header>
-          <form class="panel op-panel op-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+          <form
+            sagerUnsaved
+            class="panel op-panel op-form"
+            [formGroup]="form"
+            (ngSubmit)="save()"
+            novalidate
+          >
             <fieldset class="op-type-choice">
               <legend>Tipo de saída</legend>
               <label [class.selected]="form.controls.kind.value === 'Curta'"
@@ -200,6 +213,7 @@ export class ExitFormComponent {
       const request = this.editing
         ? this.service.updateExit(this.original!.id, input)
         : this.service.createExit(input);
+      this.form.markAsPristine();
       void this.router.navigate(['/saidas', request.id], { queryParams: { saved: '1' } });
     } catch (error) {
       this.error.set(

@@ -21,36 +21,192 @@ interface ManagementState {
 
 const INITIAL_STATE: ManagementState = {
   residents: [
-    { id: 'r-ana', name: 'Ana Luísa Ribeiro', enrollment: '20241001', birthDate: '2009-06-14', course: 'Agropecuária', roomId: 'q-102', status: 'Ativo', version: 1 },
-    { id: 'r-bruno', name: 'Pedro Henrique Silva', enrollment: '20241002', birthDate: '2008-12-03', course: 'Informática', roomId: 'q-104', status: 'Ativo', version: 1 },
-    { id: 'r-camila', name: 'Beatriz Costa', enrollment: '20241003', birthDate: '2007-08-22', course: 'Alimentos', roomId: 'q-201', status: 'Ativo', version: 1 },
-    { id: 'r-davi', name: 'Lucas Almeida', enrollment: '20241004', birthDate: '2010-02-08', course: 'Agropecuária', roomId: 'q-203', status: 'Ativo', version: 1 },
+    {
+      id: 'r-ana',
+      name: 'Ana Luísa Ribeiro',
+      enrollment: '20241001',
+      birthDate: '2009-06-14',
+      course: 'Agropecuária',
+      roomId: 'q-102',
+      status: 'Ativo',
+      version: 1,
+    },
+    {
+      id: 'r-bruno',
+      name: 'Pedro Henrique Silva',
+      enrollment: '20241002',
+      birthDate: '2008-12-03',
+      course: 'Informática',
+      roomId: 'q-104',
+      status: 'Ativo',
+      version: 1,
+    },
+    {
+      id: 'r-camila',
+      name: 'Beatriz Costa',
+      enrollment: '20241003',
+      birthDate: '2007-08-22',
+      course: 'Alimentos',
+      roomId: 'q-201',
+      status: 'Ativo',
+      version: 1,
+    },
+    {
+      id: 'r-davi',
+      name: 'Lucas Almeida',
+      enrollment: '20241004',
+      birthDate: '2010-02-08',
+      course: 'Agropecuária',
+      roomId: 'q-203',
+      status: 'Ativo',
+      version: 1,
+    },
   ],
   guardians: [
-    { id: 'g-1', residentId: 'r-ana', name: 'Mariana Ribeiro', relationship: 'Mãe', phone: '62999990001', active: true, authorized: true, version: 1 },
-    { id: 'g-2', residentId: 'r-bruno', name: 'Paulo Silva', relationship: 'Pai', phone: '62999990002', active: true, authorized: true, version: 1 },
+    {
+      id: 'g-1',
+      residentId: 'r-ana',
+      name: 'Mariana Ribeiro',
+      relationship: 'Mãe',
+      phone: '62999990001',
+      active: true,
+      authorized: true,
+      version: 1,
+    },
+    {
+      id: 'g-2',
+      residentId: 'r-bruno',
+      name: 'Paulo Silva',
+      relationship: 'Pai',
+      phone: '62999990002',
+      active: true,
+      authorized: true,
+      version: 1,
+    },
   ],
   supervisors: [
-    { id: 's-1', name: 'Helena Supervisora Exemplo', institutionalId: 'DEMO-SUP-001', email: 'helena@demo.invalid', version: 1 },
-    { id: 's-2', name: 'Ricardo Supervisor Exemplo', institutionalId: 'DEMO-SUP-002', email: 'ricardo@demo.invalid', version: 1 },
+    {
+      id: 's-1',
+      name: 'Helena Supervisora Exemplo',
+      institutionalId: 'DEMO-SUP-001',
+      email: 'helena@demo.invalid',
+      version: 1,
+    },
+    {
+      id: 's-2',
+      name: 'Ricardo Supervisor Exemplo',
+      institutionalId: 'DEMO-SUP-002',
+      email: 'ricardo@demo.invalid',
+      version: 1,
+    },
   ],
   rooms: [
-    { id: 'q-101', number: '101', block: 'A', floor: 'Térreo', situation: 'Disponível', cleaningScore: 8.5, version: 1 },
-    { id: 'q-102', number: '102', block: 'A', floor: 'Térreo', situation: 'Ocupado', cleaningScore: null, version: 1 },
-    { id: 'q-103', number: '103', block: 'A', floor: 'Térreo', situation: 'Disponível', cleaningScore: null, version: 1 },
-    { id: 'q-104', number: '104', block: 'A', floor: 'Térreo', situation: 'Ocupado', cleaningScore: null, version: 1 },
-    { id: 'q-201', number: '201', block: 'B', floor: '1º piso', situation: 'Ocupado', cleaningScore: 9, version: 1 },
-    { id: 'q-202', number: '202', block: 'A', floor: '1º piso', situation: 'Manutenção', cleaningScore: null, version: 1 },
-    { id: 'q-203', number: '203', block: 'B', floor: '1º piso', situation: 'Ocupado', cleaningScore: null, version: 1 },
-    { id: 'q-301', number: '301', block: 'B', floor: 'Térreo', situation: 'Disponível', cleaningScore: null, version: 1 },
-    { id: 'q-302', number: '302', block: 'B', floor: 'Térreo', situation: 'Indisponível', cleaningScore: null, version: 1 },
+    {
+      id: 'q-101',
+      number: '101',
+      block: 'A',
+      floor: 'Térreo',
+      situation: 'Disponível',
+      cleaningScore: 8.5,
+      version: 1,
+    },
+    {
+      id: 'q-102',
+      number: '102',
+      block: 'A',
+      floor: 'Térreo',
+      situation: 'Ocupado',
+      cleaningScore: null,
+      version: 1,
+    },
+    {
+      id: 'q-103',
+      number: '103',
+      block: 'A',
+      floor: 'Térreo',
+      situation: 'Disponível',
+      cleaningScore: null,
+      version: 1,
+    },
+    {
+      id: 'q-104',
+      number: '104',
+      block: 'A',
+      floor: 'Térreo',
+      situation: 'Ocupado',
+      cleaningScore: null,
+      version: 1,
+    },
+    {
+      id: 'q-201',
+      number: '201',
+      block: 'B',
+      floor: '1º piso',
+      situation: 'Ocupado',
+      cleaningScore: 9,
+      version: 1,
+    },
+    {
+      id: 'q-202',
+      number: '202',
+      block: 'A',
+      floor: '1º piso',
+      situation: 'Manutenção',
+      cleaningScore: null,
+      version: 1,
+    },
+    {
+      id: 'q-203',
+      number: '203',
+      block: 'B',
+      floor: '1º piso',
+      situation: 'Ocupado',
+      cleaningScore: null,
+      version: 1,
+    },
+    {
+      id: 'q-301',
+      number: '301',
+      block: 'B',
+      floor: 'Térreo',
+      situation: 'Disponível',
+      cleaningScore: null,
+      version: 1,
+    },
+    {
+      id: 'q-302',
+      number: '302',
+      block: 'B',
+      floor: 'Térreo',
+      situation: 'Indisponível',
+      cleaningScore: null,
+      version: 1,
+    },
   ],
 };
 
 const HISTORY: ResidentHistoryEntry[] = [
-  { id: 'h-1', residentId: 'r-ana', date: '2026-09-24', category: 'Cadastro', description: 'Registro demonstrativo criado para a apresentação do sistema.' },
-  { id: 'h-2', residentId: 'r-ana', date: '2026-09-23', category: 'Chamada', description: 'Exemplo de presença registrada na chamada noturna.' },
-  { id: 'h-3', residentId: 'r-bruno', date: '2026-09-24', category: 'Cadastro', description: 'Registro demonstrativo criado para a apresentação do sistema.' },
+  {
+    id: 'h-1',
+    residentId: 'r-ana',
+    date: '2026-09-24',
+    category: 'Cadastro',
+    description: 'Registro demonstrativo criado para a apresentação do sistema.',
+  },
+  {
+    id: 'h-2',
+    residentId: 'r-ana',
+    date: '2026-09-23',
+    category: 'Chamada',
+    description: 'Exemplo de presença registrada na chamada noturna.',
+  },
+  {
+    id: 'h-3',
+    residentId: 'r-bruno',
+    date: '2026-09-24',
+    category: 'Cadastro',
+    description: 'Registro demonstrativo criado para a apresentação do sistema.',
+  },
 ];
 
 @Injectable({ providedIn: 'root' })
@@ -64,6 +220,13 @@ export class ManagementDemoService {
 
   readonly history = signal<ResidentHistoryEntry[]>(HISTORY);
   readonly terms = signal<CommitmentTerm[]>([]);
+
+  renameCourse(previous: string, next: string): void {
+    this.state.update((state) => ({
+      ...state,
+      residents: state.residents.map((r) => (r.course === previous ? { ...r, course: next } : r)),
+    }));
+  }
 
   resident(id: string): Resident | undefined {
     return this.residents().find((item) => item.id === id);
@@ -101,7 +264,11 @@ export class ManagementDemoService {
 
   saveResident(input: ResidentInput, id?: string): Resident {
     const enrollment = input.enrollment.trim().toUpperCase();
-    if (this.residents().some((item) => item.enrollment.toUpperCase() === enrollment && item.id !== id)) {
+    if (
+      this.residents().some(
+        (item) => item.enrollment.toUpperCase() === enrollment && item.id !== id,
+      )
+    ) {
       throw new Error('Esta matrícula já está cadastrada na demonstração.');
     }
     const existing = id ? this.resident(id) : undefined;
@@ -112,6 +279,7 @@ export class ManagementDemoService {
       enrollment,
       birthDate: input.birthDate,
       course: input.course.trim(),
+      institutionalEmail: input.institutionalEmail?.trim().toLowerCase() || null,
       roomId: existing?.roomId ?? null,
       status: existing?.status ?? 'Ativo',
       version: (existing?.version ?? 0) + 1,
@@ -122,7 +290,9 @@ export class ManagementDemoService {
 
   saveGuardian(residentId: string, input: LegalGuardianInput, id?: string): LegalGuardian {
     if (!this.resident(residentId)) throw new Error('Residente não encontrado.');
-    const existing = id ? this.guardians().find((item) => item.id === id && item.residentId === residentId) : undefined;
+    const existing = id
+      ? this.guardians().find((item) => item.id === id && item.residentId === residentId)
+      : undefined;
     if (id && !existing) throw new Error('Responsável não encontrado.');
     const guardian: LegalGuardian = {
       id: existing?.id ?? newId(),
@@ -140,7 +310,11 @@ export class ManagementDemoService {
 
   saveSupervisor(input: SupervisorInput, id?: string): Supervisor {
     const institutionalId = input.institutionalId.trim().toUpperCase();
-    if (this.supervisors().some((item) => item.institutionalId.toUpperCase() === institutionalId && item.id !== id)) {
+    if (
+      this.supervisors().some(
+        (item) => item.institutionalId.toUpperCase() === institutionalId && item.id !== id,
+      )
+    ) {
       throw new Error('Esta identificação institucional já está cadastrada.');
     }
     const existing = id ? this.supervisor(id) : undefined;
@@ -158,7 +332,11 @@ export class ManagementDemoService {
 
   saveRoom(input: RoomInput, id?: string): Room {
     const number = input.number.trim();
-    if (this.rooms().some((item) => item.number.toLowerCase() === number.toLowerCase() && item.id !== id)) {
+    if (
+      this.rooms().some(
+        (item) => item.number.toLowerCase() === number.toLowerCase() && item.id !== id,
+      )
+    ) {
       throw new Error('Este número de quarto já está cadastrado. Use outro número.');
     }
     const existing = id ? this.room(id) : undefined;
@@ -183,7 +361,7 @@ export class ManagementDemoService {
 
 function upsert<T extends { id: string }>(items: T[], item: T): T[] {
   return items.some((value) => value.id === item.id)
-    ? items.map((value) => value.id === item.id ? item : value)
+    ? items.map((value) => (value.id === item.id ? item : value))
     : [...items, item];
 }
 

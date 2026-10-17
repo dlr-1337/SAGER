@@ -1,3 +1,6 @@
+import { CommunicationFiltersComponent } from './communication-filters.component';
+import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
+import { UnsavedFormDirective } from '../../shared/unsaved-form';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
@@ -34,7 +37,13 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
 @Component({
   standalone: true,
   selector: 'sager-warnings-local',
-  imports: [RouterLink, ReactiveFormsModule, CommunicationsStateComponent],
+  imports: [
+    CommunicationFiltersComponent,
+    SearchableSelectDirective,
+    RouterLink,
+    ReactiveFormsModule,
+    CommunicationsStateComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page comm-page">
@@ -48,6 +57,9 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
           <a class="btn" routerLink="/advertencias/nova">Registrar advertência manual</a>
         }
       </header>
+      @if (!session.active() && session.hasRole('supervisor')) {
+        <sager-communication-filters mode="warnings" (changed)="searchFilters = $event; load()" />
+      }
       <sager-communications-state
         [demo]="session.active()"
         [blocked]="!session.hasRole('supervisor')"
@@ -60,7 +72,7 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
           <h2>Consultar por residente</h2>
           <form class="op-filters" (submit)="$event.preventDefault(); load()">
             <label class="field"
-              >Residente<select [formControl]="residentId">
+              >Residente<select sagerSearchable [formControl]="residentId">
                 <option value="">Todos os residentes</option>
                 @for (resident of residents(); track resident.id) {
                   <option [value]="resident.id">
@@ -134,6 +146,9 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
   styleUrl: './communications-local.scss',
 })
 export class WarningsLocalPage {
+  searchFilters: Record<string, string> = {};
+  private appliedSearch: Record<string, string> = {};
+
   readonly session = inject(DemoSessionService);
   private readonly api = inject(CommunicationsLocalApiService);
   private readonly registry = inject(ResidentApiService);
@@ -157,16 +172,18 @@ export class WarningsLocalPage {
     void this.load();
   }
   async load(): Promise<void> {
+    this.appliedSearch = { ...this.searchFilters };
     if (this.session.active() || !this.session.hasRole('supervisor')) return;
     const generation = ++this.generation;
     const resident = this.residentId.value;
     this.loading.set(true);
+    this.moreLoading.set(false);
     this.error.set('');
     this.moreError.set('');
     this.items.set([]);
     try {
       const [page, residents] = await Promise.all([
-        this.api.warnings(resident),
+        this.api.warnings(resident, undefined, this.appliedSearch),
         this.registry.list(),
       ]);
       if (generation === this.generation) {
@@ -188,7 +205,7 @@ export class WarningsLocalPage {
     this.moreLoading.set(true);
     this.moreError.set('');
     try {
-      const page = await this.api.warnings(this.appliedResident(), cursor);
+      const page = await this.api.warnings(this.appliedResident(), cursor, this.appliedSearch);
       if (generation === this.generation) {
         this.items.update((items) => [
           ...items,
@@ -197,9 +214,9 @@ export class WarningsLocalPage {
         this.nextCursor.set(page.nextCursor);
       }
     } catch (error) {
-      this.moreError.set(communicationsError(error));
+      if (generation === this.generation) this.moreError.set(communicationsError(error));
     } finally {
-      this.moreLoading.set(false);
+      if (generation === this.generation) this.moreLoading.set(false);
     }
   }
 }
@@ -207,7 +224,14 @@ export class WarningsLocalPage {
 @Component({
   standalone: true,
   selector: 'sager-warning-form-local',
-  imports: [RouterLink, ReactiveFormsModule, CommunicationsStateComponent, WarningFieldsComponent],
+  imports: [
+    SearchableSelectDirective,
+    UnsavedFormDirective,
+    RouterLink,
+    ReactiveFormsModule,
+    CommunicationsStateComponent,
+    WarningFieldsComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page comm-narrow">
@@ -233,6 +257,8 @@ export class WarningsLocalPage {
           </section>
         } @else {
           <form
+            sagerUnsaved
+            [sagerSaving]="busy"
             class="panel op-panel comm-form"
             [formGroup]="form"
             (ngSubmit)="review()"
@@ -244,7 +270,7 @@ export class WarningsLocalPage {
               mesma origem.
             </p>
             <label class="field"
-              >Residente<select [formControl]="residentId">
+              >Residente<select sagerSearchable [formControl]="residentId">
                 <option value="">Selecione um residente</option>
                 @for (resident of residents(); track resident.id) {
                   <option [value]="resident.id">
@@ -395,6 +421,8 @@ export class WarningFormLocalPage {
         ...input,
         idempotencyKey: this.intent.for(input),
       });
+      this.busy.set(false);
+      this.form.markAsPristine();
       await this.router.navigate(['/advertencias', warning.id]);
     } catch (error) {
       this.error.set(communicationsError(error));

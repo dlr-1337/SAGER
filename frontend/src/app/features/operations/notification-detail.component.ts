@@ -1,3 +1,4 @@
+import { UnsavedFormDirective } from '../../shared/unsaved-form';
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -11,7 +12,13 @@ import { NotificationDetailLocalPage } from '../communications/notifications-loc
 @Component({
   standalone: true,
   selector: 'app-notification-detail',
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, NotificationDetailLocalPage],
+  imports: [
+    UnsavedFormDirective,
+    CommonModule,
+    ReactiveFormsModule,
+    RouterLink,
+    NotificationDetailLocalPage,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (!session.active()) {
@@ -102,6 +109,7 @@ import { NotificationDetailLocalPage } from '../communications/notifications-loc
               </div>
               @if (showWarning()) {
                 <form
+                  sagerUnsaved
                   class="op-form op-warning-form"
                   [formGroup]="warningForm"
                   (ngSubmit)="reviewWarning()"
