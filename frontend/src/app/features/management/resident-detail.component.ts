@@ -332,7 +332,13 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
                         </p>
                       </div>
                       <div class="mg-row-detail">
-                        <strong>{{ guardian.active ? 'Ativo' : 'Inativo' }}</strong
+                        <span
+                          class="mg-status"
+                          [attr.data-tone]="guardian.active ? null : 'neutral'"
+                          ><span class="material-symbols-rounded" aria-hidden="true">{{
+                            guardian.active ? 'check_circle' : 'block'
+                          }}</span
+                          >{{ guardian.active ? 'Ativo' : 'Inativo' }}</span
                         ><span>Assinatura pendente de definição institucional</span>
                       </div>
                       <a class="mg-row-link" [routerLink]="['/responsaveis', guardian.id]"
@@ -503,7 +509,14 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
               <div>
                 <dt>Situação</dt>
                 <dd>
-                  <span class="status mg-status">{{ item.status }}</span>
+                  <span
+                    class="mg-status"
+                    [attr.data-tone]="item.status === 'Ativo' ? null : 'neutral'"
+                    ><span class="material-symbols-rounded" aria-hidden="true">{{
+                      item.status === 'Ativo' ? 'check_circle' : 'block'
+                    }}</span
+                    >{{ item.status }}</span
+                  >
                 </dd>
               </div>
             </dl>
@@ -547,7 +560,13 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
                         <p>{{ guardian.relationship }} · Telefone {{ guardian.phone }}</p>
                       </div>
                       <div class="mg-row-detail">
-                        <strong>{{ guardian.active ? 'Ativo' : 'Inativo' }}</strong
+                        <span
+                          class="mg-status"
+                          [attr.data-tone]="guardian.active ? null : 'neutral'"
+                          ><span class="material-symbols-rounded" aria-hidden="true">{{
+                            guardian.active ? 'check_circle' : 'block'
+                          }}</span
+                          >{{ guardian.active ? 'Ativo' : 'Inativo' }}</span
                         ><span>{{
                           guardian.authorized
                             ? 'Autorizado para assinatura'
