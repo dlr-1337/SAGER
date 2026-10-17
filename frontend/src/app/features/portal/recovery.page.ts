@@ -10,13 +10,13 @@ import { LocalAuthService } from '../../core/local-auth.service';
   template: `
     <main class="page mg-page mg-narrow">
       <h1>Recuperar senha</h1>
-      <p>
+      <p class="lead">
         Informe os dados do seu cadastro de residente. Nenhuma mensagem será enviada por e-mail ou
         telefone.
       </p>
       <p>
-        Servidores e cadastros antigos sem data de nascimento ou conta vinculada devem procurar a
-        equipe responsável.
+        Cadastros antigos sem data de nascimento ou conta vinculada devem procurar a equipe
+        responsável.
       </p>
       @if (done()) {
         <section class="panel mg-panel" role="status">
@@ -28,60 +28,66 @@ import { LocalAuthService } from '../../core/local-auth.service';
         <form
           sagerUnsaved
           [sagerSaving]="busy"
-          class="panel mg-panel mg-form"
+          class="mg-form"
           [formGroup]="form"
           (ngSubmit)="submit()"
           novalidate
         >
-          <label class="mg-field"
-            >Matrícula<input
-              formControlName="matricula"
-              autocomplete="username"
-              maxlength="64"
-              required
-          /></label>
-          <label class="mg-field"
-            >Nome completo<input
-              formControlName="name"
-              autocomplete="name"
-              maxlength="200"
-              required
-          /></label>
-          <label class="mg-field"
-            >Data de nascimento<input
-              type="date"
-              formControlName="birthDate"
-              autocomplete="bday"
-              required
-          /></label>
-          <label class="mg-field"
-            >Nome completo do responsável ativo<input
-              formControlName="guardianName"
-              maxlength="200"
-              aria-describedby="guardian-hint"
-            /><small id="guardian-hint"
-              >Preencha se houver um responsável ativo vinculado ao seu cadastro.</small
-            ></label
-          >
-          <label class="mg-field"
-            >Nova senha<input
-              type="password"
-              formControlName="password"
-              autocomplete="new-password"
-              minlength="12"
-              maxlength="72"
-              required
-            /><small
-              >Use de 12 a 72 caracteres (até 72 bytes). Não use informações pessoais.</small
-            ></label
-          >
-          <label class="mg-field"
-            >Confirmar nova senha<input
-              type="password"
-              formControlName="passwordConfirmation"
-              autocomplete="new-password"
-              required
-          /></label>
+          <fieldset>
+            <legend>1. Confirme seus dados</legend>
+            <label class="mg-field"
+              >Matrícula<input
+                formControlName="matricula"
+                autocomplete="username"
+                maxlength="64"
+                required
+            /></label>
+            <label class="mg-field"
+              >Nome completo<input
+                formControlName="name"
+                autocomplete="name"
+                maxlength="200"
+                required
+            /></label>
+            <label class="mg-field"
+              >Data de nascimento<input
+                type="date"
+                formControlName="birthDate"
+                autocomplete="bday"
+                required
+            /></label>
+            <label class="mg-field"
+              >Nome completo do responsável ativo<input
+                formControlName="guardianName"
+                maxlength="200"
+                aria-describedby="guardian-hint"
+              /><small id="guardian-hint"
+                >Preencha se houver um responsável ativo vinculado ao seu cadastro.</small
+              ></label
+            >
+          </fieldset>
+          <fieldset>
+            <legend>2. Crie a nova senha</legend>
+            <label class="mg-field"
+              >Nova senha<input
+                type="password"
+                formControlName="password"
+                autocomplete="new-password"
+                minlength="12"
+                maxlength="72"
+                required
+              /><small
+                >Use de 12 a 72 caracteres (até 72 bytes). Não use informações pessoais.</small
+              ></label
+            >
+            <label class="mg-field"
+              >Confirmar nova senha<input
+                type="password"
+                formControlName="passwordConfirmation"
+                autocomplete="new-password"
+                required
+            /></label>
+          </fieldset>
           @if (error()) {
             <p class="mg-alert" role="alert">{{ error() }}</p>
           }
@@ -93,7 +99,62 @@ import { LocalAuthService } from '../../core/local-auth.service';
           </div>
         </form>
       }
+      <div class="recovery-note">
+        <span class="material-symbols-outlined" aria-hidden="true">info</span>
+        <div>
+          <strong>Gestores, supervisores e profissionais de saúde</strong>
+          <p>
+            Procure o suporte da instituição. Um operador autorizado confere sua identidade e
+            redefine a senha.
+          </p>
+        </div>
+      </div>
     </main>
+  `,
+  styles: `
+    .lead {
+      font-size: 1.1rem;
+      color: var(--muted);
+    }
+    fieldset {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+      gap: 20px;
+      min-width: 0;
+      margin: 0 0 24px;
+      padding: 20px 24px 24px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-card);
+      background: #fff;
+    }
+    legend {
+      padding: 0 8px;
+      font-size: 1.1rem;
+      font-weight: 800;
+    }
+    small {
+      font-size: var(--text-meta);
+      font-weight: 400;
+      color: var(--muted);
+    }
+    .recovery-note {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      margin-top: 24px;
+      padding: 16px 18px;
+      border-radius: 12px;
+      background: var(--info-bg);
+      color: #123f5c;
+    }
+    .recovery-note p {
+      margin: 4px 0 0;
+    }
+    @media (max-width: 640px) {
+      fieldset {
+        padding: 16px 18px 18px;
+      }
+    }
   `,
 })
 export class RecoveryPage {

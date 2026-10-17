@@ -3,6 +3,112 @@ import { RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { LocalAuthService } from '../../core/local-auth.service';
 
+interface HomeTask {
+  title: string;
+  text: string;
+  icon: string;
+  links: { label: string; to: string }[];
+}
+
+const supervisorTasks: HomeTask[] = [
+  {
+    title: 'Chamada noturna',
+    text: 'Abra a chamada e confira as marcações dos residentes menores de idade.',
+    icon: 'bedtime',
+    links: [{ label: 'Abrir chamada', to: '/chamada' }],
+  },
+  {
+    title: 'Saídas e retornos',
+    text: 'Analise as solicitações e registre a partida ou a chegada presencial.',
+    icon: 'directions_walk',
+    links: [{ label: 'Consultar saídas', to: '/saidas' }],
+  },
+  {
+    title: 'Notificações e advertências',
+    text: 'Confira a origem das ocorrências e registre a análise antes de uma decisão.',
+    icon: 'notifications',
+    links: [
+      { label: 'Analisar notificações', to: '/notificacoes' },
+      { label: 'Consultar advertências', to: '/advertencias' },
+    ],
+  },
+  {
+    title: 'Avisos institucionais',
+    text: 'Prepare avisos para os residentes selecionados e confira a versão publicada.',
+    icon: 'campaign',
+    links: [{ label: 'Gerenciar avisos', to: '/comunicacoes/avisos' }],
+  },
+];
+
+const residentTasks: HomeTask[] = [
+  {
+    title: 'Minhas saídas',
+    text: 'Solicite uma saída e acompanhe a decisão e o histórico.',
+    icon: 'directions_walk',
+    links: [{ label: 'Ver minhas saídas', to: '/saidas' }],
+  },
+  {
+    title: 'Minhas comunicações',
+    text: 'Acompanhe avisos, advertências e termos. Leitura e ciência são registradas separadamente.',
+    icon: 'campaign',
+    links: [{ label: 'Consultar comunicações', to: '/avisos' }],
+  },
+  {
+    title: 'Minha saúde',
+    text: 'Consulte e exporte os registros de saúde vinculados ao seu cadastro.',
+    icon: 'health_and_safety',
+    links: [{ label: 'Consultar minha saúde', to: '/minha-saude' }],
+  },
+  {
+    title: 'Minha limpeza',
+    text: 'Consulte as avaliações vinculadas ao seu quarto e acompanhe o período do ranking.',
+    icon: 'cleaning_services',
+    links: [
+      { label: 'Consultar minhas avaliações', to: '/minha-limpeza' },
+      { label: 'Consultar ranking', to: '/ranking' },
+    ],
+  },
+];
+
+const healthTasks: HomeTask[] = [
+  {
+    title: 'Atendimento de saúde',
+    text: 'Consulte os residentes assistidos e os registros autorizados para você.',
+    icon: 'health_and_safety',
+    links: [{ label: 'Abrir área de saúde', to: '/saude' }],
+  },
+];
+
+const staffTasks: HomeTask[] = [
+  {
+    title: 'Avaliações de limpeza',
+    text: 'Confira as avaliações e seus participantes históricos. Veja a regra e o período.',
+    icon: 'cleaning_services',
+    links: [
+      { label: 'Consultar avaliações', to: '/limpeza' },
+      { label: 'Consultar ranking', to: '/ranking' },
+    ],
+  },
+  {
+    title: 'Relatórios',
+    text: 'Escolha uma consulta e confira os mesmos dados na prévia e na exportação.',
+    icon: 'description',
+    links: [{ label: 'Consultar relatórios', to: '/relatorios' }],
+  },
+  {
+    title: 'Cadastros e alocações',
+    text: 'Consulte residentes, responsáveis e vínculos de moradia.',
+    icon: 'groups',
+    links: [{ label: 'Consultar residentes', to: '/residentes' }],
+  },
+  {
+    title: 'Acessos de saúde',
+    text: 'Gerencie habilitações e vínculos assistenciais da equipe.',
+    icon: 'admin_panel_settings',
+    links: [{ label: 'Gerenciar acessos', to: '/saude/acessos' }],
+  },
+];
+
 @Component({
   standalone: true,
   selector: 'sager-local-home',
@@ -11,122 +117,165 @@ import { LocalAuthService } from '../../core/local-auth.service';
     <main class="page local-home">
       <header class="page-header">
         <div>
+          <span class="eyebrow">{{ today }}</span>
           <h1>{{ heading() }}</h1>
           <p>{{ auth.principal()?.nome }} · {{ session.production ? 'SAGER' : 'Acesso local' }}</p>
         </div>
       </header>
       <section class="tasks" aria-label="Atividades disponíveis">
-        @if (session.role() === 'supervisor') {
-          <article>
-            <h2>Chamada noturna</h2>
-            <p>Abra a chamada e confira as marcações dos residentes menores de idade.</p>
-            <a class="btn" routerLink="/chamada">Abrir chamada</a>
-          </article>
-          <article>
-            <h2>Saídas e retornos</h2>
-            <p>Analise as solicitações e registre a partida ou a chegada presencial.</p>
-            <a class="btn" routerLink="/saidas">Consultar saídas</a>
-          </article>
-          <article>
-            <h2>Notificações e advertências</h2>
-            <p>Confira a origem das ocorrências e registre a análise antes de uma decisão.</p>
-            <a class="btn" routerLink="/notificacoes">Analisar notificações</a>
-            <a class="btn secondary" routerLink="/advertencias">Consultar advertências</a>
-          </article>
-          <article>
-            <h2>Avisos institucionais</h2>
-            <p>Prepare avisos para os residentes selecionados e confira a versão publicada.</p>
-            <a class="btn" routerLink="/comunicacoes/avisos">Gerenciar avisos</a>
-          </article>
-        } @else if (session.role() === 'residente') {
-          <article>
-            <h2>Minhas saídas</h2>
-            <p>Solicite uma saída e acompanhe a decisão e o histórico.</p>
-            <a class="btn" routerLink="/saidas">Ver minhas saídas</a>
-          </article>
-          <article>
-            <h2>Minhas comunicações</h2>
-            <p>
-              Acompanhe avisos, advertências e termos. Leitura e ciência são registradas
-              separadamente.
-            </p>
-            <a class="btn" routerLink="/avisos">Consultar comunicações</a>
-          </article>
-          <article>
-            <h2>Minha saúde</h2>
-            <p>Consulte e exporte os registros de saúde vinculados ao seu cadastro.</p>
-            <a class="btn" routerLink="/minha-saude">Consultar minha saúde</a>
-          </article>
-          <article>
-            <h2>Minha limpeza</h2>
-            <p>Consulte as avaliações vinculadas ao seu quarto e acompanhe o período do ranking.</p>
-            <a class="btn" routerLink="/minha-limpeza">Consultar minhas avaliações</a>
-            <a class="btn secondary" routerLink="/ranking">Consultar ranking</a>
-          </article>
-        } @else if (session.role() === 'saude') {
-          <article>
-            <h2>Atendimento de saúde</h2>
-            <p>Consulte os residentes assistidos e os registros autorizados para você.</p>
-            <a class="btn" routerLink="/saude">Abrir área de saúde</a>
-          </article>
-        }
-        @if (session.role() === 'gestor' || session.role() === 'supervisor') {
-          <article>
-            <h2>Avaliações de limpeza</h2>
-            <p>Confira as avaliações e seus participantes históricos. Veja a regra e o período.</p>
-            <a class="btn" routerLink="/limpeza">Consultar avaliações</a>
-            <a class="btn secondary" routerLink="/ranking">Consultar ranking</a>
-          </article>
-          <article>
-            <h2>Relatórios</h2>
-            <p>Escolha uma consulta e confira os mesmos dados na prévia e na exportação.</p>
-            <a class="btn" routerLink="/relatorios">Consultar relatórios</a>
-          </article>
-          <article>
-            <h2>Cadastros e alocações</h2>
-            <p>Consulte residentes, responsáveis e vínculos de moradia.</p>
-            <a class="btn" routerLink="/residentes">Consultar residentes</a>
-          </article>
-          <article>
-            <h2>Acessos de saúde</h2>
-            <p>Gerencie habilitações e vínculos assistenciais da equipe.</p>
-            <a class="btn" routerLink="/saude/acessos">Gerenciar acessos</a>
+        @for (task of tasks(); track task.title; let first = $first) {
+          <article [class]="first ? 'hero' : 'item'">
+            <div class="what">
+              <span class="badge" aria-hidden="true"
+                ><span class="material-symbols-outlined">{{ task.icon }}</span></span
+              >
+              <div>
+                <h2>{{ task.title }}</h2>
+                <p>{{ task.text }}</p>
+              </div>
+            </div>
+            <div class="actions">
+              @for (link of task.links; track link.to; let primary = $first) {
+                <a [class]="primary ? 'btn' : 'btn-secondary'" [routerLink]="link.to">{{
+                  link.label
+                }}</a>
+              }
+            </div>
           </article>
         }
       </section>
     </main>
   `,
   styles: `
-    .tasks {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
-      gap: 24px;
-      max-width: 1080px;
+    .eyebrow {
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
     }
-    article {
-      border-top: 2px solid var(--green-800);
-      padding: 20px 0;
+    .tasks {
       display: flex;
       flex-direction: column;
-      align-items: flex-start;
-      gap: 12px;
+    }
+    .hero,
+    .item {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 16px 24px;
+    }
+    .hero {
+      gap: 16px 28px;
+      margin-bottom: 28px;
+      padding: 24px 28px;
+      border-radius: var(--radius-card);
+      background: var(--green-900);
+      color: #fff;
+    }
+    .item {
+      padding: 20px 0;
+      border-top: 1px solid var(--line);
+    }
+    .item:last-child {
+      border-bottom: 1px solid var(--line);
+    }
+    .what {
+      flex: 999 1 280px;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+    .badge {
+      flex: none;
+      display: grid;
+      place-items: center;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--green-100);
+      color: var(--green-900);
+    }
+    .hero .badge {
+      width: 48px;
+      height: 48px;
+      background: none;
+      color: #fff;
+    }
+    .hero .badge span {
+      font-size: 48px;
+      font-variation-settings:
+        'FILL' 1,
+        'wght' 500,
+        'GRAD' 0,
+        'opsz' 48;
     }
     h2 {
-      margin: 0;
-      font-size: 1.35rem;
+      margin: 0 0 4px;
+      font-size: 1.1rem;
     }
-    article p {
-      margin: 0 0 8px;
-      max-width: 46ch;
-      flex: 1;
+    .hero h2 {
+      font-size: 1.4rem;
+      color: #fff;
+    }
+    .what p {
+      margin: 0;
       color: var(--muted);
+    }
+    .hero .what p {
+      color: #d9eadf;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .hero .btn {
+      border-color: #fff;
+      background: #fff;
+      color: var(--green-900);
+    }
+    .hero .btn:hover {
+      background: var(--green-50);
+      color: var(--green-950);
+    }
+    .hero .btn-secondary {
+      border-color: rgb(255 255 255 / 60%);
+      background: transparent;
+      color: #fff;
+    }
+    @media (max-width: 760px) {
+      .hero {
+        padding: 18px;
+      }
+      .actions,
+      .actions a {
+        flex: 1 1 auto;
+      }
     }
   `,
 })
 export class LocalHomePage {
   readonly session = inject(DemoSessionService);
   readonly auth = inject(LocalAuthService);
+  readonly today = new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'full',
+    timeZone: 'America/Sao_Paulo',
+  }).format(new Date());
   readonly heading = computed(() =>
     this.session.role() === 'residente' ? 'Meu espaço' : 'Atividades do SAGER',
   );
+  readonly tasks = computed(() => {
+    const role = this.session.role();
+    const own =
+      role === 'supervisor'
+        ? supervisorTasks
+        : role === 'residente'
+          ? residentTasks
+          : role === 'saude'
+            ? healthTasks
+            : [];
+    return role === 'gestor' || role === 'supervisor' ? [...own, ...staffTasks] : own;
+  });
 }

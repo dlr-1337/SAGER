@@ -13,7 +13,7 @@ test.beforeEach(async ({ page }) => enterDemo(page));
 
 test('acesso e painéis de cada perfil', async ({ page }) => {
   await page.goto('/acesso');
-  await expect(page.getByRole('heading', { name: 'Acessar o SAGER' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Entrar no SAGER' })).toBeVisible();
   await page.getByRole('link', { name: 'Explorar demonstração' }).click();
   await page.locator('.role-card').filter({ hasText: 'Supervisor' }).click();
   await expect(page.getByRole('heading', { name: /Olá, supervisora/ })).toBeVisible();
