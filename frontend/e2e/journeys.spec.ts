@@ -11,6 +11,13 @@ async function chooseProfile(
 
 test.beforeEach(async ({ page }) => enterDemo(page));
 
+test('cartão de perfis do acesso entra direto na demonstração', async ({ page }) => {
+  await page.goto('/acesso');
+  await page.getByRole('button', { name: /^Gestor/ }).click();
+  await expect(page).toHaveURL(/\/inicio$/);
+  await expect(page.getByRole('heading', { name: 'Olá, gestor' })).toBeVisible();
+});
+
 test('acesso e painéis de cada perfil', async ({ page }) => {
   await page.goto('/acesso');
   await expect(page.getByRole('heading', { name: 'Entrar no SAGER' })).toBeVisible();

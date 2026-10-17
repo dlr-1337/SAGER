@@ -102,13 +102,18 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
                     ><strong>{{ item.title }}</strong
                     ><span>{{ item.source }} · {{ item.date | date: 'dd/MM/yyyy' }}</span></span
                   >
-                  <span class="notice-status" [class.pending]="!item.acknowledgedAt">{{
-                    item.acknowledgedAt
-                      ? 'Ciente'
-                      : item.readAt
-                        ? 'Lido · ciência pendente'
-                        : 'Novo · ciência pendente'
-                  }}</span>
+                  <span
+                    class="status notice-status"
+                    [class.info]="!item.acknowledgedAt"
+                    [class.success]="!!item.acknowledgedAt"
+                    >{{
+                      item.acknowledgedAt
+                        ? 'Ciente'
+                        : item.readAt
+                          ? 'Lido · ciência pendente'
+                          : 'Novo · ciência pendente'
+                    }}</span
+                  >
                 </button>
               }
             </section>
@@ -124,9 +129,11 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
                   à lista
                 </button>
                 <div class="detail-top">
-                  <span class="type-tag" [class.warning]="item.kind === 'advertencia'">{{
-                    item.kind === 'aviso' ? 'Aviso' : 'Advertência'
-                  }}</span
+                  <span
+                    class="status"
+                    [class.warning]="item.kind === 'advertencia'"
+                    [class.success]="item.kind !== 'advertencia'"
+                    >{{ item.kind === 'aviso' ? 'Aviso' : 'Advertência' }}</span
                   ><span>{{ item.date | date: 'dd/MM/yyyy HH:mm' }}</span>
                 </div>
                 <h2 id="notice-detail-heading" tabindex="-1">{{ item.title }}</h2>
@@ -193,7 +200,6 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
         border-radius: 12px;
         padding: 16px 18px;
         margin: 24px 0;
-        line-height: 1.5;
       }
       .tabs {
         display: flex;
@@ -219,7 +225,6 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
         background: #fff;
         color: var(--ink);
         font-weight: 600;
-        font-size: 1rem;
         cursor: pointer;
       }
       .tabs button:hover {
@@ -288,8 +293,7 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
         border-radius: var(--radius-control);
         grid-row: 1/3;
       }
-      .notice-icon.warning,
-      .type-tag.warning {
+      .notice-icon.warning {
         background: var(--warning-bg);
         color: var(--warning);
       }
@@ -310,24 +314,8 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
       .notice-info span {
         margin-top: 4px;
       }
-      .notice-status,
-      .type-tag {
-        display: inline-flex;
-        align-items: center;
-        width: fit-content;
-        min-height: 30px;
-        padding: 2px 12px;
-        border-radius: 999px;
-        font-weight: 700;
-        background: var(--green-100);
-        color: var(--green-950);
-      }
       .notice-status {
         grid-column: 2;
-      }
-      .notice-status.pending {
-        background: var(--info-bg);
-        color: var(--info);
       }
       .notice-detail {
         min-height: 400px;
@@ -361,7 +349,6 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
       .reading-state strong {
         display: block;
         color: var(--ink);
-        font-weight: 700;
       }
       .notice-detail > .btn {
         margin-top: 24px;
@@ -401,18 +388,15 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
       }
       .select-prompt p {
         max-width: 320px;
-        line-height: 1.5;
       }
       .empty {
         padding: 32px;
         text-align: center;
       }
       .notice-info span,
-      .notice-status,
       .detail-top,
       .source,
-      .reading-state,
-      .type-tag {
+      .reading-state {
         font-size: var(--text-meta);
       }
       .back-to-list {
@@ -423,7 +407,6 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
         border: 0;
         background: transparent;
         color: var(--green-800);
-        font: inherit;
         font-weight: 600;
         cursor: pointer;
         padding: 8px 4px;
@@ -447,18 +430,9 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
           display: inline-flex;
           margin-bottom: 14px;
         }
-        .notice-detail > .btn {
-          width: 100%;
-          min-height: 48px;
-        }
-        .confirm-box .action-row {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 12px;
-        }
+        .notice-detail > .btn,
         .confirm-box .action-row button {
           width: 100%;
-          min-height: 48px;
         }
       }
       @media (max-width: 540px) {

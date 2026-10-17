@@ -208,11 +208,7 @@ textarea {
   justify-content: flex-end;
 }
 .btn,
-.btn-secondary,
-button.btn,
-button.btn-secondary,
-a.btn,
-a.btn-secondary {
+.btn-secondary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -229,30 +225,22 @@ a.btn-secondary {
     box-shadow 0.15s ease,
     transform 0.15s ease;
 }
-.btn,
-button.btn,
-a.btn {
+.btn {
   background: var(--green-900);
   border: 1px solid var(--green-900);
   color: #fff;
 }
-.btn:hover,
-button.btn:hover,
-a.btn:hover {
+.btn:hover {
   background: var(--green-950);
   border-color: var(--green-950);
   color: #fff;
 }
-.btn-secondary,
-button.btn-secondary,
-a.btn-secondary {
+.btn-secondary {
   background: #fff;
   border: 1px solid var(--btn-secondary-border);
   color: var(--green-900);
 }
-.btn-secondary:hover,
-button.btn-secondary:hover,
-a.btn-secondary:hover {
+.btn-secondary:hover {
   background: var(--green-50);
   color: var(--green-950);
 }
@@ -260,10 +248,9 @@ a.btn-secondary:hover {
 .btn-secondary:active {
   transform: translateY(1px);
 }
+/* Mesma especificidade de :hover e declarado depois: desabilitado não reage ao hover. */
 .btn:disabled,
-.btn-secondary:disabled,
-button.btn:disabled:hover,
-button.btn-secondary:disabled:hover {
+.btn-secondary:disabled {
   background: #eef2f3;
   border-color: #dfe6e9;
   color: #6b7b88;

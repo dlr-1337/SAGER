@@ -2,6 +2,7 @@ import { normalizeSearch } from '../../shared/search';
 import { rememberFilters } from '../../core/filter-state';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
+import { ProgressBarComponent } from '../../shared/progress-bar.component';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
@@ -23,7 +24,7 @@ import {
 @Component({
   standalone: true,
   selector: 'app-night-call-local',
-  imports: [SearchableSelectDirective, ReactiveFormsModule, RouterLink],
+  imports: [SearchableSelectDirective, ProgressBarComponent, ReactiveFormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page">
@@ -120,26 +121,11 @@ import {
                   <dd>{{ current.summary.justified }}</dd>
                 </div>
               </dl>
-              <div
-                class="op-progress"
-                role="img"
-                [attr.aria-label]="
-                  current.summary.total -
-                  current.summary.unmarked +
-                  ' de ' +
-                  current.summary.total +
-                  ' marcações registradas'
-                "
-              >
-                <span
-                  [style.width.%]="
-                    current.summary.total
-                      ? (100 * (current.summary.total - current.summary.unmarked)) /
-                        current.summary.total
-                      : 0
-                  "
-                ></span>
-              </div>
+              <sager-progress-bar
+                [done]="current.summary.total - current.summary.unmarked"
+                [total]="current.summary.total"
+                noun="marcações registradas"
+              />
               <p class="op-help">
                 Aberta em {{ formatTime(current.openedAt) }}. A relação de residentes e saídas
                 justificadoras preserva a situação no momento da abertura.

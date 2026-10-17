@@ -30,15 +30,6 @@
   color: var(--muted);
 }
 .demo-tag {
-  display: inline-flex;
-  align-items: center;
-  min-height: 30px;
-  padding: 2px 12px;
-  border-radius: 999px;
-  background: var(--green-100);
-  color: var(--green-950);
-  font-size: var(--text-meta);
-  font-weight: 700;
   white-space: nowrap;
 }
 // Seis campos: grade de três colunas evita um campo órfão esticado na segunda linha.

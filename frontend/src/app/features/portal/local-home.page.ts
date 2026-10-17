@@ -1,7 +1,12 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { LocalAuthService } from '../../core/local-auth.service';
+
+const todayFormat = new Intl.DateTimeFormat('pt-BR', {
+  dateStyle: 'full',
+  timeZone: 'America/Sao_Paulo',
+});
 
 interface HomeTask {
   title: string;
@@ -117,7 +122,7 @@ const staffTasks: HomeTask[] = [
     <main class="page local-home">
       <header class="page-header">
         <div>
-          <span class="eyebrow">{{ today }}</span>
+          <span class="eyebrow">{{ today() }}</span>
           <h1>{{ heading() }}</h1>
           <p>{{ auth.principal()?.nome }} · {{ session.production ? 'SAGER' : 'Acesso local' }}</p>
         </div>
@@ -259,10 +264,9 @@ const staffTasks: HomeTask[] = [
 export class LocalHomePage {
   readonly session = inject(DemoSessionService);
   readonly auth = inject(LocalAuthService);
-  readonly today = new Intl.DateTimeFormat('pt-BR', {
-    dateStyle: 'full',
-    timeZone: 'America/Sao_Paulo',
-  }).format(new Date());
+  // A página pode ficar aberta durante o turno da noite; a data acompanha a virada do dia.
+  private readonly now = signal(new Date());
+  readonly today = computed(() => todayFormat.format(this.now()));
   readonly heading = computed(() =>
     this.session.role() === 'residente' ? 'Meu espaço' : 'Atividades do SAGER',
   );
@@ -278,4 +282,9 @@ export class LocalHomePage {
             : [];
     return role === 'gestor' || role === 'supervisor' ? [...own, ...staffTasks] : own;
   });
+
+  constructor() {
+    const timer = setInterval(() => this.now.set(new Date()), 60_000);
+    inject(DestroyRef).onDestroy(() => clearInterval(timer));
+  }
 }

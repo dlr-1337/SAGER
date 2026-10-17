@@ -198,19 +198,6 @@
   color: var(--muted);
   font-size: var(--text-meta);
 }
-.op-progress {
-  height: 10px;
-  margin: 0 0 16px;
-  border-radius: 999px;
-  background: #e6edf0;
-  overflow: hidden;
-}
-.op-progress > span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--green-800);
-}
 .op-filters {
   display: flex;
   flex-direction: row;
@@ -359,7 +346,7 @@
 .op-page .btn {
   text-align: center;
 }
-// `button.btn` global (0,1,1) venceria `.op-secondary` sozinho.
+// O `.btn` global vem depois na cascata; o modificador precisa da classe composta.
 .btn.op-secondary {
   background: #fff;
   border-color: var(--btn-secondary-border);

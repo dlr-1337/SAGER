@@ -326,7 +326,6 @@ import {
                   class="btn op-primary"
                   [routerLink]="busy() || conflict() ? null : ['/saidas/longas', exit.id, 'editar']"
                   [attr.aria-disabled]="busy() || conflict()"
-                  [class.action-disabled]="busy() || conflict()"
                   >Editar solicitação</a
                 >
                 <p class="op-help">

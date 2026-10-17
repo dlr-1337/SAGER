@@ -318,10 +318,6 @@ type SignatureStep = 'access' | 'review' | 'confirm' | 'result';
         padding: 24px;
       }
       .signature-card h1 {
-        font-size: clamp(1.8rem, 2.6vw, 2.25rem);
-        font-weight: 800;
-        letter-spacing: -0.025em;
-        line-height: 1.15;
         margin: 10px 0;
       }
       .signature-card > p {
@@ -436,15 +432,7 @@ type SignatureStep = 'access' | 'review' | 'confirm' | 'result';
         accent-color: var(--green-900);
         margin: 1px 0;
       }
-      .field-error {
-        color: var(--danger);
-        font-size: var(--text-meta);
-        font-weight: 600;
-      }
       .action-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
         margin-top: 24px;
       }
       .success-icon {

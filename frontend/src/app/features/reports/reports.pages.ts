@@ -162,7 +162,7 @@ const KIND_LABELS: Record<ReportKind, string> = {
               <h2 id="filters-title">Selecionar e filtrar</h2>
               <p>Todos os filtros preenchidos serão aplicados juntos.</p>
             </div>
-            <span class="demo-tag">Dados fictícios</span>
+            <span class="demo-tag status success">Dados fictícios</span>
           </div>
           <form [formGroup]="form" (ngSubmit)="apply()" novalidate>
             <div class="filter-grid">

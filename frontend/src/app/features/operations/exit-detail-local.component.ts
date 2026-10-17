@@ -189,7 +189,6 @@ import {
               @if (session.hasRole('residente') && exit.capabilities.canEdit) {
                 <a
                   class="btn op-primary"
-                  [class.action-disabled]="busy() || conflict()"
                   [attr.aria-disabled]="busy() || conflict()"
                   [routerLink]="busy() || conflict() ? null : ['/saidas', exit.id, 'editar']"
                   >Editar solicitação</a

@@ -95,24 +95,26 @@
 .mg-page .btn .material-symbols-rounded {
   font-size: 20px;
 }
-.mg-page .mg-primary {
+// Variantes valem fora de .mg-page (a paginação compartilhada também aparece em operação).
+.btn.mg-primary {
   color: #fff;
   background: var(--green-900);
 }
-.mg-page .mg-primary:hover {
+.btn.mg-primary:hover {
   color: #fff;
   background: var(--green-950);
 }
-.mg-page .mg-secondary {
+.btn.mg-secondary {
   color: var(--green-900);
   background: #fff;
   border-color: var(--btn-secondary-border);
 }
-.mg-page .mg-secondary:hover {
+.btn.mg-secondary:hover {
   color: var(--green-950);
   background: var(--green-50);
 }
-.mg-page .btn:disabled {
+.mg-page .btn:disabled,
+.btn:is(.mg-primary, .mg-secondary):disabled {
   color: #6b7b88;
   background: #eef2f3;
   border-color: #dfe6e9;

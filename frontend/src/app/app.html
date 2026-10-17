@@ -63,7 +63,7 @@
         </div>
       }
       @if (userName()) {
-        <div class="session-user">
+        <div class="session-user" [attr.title]="userName() + ' · ' + roleLabel()">
           <span class="material-symbols-rounded" aria-hidden="true">account_circle</span>
           <span
             ><strong>{{ userName() }}</strong

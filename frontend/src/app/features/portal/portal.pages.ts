@@ -4,25 +4,28 @@ import { Router, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { LocalAuthService } from '../../core/local-auth.service';
 import { OperationsDemoService } from '../operations/operations-demo.service';
+import { DemoEntry } from './demo-entry.service';
 import { LocalHomePage } from './local-home.page';
 
 @Component({
   standalone: true,
   selector: 'sager-access',
   imports: [RouterLink, ReactiveFormsModule],
+  providers: [DemoEntry],
   template: `
-    <header class="access-mast">
-      <div class="org">
+    <header class="masthead">
+      <div class="brand-organization">
         <img src="/if-goiano-urutai.png" alt="Instituto Federal Goiano, Campus Urutaí" />
       </div>
-      <div class="prod">
+      <div class="brand-product">
         <strong>SAGER</strong><span>Sistema de Apoio à Gestão da<br />Residência Estudantil</span>
       </div>
-      <span class="env">{{
-        session.production
-          ? 'Acesso à residência estudantil'
-          : 'Acesso local · desenvolvimento e testes'
-      }}</span>
+      <div class="demo-flag">
+        <strong>{{ session.production ? 'SAGER' : 'Acesso local' }}</strong
+        ><span>{{
+          session.production ? 'Acesso à residência estudantil' : 'Desenvolvimento e testes'
+        }}</span>
+      </div>
     </header>
     <main class="access-main" [class.solo]="!session.demoAvailable">
       <section class="access-login" aria-labelledby="access-title">
@@ -116,51 +119,12 @@ import { LocalHomePage } from './local-home.page';
         min-height: 100vh;
         background: var(--surface);
       }
-      .access-mast {
-        display: flex;
+      /* Cabeçalho global do shell; no acesso a marca oficial fica visível também no celular. */
+      .masthead {
         flex-wrap: wrap;
-        align-items: center;
-        gap: 12px 28px;
-        padding: 14px clamp(16px, 3vw, 32px);
-        background: var(--green-900);
-        color: #fff;
       }
-      .org {
-        display: flex;
-        padding: 3px;
-        background: #fff;
-        border-radius: 6px;
-      }
-      .org img {
+      .brand-organization {
         display: block;
-        height: 44px;
-        width: auto;
-      }
-      .prod {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        padding-left: 24px;
-        border-left: 1px solid rgb(255 255 255 / 30%);
-      }
-      .prod strong {
-        font-size: 2rem;
-        font-weight: 800;
-        letter-spacing: -0.02em;
-      }
-      .prod span {
-        font-size: 0.9rem;
-        line-height: 1.3;
-        color: var(--green-100);
-      }
-      .env {
-        margin-left: auto;
-        padding: 6px 13px;
-        border-radius: var(--radius-control);
-        background: #d9f5dc;
-        color: var(--green-950);
-        font-size: 0.85rem;
-        font-weight: 700;
       }
       .access-main {
         display: flex;
@@ -306,13 +270,6 @@ import { LocalHomePage } from './local-home.page';
         color: var(--muted);
       }
       @media (max-width: 760px) {
-        .prod {
-          padding-left: 0;
-          border-left: 0;
-        }
-        .env {
-          margin-left: 0;
-        }
         .access-main {
           padding-top: 24px;
         }
@@ -328,8 +285,7 @@ export class AccessPage {
   private readonly auth = inject(LocalAuthService);
   readonly session = inject(DemoSessionService);
   private readonly router = inject(Router);
-  // Reaproveita perfis e entrada de /demonstracao sem duplicar a lógica de sessão.
-  readonly demo = new DemoSelectorPage();
+  readonly demo = inject(DemoEntry);
   readonly busy = signal(false);
   readonly error = signal('');
   readonly form = new FormGroup({
@@ -378,6 +334,7 @@ export class AccessPage {
   standalone: true,
   selector: 'sager-demo-selector',
   imports: [],
+  providers: [DemoEntry],
   template: `
     <main class="page demo-choice">
       <div class="page-header">
@@ -387,9 +344,14 @@ export class AccessPage {
           <p>Os perfis usam exemplos fictícios para mostrar cada jornada.</p>
         </div>
       </div>
-      <div class="role-grid" [attr.aria-busy]="busy()">
-        @for (option of options; track option.role) {
-          <button type="button" class="role-card" [disabled]="busy()" (click)="choose(option.role)">
+      <div class="role-grid" [attr.aria-busy]="demo.busy()">
+        @for (option of demo.options; track option.role) {
+          <button
+            type="button"
+            class="role-card"
+            [disabled]="demo.busy()"
+            (click)="demo.choose(option.role)"
+          >
             <span class="material-symbols-outlined" aria-hidden="true">{{ option.icon }}</span>
             <strong>{{ option.title }}</strong
             ><span>{{ option.description }}</span>
@@ -400,8 +362,8 @@ export class AccessPage {
           </button>
         }
       </div>
-      @if (error()) {
-        <p class="demo-error" role="alert">{{ error() }}</p>
+      @if (demo.error()) {
+        <p class="demo-error" role="alert">{{ demo.error() }}</p>
       }
       <p class="demo-note">
         <span class="material-symbols-outlined" aria-hidden="true">info</span>As ações alteram
@@ -505,51 +467,7 @@ export class AccessPage {
   ],
 })
 export class DemoSelectorPage {
-  private readonly session = inject(DemoSessionService);
-  private readonly auth = inject(LocalAuthService);
-  private readonly router = inject(Router);
-  readonly busy = signal(false);
-  readonly error = signal('');
-  readonly options = [
-    {
-      role: 'supervisor' as const,
-      icon: 'assignment_turned_in',
-      title: 'Supervisor',
-      description: 'Chamada, saídas, retornos, notificações e limpeza.',
-    },
-    {
-      role: 'gestor' as const,
-      icon: 'apartment',
-      title: 'Gestor',
-      description: 'Cadastros, quartos, acompanhamento e relatórios.',
-    },
-    {
-      role: 'residente' as const,
-      icon: 'home',
-      title: 'Residente',
-      description: 'Minhas saídas, avisos, advertências e ranking.',
-    },
-  ];
-  async choose(role: 'gestor' | 'supervisor' | 'residente'): Promise<void> {
-    if (this.busy()) return;
-    this.busy.set(true);
-    this.error.set('');
-    try {
-      // Revalida o cookie: numa aba nova ainda não existe principal em memória.
-      if (await this.auth.refresh()) {
-        try {
-          await this.auth.logout();
-        } catch {
-          this.error.set('Não foi possível encerrar a sessão local. Tente novamente.');
-          return;
-        }
-      }
-      this.session.activate(role);
-      await this.router.navigateByUrl('/inicio');
-    } finally {
-      this.busy.set(false);
-    }
-  }
+  readonly demo = inject(DemoEntry);
 }
 
 @Component({
@@ -567,7 +485,7 @@ export class DemoSelectorPage {
             <h1>{{ heading() }}</h1>
             <p>{{ intro() }}</p>
           </div>
-          <span class="demo-pill">Dados fictícios</span>
+          <span class="status">Dados fictícios</span>
         </header>
         @if (session.role() === 'supervisor') {
           <div class="home-columns">
@@ -874,10 +792,6 @@ export class DemoSelectorPage {
       :host {
         display: block;
       }
-      .home-page {
-        max-width: var(--content-wide);
-        margin: auto;
-      }
       .home-heading {
         display: flex;
         justify-content: space-between;
@@ -896,26 +810,11 @@ export class DemoSelectorPage {
       }
       .home-heading h1 {
         margin: 8px 0;
-        font-size: clamp(1.8rem, 2.6vw, 2.25rem);
-        font-weight: 800;
-        line-height: 1.15;
       }
       .home-heading p {
         margin: 0;
         font-size: 1.1rem;
         color: var(--muted);
-      }
-      .demo-pill {
-        display: inline-flex;
-        align-items: center;
-        min-height: 30px;
-        padding: 2px 12px;
-        border-radius: 999px;
-        background: #eef2f3;
-        color: #3f505e;
-        font-size: var(--text-meta);
-        font-weight: 700;
-        white-space: nowrap;
       }
       .home-columns {
         display: grid;

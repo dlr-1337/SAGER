@@ -229,7 +229,7 @@ interface RoomGroup {
                   <dd>{{ totals().known ? totals().vacancies : 'Não definidas' }}</dd>
                 </div>
               </dl>
-              @if (totals().missing) {
+              @if (totals().missing && totals().known) {
                 <p class="mg-muted">
                   Capacidade e vagas em soma parcial; {{ totals().missing }}
                   {{ totals().missing === 1 ? 'quarto sem capacidade' : 'quartos sem capacidade' }}.
