@@ -35,9 +35,9 @@ public class ShortExitController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ShortExit>> list(@RequestParam(required = false) String search,
-            @RequestParam(required = false) String status, @RequestParam(required = false) UUID residentId) {
-        return ok(service.list(residentId, search, status));
+    public ResponseEntity<List<ShortExit>> list(@RequestParam java.util.Map<String,String> filters) {
+        var page=service.list(filters);
+        return ResponseEntity.ok().header("X-Total-Count",Long.toString(page.total())).cacheControl(CacheControl.noStore()).body(page.items());
     }
 
     @GetMapping("/{id}")

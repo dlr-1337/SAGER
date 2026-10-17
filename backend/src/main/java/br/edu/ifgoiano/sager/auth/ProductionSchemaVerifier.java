@@ -24,6 +24,9 @@ public class ProductionSchemaVerifier implements ApplicationRunner {
         if (!flyway.validateWithResult().validationSuccessful || flyway.info().pending().length != 0)
             throw new IllegalStateException("Production schema is not ready; use the isolated migration command.");
         var jdbc = new JdbcTemplate(source);
+        if (!arguments.containsOption("sager-account") && Boolean.TRUE.equals(jdbc.queryForObject(
+                "SELECT EXISTS(SELECT 1 FROM sager_local_account WHERE active AND enrollment IS NULL)", Boolean.class)))
+            throw new IllegalStateException("Contas ativas sem matrícula. Use sager-account=list e assign-enrollment antes de iniciar o servidor.");
         Boolean privileged = jdbc.queryForObject("""
                 SELECT r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls
                     OR pg_has_role(current_user,'sager_owner','MEMBER')

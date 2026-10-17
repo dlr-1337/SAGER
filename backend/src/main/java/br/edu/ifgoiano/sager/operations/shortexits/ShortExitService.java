@@ -59,6 +59,21 @@ public class ShortExitService {
     }
 
     @Transactional(readOnly = true)
+    public br.edu.ifgoiano.sager.management.ManagementSearch.Page<ShortExit> list(java.util.Map<String,String> input) {
+        LocalAccountPrincipal actor = readableActor();
+        var filters=new java.util.HashMap<>(input);
+        String requested=filters.get("residentId");
+        if ("residente".equals(actor.profile())) {
+            if (requested != null && !requested.isBlank() && !requested.equals(actor.residentId().toString())) throw OpsInput.notFound();
+            filters.put("residentId",actor.residentId().toString());
+        }
+        String status=filters.get("status");
+        if (status != null && !status.isBlank() && !STATUSES.contains(status)) throw OpsInput.invalid("Situação inválida.");
+        var page=exits.search(filters);
+        return new br.edu.ifgoiano.sager.management.ManagementSearch.Page<>(page.items().stream().map(exit->view(exit,actor)).toList(),page.total());
+    }
+
+    @Transactional(readOnly = true)
     public List<ShortExit> list(UUID residentId, String search, String status) {
         LocalAccountPrincipal actor = readableActor();
         if ("residente".equals(actor.profile())) {

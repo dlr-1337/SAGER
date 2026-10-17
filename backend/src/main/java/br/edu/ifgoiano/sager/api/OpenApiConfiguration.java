@@ -54,7 +54,14 @@ public class OpenApiConfiguration {
                     .addProperty("name", text(3, 200, false))
                     .addProperty("enrollment", text(1, 64, false))
                     .addProperty("birthDate", new StringSchema().format("date"))
-                    .addProperty("course", text(0, 200, true)), List.of("name", "enrollment", "birthDate"));
+                    .addProperty("courseId", uuid(true)).addProperty("institutionalEmail", new StringSchema().format("email").nullable(true)), List.of("name", "enrollment", "birthDate"));
+            var residentCreate=api.getComponents().getSchemas().get("ResidentCreateRequest");
+            residentCreate.addProperty("password", new StringSchema().format("password").minLength(12).maxLength(72).writeOnly(true));
+            residentCreate.addProperty("passwordConfirmation", new StringSchema().format("password").minLength(12).maxLength(72).writeOnly(true));
+            residentCreate.setRequired(List.of("name","enrollment","birthDate","password","passwordConfirmation"));
+            crud(api, "/api/v1/cursos", "Course", new ObjectSchema().addProperty("name", text(1,200,false)), List.of("name"));
+            var courseUpdate=api.getComponents().getSchemas().get("CourseUpdateRequest");
+            courseUpdate.addProperty("active",new BooleanSchema()); courseUpdate.setRequired(List.of("name","active","version"));
             crud(api, "/api/v1/supervisores", "Supervisor", new ObjectSchema()
                     .addProperty("name", text(1, 200, false))
                     .addProperty("institutionalId", text(1, 64, false))
@@ -89,11 +96,11 @@ public class OpenApiConfiguration {
                     .addProperty("version", version()).required(List.of("version")));
             healthContracts(api);
             Schema<?> loginBody = new ObjectSchema()
-                    .addProperty("email", new StringSchema().format("email"))
+                    .addProperty("matricula", text(1,64,false))
                     .addProperty("password", new StringSchema().format("password"))
-                    .required(List.of("email", "password"));
+                    .required(List.of("matricula", "password"));
             Operation login = new Operation()
-                    .operationId("localLogin").summary("Entrar com e-mail e senha")
+                    .operationId("localLogin").summary("Entrar com matrícula e senha")
                     .security(List.of()).requestBody(new RequestBody().required(true).content(new Content()
                             .addMediaType("application/x-www-form-urlencoded", new MediaType().schema(loginBody))))
                     .responses(new ApiResponses().addApiResponse("204", new ApiResponse()

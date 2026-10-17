@@ -63,10 +63,14 @@ public class DisciplineService {
         return new Occurrence(id,(UUID)row.get("resident_id"),(String)row.get("resident_name"),(String)row.get("source_type"),(UUID)row.get("source_id"),(String)row.get("category"),(boolean)row.get("valid"),number(row,"source_version"),number(row,"version"),time(row.get("occurred_at")),json.readTree(row.get("evidence").toString()),history);
     }
     @Transactional(readOnly=true)
-    public Page<Notification> notifications(UUID residentId,String status,int limit,Long cursor) {
+    public Page<Notification> notifications(UUID residentId,String status,int limit,Long cursor) { return notifications(residentId,status,limit,cursor,Map.of()); }
+    @Transactional(readOnly=true)
+    public Page<Notification> notifications(UUID residentId,String status,int limit,Long cursor,Map<String,String> filters) {
         actor.supervisor();limit(limit,cursor);
         if(status!=null && !Set.of("PENDENTE","VISUALIZADA","EM_ANALISE","ARQUIVADA","CONVERTIDA").contains(status)) throw invalid("status inválido.");
-        var rows=jdbc.queryForList("SELECT n.id,n.sequence FROM sager_discipline_notification n JOIN sager_occurrence o ON o.id=n.occurrence_id WHERE (?::uuid IS NULL OR o.resident_id=?) AND (?::text IS NULL OR n.status=?) AND (?::bigint IS NULL OR n.sequence<?) ORDER BY n.sequence DESC LIMIT ?",residentId,residentId,status,status,cursor,cursor,limit+1);
+        var query=new br.edu.ifgoiano.sager.api.ListFilters(filters).search("concat_ws(' ',r.name,r.enrollment)").equal("category","o.category").dates("(n.created_at AT TIME ZONE 'America/Sao_Paulo')::date");
+        var args=new java.util.ArrayList<Object>();args.add(residentId);args.add(residentId);args.add(status);args.add(status);args.addAll(query.args());args.add(cursor);args.add(cursor);args.add(limit+1);
+        var rows=jdbc.queryForList("SELECT n.id,n.sequence FROM sager_discipline_notification n JOIN sager_occurrence o ON o.id=n.occurrence_id JOIN sager_resident r ON r.id=o.resident_id WHERE (?::uuid IS NULL OR o.resident_id=?) AND (?::text IS NULL OR n.status=?)"+query.sql()+" AND (?::bigint IS NULL OR n.sequence<?) ORDER BY n.sequence DESC LIMIT ?",args.toArray());
         return results(rows,limit,id->notification(id,false));
     }
     @Transactional(readOnly=true)
@@ -167,7 +171,15 @@ public class DisciplineService {
     }
     private record WarningInput(String category,String severity,String description,String justification,LocalDate date) {}
     @Transactional(readOnly=true)
-    public Page<Warning> warnings(UUID resident,int limit,Long cursor) { actor.supervisor();return page("sager_warning",resident,limit,cursor,this::warning); }
+    public Page<Warning> warnings(UUID resident,int limit,Long cursor) { return warnings(resident,limit,cursor,Map.of()); }
+    @Transactional(readOnly=true)
+    public Page<Warning> warnings(UUID resident,int limit,Long cursor,Map<String,String> filters) {
+        actor.supervisor();limit(limit,cursor);
+        var query=new br.edu.ifgoiano.sager.api.ListFilters(filters).search("concat_ws(' ',r.name,r.enrollment,w.description)").equal("status","w.status").equal("category","w.category").equal("severity","w.severity").dates("w.warning_date");
+        var args=new java.util.ArrayList<Object>();args.add(resident);args.add(resident);args.addAll(query.args());args.add(cursor);args.add(cursor);args.add(limit+1);
+        var rows=jdbc.queryForList("SELECT w.id,w.sequence FROM sager_warning w JOIN sager_resident r ON r.id=w.resident_id WHERE (?::uuid IS NULL OR w.resident_id=?)"+query.sql()+" AND (?::bigint IS NULL OR w.sequence<?) ORDER BY w.sequence DESC LIMIT ?",args.toArray());
+        return results(rows,limit,this::warning);
+    }
     @Transactional(readOnly=true)
     public Warning getWarning(UUID id) { actor.supervisor();return warning(id); }
     private Warning warning(UUID id) {

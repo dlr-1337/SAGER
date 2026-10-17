@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 @Profile({ "local", "production" })
 public class LocalAccountProvisioningRunner implements ApplicationRunner, ExitCodeGenerator {
     private static final Set<String> ACTIONS = Set.of("create", "reset", "disable", "link-resident",
-            "link-supervisor", "unlink", "help");
+            "link-supervisor", "unlink", "assign-enrollment", "list", "help");
 
     private final LocalAccountProvisioningService accounts;
     private final Environment environment;
@@ -62,14 +62,30 @@ public class LocalAccountProvisioningRunner implements ApplicationRunner, ExitCo
             printHelp();
             return;
         }
-        String email = requiredOption(arguments, "email");
+        if (action.equals("list")) {
+            System.out.println("UUID | matrícula | perfil | ativa | contato");
+            for (LocalAccount account : accounts.list()) System.out.printf("%s | %s | %s | %s | %s%n",
+                    account.id(), account.enrollment() == null ? "PENDENTE" : account.enrollment(),
+                    account.profile(), account.active(), account.email() == null ? "" : account.email());
+            return;
+        }
+        if (action.equals("assign-enrollment")) {
+            accounts.assignEnrollment(requiredUuid(arguments, "account-id"), requiredOption(arguments, "matricula"));
+            System.out.println("Matrícula atribuída. Sessões anteriores encerradas.");
+            return;
+        }
+        UUID accountId = arguments.containsOption("account-id") ? requiredUuid(arguments, "account-id") : null;
+        String email = action.equals("create") ? optionalOption(arguments, "email")
+                : accountId != null ? null
+                : arguments.containsOption("matricula") ? requiredOption(arguments, "matricula")
+                : requiredOption(arguments, "email");
         switch (action) {
             case "create" -> {
                 String name = requiredOption(arguments, "name");
                 String profile = requiredOption(arguments, "profile");
                 char[] password = readConfirmedPassword();
                 try {
-                    accounts.create(email, name, profile, password);
+                    accounts.create(requiredOption(arguments, "matricula"), email, name, profile, password);
                 } finally {
                     Arrays.fill(password, '\0');
                 }
@@ -78,26 +94,29 @@ public class LocalAccountProvisioningRunner implements ApplicationRunner, ExitCo
             case "reset" -> {
                 char[] password = readConfirmedPassword();
                 try {
-                    accounts.resetPassword(email, password);
+                    if (accountId == null) accounts.resetPassword(email, password); else accounts.resetPassword(accountId, password);
                 } finally {
                     Arrays.fill(password, '\0');
                 }
                 System.out.println("Senha local redefinida.");
             }
             case "disable" -> {
-                accounts.disable(email);
+                if (accountId == null) accounts.disable(email); else accounts.disable(accountId);
                 System.out.println("Conta local desativada.");
             }
             case "link-resident" -> {
-                accounts.linkResident(email, requiredUuid(arguments, "resident-id"));
+                if (accountId == null) accounts.linkResident(email, requiredUuid(arguments, "resident-id"));
+                else accounts.linkResident(accountId, requiredUuid(arguments, "resident-id"));
                 System.out.println("Conta local vinculada ao residente.");
             }
             case "link-supervisor" -> {
-                accounts.linkSupervisor(email, requiredUuid(arguments, "supervisor-id"));
+                if (accountId == null) accounts.linkSupervisor(email, requiredUuid(arguments, "supervisor-id"));
+                else accounts.linkSupervisor(accountId, requiredUuid(arguments, "supervisor-id"));
                 System.out.println("Conta local vinculada ao supervisor.");
             }
             case "unlink" -> {
-                accounts.unlink(email, requiredUuid(arguments, "record-id"));
+                if (accountId == null) accounts.unlink(email, requiredUuid(arguments, "record-id"));
+                else accounts.unlink(accountId, requiredUuid(arguments, "record-id"));
                 System.out.println("Vinculo da conta local removido.");
             }
             default -> throw new IllegalArgumentException("Comando de contas invalido.");
@@ -120,12 +139,14 @@ public class LocalAccountProvisioningRunner implements ApplicationRunner, ExitCo
     private static void printHelp() {
         System.out.println("""
                 Comandos administrativos de contas (somente perfil local ou production):
-                  --sager-account=create --email=... --name=... --profile=gestor|supervisor|residente|saude
-                  --sager-account=reset --email=...
-                  --sager-account=disable --email=...
+                  --sager-account=create --matricula=... [--email=...] --name=... --profile=gestor|supervisor|residente|saude
+                  --sager-account=reset --matricula=...
+                  --sager-account=disable --matricula=...
                   --sager-account=link-resident --email=... --resident-id=UUID
                   --sager-account=link-supervisor --email=... --supervisor-id=UUID
                   --sager-account=unlink --email=... --record-id=UUID
+                  --sager-account=list
+                  --sager-account=assign-enrollment --account-id=UUID --matricula=...
                   --sager-account=help
                 Create e reset solicitam a senha no terminal; nao use senha em argumentos.
                 Vínculos exigem conta ativa e registro existente. Nao criam credenciais nem alteram perfil.
@@ -134,6 +155,10 @@ public class LocalAccountProvisioningRunner implements ApplicationRunner, ExitCo
                 Unlink exige o UUID do vinculo atual e admite conta inativa sem reativa-la.
                 Alterar ou remover um vinculo encerra as sessoes existentes da conta.
                 """);
+    }
+
+    private static String optionalOption(ApplicationArguments arguments, String name) {
+        return arguments.containsOption(name) ? requiredOption(arguments, name) : null;
     }
 
     private static String requiredOption(ApplicationArguments arguments, String name) {

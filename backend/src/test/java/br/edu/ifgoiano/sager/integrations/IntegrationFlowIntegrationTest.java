@@ -160,7 +160,7 @@ class IntegrationFlowIntegrationTest {
                 resident);
         for (String p : List.of("residente", "supervisor", "gestor"))
             provisioning.create(
-                    p + "@example.invalid",
+                    br.edu.ifgoiano.sager.TestIdentity.enrollment(p + "@example.invalid"), p + "@example.invalid",
                     "Pessoa sintética",
                     p,
                     "Senha sintética 123!".toCharArray());
@@ -785,8 +785,8 @@ class IntegrationFlowIntegrationTest {
                         .cookieHandler(new CookieManager(null, CookiePolicy.ACCEPT_ALL))
                         .build();
         String body =
-                "email="
-                        + URLEncoder.encode(profile + "@example.invalid", StandardCharsets.UTF_8)
+                "matricula="
+                        + URLEncoder.encode(br.edu.ifgoiano.sager.TestIdentity.enrollment(profile + "@example.invalid"), StandardCharsets.UTF_8)
                         + "&password="
                         + URLEncoder.encode("Senha sintética 123!", StandardCharsets.UTF_8);
         assertThat(

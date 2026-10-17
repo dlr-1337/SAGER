@@ -337,7 +337,7 @@ class ApiFoundationIntegrationTest {
     }
 
     private void account(String profile) {
-        provisioning.create(profile + "@example.test", "Pessoa Sintética", profile, PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(profile + "@example.test"), profile + "@example.test", "Pessoa Sintética", profile, PASSWORD.toCharArray());
     }
 
     private HttpClient browser() {
@@ -360,7 +360,7 @@ class ApiFoundationIntegrationTest {
 
     private HttpResponse<String> login(HttpClient client, String email, String password, String csrf)
             throws Exception {
-        String body = "email=" + java.net.URLEncoder.encode(email, java.nio.charset.StandardCharsets.UTF_8)
+        String body = "matricula=" + java.net.URLEncoder.encode(br.edu.ifgoiano.sager.TestIdentity.enrollment(email), java.nio.charset.StandardCharsets.UTF_8)
                 + "&password=" + java.net.URLEncoder.encode(password, java.nio.charset.StandardCharsets.UTF_8);
         return send(client, HttpRequest.newBuilder(uri("/api/v1/auth/login"))
                 .header("Content-Type", "application/x-www-form-urlencoded").header("X-CSRF-TOKEN", csrf)

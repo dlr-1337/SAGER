@@ -22,6 +22,11 @@ public class RoomRepository {
         this.jdbc = jdbc;
     }
 
+    public br.edu.ifgoiano.sager.management.ManagementSearch.Page<RoomRecord> search(java.util.Map<String,String> params) {
+        return br.edu.ifgoiano.sager.management.ManagementSearch.query(jdbc, COLUMNS, "sager_room",
+                "concat_ws(' ',code,number,floor,(SELECT name FROM sager_accommodation a WHERE a.id=accommodation_id),(SELECT name FROM sager_accommodation_unit u WHERE u.id=unit_id))", "code", "accommodation_id,unit_id NULLS FIRST,number,id", java.util.Map.of("accommodationId", "accommodation_id = ?::uuid", "unitId", "unit_id = ?::uuid", "situation", "situation = ?", "vacancy", "(capacity IS NOT NULL AND capacity > (SELECT count(*) FROM sager_room_allocation a WHERE a.room_id=sager_room.id AND a.ended_at IS NULL)) = ?::boolean"), params, (r,n) -> map(r));
+    }
+
     public List<RoomRecord> findAll() {
         return jdbc.query("SELECT " + COLUMNS + " FROM sager_room"
                 + " ORDER BY accommodation_id, unit_id NULLS FIRST, floor NULLS FIRST, number, code, id",

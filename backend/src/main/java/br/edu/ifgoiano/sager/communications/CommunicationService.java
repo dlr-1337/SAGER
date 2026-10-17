@@ -31,9 +31,13 @@ public class CommunicationService {
         this.jdbc=jdbc;this.actor=actor;this.keys=keys;this.audit=audit;this.clock=clock;
     }
     @Transactional(readOnly=true)
-    public Page<Notice> notices(int limit,Long cursor) {
+    public Page<Notice> notices(int limit,Long cursor) { return notices(limit,cursor,java.util.Map.of()); }
+    @Transactional(readOnly=true)
+    public Page<Notice> notices(int limit,Long cursor,java.util.Map<String,String> filters) {
         actor.supervisor();limit(limit,cursor);
-        var rows=jdbc.queryForList("SELECT id,sequence FROM sager_notice WHERE (?::bigint IS NULL OR sequence<?) ORDER BY sequence DESC LIMIT ?",cursor,cursor,limit+1);
+        var query = new br.edu.ifgoiano.sager.api.ListFilters(filters).uuid("residentId","EXISTS (SELECT 1 FROM sager_notice_draft_recipient d WHERE d.notice_id=n.id AND d.resident_id=?)").search("n.title").equal("status","n.status").dates("(n.created_at AT TIME ZONE 'America/Sao_Paulo')::date");
+        var args=query.args(); args.add(cursor); args.add(cursor); args.add(limit+1);
+        var rows=jdbc.queryForList("SELECT n.id,n.sequence FROM sager_notice n WHERE true"+query.sql()+" AND (?::bigint IS NULL OR n.sequence<?) ORDER BY n.sequence DESC LIMIT ?",args.toArray());
         boolean more=rows.size()>limit;
         var selected=more?rows.subList(0,limit):rows;
         return new Page<>(selected.stream().map(row->notice((UUID)row.get("id"))).toList(),more?((Number)selected.getLast().get("sequence")).longValue():null);
@@ -99,9 +103,13 @@ public class CommunicationService {
         for(var row:rows) audit.record(AuditResource.COMMUNICATION,(UUID)row.get("id"),AuditAction.END,number(row,"content_version"),Set.of("status","reason"));
     }
     @Transactional(readOnly=true)
-    public Page<Communication> ownList(String kind,int limit,Long cursor) {
+    public Page<Communication> ownList(String kind,int limit,Long cursor) { return ownList(kind,limit,cursor,java.util.Map.of()); }
+    @Transactional(readOnly=true)
+    public Page<Communication> ownList(String kind,int limit,Long cursor,java.util.Map<String,String> filters) {
         var account=actor.resident();limit(limit,cursor);
-        var rows=jdbc.queryForList("SELECT c.id,c.sequence FROM sager_communication c JOIN sager_communication_recipient r ON r.communication_id=c.id WHERE r.resident_id=? AND c.kind=? AND (?::bigint IS NULL OR c.sequence<?) ORDER BY c.sequence DESC LIMIT ?",account.residentId(),kind,cursor,cursor,limit+1);
+        var query = new br.edu.ifgoiano.sager.api.ListFilters(filters).search("c.title").equal("status","c.status").dates("(c.published_at AT TIME ZONE 'America/Sao_Paulo')::date").acknowledged("r.acknowledged_at");
+        var args = new java.util.ArrayList<Object>(); args.add(account.residentId());args.add(kind);args.addAll(query.args());args.add(cursor);args.add(cursor);args.add(limit+1);
+        var rows=jdbc.queryForList("SELECT c.id,c.sequence FROM sager_communication c JOIN sager_communication_recipient r ON r.communication_id=c.id WHERE r.resident_id=? AND c.kind=?"+query.sql()+" AND (?::bigint IS NULL OR c.sequence<?) ORDER BY c.sequence DESC LIMIT ?",args.toArray());
         boolean more=rows.size()>limit;var selected=more?rows.subList(0,limit):rows;
         return new Page<>(selected.stream().map(row->communication((UUID)row.get("id"),account.residentId())).toList(),more?number(selected.getLast(),"sequence"):null);
     }

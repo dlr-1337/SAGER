@@ -24,10 +24,15 @@ public class SupervisorService {
 
     private final SupervisorRepository repository;
     private final AuditService audit;
+    private final br.edu.ifgoiano.sager.auth.LocalAccountProvisioningService accounts;
 
-    public SupervisorService(SupervisorRepository repository, AuditService audit) {
+    public SupervisorService(SupervisorRepository repository, AuditService audit, br.edu.ifgoiano.sager.auth.LocalAccountProvisioningService accounts) {
         this.repository = repository;
-        this.audit = audit;
+        this.audit = audit; this.accounts = accounts;
+    }
+
+    public br.edu.ifgoiano.sager.management.ManagementSearch.Page<Supervisor> list(java.util.Map<String,String> params) {
+        return repository.search(params);
     }
 
     public List<Supervisor> list() {
@@ -66,6 +71,7 @@ public class SupervisorService {
             throw badRequest("version deve ser um inteiro não negativo válido.");
         }
         Supervisor current = get(id);
+        accounts.lockSupervisorAccount(id);
         if (current.version() != version) {
             throw new SupervisorApiException(HttpStatus.CONFLICT, "stale_version",
                     "O supervisor foi alterado. Recarregue o registro antes de salvar.");
@@ -86,6 +92,12 @@ public class SupervisorService {
             changed.add("name");
         }
         if (!Objects.equals(current.institutionalId(), checkedId)) {
+            try {
+                accounts.synchronizeSupervisorEnrollment(id, checkedId);
+            } catch (IllegalArgumentException error) {
+                throw new SupervisorApiException(HttpStatus.CONFLICT, "duplicate_enrollment",
+                        "Matrícula já utilizada por uma conta ou inválida para acesso.");
+            }
             changed.add("institutionalId");
         }
         if (!Objects.equals(current.email(), checkedEmail)) {

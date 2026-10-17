@@ -3,5 +3,5 @@ package br.edu.ifgoiano.sager.auth;
 import java.util.UUID;
 
 public record LocalAccount(UUID id, String email, String name, String passwordHash,
-        String profile, boolean active, UUID residentId, UUID supervisorId) {
+        String profile, boolean active, UUID residentId, UUID supervisorId, String enrollment) {
 }

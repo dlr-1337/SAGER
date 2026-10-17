@@ -27,40 +27,47 @@ public class LocalAccountProvisioningService {
         this.passwords = passwords;
     }
 
+    public java.util.List<LocalAccount> list() { return accounts.findAll(); }
+
     @Transactional
-    public void create(String email, String name, String profile, char[] password) {
-        String normalizedEmail = normalizeEmail(email);
+    public void create(String enrollment, String email, String name, String profile, char[] password) {
+        String normalizedEnrollment = normalizeEnrollment(enrollment);
+        String normalizedEmail = email == null || email.isBlank() ? null : normalizeEmail(email);
         String normalizedName = requireName(name);
         if (!PROFILES.contains(profile)) {
             throw new IllegalArgumentException("Perfil deve ser gestor, supervisor, residente ou saude.");
         }
         String hash = hashAndClear(password);
         try {
-            accounts.create(normalizedEmail, normalizedName, hash, profile);
+            accounts.create(normalizedEnrollment, normalizedEmail, normalizedName, hash, profile);
         } catch (DuplicateKeyException error) {
-            throw new IllegalArgumentException("Ja existe uma conta com esse e-mail.", error);
+            throw new IllegalArgumentException("Já existe uma conta com essa matrícula ou e-mail.", error);
         }
     }
 
     @Transactional
     public void resetPassword(String email, char[] password) {
-        String normalizedEmail = normalizeEmail(email);
+        LocalAccount account = requireActiveAccount(email);
         String hash = hashAndClear(password);
-        if (accounts.updatePassword(normalizedEmail, hash) != 1) {
+        if (accounts.updatePassword(account, hash) != 1) {
             throw new IllegalArgumentException("Conta ativa nao encontrada.");
         }
     }
 
     @Transactional
     public void disable(String email) {
-        if (accounts.disable(normalizeEmail(email)) != 1) {
+        if (accounts.disable(requireActiveAccount(email)) != 1) {
             throw new IllegalArgumentException("Conta ativa nao encontrada.");
         }
     }
 
     @Transactional
-    public void linkResident(String email, UUID residentId) {
-        LocalAccount account = requireActiveAccount(email);
+    public void linkResident(String email, UUID residentId) { linkResident(requireActiveAccount(email), residentId); }
+
+    @Transactional
+    public void linkResident(UUID accountId, UUID residentId) { linkResident(requireActiveAccount(accountId), residentId); }
+
+    private void linkResident(LocalAccount account, UUID residentId) {
         if (!account.profile().equals("residente")) {
             throw new IllegalArgumentException("Perfil da conta deve ser residente para esse vinculo.");
         }
@@ -71,8 +78,12 @@ public class LocalAccountProvisioningService {
     }
 
     @Transactional
-    public void linkSupervisor(String email, UUID supervisorId) {
-        LocalAccount account = requireActiveAccount(email);
+    public void linkSupervisor(String email, UUID supervisorId) { linkSupervisor(requireActiveAccount(email), supervisorId); }
+
+    @Transactional
+    public void linkSupervisor(UUID accountId, UUID supervisorId) { linkSupervisor(requireActiveAccount(accountId), supervisorId); }
+
+    private void linkSupervisor(LocalAccount account, UUID supervisorId) {
         if (!Set.of("gestor", "supervisor").contains(account.profile())) {
             throw new IllegalArgumentException(
                     "Perfil da conta deve ser gestor ou supervisor para esse vinculo.");
@@ -85,10 +96,15 @@ public class LocalAccountProvisioningService {
 
     @Transactional
     public void unlink(String email, UUID expectedRecordId) {
-        // Removing a disabled account's link releases the unique domain record;
-        // it does not reactivate the account or grant any access.
-        LocalAccount account = accounts.findByEmailForUpdate(normalizeEmail(email))
-                .orElseThrow(() -> new IllegalArgumentException("Conta nao encontrada."));
+        unlink(accounts.findForUpdate(email).orElseThrow(() -> new IllegalArgumentException("Conta nao encontrada.")), expectedRecordId);
+    }
+
+    @Transactional
+    public void unlink(UUID accountId, UUID expectedRecordId) {
+        unlink(accounts.findByIdForUpdate(accountId).orElseThrow(() -> new IllegalArgumentException("Conta nao encontrada.")), expectedRecordId);
+    }
+
+    private void unlink(LocalAccount account, UUID expectedRecordId) {
         if (expectedRecordId == null
                 || (!expectedRecordId.equals(account.residentId())
                         && !expectedRecordId.equals(account.supervisorId()))) {
@@ -97,8 +113,25 @@ public class LocalAccountProvisioningService {
         changeLink(account, null, null);
     }
 
+    @Transactional
+    public void resetPassword(UUID accountId, char[] password) {
+        if (accounts.updatePassword(requireActiveAccount(accountId), hashAndClear(password)) != 1)
+            throw new IllegalArgumentException("Conta ativa nao encontrada.");
+    }
+
+    @Transactional
+    public void disable(UUID accountId) {
+        if (accounts.disable(requireActiveAccount(accountId)) != 1)
+            throw new IllegalArgumentException("Conta ativa nao encontrada.");
+    }
+
+    private LocalAccount requireActiveAccount(UUID accountId) {
+        return accounts.findByIdForUpdate(accountId).filter(LocalAccount::active)
+                .orElseThrow(() -> new IllegalArgumentException("Conta ativa nao encontrada."));
+    }
+
     private LocalAccount requireActiveAccount(String email) {
-        return accounts.findByEmailForUpdate(normalizeEmail(email)).filter(LocalAccount::active)
+        return accounts.findForUpdate(email).filter(LocalAccount::active)
                 .orElseThrow(() -> new IllegalArgumentException("Conta ativa nao encontrada."));
     }
 
@@ -117,7 +150,7 @@ public class LocalAccountProvisioningService {
         }
     }
 
-    private String hashAndClear(char[] password) {
+    public String hashAndClear(char[] password) {
         try {
             if (password == null || password.length < 12 || password.length > 72) {
                 throw new IllegalArgumentException("Senha deve ter entre 12 e 72 caracteres.");
@@ -132,6 +165,45 @@ public class LocalAccountProvisioningService {
                 Arrays.fill(password, '\0');
             }
         }
+    }
+
+    @Transactional
+    public void lockResidentAccount(UUID residentId) { accounts.findByResidentId(residentId); }
+
+    @Transactional
+    public void lockSupervisorAccount(UUID id) { accounts.findBySupervisorId(id); }
+
+    @Transactional
+    public void synchronizeSupervisorEnrollment(UUID id, String enrollment) {
+        accounts.findBySupervisorId(id).ifPresent(account -> {
+            if (!Objects.equals(account.enrollment(), enrollment)) assignEnrollment(account.id(), enrollment);
+        });
+    }
+
+    @Transactional
+    public void synchronizeResidentEnrollment(UUID residentId, String enrollment) {
+        accounts.findByResidentId(residentId).ifPresent(account -> {
+            if (!Objects.equals(account.enrollment(), enrollment)) assignEnrollment(account.id(), enrollment);
+        });
+    }
+
+    @Transactional
+    public void assignEnrollment(UUID accountId, String enrollment) {
+        LocalAccount account = accounts.findByIdForUpdate(accountId)
+                .orElseThrow(() -> new IllegalArgumentException("Conta não encontrada."));
+        try {
+            accounts.assignEnrollment(account, normalizeEnrollment(enrollment));
+        } catch (DuplicateKeyException error) {
+            throw new IllegalArgumentException("Matrícula já utilizada por outra conta.", error);
+        }
+    }
+
+    public static String normalizeEnrollment(String enrollment) {
+        if (enrollment == null || enrollment.isBlank() || enrollment.trim().length() > 64
+                || enrollment.contains("@") || enrollment.chars().anyMatch(Character::isISOControl)) {
+            throw new IllegalArgumentException("Matrícula deve ter entre 1 e 64 caracteres, sem @ ou controles.");
+        }
+        return enrollment.trim();
     }
 
     private String normalizeEmail(String email) {

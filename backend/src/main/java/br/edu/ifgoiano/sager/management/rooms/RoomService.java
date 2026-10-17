@@ -34,6 +34,10 @@ public class RoomService {
         this.audit = audit;
     }
 
+    public br.edu.ifgoiano.sager.management.ManagementSearch.Page<RoomRecord> list(java.util.Map<String,String> params) {
+        return repository.search(params);
+    }
+
     public List<RoomRecord> list() {
         return repository.findAll();
     }

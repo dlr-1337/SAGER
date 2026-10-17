@@ -83,7 +83,7 @@ class LocalAccountLinksIntegrationTest {
 
     @Test
     void exposesNullLinksForAnUnlinkedAccount() throws Exception {
-        provisioning.create("unlinked@example.invalid", "Conta Sintética", "residente", PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("unlinked@example.invalid"), "unlinked@example.invalid", "Conta Sintética", "residente", PASSWORD.toCharArray());
         try (HttpClient client = browser()) {
             login(client, "unlinked@example.invalid");
             JsonNode me = me(client);
@@ -100,8 +100,8 @@ class LocalAccountLinksIntegrationTest {
     void linksOnlyTheExplicitResidentAndKeepsTheCredentialAndAssignedRole() throws Exception {
         UUID first = resident("DEMO-A");
         UUID second = resident("DEMO-B");
-        provisioning.create("account-a@example.invalid", "Nome Sem Relação", "residente", PASSWORD.toCharArray());
-        provisioning.create("account-b@example.invalid", "Estudante Sintético", "residente", PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("account-a@example.invalid"), "account-a@example.invalid", "Nome Sem Relação", "residente", PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("account-b@example.invalid"), "account-b@example.invalid", "Estudante Sintético", "residente", PASSWORD.toCharArray());
         String hash = accounts.findByEmail("account-a@example.invalid").orElseThrow().passwordHash();
 
         command("link-resident", "  ACCOUNT-A@example.invalid  ", "--resident-id=" + first);
@@ -125,7 +125,7 @@ class LocalAccountLinksIntegrationTest {
         for (String profile : new String[] { "supervisor", "gestor" }) {
             UUID record = supervisor("DEMO-" + profile);
             String email = profile + "@example.invalid";
-            provisioning.create(email, "Conta Sintética", profile, PASSWORD.toCharArray());
+            provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(email), email, "Conta Sintética", profile, PASSWORD.toCharArray());
             command("link-supervisor", email, "--supervisor-id=" + record);
             try (HttpClient client = browser()) {
                 login(client, email);
@@ -142,10 +142,10 @@ class LocalAccountLinksIntegrationTest {
     void rejectsMissingInactiveIncompatibleAndDuplicateLinksWithoutPartialChanges(CapturedOutput output) {
         UUID record = resident("DEMO-A");
         UUID staff = supervisor("DEMO-S");
-        provisioning.create("resident-a@example.invalid", "Conta Sintética", "residente", PASSWORD.toCharArray());
-        provisioning.create("resident-b@example.invalid", "Conta Sintética", "residente", PASSWORD.toCharArray());
-        provisioning.create("gestor@example.invalid", "Conta Sintética", "gestor", PASSWORD.toCharArray());
-        provisioning.create("inactive@example.invalid", "Conta Sintética", "residente", PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("resident-a@example.invalid"), "resident-a@example.invalid", "Conta Sintética", "residente", PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("resident-b@example.invalid"), "resident-b@example.invalid", "Conta Sintética", "residente", PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("gestor@example.invalid"), "gestor@example.invalid", "Conta Sintética", "gestor", PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("inactive@example.invalid"), "inactive@example.invalid", "Conta Sintética", "residente", PASSWORD.toCharArray());
         provisioning.disable("inactive@example.invalid");
 
         rejected("link-resident", "missing@example.invalid", "--resident-id=" + record);
@@ -172,7 +172,7 @@ class LocalAccountLinksIntegrationTest {
         UUID first = resident("DEMO-A");
         UUID second = resident("DEMO-B");
         String email = "resident@example.invalid";
-        provisioning.create(email, "Conta Sintética", "residente", PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(email), email, "Conta Sintética", "residente", PASSWORD.toCharArray());
         try (HttpClient client = browser(); HttpClient other = browser()) {
             login(client, email);
             login(other, email);
@@ -194,8 +194,8 @@ class LocalAccountLinksIntegrationTest {
     @Test
     void unlinksAnInactiveAccountWithoutReactivatingItSoTheRecordCanBeAssignedAgain() throws Exception {
         UUID record = resident("DEMO-REASSIGN");
-        provisioning.create("disabled@example.invalid", "Conta Sintética", "residente", PASSWORD.toCharArray());
-        provisioning.create("replacement@example.invalid", "Conta Sintética", "residente", PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("disabled@example.invalid"), "disabled@example.invalid", "Conta Sintética", "residente", PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("replacement@example.invalid"), "replacement@example.invalid", "Conta Sintética", "residente", PASSWORD.toCharArray());
         command("link-resident", "disabled@example.invalid", "--resident-id=" + record);
         try (HttpClient client = browser()) {
             login(client, "disabled@example.invalid");
@@ -222,7 +222,7 @@ class LocalAccountLinksIntegrationTest {
                 """, Integer.class)).isEqualTo(2);
         UUID record = resident("DEMO-A");
         String email = "resident@example.invalid";
-        provisioning.create(email, "Conta Sintética", "residente", PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(email), email, "Conta Sintética", "residente", PASSWORD.toCharArray());
         try (HttpClient client = browser()) {
             login(client, email);
             jdbc.update("UPDATE sager_local_account SET resident_id = ? WHERE email = ?", record, email);
@@ -235,8 +235,8 @@ class LocalAccountLinksIntegrationTest {
     @Test
     void allowsOnlyOneOfTwoConcurrentAccountsToLinkTheSameRecord() throws Exception {
         UUID record = resident("DEMO-CONCURRENT");
-        provisioning.create("first@example.invalid", "Conta Sintética", "residente", PASSWORD.toCharArray());
-        provisioning.create("second@example.invalid", "Conta Sintética", "residente", PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("first@example.invalid"), "first@example.invalid", "Conta Sintética", "residente", PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("second@example.invalid"), "second@example.invalid", "Conta Sintética", "residente", PASSWORD.toCharArray());
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
         try (var executor = Executors.newFixedThreadPool(2)) {
@@ -301,7 +301,7 @@ class LocalAccountLinksIntegrationTest {
 
     private void login(HttpClient client, String email) throws Exception {
         JsonNode csrf = json.readTree(get(client, "/api/v1/auth/csrf").body());
-        String form = "email=" + URLEncoder.encode(email, StandardCharsets.UTF_8)
+        String form = "matricula=" + URLEncoder.encode(br.edu.ifgoiano.sager.TestIdentity.enrollment(email), StandardCharsets.UTF_8)
                 + "&password=" + URLEncoder.encode(PASSWORD, StandardCharsets.UTF_8);
         HttpResponse<String> response = client.send(HttpRequest.newBuilder(uri("/api/v1/auth/login"))
                 .header("Content-Type", "application/x-www-form-urlencoded")

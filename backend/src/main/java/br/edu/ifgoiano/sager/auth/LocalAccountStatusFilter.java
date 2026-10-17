@@ -29,7 +29,7 @@ public class LocalAccountStatusFilter extends OncePerRequestFilter {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getPrincipal() instanceof LocalAccountPrincipal principal) {
             boolean current = accounts.findById(principal.id())
-                    .filter(account -> account.active() && account.email().equals(principal.email())
+                    .filter(account -> account.active() && Objects.equals(account.enrollment(), principal.enrollment())
                             && account.profile().equals(principal.profile())
                             && Objects.equals(account.residentId(), principal.residentId())
                             && Objects.equals(account.supervisorId(), principal.supervisorId()))

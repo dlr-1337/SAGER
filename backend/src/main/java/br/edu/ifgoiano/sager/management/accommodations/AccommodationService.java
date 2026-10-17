@@ -27,6 +27,10 @@ public class AccommodationService {
         this.audit = audit;
     }
 
+    public br.edu.ifgoiano.sager.management.ManagementSearch.Page<Accommodation> list(java.util.Map<String,String> params) {
+        return repository.search(params);
+    }
+
     public List<Accommodation> list() {
         return repository.findAll();
     }

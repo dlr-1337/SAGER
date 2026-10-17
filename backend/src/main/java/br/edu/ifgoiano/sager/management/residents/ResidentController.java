@@ -30,8 +30,9 @@ public class ResidentController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Resident>> list() {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.list());
+    public ResponseEntity<List<Resident>> list(@org.springframework.web.bind.annotation.RequestParam java.util.Map<String,String> params) {
+        var page = service.list(params);
+        return ResponseEntity.ok().header("X-Total-Count", Long.toString(page.total())).cacheControl(CacheControl.noStore()).body(page.items());
     }
 
     @GetMapping("/{id}")
@@ -43,7 +44,8 @@ public class ResidentController {
     public ResponseEntity<Resident> create(@RequestBody CreateRequest request) {
         Resident created = service.create(text(request.name(), "name"),
                 text(request.enrollment(), "enrollment"), birthDate(request.birthDate()),
-                text(request.course(), "course"));
+                courseId(request.courseId()), text(request.institutionalEmail(), "institutionalEmail"),
+                text(request.password(), "password"), text(request.passwordConfirmation(), "passwordConfirmation"));
         return ResponseEntity.created(URI.create("/api/v1/residentes/" + created.id()))
                 .cacheControl(CacheControl.noStore()).body(created);
     }
@@ -52,7 +54,7 @@ public class ResidentController {
     public ResponseEntity<Resident> update(@PathVariable UUID id, @RequestBody UpdateRequest request) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.update(id,
                 text(request.name(), "name"), text(request.enrollment(), "enrollment"),
-                birthDate(request.birthDate()), text(request.course(), "course"),
+                birthDate(request.birthDate()), courseId(request.courseId()), text(request.institutionalEmail(), "institutionalEmail"),
                 version(request.version())));
     }
 
@@ -64,6 +66,13 @@ public class ResidentController {
             throw invalidInput(field + " deve ser texto JSON.");
         }
         return value.stringValue();
+    }
+
+    private UUID courseId(JsonNode value) {
+        String text = text(value, "courseId");
+        if (text == null) return null;
+        try { return UUID.fromString(text); }
+        catch (IllegalArgumentException error) { throw invalidInput("courseId deve ser UUID válido."); }
     }
 
     private LocalDate birthDate(JsonNode value) {
@@ -91,11 +100,11 @@ public class ResidentController {
     }
 
     public record CreateRequest(JsonNode name, JsonNode enrollment, JsonNode birthDate,
-            JsonNode course) {
+            JsonNode courseId, JsonNode institutionalEmail, JsonNode password, JsonNode passwordConfirmation) {
     }
 
     public record UpdateRequest(JsonNode name, JsonNode enrollment, JsonNode birthDate,
-            JsonNode course, JsonNode version) {
+            JsonNode courseId, JsonNode institutionalEmail, JsonNode version) {
     }
 
 }

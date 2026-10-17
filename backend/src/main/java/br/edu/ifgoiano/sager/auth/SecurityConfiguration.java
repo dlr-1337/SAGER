@@ -71,7 +71,7 @@ public class SecurityConfiguration {
                     .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**").permitAll());
         }
         http.authorizeHttpRequests(requests -> requests
-                        .requestMatchers("/api/v1/auth/csrf", "/api/v1/auth/login", "/error")
+                        .requestMatchers("/api/v1/auth/csrf", "/api/v1/auth/recover", "/api/v1/auth/login", "/error")
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/assinaturas/acesso", "/api/v1/assinaturas/documento",
                                 "/api/v1/webhooks/whatsapp")
@@ -112,6 +112,8 @@ public class SecurityConfiguration {
                                 "/api/v1/openapi.yaml", "/actuator/health", "/actuator/metrics",
                                 "/actuator/metrics/**")
                         .hasAnyRole("GESTOR", "SUPERVISOR")
+                        .requestMatchers("/api/v1/cursos", "/api/v1/cursos/**")
+                        .hasAnyRole("GESTOR", "SUPERVISOR")
                         .requestMatchers("/api/v1/supervisores", "/api/v1/supervisores/**")
                         .hasAnyRole("GESTOR", "SUPERVISOR")
                         .requestMatchers(HttpMethod.GET, "/api/v1/alojamentos", "/api/v1/alojamentos/**")
@@ -146,16 +148,16 @@ public class SecurityConfiguration {
                 .authenticationProvider(provider)
                 .formLogin(login -> login.loginPage("/api/v1/auth/login")
                         .loginProcessingUrl("/api/v1/auth/login")
-                        .usernameParameter("email")
+                        .usernameParameter("matricula")
                         .passwordParameter("password")
                         .successHandler((request, response, authentication) -> {
-                            if (production) rateLimiter.getObject().succeeded(authentication.getName());
+                            if (production) rateLimiter.getObject().succeeded(((LocalAccountPrincipal) authentication.getPrincipal()).enrollment());
                             response.setHeader("Cache-Control", "no-store");
                             response.setStatus(HttpStatus.NO_CONTENT.value());
                         })
                         .failureHandler((request, response, exception) -> {
                             apiErrors.write(request, response, 401, "invalid_credentials",
-                                    "E-mail ou senha inválidos.");
+                                    "Matrícula ou senha inválidos.");
                         }))
                 .logout(logout -> logout.logoutUrl("/api/v1/auth/logout")
                         .logoutSuccessHandler((request, response, authentication) -> {

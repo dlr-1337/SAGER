@@ -33,7 +33,7 @@ public final class HealthModels {
             UUID recipientGrantId, String recipientAccountName, UUID createdBy, Instant createdAt,
             String reason, Instant endedAt, long version) {}
 
-    public record AccountChoice(UUID id, String name, String email, String profile) {}
+    public record AccountChoice(UUID id, String name, String email, String profile, String matricula) {}
 
     public record ResidentHeader(UUID id, String name, String enrollment, LocalDate birthDate,
             Instant lastRecordedAt, Instant reviewAfter) {}

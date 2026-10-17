@@ -434,7 +434,7 @@ class AllocationApiIntegrationTest {
     }
 
     private void account(String profile) {
-        provisioning.create(profile + "@example.invalid", "Pessoa Sintética", profile, PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(profile + "@example.invalid"), profile + "@example.invalid", "Pessoa Sintética", profile, PASSWORD.toCharArray());
     }
 
     private UUID create(HttpClient client, UUID resident, UUID room) throws Exception {
@@ -477,7 +477,7 @@ class AllocationApiIntegrationTest {
     }
 
     private void login(HttpClient client, String profile) throws Exception {
-        String form = "email=" + URLEncoder.encode(profile + "@example.invalid", StandardCharsets.UTF_8)
+        String form = "matricula=" + URLEncoder.encode(br.edu.ifgoiano.sager.TestIdentity.enrollment(profile + "@example.invalid"), StandardCharsets.UTF_8)
                 + "&password=" + URLEncoder.encode(PASSWORD, StandardCharsets.UTF_8);
         assertThat(postForm(client, "/api/v1/auth/login", form, csrf(client)).statusCode()).isEqualTo(204);
     }

@@ -15,15 +15,15 @@ import tools.jackson.databind.JsonNode;
 public class CommunicationController {
     private final CommunicationService service;
     public CommunicationController(CommunicationService service) { this.service=service; }
-    @GetMapping("/avisos") public ResponseEntity<Page<Notice>> notices(@RequestParam(defaultValue="20") int limit,@RequestParam(required=false) Long beforeSequence) { return ok(service.notices(limit,beforeSequence)); }
+    @GetMapping("/avisos") public ResponseEntity<Page<Notice>> notices(@RequestParam(defaultValue="25") int limit,@RequestParam(required=false) Long beforeSequence,@RequestParam java.util.Map<String,String> filters) { return ok(service.notices(limit,beforeSequence,filters)); }
     @GetMapping("/avisos/{id}") public ResponseEntity<Notice> notice(@PathVariable UUID id) { return ok(service.getNotice(id)); }
     @PostMapping("/avisos") public ResponseEntity<Notice> create(@RequestBody JsonNode body) { return ok(service.createNotice(body)); }
     @PostMapping("/avisos/{id}/publicar") public ResponseEntity<Notice> publish(@PathVariable UUID id,@RequestBody JsonNode body) { return ok(service.publishNotice(id,body,false)); }
     @PostMapping("/avisos/{id}/revisar") public ResponseEntity<Notice> revise(@PathVariable UUID id,@RequestBody JsonNode body) { return ok(service.publishNotice(id,body,true)); }
     @PostMapping("/avisos/{id}/retirar") public ResponseEntity<Notice> withdraw(@PathVariable UUID id,@RequestBody JsonNode body) { return ok(service.withdrawNotice(id,body)); }
-    @GetMapping("/me/avisos") public ResponseEntity<Page<Communication>> ownNotices(@RequestParam(defaultValue="20") int limit,@RequestParam(required=false) Long beforeSequence) { return ok(service.ownList("AVISO",limit,beforeSequence)); }
-    @GetMapping("/me/advertencias") public ResponseEntity<Page<Communication>> ownWarnings(@RequestParam(defaultValue="20") int limit,@RequestParam(required=false) Long beforeSequence) { return ok(service.ownList("ADVERTENCIA",limit,beforeSequence)); }
-    @GetMapping("/me/termos") public ResponseEntity<Page<Communication>> ownTerms(@RequestParam(defaultValue="20") int limit,@RequestParam(required=false) Long beforeSequence) { return ok(service.ownList("TERMO",limit,beforeSequence)); }
+    @GetMapping("/me/avisos") public ResponseEntity<Page<Communication>> ownNotices(@RequestParam(defaultValue="25") int limit,@RequestParam(required=false) Long beforeSequence,@RequestParam java.util.Map<String,String> filters) { return ok(service.ownList("AVISO",limit,beforeSequence,filters)); }
+    @GetMapping("/me/advertencias") public ResponseEntity<Page<Communication>> ownWarnings(@RequestParam(defaultValue="25") int limit,@RequestParam(required=false) Long beforeSequence,@RequestParam java.util.Map<String,String> filters) { return ok(service.ownList("ADVERTENCIA",limit,beforeSequence,filters)); }
+    @GetMapping("/me/termos") public ResponseEntity<Page<Communication>> ownTerms(@RequestParam(defaultValue="25") int limit,@RequestParam(required=false) Long beforeSequence,@RequestParam java.util.Map<String,String> filters) { return ok(service.ownList("TERMO",limit,beforeSequence,filters)); }
     @GetMapping("/me/comunicacoes/{id}") public ResponseEntity<Communication> own(@PathVariable UUID id) { return ok(service.own(id)); }
     @PostMapping("/me/comunicacoes/{id}/leitura") public ResponseEntity<Communication> read(@PathVariable UUID id,@RequestBody JsonNode body) { return ok(service.acknowledge(id,body,true)); }
     @PostMapping("/me/comunicacoes/{id}/ciencia") public ResponseEntity<Communication> acknowledge(@PathVariable UUID id,@RequestBody JsonNode body) { return ok(service.acknowledge(id,body,false)); }

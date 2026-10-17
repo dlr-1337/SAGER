@@ -53,8 +53,8 @@ class CleaningReportsIntegrationTest {
   for(int i=0;i<4;i++){UUID room=UUID.randomUUID();rooms.add(room);jdbc.update("INSERT INTO sager_room(id,code,number,accommodation_id,capacity,situation) VALUES (?,?,?, ?,5,'Disponível')",room,"F6-"+room.toString().substring(0,8),Integer.toString(i),accommodation);}
   for(UUID id:List.of(resident,other))jdbc.update("INSERT INTO sager_resident(id,name,enrollment,birth_date) VALUES (?,'Estudante Sintético',?,'2009-01-01')",id,id.toString());
   allocate(resident,rooms.getFirst(),START.minus(Duration.ofDays(30)));
-  for(String profile:List.of("supervisor","gestor","residente"))accounts.create(profile+"@example.invalid","Pessoa Sintética",profile,PASSWORD.toCharArray());
-  accounts.linkResident("residente@example.invalid",resident);accounts.create("other@example.invalid","Pessoa Sintética","residente",PASSWORD.toCharArray());accounts.linkResident("other@example.invalid",other);
+  for(String profile:List.of("supervisor","gestor","residente"))accounts.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(profile+"@example.invalid"), profile+"@example.invalid","Pessoa Sintética",profile,PASSWORD.toCharArray());
+  accounts.linkResident("residente@example.invalid",resident);accounts.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("other@example.invalid"), "other@example.invalid","Pessoa Sintética","residente",PASSWORD.toCharArray());accounts.linkResident("other@example.invalid",other);
  }
  @Test void exactDecimalsFirstDeltaDedupAndSameDayConcurrency()throws Exception{
   try(var sup=login("supervisor")){
@@ -228,7 +228,7 @@ class CleaningReportsIntegrationTest {
  private JsonNode rank(JsonNode rows,UUID id){for(var row:rows)if(row.path("roomId").asText().equals(id.toString()))return row;throw new AssertionError("Quarto não encontrado");}
  private int count(String table){return jdbc.queryForObject("SELECT COUNT(*) FROM "+table,Integer.class);}
  private static OffsetDateTime at(Instant time){return time.atOffset(ZoneOffset.UTC);}
- private HttpClient login(String name)throws Exception{var client=HttpClient.newBuilder().cookieHandler(new CookieManager(null,CookiePolicy.ACCEPT_ALL)).build();String token=csrf(client);var response=client.send(request("/api/v1/auth/login").header("Content-Type","application/x-www-form-urlencoded").header("X-CSRF-TOKEN",token).POST(HttpRequest.BodyPublishers.ofString("email="+URLEncoder.encode(name+"@example.invalid",StandardCharsets.UTF_8)+"&password="+URLEncoder.encode(PASSWORD,StandardCharsets.UTF_8))).build(),HttpResponse.BodyHandlers.ofString());assertThat(response.statusCode()).isEqualTo(204);return client;}
+ private HttpClient login(String name)throws Exception{var client=HttpClient.newBuilder().cookieHandler(new CookieManager(null,CookiePolicy.ACCEPT_ALL)).build();String token=csrf(client);var response=client.send(request("/api/v1/auth/login").header("Content-Type","application/x-www-form-urlencoded").header("X-CSRF-TOKEN",token).POST(HttpRequest.BodyPublishers.ofString("matricula="+URLEncoder.encode(br.edu.ifgoiano.sager.TestIdentity.enrollment(name+"@example.invalid"),StandardCharsets.UTF_8)+"&password="+URLEncoder.encode(PASSWORD,StandardCharsets.UTF_8))).build(),HttpResponse.BodyHandlers.ofString());assertThat(response.statusCode()).isEqualTo(204);return client;}
  private HttpRequest.Builder request(String path){return HttpRequest.newBuilder(URI.create("http://127.0.0.1:"+port+path));}
  private HttpResponse<String> get(HttpClient client,String path)throws Exception{return client.send(request(path).GET().build(),HttpResponse.BodyHandlers.ofString());}
  private JsonNode read(HttpClient client,String path)throws Exception{var response=get(client,path);assertThat(response.statusCode()).withFailMessage(response.body()).isEqualTo(200);return json.readTree(response.body());}

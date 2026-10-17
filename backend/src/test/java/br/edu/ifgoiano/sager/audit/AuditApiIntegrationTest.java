@@ -10,6 +10,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.UUID;
 
 import br.edu.ifgoiano.sager.auth.LocalAccountProvisioningService;
@@ -61,7 +62,7 @@ class AuditApiIntegrationTest {
     void cleanAccountsWithoutTouchingPermanentEvents() {
         jdbc.update("DELETE FROM spring_session");
         jdbc.update("DELETE FROM sager_local_account");
-        provisioning.create("gestor@example.invalid", "Gestor Sintético", "gestor",
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("gestor@example.invalid"), "gestor@example.invalid", "Gestor Sintético", "gestor",
                 PASSWORD.toCharArray());
     }
 
@@ -135,6 +136,47 @@ class AuditApiIntegrationTest {
     }
 
     @Test
+    void courseCreationEditsAndDeactivationAppearInAdministrativePages() throws Exception {
+        try (HttpClient client = browser()) {
+            login(client);
+            String name = "Curso Sintético " + UUID.randomUUID();
+            HttpResponse<String> created = write(client, "POST", "/api/v1/cursos", Map.of("name", name));
+            assertThat(created.statusCode()).isEqualTo(201);
+            String id = json.readTree(created.body()).path("id").asText();
+            assertThat(write(client, "PUT", "/api/v1/cursos/" + id,
+                    Map.of("name", name + " Editado", "active", true, "version", 0)).statusCode())
+                    .isEqualTo(200);
+            assertThat(write(client, "PUT", "/api/v1/cursos/" + id,
+                    Map.of("name", name + " Editado", "active", false, "version", 1)).statusCode())
+                    .isEqualTo(200);
+
+            for (String resourceFilter : new String[] { "", "&resource=COURSE" }) {
+                String query = PATH + "?resourceId=" + id + "&limit=2" + resourceFilter;
+                HttpResponse<String> response = get(client, query);
+                assertThat(response.statusCode()).isEqualTo(200);
+                JsonNode page = json.readTree(response.body());
+                assertThat(page.path("items").size()).isEqualTo(2);
+                JsonNode deactivated = page.path("items").get(0);
+                assertThat(deactivated.path("resource").asText()).isEqualTo("COURSE");
+                assertThat(deactivated.path("action").asText()).isEqualTo("UPDATE");
+                assertThat(deactivated.path("resultingVersion").asLong()).isEqualTo(2);
+                assertThat(deactivated.path("changedFields").get(0).asText()).isEqualTo("active");
+                JsonNode edited = page.path("items").get(1);
+                assertThat(edited.path("resultingVersion").asLong()).isEqualTo(1);
+                assertThat(edited.path("changedFields").get(0).asText()).isEqualTo("name");
+                assertThat(page.path("nextCursor").asLong()).isPositive();
+                JsonNode previous = json.readTree(get(client,
+                        query + "&beforeSequence=" + page.path("nextCursor").asLong()).body());
+                assertThat(previous.path("items").size()).isEqualTo(1);
+                assertThat(previous.path("items").get(0).path("action").asText()).isEqualTo("CREATE");
+                assertThat(previous.path("items").get(0).path("resultingVersion").asLong()).isZero();
+                assertThat(previous.path("nextCursor").isNull()).isTrue();
+                assertThat(response.body()).doesNotContain(name);
+            }
+        }
+    }
+
+    @Test
     void defaultAndMaximumPageSizesBoundTheQuery() throws Exception {
         UUID resource = UUID.randomUUID();
         for (int index = 0; index < 105; index++) {
@@ -188,7 +230,7 @@ class AuditApiIntegrationTest {
 
     private void login(HttpClient client) throws Exception {
         String csrf = json.readTree(get(client, "/api/v1/auth/csrf").body()).path("token").asText();
-        String form = "email=gestor%40example.invalid&password="
+        String form = "matricula=gestor&password="
                 + URLEncoder.encode(PASSWORD, StandardCharsets.UTF_8);
         assertThat(send(client, HttpRequest.newBuilder(uri("/api/v1/auth/login"))
                 .header("Content-Type", "application/x-www-form-urlencoded")
@@ -203,6 +245,15 @@ class AuditApiIntegrationTest {
 
     private HttpResponse<String> get(HttpClient client, String path) throws Exception {
         return send(client, HttpRequest.newBuilder(uri(path)).GET().build());
+    }
+
+    private HttpResponse<String> write(HttpClient client, String method, String path,
+            Map<String, ?> input) throws Exception {
+        String csrf = json.readTree(get(client, "/api/v1/auth/csrf").body()).path("token").asText();
+        return send(client, HttpRequest.newBuilder(uri(path))
+                .header("Content-Type", "application/json").header("X-CSRF-TOKEN", csrf)
+                .method(method, HttpRequest.BodyPublishers.ofString(json.writeValueAsString(input)))
+                .build());
     }
 
     private HttpResponse<String> send(HttpClient client, HttpRequest request) throws Exception {

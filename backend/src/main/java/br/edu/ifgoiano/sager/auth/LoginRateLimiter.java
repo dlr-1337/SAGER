@@ -16,22 +16,30 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@Profile("production")
+@Profile({"local", "production"})
 public class LoginRateLimiter {
     private final JdbcTemplate jdbc;
     private final Clock clock;
     private final byte[] secret;
-    public LoginRateLimiter(JdbcTemplate jdbc, Clock clock, @Value("${sager.production.rate-limit-secret}") String secret) {
-        this.jdbc = jdbc; this.clock = clock; this.secret = secret.getBytes(StandardCharsets.UTF_8);
+    public LoginRateLimiter(JdbcTemplate jdbc, Clock clock, @Value("${sager.production.rate-limit-secret:}") String secret) {
+        this.jdbc = jdbc; this.clock = clock; this.secret = (secret.isBlank() ? java.util.UUID.randomUUID().toString() : secret).getBytes(StandardCharsets.UTF_8);
     }
 
     @Transactional
     public boolean allow(String email, String address) {
-        return consume(key("IP", address), 1000) && consume(key("EMAIL", normalize(email)), 5);
+        return consume(key("IP", address), 1000) && consume(key("ENROLLMENT", normalize(email)), 5);
     }
 
     @Transactional
-    public void succeeded(String email) { jdbc.update("DELETE FROM sager_login_rate_bucket WHERE key_hash=?", key("EMAIL", normalize(email))); }
+    public boolean allowRecovery(String enrollment, String address) {
+        // Login success never resets recovery throttling.
+        boolean ip = consume(key("RECOVERY_IP", address), 20);
+        boolean account = consume(key("RECOVERY_ENROLLMENT", normalize(enrollment)), 5);
+        return ip && account;
+    }
+
+    @Transactional
+    public void succeeded(String email) { jdbc.update("DELETE FROM sager_login_rate_bucket WHERE key_hash=?", key("ENROLLMENT", normalize(email))); }
 
     @Scheduled(fixedDelayString = "${sager.production.login-counter-cleanup-ms:3600000}")
     @Transactional

@@ -8,6 +8,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
+import br.edu.ifgoiano.sager.auth.LocalAccountProvisioningService;
+import br.edu.ifgoiano.sager.management.courses.CourseService;
 import br.edu.ifgoiano.sager.audit.AuditAction;
 import br.edu.ifgoiano.sager.audit.AuditResource;
 import br.edu.ifgoiano.sager.audit.AuditService;
@@ -22,10 +24,18 @@ import org.springframework.transaction.annotation.Transactional;
 public class ResidentService {
     private final ResidentRepository repository;
     private final AuditService audit;
+    private final CourseService courses;
+    private final LocalAccountProvisioningService accounts;
 
-    public ResidentService(ResidentRepository repository, AuditService audit) {
+    public ResidentService(ResidentRepository repository, AuditService audit, CourseService courses, LocalAccountProvisioningService accounts) {
         this.repository = repository;
         this.audit = audit;
+        this.courses = courses;
+        this.accounts = accounts;
+    }
+
+    public br.edu.ifgoiano.sager.management.ManagementSearch.Page<Resident> list(java.util.Map<String,String> params) {
+        return repository.search(params);
     }
 
     public List<Resident> list() {
@@ -38,27 +48,39 @@ public class ResidentService {
     }
 
     @Transactional
-    public Resident create(String name, String enrollment, LocalDate birthDate, String course) {
+    public Resident create(String name, String enrollment, LocalDate birthDate, UUID courseId, String institutionalEmail, String password, String passwordConfirmation) {
+        String course = courses.selectedName(courseId, null);
+        String email = checkedEmail(institutionalEmail);
+        if (password == null || !password.equals(passwordConfirmation)) throw invalidInput("As senhas devem coincidir.");
         CheckedInput checked = checked(name, enrollment, birthDate, course);
         UUID id = UUID.randomUUID();
         try {
-            repository.insert(id, checked.name(), checked.enrollment(), birthDate, checked.course());
+            repository.insert(id, checked.name(), checked.enrollment(), birthDate, checked.course(), courseId, email);
+            accounts.create(checked.enrollment(), null, checked.name(), "residente", password.toCharArray());
+            accounts.linkResident(checked.enrollment(), id);
+        } catch (IllegalArgumentException error) {
+            if (error.getCause() instanceof org.springframework.dao.DuplicateKeyException)
+                throw new ResidentApiException(HttpStatus.CONFLICT, "duplicate_enrollment", "Matrícula já utilizada por uma conta.");
+            throw new ResidentApiException(HttpStatus.BAD_REQUEST, "invalid_input", error.getMessage());
         } catch (DataIntegrityViolationException error) {
             throw integrityError(error);
         }
         audit.record(AuditResource.RESIDENT, id, AuditAction.CREATE, 0,
-                Set.of("name", "enrollment", "birthDate", "course"));
-        return new Resident(id, checked.name(), checked.enrollment(), birthDate, checked.course(), 0);
+                Set.of("name", "enrollment", "birthDate", "courseId", "institutionalEmail"));
+        return new Resident(id, checked.name(), checked.enrollment(), birthDate, checked.course(), 0, courseId, email);
     }
 
     @Transactional
     public Resident update(UUID id, String name, String enrollment, LocalDate birthDate,
-            String course, long version) {
+            UUID courseId, String institutionalEmail, long version) {
         if (version < 0 || version == Long.MAX_VALUE) {
             throw invalidInput("version deve ser um inteiro não negativo válido.");
         }
-        CheckedInput checked = checked(name, enrollment, birthDate, course);
         Resident current = get(id);
+        accounts.lockResidentAccount(id);
+        String course = courses.selectedName(courseId, current.courseId());
+        String email = checkedEmail(institutionalEmail);
+        CheckedInput checked = checked(name, enrollment, birthDate, course);
         if (current.version() != version) {
             throw new ResidentApiException(HttpStatus.CONFLICT, "stale_version",
                     "O estudante foi alterado. Recarregue o registro antes de salvar.");
@@ -66,7 +88,7 @@ public class ResidentService {
         int updated;
         try {
             updated = repository.update(id, checked.name(), checked.enrollment(), birthDate,
-                    checked.course(), version);
+                    checked.course(), courseId, email, version);
         } catch (DataIntegrityViolationException error) {
             throw integrityError(error);
         }
@@ -80,6 +102,12 @@ public class ResidentService {
             changed.add("name");
         }
         if (!Objects.equals(current.enrollment(), checked.enrollment())) {
+            try {
+                accounts.synchronizeResidentEnrollment(id, checked.enrollment());
+            } catch (IllegalArgumentException error) {
+                throw new ResidentApiException(HttpStatus.CONFLICT, "duplicate_enrollment",
+                        "Matrícula já utilizada por uma conta.");
+            }
             changed.add("enrollment");
         }
         if (!Objects.equals(current.birthDate(), birthDate)) {
@@ -88,14 +116,25 @@ public class ResidentService {
         if (!Objects.equals(current.course(), checked.course())) {
             changed.add("course");
         }
+        if (!Objects.equals(current.courseId(), courseId)) changed.add("courseId");
+        if (!Objects.equals(current.institutionalEmail(), email)) changed.add("institutionalEmail");
         audit.record(AuditResource.RESIDENT, id, AuditAction.UPDATE, version + 1, changed);
         return new Resident(id, checked.name(), checked.enrollment(), birthDate,
-                checked.course(), version + 1);
+                checked.course(), version + 1, courseId, email);
+    }
+
+    private String checkedEmail(String value) {
+        String email = optional(value, "institutionalEmail", 320);
+        if (email == null) return null;
+        if (!email.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")) throw invalidInput("E-mail institucional inválido.");
+        return email.toLowerCase(java.util.Locale.ROOT);
     }
 
     private CheckedInput checked(String name, String enrollment, LocalDate birthDate, String course) {
         String checkedName = required(name, "name", 3, 200);
         String checkedEnrollment = required(enrollment, "enrollment", 1, 64);
+        try { LocalAccountProvisioningService.normalizeEnrollment(checkedEnrollment); }
+        catch (IllegalArgumentException error) { throw invalidInput(error.getMessage()); }
         String checkedCourse = optional(course, "course", 200);
         if (birthDate == null) {
             throw invalidInput("birthDate é obrigatório.");

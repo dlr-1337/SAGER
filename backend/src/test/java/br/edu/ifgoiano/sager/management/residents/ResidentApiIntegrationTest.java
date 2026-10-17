@@ -21,6 +21,8 @@ import br.edu.ifgoiano.sager.SagerApplication;
 import br.edu.ifgoiano.sager.auth.LocalAccountProvisioningService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -69,8 +71,11 @@ class ResidentApiIntegrationTest {
     @BeforeEach
     void cleanDatabase() {
         jdbc.update("DELETE FROM spring_session");
-        jdbc.update("DELETE FROM sager_resident");
         jdbc.update("DELETE FROM sager_local_account");
+        jdbc.update("DELETE FROM sager_guardian");
+        jdbc.update("DELETE FROM sager_resident");
+        jdbc.update("DELETE FROM sager_course");
+        jdbc.update("DELETE FROM sager_login_rate_bucket");
     }
 
     @Test
@@ -93,7 +98,7 @@ class ResidentApiIntegrationTest {
             assertThat(UUID.fromString(id)).isNotNull();
             assertThat(created.headers().firstValue("Location").orElseThrow())
                     .isEqualTo(PATH + "/" + id);
-            assertThat(value.size()).isEqualTo(6);
+            assertThat(value.size()).isEqualTo(8);
             assertThat(value.path("name").asText()).isEqualTo("Estudante Sintético");
             assertThat(value.path("enrollment").asText()).isEqualTo("DEMO-2026-A");
             assertThat(value.path("birthDate").asText()).isEqualTo(BIRTH_DATE);
@@ -238,7 +243,7 @@ class ResidentApiIntegrationTest {
             assertThat(first.resource()).isEqualTo("RESIDENT");
             assertThat(first.action()).isEqualTo("CREATE");
             assertThat(first.version()).isZero();
-            assertThat(first.fields()).containsExactlyInAnyOrder("name", "enrollment", "birthDate", "course");
+            assertThat(first.fields()).containsExactlyInAnyOrder("name", "enrollment", "birthDate", "courseId", "institutionalEmail");
             assertThat(first.actorId()).isEqualTo(actor);
             assertThat(first.profile()).isEqualTo("gestor");
             assertThat(first.requestId()).isNotNull();
@@ -257,7 +262,7 @@ class ResidentApiIntegrationTest {
             assertThat(updated).hasSize(2);
             assertThat(updated.getLast().action()).isEqualTo("UPDATE");
             assertThat(updated.getLast().version()).isEqualTo(1);
-            assertThat(updated.getLast().fields()).containsExactly("course");
+            assertThat(updated.getLast().fields()).containsExactlyInAnyOrder("course", "courseId");
             assertThat(updated.getLast().requestId()).isNotEqualTo(first.requestId());
 
             assertThat(put(client, PATH + "/" + id,
@@ -339,7 +344,8 @@ class ResidentApiIntegrationTest {
             assertThat(rows).hasSize(2);
             assertThat(rows.getLast().action()).isEqualTo("UPDATE");
             assertThat(rows.getLast().version()).isEqualTo(1);
-            assertThat(rows.getLast().fields()).containsExactly(nameChange.join() == 200 ? "name" : "course");
+            if (nameChange.join() == 200) assertThat(rows.getLast().fields()).containsExactly("name");
+            else assertThat(rows.getLast().fields()).containsExactlyInAnyOrder("course", "courseId");
             assertThat(json.readTree(get(one, PATH + "/" + id).body()).path("version").asLong()).isEqualTo(1);
         }
     }
@@ -418,8 +424,180 @@ class ResidentApiIntegrationTest {
         }
     }
 
+    @Test
+    void createsLinkedLoginAtomicallyAndPreservesLeadingZeroes() throws Exception {
+        account("gestor");
+        try (HttpClient manager = browser(); HttpClient resident = browser()) {
+            login(manager, "gestor");
+            String id = create(manager, "Residente Sintético", "0012345");
+            assertThat(jdbc.queryForObject("SELECT resident_id FROM sager_local_account WHERE enrollment='0012345'", UUID.class)).isEqualTo(UUID.fromString(id));
+            assertThat(jdbc.queryForObject("SELECT profile FROM sager_local_account WHERE enrollment='0012345'", String.class)).isEqualTo("residente");
+            assertThat(form(resident, "/api/v1/auth/login", Map.of("matricula","0012345","password",PASSWORD)).statusCode()).isEqualTo(204);
+            assertThat(json.readTree(get(resident,"/api/v1/auth/me").body()).path("matricula").asText()).isEqualTo("0012345");
+            assertThat(form(browser(), "/api/v1/auth/login", Map.of("email","0012345","password",PASSWORD)).statusCode()).isEqualTo(401);
+            assertThat(form(browser(), "/api/v1/auth/login", Map.of("matricula","12345","password",PASSWORD)).statusCode()).isEqualTo(401);
+            String textualEnrollment=UUID.randomUUID().toString();String textualId=create(manager,"Matrícula Textual",textualEnrollment);
+            assertThat(jdbc.queryForObject("SELECT enrollment FROM sager_local_account WHERE resident_id=?",String.class,UUID.fromString(textualId))).isEqualTo(textualEnrollment);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void unrelatedUpdatePreservesAssignedLoginAndSession(boolean originalEnrollmentOccupied) throws Exception {
+        account("gestor");
+        try (HttpClient manager = browser(); HttpClient resident = browser()) {
+            login(manager, "gestor");
+            UUID id = UUID.fromString(create(manager, "Pessoa Sintética", "cad-res-001"));
+            var linked = provisioning.list().stream().filter(a -> id.equals(a.residentId())).findFirst().orElseThrow();
+            provisioning.assignEnrollment(linked.id(), "acesso-res-001");
+            var assigned = provisioning.list().stream().filter(a -> a.id().equals(linked.id())).findFirst().orElseThrow();
+            if (originalEnrollmentOccupied)
+                provisioning.create("cad-res-001", null, "Outra Conta Sintética", "saude", PASSWORD.toCharArray());
+            assertThat(form(resident, "/api/v1/auth/login", Map.of("matricula", assigned.enrollment(), "password", PASSWORD)).statusCode()).isEqualTo(204);
+
+            HttpResponse<String> updated = put(manager, PATH + "/" + id,
+                    body("Nome Editado", " cad-res-001 ", BIRTH_DATE, null, 0), csrf(manager));
+            assertThat(updated.statusCode()).isEqualTo(200);
+            assertThat(json.readTree(updated.body()).path("name").asText()).isEqualTo("Nome Editado");
+            assertThat(json.readTree(updated.body()).path("enrollment").asText()).isEqualTo("cad-res-001");
+            assertThat(provisioning.list()).contains(assigned);
+            assertThat(auditRows(id).getLast().fields()).containsExactly("name");
+            HttpResponse<String> me = get(resident, "/api/v1/auth/me");
+            assertThat(me.statusCode()).isEqualTo(200);
+            assertThat(json.readTree(me.body()).path("matricula").asText()).isEqualTo(assigned.enrollment());
+            assertThat(json.readTree(me.body()).path("residenteId").asText()).isEqualTo(id.toString());
+        }
+    }
+
+    @Test
+    void enrollmentChangeRollsBackCollisionAndOtherwisePreservesAccountAndRevokesSession() throws Exception {
+        account("gestor");
+        try (HttpClient manager = browser(); HttpClient resident = browser()) {
+            login(manager, "gestor");
+            UUID id = UUID.fromString(create(manager, "Pessoa Sintética", "cad-res-001"));
+            var linked = provisioning.list().stream().filter(a -> id.equals(a.residentId())).findFirst().orElseThrow();
+            provisioning.assignEnrollment(linked.id(), "acesso-res-001");
+            var assigned = provisioning.list().stream().filter(a -> a.id().equals(linked.id())).findFirst().orElseThrow();
+            provisioning.create("ocupada-res-001", null, "Outra Conta Sintética", "saude", PASSWORD.toCharArray());
+            assertThat(form(resident, "/api/v1/auth/login", Map.of("matricula", assigned.enrollment(), "password", PASSWORD)).statusCode()).isEqualTo(204);
+            String before = get(manager, PATH + "/" + id).body();
+            int audits = auditRows(id).size();
+
+            assertError(put(manager, PATH + "/" + id,
+                    body("Não Persistir", "ocupada-res-001", BIRTH_DATE, null, 0), csrf(manager)),
+                    409, "duplicate_enrollment");
+            assertThat(get(manager, PATH + "/" + id).body()).isEqualTo(before);
+            assertThat(provisioning.list()).contains(assigned);
+            assertThat(auditRows(id)).hasSize(audits);
+            assertThat(get(resident, "/api/v1/auth/me").statusCode()).isEqualTo(200);
+
+            assertThat(put(manager, PATH + "/" + id,
+                    body("Nome Editado", "nova-res-001", BIRTH_DATE, null, 0), csrf(manager)).statusCode()).isEqualTo(200);
+            var changed = provisioning.list().stream().filter(a -> a.id().equals(assigned.id())).findFirst().orElseThrow();
+            assertThat(changed.enrollment()).isEqualTo("nova-res-001");
+            assertThat(changed).usingRecursiveComparison().ignoringFields("enrollment").isEqualTo(assigned);
+            assertThat(auditRows(id).getLast().fields()).containsExactlyInAnyOrder("name", "enrollment");
+            assertThat(get(resident, "/api/v1/auth/me").statusCode()).isEqualTo(401);
+            assertThat(form(resident, "/api/v1/auth/login", Map.of("matricula", assigned.enrollment(), "password", PASSWORD)).statusCode()).isEqualTo(401);
+            assertThat(form(resident, "/api/v1/auth/login", Map.of("matricula", changed.enrollment(), "password", PASSWORD)).statusCode()).isEqualTo(204);
+            assertThat(get(resident, "/api/v1/auth/me").statusCode()).isEqualTo(200);
+        }
+    }
+
+    @Test
+    void rejectsPasswordMismatchAndAccountCollisionWithoutPartialResident() throws Exception {
+        account("gestor");
+        try (HttpClient client = browser()) {
+            login(client,"gestor");
+            var input = new LinkedHashMap<String,Object>(Map.of("name","Pessoa Sintética","enrollment","00123","birthDate",BIRTH_DATE,"password",PASSWORD,"passwordConfirmation","diferente"));
+            assertThat(post(client,PATH,json.writeValueAsString(input),csrf(client)).statusCode()).isEqualTo(400);
+            input.put("passwordConfirmation", PASSWORD); input.put("enrollment","gestor");
+            assertThat(post(client,PATH,json.writeValueAsString(input),csrf(client)).statusCode()).isEqualTo(409);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM sager_resident",Integer.class)).isZero();
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM sager_local_account",Integer.class)).isEqualTo(1);
+        }
+    }
+
+    @Test
+    void recoversOnlyAfterMatchingRegisteredIdentityAndActiveGuardianAndRevokesSessions() throws Exception {
+        account("gestor");
+        try (HttpClient manager = browser(); HttpClient resident = browser(); HttpClient visitor = browser()) {
+            login(manager,"gestor");
+            UUID id=UUID.fromString(create(manager,"João Antônio da Silva","00042"));
+            jdbc.update("INSERT INTO sager_guardian(id,resident_id,name,relationship,active) VALUES (?,?,?,?,true)",UUID.randomUUID(),id,"Maria Rita dos Santos","Mãe");
+            assertThat(form(resident,"/api/v1/auth/login",Map.of("matricula","00042","password",PASSWORD)).statusCode()).isEqualTo(204);
+            Map<String,String> input=new LinkedHashMap<>(Map.of("matricula","00042","name"," JOAO  ANTONIO DA SILVA ","birthDate",BIRTH_DATE,"guardianName","Maria errada","password","Nova senha teste 123!","passwordConfirmation","Nova senha teste 123!"));
+            assertThat(form(visitor,"/api/v1/auth/recover",input).statusCode()).isEqualTo(400);
+            input.put("guardianName"," MARIA RITA DOS SANTOS ");
+            assertThat(form(visitor,"/api/v1/auth/recover",input).statusCode()).isEqualTo(204);
+            assertThat(get(resident,"/api/v1/auth/me").statusCode()).isEqualTo(401);
+            assertThat(get(visitor,"/api/v1/auth/me").statusCode()).isEqualTo(401);
+            assertThat(form(visitor,"/api/v1/auth/login",Map.of("matricula","00042","password",PASSWORD)).statusCode()).isEqualTo(401);
+            assertThat(form(visitor,"/api/v1/auth/login",Map.of("matricula","00042","password","Nova senha teste 123!")).statusCode()).isEqualTo(204);
+        }
+    }
+
+    @Test
+    void recoveryWithoutGuardianDoesNotCreateNewRegistrationRequirementsAndIsThrottled() throws Exception {
+        account("gestor");
+        try (HttpClient manager = browser(); HttpClient visitor=browser()) {
+            login(manager,"gestor"); create(manager,"Pessoa Sem Responsável","00099");
+            Map<String,String> input=new LinkedHashMap<>(Map.of("matricula","00099","name","Pessoa Sem Responsavel","birthDate",BIRTH_DATE,"password",PASSWORD,"passwordConfirmation",PASSWORD));
+            assertThat(form(visitor,"/api/v1/auth/recover",input).statusCode()).isEqualTo(204);
+            input.put("matricula","gestor"); input.put("name","Pessoa Sintética");
+            for (int i=0;i<5;i++) assertThat(form(visitor,"/api/v1/auth/recover",input).statusCode()).isEqualTo(400);
+            var limited=form(visitor,"/api/v1/auth/recover",input);
+            assertThat(limited.statusCode()).isEqualTo(429);
+            assertThat(limited.headers().firstValue("Retry-After")).contains("900");
+            assertThat(limited.body()).doesNotContain("Pessoa", "gestor");
+        }
+    }
+
+    @Test
+    void managesCatalogAndKeepsInactiveCourseOnExistingResident() throws Exception {
+        account("gestor");
+        try(HttpClient manager=browser()) {
+            login(manager,"gestor");
+            var response=post(manager,"/api/v1/cursos",json.writeValueAsString(Map.of("name","Curso   Sintético")),csrf(manager));
+            assertThat(response.statusCode()).isEqualTo(201);
+            String course=json.readTree(response.body()).path("id").asText();
+            assertThat(post(manager,"/api/v1/cursos",json.writeValueAsString(Map.of("name"," curso sintético ")),csrf(manager)).statusCode()).isEqualTo(409);
+            var input=new LinkedHashMap<String,Object>(Map.of("name","Pessoa Sintética","enrollment","00003","birthDate",BIRTH_DATE,"courseId",course,"institutionalEmail","Pessoa@instituicao.invalid","password",PASSWORD,"passwordConfirmation",PASSWORD));
+            var created=post(manager,PATH,json.writeValueAsString(input),csrf(manager));
+            assertThat(created.statusCode()).isEqualTo(201);
+            String resident=json.readTree(created.body()).path("id").asText();
+            assertThat(json.readTree(created.body()).path("institutionalEmail").asText()).isEqualTo("pessoa@instituicao.invalid");
+            assertThat(put(manager,"/api/v1/cursos/"+course,json.writeValueAsString(Map.of("name","Curso Sintético","active",false,"version",0)),csrf(manager)).statusCode()).isEqualTo(200);
+            input.put("version",0);input.remove("password");input.remove("passwordConfirmation");input.put("name","Pessoa Atualizada");
+            assertThat(put(manager,PATH+"/"+resident,json.writeValueAsString(input),csrf(manager)).statusCode()).isEqualTo(200);
+            input.remove("version"); input.put("enrollment","00004");input.put("password",PASSWORD);input.put("passwordConfirmation",PASSWORD);
+            assertThat(post(manager,PATH,json.writeValueAsString(input),csrf(manager)).statusCode()).isEqualTo(400);
+            assertThat(put(manager,"/api/v1/cursos/"+course,json.writeValueAsString(Map.of("name","Curso Sintético","active",true,"version",0)),csrf(manager)).statusCode()).isEqualTo(409);
+        }
+    }
+
+    @Test
+    void searchesWithoutAccentsAndPaginatesBeforeReturningTheArray() throws Exception {
+        account("gestor");
+        for(int i=0;i<30;i++) jdbc.update("INSERT INTO sager_resident(id,name,enrollment,birth_date) VALUES (?,?,?,?::date)",UUID.randomUUID(),"João Teste "+i,"00"+i,BIRTH_DATE);
+        try(HttpClient client=browser()) {
+            login(client,"gestor");
+            var first=get(client,PATH+"?search=joao&allocated=false&limit=25&offset=0");
+            assertThat(first.statusCode()).isEqualTo(200);assertThat(first.headers().firstValue("X-Total-Count")).contains("30");
+            var second=get(client,PATH+"?search=joao&allocated=false&limit=25&offset=25");
+            assertThat(json.readTree(first.body()).size()).isEqualTo(25);assertThat(json.readTree(second.body()).size()).isEqualTo(5);
+            assertThat(get(client,PATH+"?limit=0").statusCode()).isEqualTo(400);
+            assertThat(get(client,PATH+"?search=joao&allocated=true&limit=25").headers().firstValue("X-Total-Count")).contains("0");
+        }
+    }
+
+    private HttpResponse<String> form(HttpClient client,String path,Map<String,String> input) throws Exception {
+        String body=input.entrySet().stream().map(e->URLEncoder.encode(e.getKey(),StandardCharsets.UTF_8)+"="+URLEncoder.encode(e.getValue(),StandardCharsets.UTF_8)).collect(java.util.stream.Collectors.joining("&"));
+        return send(client,HttpRequest.newBuilder(uri(path)).header("Content-Type","application/x-www-form-urlencoded").header("X-CSRF-TOKEN",csrf(client)).POST(HttpRequest.BodyPublishers.ofString(body)).build());
+    }
+
     private void account(String profile) {
-        provisioning.create(profile + "@example.invalid", "Pessoa Sintética", profile,
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(profile + "@example.invalid"), profile + "@example.invalid", "Pessoa Sintética", profile,
                 PASSWORD.toCharArray());
     }
 
@@ -458,7 +636,21 @@ class ResidentApiIntegrationTest {
         fields.put("name", name);
         fields.put("enrollment", enrollment);
         fields.put("birthDate", birthDate);
-        fields.put("course", course);
+        Object courseId = course;
+        if (course instanceof String courseName && courseName.strip().length() <= 200) {
+            if (courseName.isBlank()) courseId = null;
+            else {
+                var ids = jdbc.query("SELECT id FROM sager_course WHERE normalized_name=lower(?)", (r,n) -> r.getObject(1,UUID.class), courseName.strip());
+                UUID id = ids.isEmpty() ? UUID.randomUUID() : ids.getFirst();
+                if (ids.isEmpty()) jdbc.update("INSERT INTO sager_course(id,name) VALUES (?,?)", id, courseName.strip());
+                courseId = id;
+            }
+        }
+        fields.put("courseId", courseId);
+        if (version == null) {
+            fields.put("password", PASSWORD);
+            fields.put("passwordConfirmation", PASSWORD);
+        }
         if (version != null) {
             fields.put("version", version);
         }
@@ -466,7 +658,7 @@ class ResidentApiIntegrationTest {
     }
 
     private void login(HttpClient client, String profile) throws Exception {
-        String form = "email=" + URLEncoder.encode(profile + "@example.invalid", StandardCharsets.UTF_8)
+        String form = "matricula=" + URLEncoder.encode(br.edu.ifgoiano.sager.TestIdentity.enrollment(profile + "@example.invalid"), StandardCharsets.UTF_8)
                 + "&password=" + URLEncoder.encode(PASSWORD, StandardCharsets.UTF_8);
         HttpRequest request = HttpRequest.newBuilder(uri("/api/v1/auth/login"))
                 .header("Content-Type", "application/x-www-form-urlencoded")

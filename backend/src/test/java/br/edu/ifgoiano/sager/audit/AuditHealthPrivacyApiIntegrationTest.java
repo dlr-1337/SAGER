@@ -93,9 +93,9 @@ class AuditHealthPrivacyApiIntegrationTest {
     private void login(HttpClient browser) throws Exception {
         String email = UUID.randomUUID() + "@example.invalid";
         String password = "Senha local sintetica 123!";
-        provisioning.create(email, "Gestor Sintetico", "gestor", password.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(email), email, "Gestor Sintetico", "gestor", password.toCharArray());
         String csrf = json.readTree(get(browser, "/api/v1/auth/csrf").body()).path("token").asText();
-        String form = "email=" + URLEncoder.encode(email, StandardCharsets.UTF_8) + "&password="
+        String form = "matricula=" + URLEncoder.encode(br.edu.ifgoiano.sager.TestIdentity.enrollment(email), StandardCharsets.UTF_8) + "&password="
                 + URLEncoder.encode(password, StandardCharsets.UTF_8);
         assertThat(browser.send(HttpRequest.newBuilder(uri("/api/v1/auth/login"))
                 .header("Content-Type", "application/x-www-form-urlencoded").header("X-CSRF-TOKEN", csrf)

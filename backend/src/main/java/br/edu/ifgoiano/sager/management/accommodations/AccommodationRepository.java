@@ -21,6 +21,11 @@ public class AccommodationRepository {
         this.jdbc = jdbc;
     }
 
+    public br.edu.ifgoiano.sager.management.ManagementSearch.Page<Accommodation> search(java.util.Map<String,String> params) {
+        return br.edu.ifgoiano.sager.management.ManagementSearch.query(jdbc, COLUMNS, "sager_accommodation",
+                "concat_ws(' ',code,name)", "code", "sager_search_text(name),code,id", java.util.Map.of(), params, (r,n) -> map(r));
+    }
+
     public List<Accommodation> findAll() {
         return jdbc.query("SELECT " + COLUMNS + " FROM sager_accommodation ORDER BY name, code, id",
                 (result, row) -> map(result));

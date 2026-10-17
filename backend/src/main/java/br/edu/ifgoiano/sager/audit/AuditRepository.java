@@ -59,7 +59,7 @@ public class AuditRepository {
             AuditResource resource, Long beforeSequence, int fetchLimit) {
         StringBuilder sql = new StringBuilder("""
                 SELECT * FROM sager_audit_event WHERE resource IN (
-                    'SUPERVISOR','RESIDENT','GUARDIAN','ACCOMMODATION','ACCOMMODATION_UNIT','ROOM','ALLOCATION',
+                    'SUPERVISOR','RESIDENT','COURSE','GUARDIAN','ACCOMMODATION','ACCOMMODATION_UNIT','ROOM','ALLOCATION',
                     'HEALTH_GRANT','CARE_ASSIGNMENT','HEALTH_CUSTODY',
                     'NIGHT_CALL','NIGHT_CALL_MARK','SHORT_EXIT',
                     'OCCURRENCE','DISCIPLINE_NOTIFICATION','WARNING','NOTICE','COMMUNICATION','COMMITMENT_TERM',

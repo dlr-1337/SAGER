@@ -303,7 +303,7 @@ public class HealthService {
         if (authentication == null || !(authentication.getPrincipal() instanceof LocalAccountPrincipal principal))
             throw unauthorized();
         Actor actor = repository.account(principal.id(), true).filter(Actor::active).orElseThrow(HealthService::unauthorized);
-        if (!actor.email().equals(principal.email()) || !actor.profile().equals(principal.profile())
+        if (!java.util.Objects.equals(actor.email(), principal.email()) || !actor.profile().equals(principal.profile())
                 || !Objects.equals(actor.residentId(), principal.residentId())
                 || !Objects.equals(actor.supervisorId(), principal.supervisorId())) throw unauthorized();
         return actor;

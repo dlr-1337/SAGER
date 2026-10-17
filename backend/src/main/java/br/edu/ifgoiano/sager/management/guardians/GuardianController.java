@@ -28,8 +28,9 @@ public class GuardianController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Guardian>> list() {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.list());
+    public ResponseEntity<List<Guardian>> list(@org.springframework.web.bind.annotation.RequestParam java.util.Map<String,String> params) {
+        var page = service.list(params);
+        return ResponseEntity.ok().header("X-Total-Count", Long.toString(page.total())).cacheControl(CacheControl.noStore()).body(page.items());
     }
 
     @GetMapping("/{id}")
