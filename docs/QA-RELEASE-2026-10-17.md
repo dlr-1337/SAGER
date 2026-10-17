@@ -106,14 +106,30 @@ sessão, `/.env` e `/actuator/health` 404 e `/api/v1/demo` 401. Foi usado User-A
 compatível com navegador, sem mudar a configuração do Cloudflare. O Chrome
 também exibiu o formulário novo por matrícula.
 
-**Pendente: autenticação das contas existentes na VPS.** A senha de teste
-informada foi recusada nas três contas (401), inclusive no Chrome para gestor.
-Nenhuma senha foi redefinida; a comparação dos hashes confirma preservação.
-O operador solicitou a troca administrativa das três senhas. O CLI foi preparado
-no terminal privado e aguarda a entrada e confirmação pessoal da nova senha.
-Isso impede afirmar que o Chrome ficou autenticado ou que as permissões
-foram verificadas com essas contas na VPS. As jornadas completas com contas
-sintéticas passaram no ambiente Docker isolado descrito acima.
+### Acessos existentes conferidos após a troca solicitada
+
+Após a migração, o operador solicitou a redefinição das três senhas de teste.
+Ele concluiu pessoalmente a entrada e confirmação no CLI administrativo, usando
+os UUIDs existentes. As credenciais não foram incluídas neste registro ou no Git.
+As comparações de preservação dos hashes acima correspondem ao momento anterior
+a essa redefinição autorizada.
+
+A verificação por HTTPS autenticou as três matrículas com a senha escolhida
+(204) e conferiu `/auth/me`, os mesmos UUIDs, perfis e vínculos de antes da
+atualização. As sessões usam cookies Secure/HttpOnly. Foram confirmados:
+
+- Gestor consulta residentes, responsáveis e cursos, recebe 403 em saídas e
+  não consegue gravar um curso sem CSRF.
+- Supervisor consulta residentes e saídas curtas.
+- Residente recebe 403 na lista global de residentes e consulta suas saídas.
+
+Foi criado pela API real, com CSRF, somente o curso sintético
+`QA Release VPS 20261017`; a interface e uma recarga confirmaram sua persistência.
+A checagem de cadastros preservou os totais anteriores: um residente e nenhum
+responsável. O Chrome foi deixado na tela inicial, autenticado como gestor,
+com a sessão mantida após recarregar a página.
+Ao encerrar os resets, uma nova inspeção confirmou somente os três serviços
+permanentes, todos saudáveis, sem containers administrativos ainda em execução.
 
 ## Limites
 
