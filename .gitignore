@@ -21,3 +21,7 @@
 # Python verification cache
 __pycache__/
 *.py[cod]
+
+# Local Docker secrets and operator backups
+/.env.local
+/backups/

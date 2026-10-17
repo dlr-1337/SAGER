@@ -85,7 +85,7 @@ com Compose apontando para o checkout preservado e seu `.env`:
 docker compose --project-name sager-homologacao \
   --project-directory "$SAGER_CHECKOUT" --env-file "$SAGER_CHECKOUT/.env" \
   -f "$SAGER_CHECKOUT/compose.coolify.yml" run --rm --no-deps \
-  backend --sager-account=create --email=gestor@sager.otavio.win \
+  backend --sager-account=create --matricula=TESTE-GESTOR --email=gestor@sager.otavio.win \
   '--name=Gestor de Homologação' --profile=gestor
 ```
 
@@ -153,3 +153,7 @@ em `docs/fase-7/COOLIFY.md`; não tratar a configuração do painel como deploym
 Referências: [Compose no Coolify](https://coolify.io/docs/applications/builds/docker-compose),
 [domínios e TLS](https://coolify.io/docs/core/networking/domains),
 [lifecycle da versão 4.3.14](https://github.com/coollabsio/coolify/blob/v4.3.14/app/Jobs/ApplicationDeploymentJob.php).
+
+## Atualização de matrícula e cursos
+
+Os manifests do Coolify continuam usando as imagens de produção, segredos privados e os mesmos volumes. Siga a [preparação V20/V21](../production/README.md#atualização-para-matrícula-e-catálogo-v20v21) antes de iniciar a aplicação atualizada. Depois de migrar, liste as contas pelo comando administrativo, atribua as matrículas pendentes por UUID e reaplique os privilégios do runtime. A implantação encerra sessões antigas. Não substitua esse manifesto pelo Compose local.

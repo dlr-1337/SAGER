@@ -17,3 +17,4 @@
 *.pdf
 *.zip
 !backend/.mvn/wrapper/maven-wrapper.jar
+backups

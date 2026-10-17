@@ -330,8 +330,8 @@ class Smoke:
                               'database'), 'database-up', timeout=150)
         self.maintenance('migrate', 'migration')
         self.maintenance('initialize-runtime', 'initialize-runtime')
-        migrated = self.sql("SELECT max(version::int) = 19 AND bool_and(success) FROM flyway_schema_history;")
-        require(migrated.stdout.strip() == b't', 'All migrations through V19 must succeed.')
+        migrated = self.sql("SELECT max(version::int) = 21 AND bool_and(success) FROM flyway_schema_history;")
+        require(migrated.stdout.strip() == b't', 'All migrations through V21 must succeed.')
         require(self.sql(RUNTIME_CHECK, runtime=True).stdout.strip() == b't',
                 'The runtime role must have only the approved database privileges.')
         denied = self.sql('CREATE TABLE sager_smoke_forbidden (id int);', runtime=True, check=False)
@@ -370,10 +370,11 @@ class Smoke:
 
     def create_account(self):
         stage('creating the synthetic account through the existing CLI in a private PTY')
+        self.enrollment = 'SMOKE-OPERATOR-001'
         self.email = 'smoke.operator@example.test'
         self.password = 'Smk!' + secrets.token_hex(20)
         java = ('java -Xmx256m -Djava.io.tmpdir=/tmp -jar /app/app.jar '
-                f'--sager-account=create --email={self.email} '
+                f'--sager-account=create --matricula={self.enrollment} --email={self.email} '
                 '--name="Synthetic smoke operator" --profile=gestor')
         command = self.compose('run', '--rm', '-T', '--no-deps', '--pull', 'never',
                                '--entrypoint', 'script', 'backend', '--echo=never', '--flush',
@@ -507,7 +508,7 @@ class Smoke:
         return self.request('/api/v1/auth/login', expected, method='POST',
                             headers={'Content-Type': 'application/x-www-form-urlencoded',
                                      token['headerName']: token['token'], **(headers or {})},
-                            body=urlencode({'email': self.email, 'password': password}))
+                            body=urlencode({'matricula': self.enrollment, 'password': password}))
 
     def verify(self):
         stage('verifying trusted HTTPS, production assets, CSRF and public boundaries')
@@ -551,7 +552,7 @@ class Smoke:
         require(redirected.get('location') == [f'https://{HOST}/acesso'], 'HTTP must redirect permanently to HTTPS.')
         self.login(token, self.password, 204)
         me, _ = self.request('/api/v1/auth/me', 200)
-        require(json.loads(me).get('email') == self.email and json.loads(me).get('perfis') == ['gestor'],
+        require(json.loads(me).get('matricula') == self.enrollment and json.loads(me).get('perfis') == ['gestor'],
                 'The synthetic CLI account must authenticate through production HTTPS.')
         stage('verifying forwarding-header spoofing and direct gateway rejection')
         token, _ = self.csrf()
@@ -595,7 +596,8 @@ class Smoke:
         for service, previous in names.items():
             require(self.container(service) != previous, 'Persistence must be checked after real container recreation.')
         me, _ = self.request('/api/v1/auth/me', 200)
-        require(json.loads(me).get('email') == self.email, 'The database session and account must survive recreation.')
+        require(json.loads(me).get('matricula') == self.enrollment and json.loads(me).get('perfis') == ['gestor'],
+                'The database session and account must survive recreation.')
         for folder in ('documents', 'reports'):
             result = self.run(self.compose('exec', '-T', 'backend', 'cat', f'/data/{folder}/{marker}'),
                               'read-persistence-marker')

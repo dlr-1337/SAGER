@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
+if docker info >/dev/null 2>&1; then
+  engine=(docker)
+elif sudo -n docker info >/dev/null 2>&1; then
+  engine=(sudo -n docker)
+else
+  printf '%s\n' 'Docker indisponível. Instale e inicie Docker com o plugin Compose.' >&2
+  exit 1
+fi
+compose=("${engine[@]}" compose --env-file .env.local -f compose.yaml)
+prepare() {
+  if [[ ! -f .env.local ]]; then
+    umask 077
+    local previous="${XDG_STATE_HOME:-$HOME/.local/state}/sager-local/runtime.env"
+    local password=''
+    if [[ -r "$previous" ]]; then
+      password=$(sed -n 's/^SAGER_DB_PASSWORD=//p' "$previous")
+    fi
+    if [[ -z "$password" ]]; then password=$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n'); fi
+    local secret
+    secret=$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')
+    printf 'SAGER_DB_PASSWORD=%s\nSAGER_RATE_LIMIT_SECRET=%s\nSAGER_PORT=4200\nSAGER_DB_VOLUME=sager-local_sager_postgres_data\n' "$password" "$secret" > .env.local
+    chmod 600 .env.local
+  fi
+}
+command=${1:-help}
+case "$command" in
+  up)
+    prepare
+    shift
+    "${compose[@]}" up -d --build "$@"
+    printf '%s\n' 'SAGER: http://127.0.0.1:4200/acesso' 'Acompanhe a inicialização com ./sager logs. Contas: ./sager account --sager-account=help'
+    ;;
+  down)
+    prepare
+    "${compose[@]}" down
+    ;;
+  logs)
+    prepare
+    shift
+    "${compose[@]}" logs --tail=100 -f "$@"
+    ;;
+  account)
+    prepare
+    shift
+    if [[ $# -eq 0 ]]; then set -- --sager-account=help; fi
+    if [[ $1 != --* ]]; then action=$1; shift; set -- "--sager-account=$action" "$@"; fi
+    "${compose[@]}" exec backend java -jar /app/app.jar "$@"
+    ;;
+  status)
+    prepare
+    "${compose[@]}" ps
+    ;;
+  backup)
+    prepare
+    umask 077
+    mkdir -p backups
+    destination="backups/sager-$(date +%Y%m%d-%H%M%S).sql"
+    "${compose[@]}" exec -T postgres pg_dump -U sager -d sager > "$destination"
+    printf 'Backup salvo em %s\n' "$destination"
+    ;;
+  *)
+    printf '%s\n' './sager up [--force-recreate]  Iniciar/reconstruir tudo em Docker' './sager down                  Parar sem apagar volumes' './sager logs [backend]        Acompanhar logs' './sager status                Consultar serviços' './sager backup                Copiar o banco para backups/' './sager account --sager-account=help  Administrar contas pelo terminal'
+    ;;
+esac

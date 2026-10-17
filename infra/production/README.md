@@ -56,14 +56,13 @@ ou entrega de mensagem a partir de teste local, callback de tela ou HTTP aceito.
 Contas usam provisionamento operacional. `--sager-account=create` e `reset` leem
 senha duas vezes pelo console oculto; `disable` revoga a conta e suas sessões.
 `link-resident`, `link-supervisor` e `unlink` exigem UUID explícito e revogam
-sessões após alteração. Recuperação de senha usa `reset`, depois de conferência
-de identidade pela instituição; não existe envio automático de senha por email.
+sessões após alteração. Servidores recuperam a senha com `reset`, após conferência presencial/administrativa. Residentes com cadastro completo usam a recuperação por dados pessoais, sem e-mail. Consulte [a regra atual](../../backend/README.md#revisão-de-cadastros-e-acesso--16102026).
 Execute com `--profile maintenance run --rm --no-deps -it backend` e os argumentos
 documentados em `backend/README.md`; o comando encerra sem abrir servidor HTTP.
 
 O login recusa cinco tentativas por conta em uma janela de 15 minutos e limita
 tentativas agregadas por IP; os contadores persistem em PostgreSQL e contêm somente
-HMAC, sem email/IP bruto. Login válido reinicia o contador da conta. O gateway
+HMAC, sem matrícula/IP bruto. Login válido reinicia o contador da conta. O gateway
 também limita rajadas. Resposta 429 usa erro genérico e `Retry-After`; não revela
 se uma conta existe. Cookies usam `Secure`, `HttpOnly` e `SameSite=Lax`; escritas
 exigem CSRF. Não habilite o perfil `local` junto com `production`.
@@ -139,3 +138,18 @@ medição local sob limites e recuperação da versão completa.
 - [pg_dump do PostgreSQL 17](https://www.postgresql.org/docs/17/app-pgdump.html) e
   [pg_restore](https://www.postgresql.org/docs/17/app-pgrestore.html).
 - [Imagens oficiais Eclipse Temurin](https://github.com/docker-library/official-images/blob/master/library/eclipse-temurin).
+
+## Atualização para matrícula e catálogo (V20/V21)
+
+Faça backup consistente do banco, documentos e relatórios antes da atualização. Execute a migração isolada e reaplique `initialize-runtime` para conceder acesso às novas tabelas, mantendo os papéis de migração e execução separados. Preserve os mesmos volumes e segredos.
+
+Antes de iniciar o servidor atualizado, execute o comando administrativo no container de manutenção:
+
+```text
+--sager-account=list
+--sager-account=assign-enrollment --account-id=UUID --matricula=MATRICULA-CONFERIDA
+```
+
+A V20 preenche a matrícula somente a partir de vínculos explícitos com residente/supervisor e sem colisão entre perfis. Contas pendentes continuam preservadas; o operador deve conferir os identificadores. O servidor de produção recusa iniciar enquanto houver conta ativa sem matrícula; comandos administrativos continuam disponíveis para concluir o mapeamento. E-mail permanece aceito apenas como seletor administrativo legado. Login por e-mail foi removido. Todas as sessões anteriores à mudança são encerradas.
+
+Cadastros novos de residentes criam a própria conta; as contas operacionais continuam provisionadas pelo operador. Não coloque senhas em argumentos, imagens, arquivos versionados ou logs. A instalação local em Docker não é evidência de implantação ou aceite institucional na VPS.
