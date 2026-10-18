@@ -195,7 +195,7 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
         display: flex;
         gap: 14px;
         align-items: flex-start;
-        color: #123f5c;
+        color: var(--info-ink);
         background: var(--info-bg);
         border-radius: 12px;
         padding: 16px 18px;
@@ -214,6 +214,7 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
       }
       .notice-row:focus-visible {
         outline-offset: -3px;
+        box-shadow: inset 0 0 0 6px var(--green-950);
       }
       .notices-layout {
         display: grid;
@@ -250,6 +251,11 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
       }
       .notice-row.selected {
         box-shadow: inset 4px 0 0 var(--green-900);
+      }
+      .notice-row.selected:focus-visible {
+        box-shadow:
+          inset 4px 0 0 var(--green-900),
+          inset 0 0 0 6px var(--green-950);
       }
       .notice-icon {
         width: 42px;
@@ -323,7 +329,7 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
       }
       .acknowledged,
       .confirm-box {
-        border: 1px solid #cfe3d5;
+        border: 1px solid var(--success-line);
         border-radius: 12px;
         background: var(--green-50);
         color: var(--green-950);

@@ -197,6 +197,11 @@ app-root {
   font-weight: 700;
   box-shadow: inset 4px 0 0 var(--green-900);
 }
+.sidebar nav a.active:focus-visible {
+  box-shadow:
+    inset 4px 0 0 var(--green-900),
+    0 0 0 3px var(--green-950);
+}
 .nav-separator {
   display: block;
   height: 1px;

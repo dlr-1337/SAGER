@@ -11,7 +11,7 @@ import { Component, computed, input } from '@angular/core';
       height: 10px;
       margin: 0 0 16px;
       border-radius: 999px;
-      background: #e6edf0;
+      background: var(--track);
       overflow: hidden;
     }
     span {

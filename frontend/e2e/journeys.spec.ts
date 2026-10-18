@@ -147,6 +147,20 @@ test('acesso, painel e avisos sem violações axe graves', async ({ page }) => {
   ).toEqual([]);
 });
 
+test('foco por teclado usa anel duplo: amarelo por fora e verde-escuro por dentro', async ({
+  page,
+}) => {
+  await page.goto('/residentes');
+  await page.keyboard.press('Tab');
+  const ring = await page.evaluate(() => {
+    const style = getComputedStyle(document.activeElement as Element);
+    return { outline: style.outlineColor, shadow: style.boxShadow };
+  });
+  // O amarelo sozinho fica abaixo de 3:1 sobre fundos claros; o anel interno garante o contraste.
+  expect(ring.outline).toBe('rgb(244, 186, 53)');
+  expect(ring.shadow).toContain('rgb(7, 59, 45)');
+});
+
 test('atalho de conteúdo, menu móvel e abas funcionam pelo teclado', async ({ page }) => {
   await page.goto('/inicio');
   await page.keyboard.press('Tab');

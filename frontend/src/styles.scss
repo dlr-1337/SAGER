@@ -33,6 +33,17 @@
   /* Borda de campo com contraste não textual ≥ 3:1 sobre branco (WCAG 1.4.11). */
   --field-border: #758a94;
   --btn-secondary-border: #9fb8ae;
+  /* Tons do design convergido: neutro, desabilitado, texto das notas e trilho das barras. */
+  --neutral-bg: #eef2f3;
+  --neutral-ink: #3f505e;
+  --disabled-bg: #eef2f3;
+  --disabled-ink: #6b7b88;
+  --disabled-line: #dfe6e9;
+  --info-ink: #123f5c;
+  --warning-ink: #5c3906;
+  --danger-ink: #7a1520;
+  --success-line: #cfe3d5;
+  --track: #e6edf0;
   --shadow: 0 8px 25px rgba(24, 47, 44, 0.07);
   --space-1: 4px;
   --space-2: 8px;
@@ -119,9 +130,16 @@ p {
   color: #fff;
   background: var(--green-800);
 }
+/* Anel duplo: o amarelo contrasta com o verde do cabeçalho e o verde-escuro interno com fundos
+   claros, onde o amarelo sozinho fica abaixo de 3:1 (WCAG 1.4.11). */
 :focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;
+  box-shadow: 0 0 0 3px var(--green-950);
+}
+/* Alvos de foco programático (conteúdo principal, títulos): só o contorno, sem moldura grossa. */
+:is(.app-main, h1, h2, h3)[tabindex='-1']:focus-visible {
+  box-shadow: none;
 }
 input,
 textarea {
@@ -252,9 +270,9 @@ textarea {
 /* Mesma especificidade de :hover e declarado depois: desabilitado não reage ao hover. */
 .btn:disabled,
 .btn-secondary:disabled {
-  background: #eef2f3;
-  border-color: #dfe6e9;
-  color: #6b7b88;
+  background: var(--disabled-bg);
+  border-color: var(--disabled-line);
+  color: var(--disabled-ink);
   box-shadow: none;
   transform: none;
   opacity: 1;
@@ -302,14 +320,23 @@ textarea {
   color: #fff;
   font-weight: 700;
 }
-/* overflow: hidden recortaria o anel de foco externo. */
+/* Em alto contraste o fundo some; o item ativo ganha sublinhado, que sobrevive às cores forçadas. */
+@media (forced-colors: active) {
+  .segmented
+    > :is(a, button):is(.active, .selected, [aria-current='page'], [aria-selected='true']) {
+    text-decoration: underline 3px;
+    text-underline-offset: 6px;
+  }
+}
+/* overflow: hidden recortaria o anel externo: o par amarelo/verde-escuro vai para dentro. */
 .segmented > :is(a, button):focus-visible {
   outline-offset: -4px;
+  box-shadow: inset 0 0 0 7px var(--green-950);
 }
 .status {
   @include chip.chip;
-  background: #eef2f3;
-  color: #3f505e;
+  background: var(--neutral-bg);
+  color: var(--neutral-ink);
 }
 .status[data-tone='success'],
 .status.success {
@@ -383,6 +410,12 @@ textarea.field {
 .field textarea[aria-invalid='true'] {
   border-color: var(--danger);
   box-shadow: 0 0 0 1px var(--danger);
+}
+/* Estados que usam sombra a combinam com o anel de foco, em vez de uma apagar a outra. */
+.field :is(input, select, textarea)[aria-invalid='true']:focus-visible {
+  box-shadow:
+    0 0 0 1px var(--danger),
+    0 0 0 4px var(--green-950);
 }
 .field-hint {
   font-size: var(--text-meta);

@@ -126,7 +126,7 @@ function localDateTime(date: Date): string {
         box-sizing: border-box;
       }
       .review-warning {
-        color: #5c3906;
+        color: var(--warning-ink);
         padding: 16px 18px;
         border-radius: 12px;
         background: var(--warning-bg);

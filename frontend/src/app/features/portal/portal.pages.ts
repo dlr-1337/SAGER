@@ -179,7 +179,7 @@ import { LocalHomePage } from './local-home.page';
         padding: 12px 16px;
         border-radius: 12px;
         background: var(--danger-bg);
-        color: #7a1520;
+        color: var(--danger-ink);
         font-weight: 700;
       }
       .access-support {
@@ -203,7 +203,7 @@ import { LocalHomePage } from './local-home.page';
         min-width: 0;
         gap: 16px;
         padding: 24px;
-        border-color: #cfe3d5;
+        border-color: var(--success-line);
         background: var(--green-50);
         box-shadow: none;
       }
@@ -439,11 +439,11 @@ export class AccessPage {
         padding: 16px 18px;
         border-radius: 12px;
         background: var(--info-bg);
-        color: #123f5c;
+        color: var(--info-ink);
       }
       .demo-error {
         background: var(--danger-bg);
-        color: #7a1520;
+        color: var(--danger-ink);
         font-weight: 700;
       }
       @media (max-width: 760px) {
@@ -968,7 +968,7 @@ export class DemoSelectorPage {
         box-shadow: var(--shadow);
       }
       .aside-block:last-child {
-        border-color: #cfe3d5;
+        border-color: var(--success-line);
         background: var(--green-50);
         box-shadow: none;
       }
@@ -1271,7 +1271,7 @@ export class HomePage {
         gap: 14px;
         margin: 24px 0 32px;
         padding: 16px 18px;
-        border: 1px solid #cfe3d5;
+        border: 1px solid var(--success-line);
         border-radius: 12px;
         background: var(--green-50);
         box-shadow: none;

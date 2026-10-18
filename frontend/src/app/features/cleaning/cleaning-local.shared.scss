@@ -52,11 +52,11 @@
 }
 .comm-warning {
   background: var(--warning-bg);
-  color: #5c3906;
+  color: var(--warning-ink);
 }
 .comm-error {
   background: var(--danger-bg);
-  color: #7a1520;
+  color: var(--danger-ink);
   font-weight: 600;
 }
 .comm-form-grid {

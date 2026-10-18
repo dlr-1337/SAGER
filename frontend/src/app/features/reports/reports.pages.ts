@@ -360,7 +360,7 @@ const KIND_LABELS: Record<ReportKind, string> = {
                       <td>{{ row.resident }}</td>
                       <td>{{ row.occurrence }}</td>
                       <td>
-                        <span class="status-label">{{ row.status }}</span>
+                        <span class="status status-label">{{ row.status }}</span>
                       </td>
                       <td>{{ row.description }}</td>
                     </tr>
@@ -376,7 +376,7 @@ const KIND_LABELS: Record<ReportKind, string> = {
                       ><strong>{{ labels[row.kind] }}</strong
                       ><small>{{ displayDate(row.date) }}</small></span
                     ><span class="report-mobile-resident">{{ row.resident }}</span
-                    ><span class="status-label">{{ row.status }}</span
+                    ><span class="status status-label">{{ row.status }}</span
                     ><span class="report-mobile-prompt"
                       ><span class="prompt-open">Ver detalhes</span
                       ><span class="prompt-close">Ocultar detalhes</span

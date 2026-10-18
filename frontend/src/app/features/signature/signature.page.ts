@@ -274,7 +274,7 @@ type SignatureStep = 'access' | 'review' | 'confirm' | 'result';
         padding: 16px 18px;
         border-radius: 12px;
         background: var(--warning-bg);
-        color: #5c3906;
+        color: var(--warning-ink);
         line-height: 1.5;
       }
       .simulation-banner .material-symbols-outlined {
@@ -297,7 +297,7 @@ type SignatureStep = 'access' | 'review' | 'confirm' | 'result';
         content: '';
         height: 10px;
         border-radius: 999px;
-        background: #e6edf0;
+        background: var(--track);
       }
       .steps span.active,
       .steps span.done {
@@ -405,7 +405,7 @@ type SignatureStep = 'access' | 'review' | 'confirm' | 'result';
         display: flex;
         flex-direction: column;
         gap: 6px;
-        border: 1px solid #cfe3d5;
+        border: 1px solid var(--success-line);
         border-radius: 12px;
         background: var(--green-50);
         color: var(--green-950);

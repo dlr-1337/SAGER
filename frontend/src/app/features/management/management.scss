@@ -91,9 +91,6 @@
     border-color 0.18s ease,
     color 0.18s ease;
 }
-.mg-page .btn:hover {
-  box-shadow: none;
-}
 .mg-page .btn .material-symbols-rounded {
   font-size: 20px;
 }
@@ -117,14 +114,10 @@
 }
 .mg-page .btn:disabled,
 .btn:is(.mg-primary, .mg-secondary):disabled {
-  color: #6b7b88;
-  background: #eef2f3;
-  border-color: #dfe6e9;
+  color: var(--disabled-ink);
+  background: var(--disabled-bg);
+  border-color: var(--disabled-line);
   opacity: 1;
-}
-.mg-page :is(a, button, input, select):focus-visible {
-  outline: 3px solid var(--focus);
-  outline-offset: 3px;
 }
 .mg-page .mg-panel {
   background: #fff;
@@ -194,6 +187,11 @@
 .mg-invalid :is(input, select) {
   border-color: var(--danger);
   box-shadow: 0 0 0 1px var(--danger);
+}
+.mg-invalid :is(input, select):focus-visible {
+  box-shadow:
+    0 0 0 1px var(--danger),
+    0 0 0 4px var(--green-950);
 }
 .mg-section {
   margin-top: 38px;
@@ -364,7 +362,7 @@
 }
 .mg-note {
   margin-top: 24px;
-  color: #123f5c;
+  color: var(--info-ink);
   background: var(--info-bg);
 }
 .mg-note .material-symbols-rounded {
@@ -382,7 +380,7 @@
 }
 .mg-alert {
   margin: 20px 0 0;
-  color: #7a1520;
+  color: var(--danger-ink);
   background: var(--danger-bg);
   font-weight: 600;
 }
@@ -391,7 +389,7 @@
   margin: 0 0 20px;
   color: var(--green-950);
   background: var(--green-50);
-  border: 1px solid #cfe3d5;
+  border: 1px solid var(--success-line);
   font-weight: 600;
 }
 .mg-success .material-symbols-rounded {
@@ -439,8 +437,8 @@
   white-space: nowrap;
 }
 .mg-status[data-tone='neutral'] {
-  color: #3f505e;
-  background: #eef2f3;
+  color: var(--neutral-ink);
+  background: var(--neutral-bg);
 }
 .mg-stats {
   display: grid;

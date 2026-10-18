@@ -145,7 +145,7 @@ import { LocalAuthService } from '../../core/local-auth.service';
       padding: 16px 18px;
       border-radius: 12px;
       background: var(--info-bg);
-      color: #123f5c;
+      color: var(--info-ink);
     }
     .recovery-note p {
       margin: 4px 0 0;
