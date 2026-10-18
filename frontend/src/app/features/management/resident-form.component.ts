@@ -177,11 +177,20 @@ function validBirthDate(control: AbstractControl): { invalidDate: true } | null 
                 formControlName="institutionalEmail"
                 autocomplete="email"
                 maxlength="320"
+                [attr.aria-invalid]="
+                  form.controls.institutionalEmail.invalid &&
+                  form.controls.institutionalEmail.touched
+                    ? 'true'
+                    : null
+                "
+                aria-describedby="resident-email-error"
               />
               @if (
                 form.controls.institutionalEmail.invalid && form.controls.institutionalEmail.touched
               ) {
-                <span class="mg-field-error">Informe um e-mail válido.</span>
+                <span class="mg-field-error" id="resident-email-error"
+                  >Informe um e-mail válido.</span
+                >
               }
             </label>
             <div class="mg-field">

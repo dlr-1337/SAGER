@@ -1,0 +1,21 @@
+// Link de voltar no topo das páginas: alvo de 44 px, verde de ação e sublinhado no hover. Cada
+// área inclui o mixin na própria classe (mg-back, op-back, health-back, back-link).
+@mixin back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  min-width: 44px;
+  color: var(--green-800);
+  font-weight: 600;
+  text-decoration: none;
+  text-underline-offset: 4px;
+
+  &:hover {
+    color: var(--green-950);
+    text-decoration: underline;
+  }
+  :is(.material-symbols-rounded, .material-symbols-outlined) {
+    font-size: 20px;
+  }
+}

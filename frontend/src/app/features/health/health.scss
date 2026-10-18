@@ -1,3 +1,5 @@
+@use '../../shared/back-link';
+
 :host {
   display: block;
   min-width: 0;
@@ -14,17 +16,8 @@
   align-items: end;
 }
 .health-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
+  @include back-link.back-link;
   margin-bottom: 12px;
-  color: var(--green-800);
-  font-weight: 600;
-  text-decoration: none;
-}
-.health-back:hover {
-  text-decoration: underline;
 }
 .health-section {
   margin-top: 28px;

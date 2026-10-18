@@ -169,13 +169,6 @@ const staffTasks: HomeTask[] = [
     </main>
   `,
   styles: `
-    .eyebrow {
-      font-size: 0.85rem;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
     .tasks {
       display: flex;
       flex-direction: column;

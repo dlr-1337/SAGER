@@ -44,12 +44,14 @@ function localDateTime(date: Date): string {
           }
         </dl>
         @if (data.mode === 'return') {
-          <label class="dialog-field"
+          <label class="dialog-field field"
             >Horário real do retorno
             <input
               type="datetime-local"
               [formControl]="actualReturn"
               (change)="actualReturn.markAsTouched()"
+              [attr.aria-invalid]="actualReturn.touched && actualReturn.invalid ? 'true' : null"
+              aria-describedby="review-return-error"
             />
           </label>
           @if (delayed) {
@@ -58,16 +60,24 @@ function localDateTime(date: Date): string {
             </p>
           }
           @if (actualReturn.touched && actualReturn.invalid) {
-            <p class="field-error">Informe o horário real do retorno.</p>
+            <p class="field-error" id="review-return-error">Informe o horário real do retorno.</p>
           }
         }
         @if (data.mode === 'reason' || delayed) {
-          <label class="dialog-field"
+          <label class="dialog-field field"
             >{{ delayed ? 'Observação do atraso' : 'Justificativa' }}
-            <textarea rows="3" [formControl]="reason" (blur)="reason.markAsTouched()"></textarea>
+            <textarea
+              rows="3"
+              [formControl]="reason"
+              (blur)="reason.markAsTouched()"
+              [attr.aria-invalid]="reason.touched && !reason.value.trim() ? 'true' : null"
+              aria-describedby="review-reason-error"
+            ></textarea>
           </label>
           @if (reason.touched && !reason.value.trim()) {
-            <p class="field-error">Preencha a justificativa para continuar.</p>
+            <p class="field-error" id="review-reason-error">
+              Preencha a justificativa para continuar.
+            </p>
           }
         }
         <p class="demo-note">Ação simulada. Nenhum dado institucional é enviado.</p>
@@ -113,17 +123,9 @@ function localDateTime(date: Date): string {
         font-weight: 700;
         margin: 15px 0;
       }
-      .dialog-field input,
-      .dialog-field textarea {
-        font: inherit;
+      /* Borda, altura e estado inválido vêm de .field (global); o rótulo em negrito não passa ao valor. */
+      .dialog-field :is(input, textarea) {
         font-weight: 400;
-        color: var(--ink);
-        border: 1px solid var(--field-border);
-        border-radius: var(--radius-control);
-        min-height: 48px;
-        padding: 10px 14px;
-        width: 100%;
-        box-sizing: border-box;
       }
       .review-warning {
         color: var(--warning-ink);

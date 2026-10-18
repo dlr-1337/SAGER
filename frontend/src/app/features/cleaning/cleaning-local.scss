@@ -1,4 +1,4 @@
-@use './cleaning-local.shared.scss';
+@use '../../shared/comm-base';
 .cleaning-score {
   font-variant-numeric: tabular-nums;
   font-weight: 700;
@@ -73,6 +73,16 @@
   height: 100%;
   border-radius: 999px;
   background: var(--green-800);
+}
+// Alto contraste apaga fundos: trilho contornado e preenchimento na cor do texto.
+@media (forced-colors: active) {
+  .indicator-bar-slot {
+    border: 1px solid CanvasText;
+  }
+  .indicator-bar {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
 }
 // Caixa com borda arredondada: exige bordas separadas no lugar de border-collapse.
 .indicator-table {

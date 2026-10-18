@@ -27,15 +27,22 @@ type SignatureStep = 'access' | 'review' | 'confirm' | 'result';
           </div>
           @if (request(); as exit) {
             <nav class="steps" aria-label="Etapas da autorização">
-              <span [class.active]="step() === 'access'" [class.done]="step() !== 'access'"
-                >1. Acesso</span
-              ><span
-                [class.active]="step() === 'review'"
-                [class.done]="step() === 'confirm' || step() === 'result'"
-                >2. Revisão</span
-              ><span [class.active]="step() === 'confirm'" [class.done]="step() === 'result'"
-                >3. Confirmação</span
-              ><span [class.active]="step() === 'result'">4. Resultado</span>
+              @for (item of steps; track item.key; let i = $index) {
+                <span
+                  [class.active]="i === stepIndex()"
+                  [class.done]="i < stepIndex()"
+                  [attr.aria-current]="i === stepIndex() ? 'step' : null"
+                  ><span class="step-label">
+                    @if (i < stepIndex()) {
+                      <span class="material-symbols-outlined" aria-hidden="true">check</span>
+                    }
+                    {{ item.label }}
+                    @if (i < stepIndex()) {
+                      <span class="sr-only">(concluída)</span>
+                    }
+                  </span></span
+                >
+              }
             </nav>
             @if (step() === 'access' && !exit.signed) {
               <section class="signature-card">
@@ -286,29 +293,46 @@ type SignatureStep = 'access' | 'review' | 'confirm' | 'result';
         gap: 12px 6px;
         margin: 28px 0 24px;
       }
-      .steps span {
+      .steps > span {
         display: flex;
         flex-direction: column;
         gap: 6px;
         color: var(--muted);
         font-size: var(--text-meta);
       }
-      .steps span::before {
+      .steps > span::before {
         content: '';
         height: 10px;
         border-radius: 999px;
         background: var(--track);
       }
-      .steps span.active,
-      .steps span.done {
+      .steps > :is(.active, .done) {
         color: var(--ink);
       }
-      .steps span.active {
+      .steps > .active {
         font-weight: 700;
       }
-      .steps span.active::before,
-      .steps span.done::before {
+      /* Concluídas: trilho verde e marca de verificação; atual: trilho mais escuro e negrito. */
+      .steps > .done::before {
         background: var(--green-800);
+      }
+      .steps > .active::before {
+        background: var(--green-950);
+      }
+      /* Alto contraste apaga fundos: concluídas e atual ficam na cor do texto. */
+      @media (forced-colors: active) {
+        .steps > :is(.active, .done)::before {
+          forced-color-adjust: none;
+          background: CanvasText;
+        }
+      }
+      .step-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .step-label span {
+        font-size: 18px;
       }
       .signature-card {
         background: #fff;
@@ -325,13 +349,6 @@ type SignatureStep = 'access' | 'review' | 'confirm' | 'result';
         font-size: 1.1rem;
         line-height: 1.6;
         max-width: 70ch;
-      }
-      .eyebrow {
-        font-size: 0.85rem;
-        font-weight: 700;
-        color: var(--muted);
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
       }
       .icon-well {
         display: grid;
@@ -492,6 +509,13 @@ export class SignaturePage {
     return this.operations.getExit(this.id);
   });
   readonly step = signal<SignatureStep>('access');
+  readonly steps: { key: SignatureStep; label: string }[] = [
+    { key: 'access', label: '1. Acesso' },
+    { key: 'review', label: '2. Revisão' },
+    { key: 'confirm', label: '3. Confirmação' },
+    { key: 'result', label: '4. Resultado' },
+  ];
+  readonly stepIndex = computed(() => this.steps.findIndex((item) => item.key === this.step()));
   readonly understood = new FormControl(false, {
     nonNullable: true,
     validators: Validators.requiredTrue,

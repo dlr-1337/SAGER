@@ -1,3 +1,4 @@
+@use '../../shared/back-link';
 @use '../../shared/chip';
 
 // Largura/padding vêm de `.page`, cartão de `.panel`, botão primário de `.btn` e foco do global.
@@ -29,15 +30,8 @@
   font-size: 1.1rem;
 }
 .op-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  color: var(--green-800);
-  font-weight: 600;
-  text-decoration: none;
+  @include back-link.back-link;
 }
-.op-back:hover,
 .op-inline-link:hover {
   color: var(--green-950);
   text-decoration: underline;

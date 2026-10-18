@@ -78,7 +78,7 @@ import { LocalHomePage } from './local-home.page';
       </section>
       @if (session.demoAvailable) {
         <section class="access-demo" aria-labelledby="demo-title">
-          <span class="chip"
+          <span class="status info"
             ><span class="material-symbols-outlined" aria-hidden="true">science</span>Somente
             demonstração</span
           >
@@ -141,13 +141,6 @@ import { LocalHomePage } from './local-home.page';
         flex-direction: column;
         gap: 10px;
       }
-      .eyebrow {
-        font-size: 0.85rem;
-        font-weight: 700;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        color: var(--muted);
-      }
       h1 {
         margin: 0;
         font-size: clamp(1.8rem, 2.6vw, 2.25rem);
@@ -157,8 +150,6 @@ import { LocalHomePage } from './local-home.page';
       }
       .lead {
         margin: 0;
-        font-size: 1.1rem;
-        color: var(--muted);
       }
       .access-card,
       .access-demo {
@@ -213,22 +204,6 @@ import { LocalHomePage } from './local-home.page';
       }
       .access-demo p {
         margin: 0;
-      }
-      .chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        width: fit-content;
-        min-height: 30px;
-        padding: 2px 12px;
-        border-radius: 999px;
-        background: var(--info-bg);
-        color: var(--info);
-        font-size: var(--text-meta);
-        font-weight: 700;
-      }
-      .chip .material-symbols-outlined {
-        font-size: 18px;
       }
       .demo-options {
         display: flex;
@@ -373,13 +348,6 @@ export class AccessPage {
         margin: auto;
         padding-top: 56px;
       }
-      .eyebrow {
-        font-size: 0.85rem;
-        font-weight: 700;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        color: var(--muted);
-      }
       .role-grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -489,7 +457,7 @@ export class DemoSelectorPage {
                   >
                 </div>
                 <div>
-                  <span class="overline">Próxima atividade</span>
+                  <span class="eyebrow">Próxima atividade</span>
                   <h2>Chamada noturna</h2>
                   <p>
                     Confira a presença dos residentes menores de idade e revise as marcações antes
@@ -635,7 +603,7 @@ export class DemoSelectorPage {
                   >
                 </div>
                 <div>
-                  <span class="overline">Visão da residência</span>
+                  <span class="eyebrow">Visão da residência</span>
                   <h2>Cadastros e ocupação</h2>
                   <p>
                     Consulte os residentes e confira a distribuição dos quartos antes de atualizar
@@ -730,7 +698,7 @@ export class DemoSelectorPage {
                   >
                 </div>
                 <div>
-                  <span class="overline">Meu espaço</span>
+                  <span class="eyebrow">Meu espaço</span>
                   <h2>Minhas saídas</h2>
                   <p>Solicite uma saída curta ou longa e acompanhe cada etapa com clareza.</p>
                 </div>
@@ -800,14 +768,6 @@ export class DemoSelectorPage {
         gap: 16px 24px;
         margin-bottom: 28px;
       }
-      .eyebrow,
-      .overline {
-        font-size: 0.85rem;
-        font-weight: 700;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        color: var(--muted);
-      }
       .home-heading h1 {
         margin: 8px 0;
       }
@@ -837,7 +797,7 @@ export class DemoSelectorPage {
         margin: 0;
         max-width: 620px;
       }
-      .feature-task .overline,
+      .feature-task .eyebrow,
       .task-time {
         color: var(--green-100);
       }

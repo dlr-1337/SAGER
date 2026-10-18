@@ -27,6 +27,8 @@
   --danger-bg: #fff0f0;
   --warning: #794b0b;
   --warning-bg: #fff5d9;
+  /* Marcador âmbar (pontos de legenda): mais claro que --warning para não se confundir com --danger. */
+  --warning-mark: #b7791f;
   --info: #185a82;
   --info-bg: #e7f4fe;
   --focus: #f4ba35;
@@ -322,10 +324,16 @@ textarea {
   color: #fff;
   font-weight: 700;
 }
-/* Em alto contraste o fundo some; o item ativo ganha sublinhado, que sobrevive às cores forçadas. */
+/* Em alto contraste fundo e sombra somem: item atual, pressionado ou selecionado (menu, abas,
+   marcações, etapas) ganha sublinhado. :root sobe a especificidade acima de `text-decoration: none`. */
 @media (forced-colors: active) {
-  .segmented
-    > :is(a, button):is(.active, .selected, [aria-current='page'], [aria-selected='true']) {
+  :root
+    :is(
+      .segmented > :is(.active, .selected),
+      [aria-current]:not([aria-current='false']),
+      [aria-pressed='true'],
+      [aria-selected='true']
+    ) {
     text-decoration: underline 3px;
     text-underline-offset: 6px;
   }
@@ -407,14 +415,14 @@ textarea.field {
 .field textarea:focus {
   border-color: var(--green-800);
 }
-/* Campo inválido: aria-invalid em toda a app; as telas de operação ainda marcam pelas classes
-   do Angular. Uma regra só, com a variante de foco que combina o vermelho com o anel. */
-.field :is(input, select, textarea)[aria-invalid='true'],
+/* Campo inválido: aria-invalid nos campos .field e .mg-field; as telas de operação ainda marcam
+   pelas classes do Angular. Uma regra só, com a variante de foco que combina o vermelho com o anel. */
+:is(.field, .mg-field) :is(input, select, textarea)[aria-invalid='true'],
 .op-page .field :is(input, select, textarea).ng-invalid.ng-touched {
   border-color: var(--danger);
   box-shadow: 0 0 0 1px var(--danger);
 }
-.field :is(input, select, textarea)[aria-invalid='true']:focus-visible,
+:is(.field, .mg-field) :is(input, select, textarea)[aria-invalid='true']:focus-visible,
 .op-page .field :is(input, select, textarea).ng-invalid.ng-touched:focus-visible {
   box-shadow:
     0 0 0 1px var(--danger),
@@ -430,6 +438,17 @@ textarea.field {
   font-weight: 700;
 }
 .muted {
+  color: var(--muted);
+}
+.lead {
+  font-size: 1.1rem;
+  color: var(--muted);
+}
+.eyebrow {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--muted);
 }
 .sr-only {
@@ -648,6 +667,10 @@ tbody tr:last-child td {
 .home-hero .btn-secondary {
   border-color: rgb(255 255 255 / 60%);
   background: transparent;
+  color: #fff;
+}
+.home-hero .btn-secondary:hover {
+  background: rgb(255 255 255 / 12%);
   color: #fff;
 }
 .home-hero-icon {

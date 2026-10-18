@@ -20,6 +20,16 @@ import { Component, computed, input } from '@angular/core';
       border-radius: inherit;
       background: var(--green-800);
     }
+    /* Alto contraste apaga fundos: trilho contornado e preenchimento na cor do texto. */
+    @media (forced-colors: active) {
+      :host {
+        border: 1px solid CanvasText;
+      }
+      span {
+        forced-color-adjust: none;
+        background: CanvasText;
+      }
+    }
   `,
 })
 export class ProgressBarComponent {

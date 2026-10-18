@@ -1,3 +1,4 @@
+@use '../../shared/back-link';
 @use '../../shared/chip';
 
 .mg-page {
@@ -53,22 +54,8 @@
   margin: 0;
 }
 .mg-back {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  min-width: 44px;
-  gap: 8px;
+  @include back-link.back-link;
   margin-bottom: 12px;
-  color: var(--green-800);
-  font-weight: 600;
-  text-decoration: none;
-  text-underline-offset: 4px;
-}
-.mg-back:hover {
-  text-decoration: underline;
-}
-.mg-back .material-symbols-rounded {
-  font-size: 20px;
 }
 .mg-page .btn {
   display: inline-flex;
@@ -538,7 +525,14 @@
   background: var(--info);
 }
 [data-situation='Manutenção'] .mg-dot {
-  background: #b7791f;
+  background: var(--warning-mark);
+}
+// Alto contraste: mantém a cor do ponto e acrescenta contorno na cor do texto.
+@media (forced-colors: active) {
+  .mg-dot {
+    forced-color-adjust: none;
+    border: 1px solid CanvasText;
+  }
 }
 [data-situation='Indisponível'] .mg-dot {
   background: var(--danger);
@@ -599,17 +593,9 @@
   font-size: 21px;
 }
 .mg-room-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  width: fit-content;
-  min-height: 30px;
-  padding: 2px 12px;
+  @include chip.chip;
   color: var(--green-950);
   background: var(--green-100);
-  border-radius: 999px;
-  font-size: 0.875rem;
-  font-weight: 700;
 }
 [data-situation='Ocupado'] .mg-room-status {
   color: var(--info);

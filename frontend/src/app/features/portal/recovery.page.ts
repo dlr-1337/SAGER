@@ -38,6 +38,8 @@ import { LocalAuthService } from '../../core/local-auth.service';
             <label class="mg-field"
               >Matrícula<input
                 formControlName="matricula"
+                [attr.aria-invalid]="invalid('matricula')"
+                [attr.aria-describedby]="invalid('matricula') ? 'recovery-error' : null"
                 autocomplete="username"
                 maxlength="64"
                 required
@@ -45,6 +47,8 @@ import { LocalAuthService } from '../../core/local-auth.service';
             <label class="mg-field"
               >Nome completo<input
                 formControlName="name"
+                [attr.aria-invalid]="invalid('name')"
+                [attr.aria-describedby]="invalid('name') ? 'recovery-error' : null"
                 autocomplete="name"
                 maxlength="200"
                 required
@@ -53,6 +57,8 @@ import { LocalAuthService } from '../../core/local-auth.service';
               >Data de nascimento<input
                 type="date"
                 formControlName="birthDate"
+                [attr.aria-invalid]="invalid('birthDate')"
+                [attr.aria-describedby]="invalid('birthDate') ? 'recovery-error' : null"
                 autocomplete="bday"
                 required
             /></label>
@@ -72,6 +78,8 @@ import { LocalAuthService } from '../../core/local-auth.service';
               >Nova senha<input
                 type="password"
                 formControlName="password"
+                [attr.aria-invalid]="invalid('password')"
+                [attr.aria-describedby]="invalid('password') ? 'recovery-error' : null"
                 autocomplete="new-password"
                 minlength="12"
                 maxlength="72"
@@ -84,12 +92,14 @@ import { LocalAuthService } from '../../core/local-auth.service';
               >Confirmar nova senha<input
                 type="password"
                 formControlName="passwordConfirmation"
+                [attr.aria-invalid]="invalid('passwordConfirmation')"
+                [attr.aria-describedby]="invalid('passwordConfirmation') ? 'recovery-error' : null"
                 autocomplete="new-password"
                 required
             /></label>
           </fieldset>
           @if (error()) {
-            <p class="mg-alert" role="alert">{{ error() }}</p>
+            <p class="mg-alert" id="recovery-error" role="alert">{{ error() }}</p>
           }
           <div class="action-row">
             <a class="btn mg-secondary" routerLink="/acesso">Cancelar</a
@@ -99,8 +109,8 @@ import { LocalAuthService } from '../../core/local-auth.service';
           </div>
         </form>
       }
-      <div class="recovery-note">
-        <span class="material-symbols-outlined" aria-hidden="true">info</span>
+      <div class="mg-note">
+        <span class="material-symbols-rounded" aria-hidden="true">info</span>
         <div>
           <strong>Gestores, supervisores e profissionais de saúde</strong>
           <p>
@@ -112,10 +122,6 @@ import { LocalAuthService } from '../../core/local-auth.service';
     </main>
   `,
   styles: `
-    .lead {
-      font-size: 1.1rem;
-      color: var(--muted);
-    }
     fieldset {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
@@ -137,18 +143,8 @@ import { LocalAuthService } from '../../core/local-auth.service';
       font-weight: 400;
       color: var(--muted);
     }
-    .recovery-note {
-      display: flex;
-      align-items: flex-start;
-      gap: 14px;
-      margin-top: 24px;
-      padding: 16px 18px;
-      border-radius: 12px;
-      background: var(--info-bg);
-      color: var(--info-ink);
-    }
-    .recovery-note p {
-      margin: 4px 0 0;
+    .mg-note p {
+      margin-top: 4px;
     }
     @media (max-width: 640px) {
       fieldset {
@@ -185,6 +181,13 @@ export class RecoveryPage {
       validators: [Validators.required],
     }),
   });
+  /** Marca o campo depois da primeira tentativa; a confirmação também falha se divergir. */
+  invalid(name: keyof RecoveryPage['form']['controls']): 'true' | null {
+    const control = this.form.controls[name];
+    const mismatch =
+      name === 'passwordConfirmation' && control.value !== this.form.controls.password.value;
+    return control.touched && (control.invalid || mismatch) ? 'true' : null;
+  }
   async submit(): Promise<void> {
     if (this.busy()) return;
     this.error.set('');
