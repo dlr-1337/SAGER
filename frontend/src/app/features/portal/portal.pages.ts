@@ -482,9 +482,11 @@ export class DemoSelectorPage {
         @if (session.role() === 'supervisor') {
           <div class="home-columns">
             <section class="home-main">
-              <div class="feature-task">
+              <div class="feature-task home-hero">
                 <div class="task-icon">
-                  <span class="material-symbols-outlined" aria-hidden="true">fact_check</span>
+                  <span class="material-symbols-outlined home-hero-icon" aria-hidden="true"
+                    >fact_check</span
+                  >
                 </div>
                 <div>
                   <span class="overline">Próxima atividade</span>
@@ -506,7 +508,7 @@ export class DemoSelectorPage {
                   <span>Organizadas por tarefa</span>
                 </div>
                 <a class="work-row" routerLink="/saidas"
-                  ><span class="row-indicator amber"
+                  ><span class="row-indicator home-badge amber"
                     ><span class="material-symbols-outlined" aria-hidden="true"
                       >directions_walk</span
                     ></span
@@ -538,7 +540,7 @@ export class DemoSelectorPage {
                   ></a
                 >
                 <a class="work-row" routerLink="/saidas"
-                  ><span class="row-indicator blue"
+                  ><span class="row-indicator home-badge blue"
                     ><span class="material-symbols-outlined" aria-hidden="true"
                       >how_to_reg</span
                     ></span
@@ -572,7 +574,7 @@ export class DemoSelectorPage {
                   ></a
                 >
                 <a class="work-row" routerLink="/notificacoes"
-                  ><span class="row-indicator green"
+                  ><span class="row-indicator home-badge green"
                     ><span class="material-symbols-outlined" aria-hidden="true"
                       >notification_important</span
                     ></span
@@ -626,9 +628,11 @@ export class DemoSelectorPage {
         } @else if (session.role() === 'gestor') {
           <div class="home-columns">
             <section class="home-main">
-              <div class="feature-task">
+              <div class="feature-task home-hero">
                 <div class="task-icon">
-                  <span class="material-symbols-outlined" aria-hidden="true">apartment</span>
+                  <span class="material-symbols-outlined home-hero-icon" aria-hidden="true"
+                    >apartment</span
+                  >
                 </div>
                 <div>
                   <span class="overline">Visão da residência</span>
@@ -646,7 +650,7 @@ export class DemoSelectorPage {
                   <span>Exemplos de navegação</span>
                 </div>
                 <a class="work-row" routerLink="/quartos"
-                  ><span class="row-indicator green"
+                  ><span class="row-indicator home-badge green"
                     ><span class="material-symbols-outlined" aria-hidden="true"
                       >meeting_room</span
                     ></span
@@ -660,7 +664,7 @@ export class DemoSelectorPage {
                     ></span
                   ></a
                 ><a class="work-row" routerLink="/supervisores"
-                  ><span class="row-indicator blue"
+                  ><span class="row-indicator home-badge blue"
                     ><span class="material-symbols-outlined" aria-hidden="true">groups</span></span
                   ><span
                     ><strong>Supervisores</strong><small>Consulte e organize a equipe.</small></span
@@ -671,7 +675,7 @@ export class DemoSelectorPage {
                     ></span
                   ></a
                 ><a class="work-row" routerLink="/relatorios"
-                  ><span class="row-indicator amber"
+                  ><span class="row-indicator home-badge amber"
                     ><span class="material-symbols-outlined" aria-hidden="true"
                       >monitoring</span
                     ></span
@@ -702,9 +706,11 @@ export class DemoSelectorPage {
             </aside>
           </div>
         } @else if (session.role() === 'saude') {
-          <section class="feature-task" aria-labelledby="health-home-title">
+          <section class="feature-task home-hero" aria-labelledby="health-home-title">
             <div class="task-icon">
-              <span class="material-symbols-outlined" aria-hidden="true">health_and_safety</span>
+              <span class="material-symbols-outlined home-hero-icon" aria-hidden="true"
+                >health_and_safety</span
+              >
             </div>
             <div>
               <h2 id="health-home-title">Atendimento de saúde</h2>
@@ -717,9 +723,11 @@ export class DemoSelectorPage {
         } @else {
           <div class="home-columns">
             <section class="home-main">
-              <div class="feature-task">
+              <div class="feature-task home-hero">
                 <div class="task-icon">
-                  <span class="material-symbols-outlined" aria-hidden="true">outbound</span>
+                  <span class="material-symbols-outlined home-hero-icon" aria-hidden="true"
+                    >outbound</span
+                  >
                 </div>
                 <div>
                   <span class="overline">Meu espaço</span>
@@ -734,7 +742,7 @@ export class DemoSelectorPage {
                   <span>Somente suas informações</span>
                 </div>
                 <a class="work-row" routerLink="/avisos"
-                  ><span class="row-indicator amber"
+                  ><span class="row-indicator home-badge amber"
                     ><span class="material-symbols-outlined" aria-hidden="true"
                       >campaign</span
                     ></span
@@ -748,7 +756,7 @@ export class DemoSelectorPage {
                     ></span
                   ></a
                 ><a class="work-row" routerLink="/ranking"
-                  ><span class="row-indicator green"
+                  ><span class="row-indicator home-badge green"
                     ><span class="material-symbols-outlined" aria-hidden="true"
                       >leaderboard</span
                     ></span
@@ -821,28 +829,13 @@ export class DemoSelectorPage {
         grid-template-columns: 48px minmax(0, 1fr) auto;
         align-items: center;
         gap: 16px 28px;
-        padding: 24px 28px;
-        border-radius: var(--radius-card);
-        background: var(--green-900);
-        color: #fff;
-      }
-      .task-icon .material-symbols-outlined {
-        font-size: 48px;
-        font-variation-settings:
-          'FILL' 1,
-          'wght' 500,
-          'GRAD' 0,
-          'opsz' 48;
       }
       .feature-task h2 {
         margin: 4px 0;
-        font-size: 1.4rem;
-        color: #fff;
       }
       .feature-task p {
         margin: 0;
         max-width: 620px;
-        color: #d9eadf;
       }
       .feature-task .overline,
       .task-time {
@@ -854,15 +847,6 @@ export class DemoSelectorPage {
         gap: 6px;
         margin-top: 10px;
         font-size: var(--text-meta);
-      }
-      .feature-task .btn {
-        border-color: #fff;
-        background: #fff;
-        color: var(--green-900);
-      }
-      .feature-task .btn:hover {
-        background: var(--green-50);
-        color: var(--green-950);
       }
       .work-list {
         margin-top: 28px;
@@ -919,13 +903,6 @@ export class DemoSelectorPage {
       }
       .row-status strong {
         font-size: 1rem;
-      }
-      .row-indicator {
-        display: grid;
-        place-items: center;
-        width: 56px;
-        height: 56px;
-        border-radius: 50%;
       }
       .row-indicator.amber {
         background: var(--warning-bg);
@@ -1026,7 +1003,6 @@ export class DemoSelectorPage {
       @media (max-width: 760px) {
         .feature-task {
           grid-template-columns: 48px 1fr;
-          padding: 18px;
         }
         .feature-task .btn {
           grid-column: 1/-1;

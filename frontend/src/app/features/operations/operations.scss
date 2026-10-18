@@ -229,15 +229,6 @@
   font-size: 1rem;
   font-weight: 400;
 }
-.op-page .field :is(input, select, textarea).ng-invalid.ng-touched {
-  border-color: var(--danger);
-  box-shadow: 0 0 0 1px var(--danger);
-}
-.op-page .field :is(input, select, textarea).ng-invalid.ng-touched:focus-visible {
-  box-shadow:
-    0 0 0 1px var(--danger),
-    0 0 0 4px var(--green-950);
-}
 .op-page .field textarea {
   min-height: 112px;
   resize: vertical;

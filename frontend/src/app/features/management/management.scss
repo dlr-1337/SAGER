@@ -184,15 +184,6 @@
   font-weight: 600;
   line-height: 1.35;
 }
-.mg-invalid :is(input, select) {
-  border-color: var(--danger);
-  box-shadow: 0 0 0 1px var(--danger);
-}
-.mg-invalid :is(input, select):focus-visible {
-  box-shadow:
-    0 0 0 1px var(--danger),
-    0 0 0 4px var(--green-950);
-}
 .mg-section {
   margin-top: 38px;
 }

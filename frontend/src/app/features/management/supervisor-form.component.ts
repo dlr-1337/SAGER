@@ -73,10 +73,11 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
             {{ isDemo() ? 'nesta demonstração' : 'no ambiente local de teste' }}.
           </p>
           <div class="form-grid mg-form-grid">
-            <label
-              class="field mg-field mg-span-2"
-              [class.mg-invalid]="form.controls.name.invalid && form.controls.name.touched"
+            <label class="field mg-field mg-span-2"
               >Nome completo *<input
+                [attr.aria-invalid]="
+                  form.controls.name.invalid && form.controls.name.touched ? 'true' : null
+                "
                 formControlName="name"
                 autocomplete="name"
                 maxlength="200"
@@ -88,12 +89,13 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
                 >
               }
             </label>
-            <label
-              class="field mg-field"
-              [class.mg-invalid]="
-                form.controls.institutionalId.invalid && form.controls.institutionalId.touched
-              "
+            <label class="field mg-field"
               >Identificação institucional *<input
+                [attr.aria-invalid]="
+                  form.controls.institutionalId.invalid && form.controls.institutionalId.touched
+                    ? 'true'
+                    : null
+                "
                 formControlName="institutionalId"
                 autocomplete="off"
                 maxlength="64"
@@ -105,10 +107,11 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
                 >
               }
             </label>
-            <label
-              class="field mg-field"
-              [class.mg-invalid]="form.controls.email.invalid && form.controls.email.touched"
+            <label class="field mg-field"
               >E-mail institucional *<input
+                [attr.aria-invalid]="
+                  form.controls.email.invalid && form.controls.email.touched ? 'true' : null
+                "
                 type="email"
                 formControlName="email"
                 autocomplete="email"

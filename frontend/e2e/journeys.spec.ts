@@ -152,6 +152,8 @@ test('foco por teclado usa anel duplo: amarelo por fora e verde-escuro por dentr
 }) => {
   await page.goto('/residentes');
   await page.keyboard.press('Tab');
+  // O atalho não anima box-shadow; um .btn teria transição e leitura instável do estilo.
+  await expect(page.locator('.skip-link')).toBeFocused();
   const ring = await page.evaluate(() => {
     const style = getComputedStyle(document.activeElement as Element);
     return { outline: style.outlineColor, shadow: style.boxShadow };

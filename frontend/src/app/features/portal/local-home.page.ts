@@ -144,10 +144,12 @@ const staffTasks: HomeTask[] = [
       </header>
       <section class="tasks" aria-label="Atividades disponíveis">
         @for (task of tasks(); track task.title; let first = $first) {
-          <article [class]="first ? 'hero' : 'item'">
+          <article [class]="first ? 'hero home-hero' : 'item'">
             <div class="what">
-              <span class="badge" aria-hidden="true"
-                ><span class="material-symbols-outlined">{{ task.icon }}</span></span
+              <span class="badge home-badge" aria-hidden="true"
+                ><span class="material-symbols-outlined" [class.home-hero-icon]="first">{{
+                  task.icon
+                }}</span></span
               >
               <div>
                 <h2>{{ task.title }}</h2>
@@ -188,10 +190,6 @@ const staffTasks: HomeTask[] = [
     .hero {
       gap: 16px 28px;
       margin-bottom: 28px;
-      padding: 24px 28px;
-      border-radius: var(--radius-card);
-      background: var(--green-900);
-      color: #fff;
     }
     .item {
       padding: 20px 0;
@@ -207,68 +205,30 @@ const staffTasks: HomeTask[] = [
       align-items: center;
       gap: 18px;
     }
-    .badge {
-      flex: none;
-      display: grid;
-      place-items: center;
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
-      background: var(--green-100);
-      color: var(--green-900);
-    }
     .hero .badge {
       width: 48px;
       height: 48px;
       background: none;
       color: #fff;
     }
-    .hero .badge span {
-      font-size: 48px;
-      font-variation-settings:
-        'FILL' 1,
-        'wght' 500,
-        'GRAD' 0,
-        'opsz' 48;
-    }
     h2 {
       margin: 0 0 4px;
-      font-size: 1.1rem;
     }
-    .hero h2 {
-      font-size: 1.4rem;
-      color: #fff;
+    .item h2 {
+      font-size: 1.1rem;
     }
     .what p {
       margin: 0;
-      color: var(--muted);
     }
-    .hero .what p {
-      color: #d9eadf;
+    .item .what p {
+      color: var(--muted);
     }
     .actions {
       display: flex;
       flex-wrap: wrap;
       gap: 12px;
     }
-    .hero .btn {
-      border-color: #fff;
-      background: #fff;
-      color: var(--green-900);
-    }
-    .hero .btn:hover {
-      background: var(--green-50);
-      color: var(--green-950);
-    }
-    .hero .btn-secondary {
-      border-color: rgb(255 255 255 / 60%);
-      background: transparent;
-      color: #fff;
-    }
     @media (max-width: 760px) {
-      .hero {
-        padding: 18px;
-      }
       .actions,
       .actions a {
         flex: 1 1 auto;

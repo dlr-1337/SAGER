@@ -114,11 +114,12 @@ function validBirthDate(control: AbstractControl): { invalidDate: true } | null 
             {{ isDemo() ? 'nesta demonstração' : 'no ambiente local de teste' }}.
           </p>
           <div class="form-grid mg-form-grid">
-            <label
-              class="field mg-field mg-span-2"
-              [class.mg-invalid]="form.controls.name.invalid && form.controls.name.touched"
+            <label class="field mg-field mg-span-2"
               >Nome completo *
               <input
+                [attr.aria-invalid]="
+                  form.controls.name.invalid && form.controls.name.touched ? 'true' : null
+                "
                 formControlName="name"
                 autocomplete="name"
                 maxlength="200"
@@ -130,13 +131,14 @@ function validBirthDate(control: AbstractControl): { invalidDate: true } | null 
                 >
               }
             </label>
-            <label
-              class="field mg-field"
-              [class.mg-invalid]="
-                form.controls.enrollment.invalid && form.controls.enrollment.touched
-              "
+            <label class="field mg-field"
               >Matrícula *
               <input
+                [attr.aria-invalid]="
+                  form.controls.enrollment.invalid && form.controls.enrollment.touched
+                    ? 'true'
+                    : null
+                "
                 formControlName="enrollment"
                 autocomplete="off"
                 maxlength="64"
@@ -148,11 +150,7 @@ function validBirthDate(control: AbstractControl): { invalidDate: true } | null 
                 >
               }
             </label>
-            <label
-              class="field mg-field"
-              [class.mg-invalid]="
-                form.controls.birthDate.invalid && form.controls.birthDate.touched
-              "
+            <label class="field mg-field"
               >Data de nascimento *
               <input
                 type="date"
