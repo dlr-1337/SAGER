@@ -174,29 +174,32 @@ export class RecoveryPage {
     }),
     password: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.required, Validators.minLength(12), Validators.maxLength(72)],
+      // O servidor limita a senha a 72 bytes UTF-8; letras acentuadas ocupam mais de um.
+      validators: [
+        Validators.required,
+        Validators.minLength(12),
+        (control) =>
+          new TextEncoder().encode(control.value).length > 72 ? { maxBytes: true } : null,
+      ],
     }),
     passwordConfirmation: new FormControl('', {
       nonNullable: true,
       validators: [Validators.required],
     }),
   });
-  /** Marca o campo depois da primeira tentativa; a confirmação também falha se divergir. */
+  /** Marca o campo só enquanto a mensagem de erro existe, para o aria-describedby apontar para
+   *  ela; a confirmação também falha se divergir. */
   invalid(name: keyof RecoveryPage['form']['controls']): 'true' | null {
     const control = this.form.controls[name];
     const mismatch =
       name === 'passwordConfirmation' && control.value !== this.form.controls.password.value;
-    return control.touched && (control.invalid || mismatch) ? 'true' : null;
+    return this.error() && (control.invalid || mismatch) ? 'true' : null;
   }
   async submit(): Promise<void> {
     if (this.busy()) return;
     this.error.set('');
     const input = this.form.getRawValue();
-    if (
-      this.form.invalid ||
-      input.password !== input.passwordConfirmation ||
-      new TextEncoder().encode(input.password).length > 72
-    ) {
+    if (this.form.invalid || input.password !== input.passwordConfirmation) {
       this.form.markAllAsTouched();
       this.error.set(
         'Confira os campos e repita a mesma senha, com 12 a 72 caracteres e até 72 bytes.',
