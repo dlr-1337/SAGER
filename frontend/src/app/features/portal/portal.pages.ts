@@ -470,7 +470,7 @@ export class DemoSelectorPage {
     @if (!session.active()) {
       <sager-local-home />
     } @else {
-      <main class="page home-page">
+      <main class="page">
         <header class="home-heading">
           <div>
             <span class="eyebrow">SAGER · Campus Urutaí</span>
