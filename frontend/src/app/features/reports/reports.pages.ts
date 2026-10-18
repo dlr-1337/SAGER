@@ -162,7 +162,7 @@ const KIND_LABELS: Record<ReportKind, string> = {
               <h2 id="filters-title">Selecionar e filtrar</h2>
               <p>Todos os filtros preenchidos serão aplicados juntos.</p>
             </div>
-            <span class="demo-tag">Dados fictícios</span>
+            <span class="demo-tag status success">Dados fictícios</span>
           </div>
           <form [formGroup]="form" (ngSubmit)="apply()" novalidate>
             <div class="filter-grid">
@@ -360,7 +360,7 @@ const KIND_LABELS: Record<ReportKind, string> = {
                       <td>{{ row.resident }}</td>
                       <td>{{ row.occurrence }}</td>
                       <td>
-                        <span class="status-label">{{ row.status }}</span>
+                        <span class="status status-label">{{ row.status }}</span>
                       </td>
                       <td>{{ row.description }}</td>
                     </tr>
@@ -376,7 +376,7 @@ const KIND_LABELS: Record<ReportKind, string> = {
                       ><strong>{{ labels[row.kind] }}</strong
                       ><small>{{ displayDate(row.date) }}</small></span
                     ><span class="report-mobile-resident">{{ row.resident }}</span
-                    ><span class="status-label">{{ row.status }}</span
+                    ><span class="status status-label">{{ row.status }}</span
                     ><span class="report-mobile-prompt"
                       ><span class="prompt-open">Ver detalhes</span
                       ><span class="prompt-close">Ocultar detalhes</span
@@ -759,7 +759,7 @@ export class IndividualReportPage implements OnDestroy {
           {
             label: 'Ocorrências',
             data: [0, 1, 1],
-            backgroundColor: '#197148',
+            backgroundColor: '#155c43', // --green-800
             borderRadius: 5,
             maxBarThickness: 70,
           },
@@ -773,7 +773,7 @@ export class IndividualReportPage implements OnDestroy {
           y: {
             beginAtZero: true,
             ticks: { stepSize: 1, precision: 0 },
-            grid: { color: '#e2eae3' },
+            grid: { color: '#d6e0e5' }, // --line
           },
           x: { grid: { display: false } },
         },

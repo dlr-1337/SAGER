@@ -178,7 +178,7 @@ const positiveInteger: ValidatorFn = (control) =>
               de teste.
             </p>
             <div class="form-grid mg-form-grid">
-              <label class="field mg-field" [class.mg-invalid]="invalid('code')"
+              <label class="field mg-field"
                 >Código global *<input
                   formControlName="code"
                   autocomplete="off"
@@ -194,7 +194,7 @@ const positiveInteger: ValidatorFn = (control) =>
                   >
                 }
               </label>
-              <label class="field mg-field" [class.mg-invalid]="invalid('number')"
+              <label class="field mg-field"
                 >Número do quarto *<input
                   formControlName="number"
                   autocomplete="off"
@@ -212,7 +212,7 @@ const positiveInteger: ValidatorFn = (control) =>
                   >
                 }
               </label>
-              <label class="field mg-field" [class.mg-invalid]="invalid('accommodationId')"
+              <label class="field mg-field"
                 >Alojamento *<select
                   sagerSearchable
                   formControlName="accommodationId"
@@ -240,7 +240,7 @@ const positiveInteger: ValidatorFn = (control) =>
                   }
                 </select></label
               >
-              <label class="field mg-field" [class.mg-invalid]="invalid('floor')"
+              <label class="field mg-field"
                 >Piso (opcional)<input
                   formControlName="floor"
                   autocomplete="off"
@@ -254,7 +254,7 @@ const positiveInteger: ValidatorFn = (control) =>
                   >
                 }
               </label>
-              <label class="field mg-field" [class.mg-invalid]="invalid('capacity')"
+              <label class="field mg-field"
                 >Capacidade (opcional)<input
                   type="number"
                   formControlName="capacity"
@@ -274,7 +274,7 @@ const positiveInteger: ValidatorFn = (control) =>
                   >
                 }
               </label>
-              <label class="field mg-field" [class.mg-invalid]="invalid('situation')"
+              <label class="field mg-field"
                 >Situação *<select
                   sagerSearchable
                   formControlName="situation"

@@ -133,7 +133,7 @@ test('recuperação confere dados, exige confirmação e volta ao acesso sem aut
   expect(writes).toBe(1);
   await expect(page).toHaveURL(/recuperar-senha$/);
   await page.getByRole('link', { name: 'Voltar ao acesso' }).click();
-  await expect(page.getByRole('heading', { name: 'Acessar o SAGER' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Entrar no SAGER' })).toBeVisible();
 });
 
 test('recuperação informa o limite de tentativas e preserva os campos para corrigir', async ({

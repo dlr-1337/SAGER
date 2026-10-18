@@ -548,13 +548,14 @@ export class GuardianDetailPage {
             {{ isDemo() ? 'nesta demonstração' : 'no ambiente local de teste' }}.
           </p>
           <div class="form-grid mg-form-grid">
-            <label
-              class="field mg-field mg-span-2"
-              [class.mg-invalid]="
-                form.controls.residentId.invalid && form.controls.residentId.touched
-              "
+            <label class="field mg-field mg-span-2"
               >Residente vinculado *
               <select
+                [attr.aria-invalid]="
+                  form.controls.residentId.invalid && form.controls.residentId.touched
+                    ? 'true'
+                    : null
+                "
                 sagerSearchable
                 formControlName="residentId"
                 aria-describedby="guardian-resident-error"
@@ -570,10 +571,11 @@ export class GuardianDetailPage {
                 >
               }
             </label>
-            <label
-              class="field mg-field mg-span-2"
-              [class.mg-invalid]="form.controls.name.invalid && form.controls.name.touched"
+            <label class="field mg-field mg-span-2"
               >Nome completo *<input
+                [attr.aria-invalid]="
+                  form.controls.name.invalid && form.controls.name.touched ? 'true' : null
+                "
                 formControlName="name"
                 autocomplete="name"
                 maxlength="200"
@@ -585,12 +587,13 @@ export class GuardianDetailPage {
                 >
               }
             </label>
-            <label
-              class="field mg-field"
-              [class.mg-invalid]="
-                form.controls.relationship.invalid && form.controls.relationship.touched
-              "
+            <label class="field mg-field"
               >Vínculo com o residente *<input
+                [attr.aria-invalid]="
+                  form.controls.relationship.invalid && form.controls.relationship.touched
+                    ? 'true'
+                    : null
+                "
                 formControlName="relationship"
                 placeholder="Ex.: mãe, pai ou pessoa com guarda"
                 maxlength="80"
@@ -602,11 +605,12 @@ export class GuardianDetailPage {
                 >
               }
             </label>
-            <label
-              class="field mg-field"
-              [class.mg-invalid]="form.controls.phone.invalid && form.controls.phone.touched"
+            <label class="field mg-field"
               >Telefone {{ isDemo() ? 'com DDD *' : '(opcional)'
               }}<input
+                [attr.aria-invalid]="
+                  form.controls.phone.invalid && form.controls.phone.touched ? 'true' : null
+                "
                 type="tel"
                 formControlName="phone"
                 autocomplete="tel"

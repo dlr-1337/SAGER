@@ -33,7 +33,7 @@ import { UnsavedFormDirective, UnsavedForms } from '../../shared/unsaved-form';
         @if (editing()) {
           <button type="button" class="btn mg-secondary" (click)="cancel()">Cancelar edição</button>
         }
-        <button class="btn" [disabled]="saving()">
+        <button class="btn mg-primary" [disabled]="saving()">
           {{ saving() ? 'Salvando…' : 'Salvar curso' }}
         </button>
       </div>
@@ -42,11 +42,13 @@ import { UnsavedFormDirective, UnsavedForms } from '../../shared/unsaved-form';
       <p class="mg-alert" role="alert">{{ error() }}</p>
     }
     @if (notice()) {
-      <p role="status">{{ notice() }}</p>
+      <p class="mg-success" role="status">
+        <span class="material-symbols-rounded" aria-hidden="true">check_circle</span>{{ notice() }}
+      </p>
     }
     <section class="panel mg-panel">
       <div class="mg-filters">
-        <label class="mg-field"
+        <label class="mg-field mg-grow"
           >Buscar curso<input
             type="search"
             [value]="query()"
@@ -75,7 +77,14 @@ import { UnsavedFormDirective, UnsavedForms } from '../../shared/unsaved-form';
           <div class="course-row">
             <div>
               <strong>{{ course.name }}</strong>
-              <p>{{ course.active ? 'Ativo' : 'Inativo · mantido nos cadastros existentes' }}</p>
+              <p>
+                <span class="mg-status" [attr.data-tone]="course.active ? null : 'neutral'"
+                  ><span class="material-symbols-rounded" aria-hidden="true">{{
+                    course.active ? 'check_circle' : 'block'
+                  }}</span
+                  >{{ course.active ? 'Ativo' : 'Inativo' }}</span
+                >{{ course.active ? '' : ' · mantido nos cadastros existentes' }}
+              </p>
             </div>
             <div class="action-row">
               <button class="btn mg-secondary" (click)="edit(course)">Editar</button
@@ -113,16 +122,26 @@ import { UnsavedFormDirective, UnsavedForms } from '../../shared/unsaved-form';
         justify-content: space-between;
         align-items: center;
         flex-wrap: wrap;
-        gap: 16px;
-        padding: 16px 0;
+        gap: 16px 24px;
+        padding: 20px 0;
         border-top: 1px solid var(--line);
       }
+      .course-row:last-of-type {
+        border-bottom: 1px solid var(--line);
+      }
       .course-row p {
-        margin: 4px 0 0;
+        margin: 8px 0 0;
         color: var(--muted);
       }
       form {
         margin-bottom: 24px;
+      }
+      form .action-row,
+      nav.action-row {
+        margin-top: 16px;
+      }
+      .mg-filters + p {
+        margin: 16px 0 8px;
       }
     `,
   ],

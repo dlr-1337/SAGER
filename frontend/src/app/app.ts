@@ -22,7 +22,35 @@ interface NavItem {
   label: string;
   path: string;
   icon: string;
+  groupStart?: boolean;
 }
+
+// Menu em três grupos, como no design aprovado: rotina, cadastros e consultas, conta e apoio.
+const registryPaths = [
+  '/residentes',
+  '/responsaveis',
+  '/cursos',
+  '/supervisores',
+  '/quartos',
+  '/relatorios',
+  '/saude/acessos',
+];
+const navGroup = (path: string) =>
+  path === '/perfil' || path === '/ajuda' ? 2 : registryPaths.includes(path) ? 1 : 0;
+const grouped = (items: NavItem[]): NavItem[] =>
+  [...items]
+    .sort((a, b) => navGroup(a.path) - navGroup(b.path))
+    .map((item, index, all) => ({
+      ...item,
+      groupStart: index > 0 && navGroup(item.path) !== navGroup(all[index - 1].path),
+    }));
+
+const roleLabels: Record<Role, string> = {
+  gestor: 'Gestão',
+  supervisor: 'Supervisão',
+  residente: 'Residente',
+  saude: 'Saúde',
+};
 
 const commonItems: NavItem[] = [{ label: 'Início', path: '/inicio', icon: 'home' }];
 
@@ -108,7 +136,7 @@ export class App implements OnDestroy {
   readonly navItems = computed(() => {
     const role = this.session.role();
     const items = navByRole[role];
-    if (this.session.active()) return items;
+    if (this.session.active()) return grouped(items);
     const localItems =
       role === 'residente'
         ? items.map((item) =>
@@ -133,23 +161,31 @@ export class App implements OnDestroy {
           : role === 'supervisor'
             ? [{ label: 'Ranking', path: '/ranking', icon: 'leaderboard' }]
             : [];
+    // Gestão não dá acesso ao conteúdo de saúde: /saude exige habilitação profissional.
+    const healthProfessional = this.auth.principal()?.perfis.includes('saude') ?? false;
     const healthItems: NavItem[] =
       role === 'gestor' || role === 'supervisor'
         ? [
-            { label: 'Saúde', path: '/saude', icon: 'health_and_safety' },
+            ...(healthProfessional
+              ? [{ label: 'Saúde', path: '/saude', icon: 'health_and_safety' }]
+              : []),
             { label: 'Acessos de saúde', path: '/saude/acessos', icon: 'admin_panel_settings' },
           ]
         : role === 'residente'
           ? [{ label: 'Minha saúde', path: '/minha-saude', icon: 'health_and_safety' }]
           : [];
-    return [
+    return grouped([
       ...localItems.slice(0, -1),
       ...communicationItems,
       ...cleaningItems,
       ...healthItems,
       localItems[localItems.length - 1],
-    ];
+    ]);
   });
+  readonly userName = computed(() =>
+    this.session.active() ? '' : (this.auth.principal()?.nome ?? ''),
+  );
+  readonly roleLabel = computed(() => roleLabels[this.session.role()]);
   private previousBodyOverflow: string | null = null;
   private previousHtmlOverflow: string | null = null;
   private focusContentAfterNavigation = false;

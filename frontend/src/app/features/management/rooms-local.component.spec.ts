@@ -116,8 +116,20 @@ describe('Quartos em sessão local', () => {
     expect(text).toContain('Sem avaliação');
     expect(text).not.toContain('Bloco A');
     expect(fixture.componentInstance.groups()).toHaveLength(2);
+    expect(fixture.componentInstance.totals()).toEqual({
+      known: 1,
+      missing: 1,
+      capacity: 4,
+      people: 0,
+      vacancies: 4,
+    });
     fixture.componentInstance.filters.controls.unitId.setValue('unidade-1');
     expect(fixture.componentInstance.filteredRooms().map((item) => item.id)).toEqual(['quarto-1']);
+    // Sem nenhum quarto com capacidade não há soma, nem parcial.
+    expect(fixture.componentInstance.totals()).toMatchObject({ known: 0, missing: 1 });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).not.toContain('soma parcial');
+    expect(fixture.nativeElement.textContent).toContain('Não definida');
     fixture.componentInstance.filters.controls.occupancy.setValue('with-vacancies');
     expect(fixture.componentInstance.filteredRooms()).toHaveLength(0);
     fixture.componentInstance.clearFilters();

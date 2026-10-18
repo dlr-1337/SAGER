@@ -110,7 +110,13 @@ import { consumeSignatureToken } from './signature-token.utils';
           </section>
           <section class="invitation-card signature-action" aria-labelledby="signature-title">
             <h2 id="signature-title">Autorização do responsável</h2>
-            <p class="signature-status" role="status">{{ statuses[invitation.signatureStatus] }}</p>
+            <p
+              class="signature-status"
+              role="status"
+              [attr.data-status]="invitation.signatureStatus"
+            >
+              {{ statuses[invitation.signatureStatus] }}
+            </p>
             @if (invitation.signatureStatus === 'VALID') {
               <p>
                 A assinatura desta revisão foi confirmada pelo servidor. A equipe da residência

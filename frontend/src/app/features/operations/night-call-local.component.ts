@@ -2,6 +2,7 @@ import { normalizeSearch } from '../../shared/search';
 import { rememberFilters } from '../../core/filter-state';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
+import { ProgressBarComponent } from '../../shared/progress-bar.component';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
@@ -23,7 +24,7 @@ import {
 @Component({
   standalone: true,
   selector: 'app-night-call-local',
-  imports: [SearchableSelectDirective, ReactiveFormsModule, RouterLink],
+  imports: [SearchableSelectDirective, ProgressBarComponent, ReactiveFormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page">
@@ -120,6 +121,11 @@ import {
                   <dd>{{ current.summary.justified }}</dd>
                 </div>
               </dl>
+              <sager-progress-bar
+                [done]="current.summary.total - current.summary.unmarked"
+                [total]="current.summary.total"
+                noun="marcações registradas"
+              />
               <p class="op-help">
                 Aberta em {{ formatTime(current.openedAt) }}. A relação de residentes e saídas
                 justificadoras preserva a situação no momento da abertura.
@@ -140,27 +146,29 @@ import {
             </section>
             <section class="op-section" aria-labelledby="call-roster">
               <div class="op-section-heading"><h2 id="call-roster">Residentes da chamada</h2></div>
-              <label class="field"
-                >Buscar por nome ou matrícula<input
-                  type="search"
-                  [formControl]="search"
-                  (input)="searchValue.set(search.value)"
-              /></label>
-              <label class="field"
-                >Marcação<select
-                  [value]="markFilter()"
-                  (change)="markFilter.set($any($event.target).value)"
+              <div class="op-filters">
+                <label class="field"
+                  >Buscar por nome ou matrícula<input
+                    type="search"
+                    [formControl]="search"
+                    (input)="searchValue.set(search.value)"
+                /></label>
+                <label class="field"
+                  >Marcação<select
+                    [value]="markFilter()"
+                    (change)="markFilter.set($any($event.target).value)"
+                  >
+                    <option value="">Todas</option>
+                    <option value="PENDENTE">Pendente</option>
+                    <option value="PRESENTE">Presente</option>
+                    <option value="AUSENTE">Ausente</option>
+                    <option value="AUSENCIA_JUSTIFICADA">Ausência justificada</option>
+                  </select></label
                 >
-                  <option value="">Todas</option>
-                  <option value="PENDENTE">Pendente</option>
-                  <option value="PRESENTE">Presente</option>
-                  <option value="AUSENTE">Ausente</option>
-                  <option value="AUSENCIA_JUSTIFICADA">Ausência justificada</option>
-                </select></label
-              >
-              <button class="btn op-secondary" (click)="search.setValue(''); markFilter.set('')">
-                Limpar filtros
-              </button>
+                <button class="btn op-secondary" (click)="search.setValue(''); markFilter.set('')">
+                  Limpar filtros
+                </button>
+              </div>
               <p role="status">
                 {{ filtered().length }} de {{ current.records.length }} residentes
               </p>

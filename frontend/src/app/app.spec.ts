@@ -42,6 +42,38 @@ describe('App', () => {
     ]);
   });
 
+  it('agrupa o menu em rotina, cadastros e apoio, com separador no início de cada grupo', async () => {
+    TestBed.inject(DemoSessionService).deactivate();
+    TestBed.inject(LocalAuthService).principal.set({
+      id: '00000000-0000-0000-0000-000000000001',
+      nome: 'Supervisora Sintética',
+      email: 'supervisor@example.test',
+      matricula: 'TESTE-LOGIN',
+      fotoUrl: null,
+      perfis: ['supervisor'],
+      residenteId: null,
+      supervisorId: null,
+    });
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const items = fixture.componentInstance.navItems();
+    const paths = items.map((item) => item.path);
+    expect(paths.indexOf('/chamada')).toBeLessThan(paths.indexOf('/residentes'));
+    expect(paths.indexOf('/relatorios')).toBeLessThan(paths.indexOf('/ajuda'));
+    expect(items.filter((item) => item.groupStart).map((item) => item.path)).toEqual([
+      '/residentes',
+      '/ajuda',
+    ]);
+    expect(fixture.componentInstance.userName()).toBe('Supervisora Sintética');
+    // Sem perfil de saúde, a gestão vê só a administração de acessos, nunca o conteúdo.
+    expect(paths).not.toContain('/saude');
+    expect(paths).toContain('/saude/acessos');
+    TestBed.inject(LocalAuthService).principal.update((account) =>
+      account ? { ...account, perfis: ['supervisor', 'saude'] } : account,
+    );
+    expect(fixture.componentInstance.navItems().map((item) => item.path)).toContain('/saude');
+  });
+
   it('identifica a demonstração e a marca no shell', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();

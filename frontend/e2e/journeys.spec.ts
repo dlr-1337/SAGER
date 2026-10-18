@@ -11,9 +11,20 @@ async function chooseProfile(
 
 test.beforeEach(async ({ page }) => enterDemo(page));
 
+test('cartão de perfis do acesso entra direto na demonstração', async ({ page }) => {
+  // Parte de uma sessão limpa: sem demonstração ativa e sem conta local.
+  await page.route('**/api/v1/auth/me', (route) => route.fulfill({ status: 401 }));
+  await page.evaluate(() => sessionStorage.clear());
+  await page.goto('/acesso');
+  expect(await page.evaluate(() => sessionStorage.getItem('sager.demo.active'))).toBeNull();
+  await page.getByRole('button', { name: /^Gestor/ }).click();
+  await expect(page).toHaveURL(/\/inicio$/);
+  await expect(page.getByRole('heading', { name: 'Olá, gestor' })).toBeVisible();
+});
+
 test('acesso e painéis de cada perfil', async ({ page }) => {
   await page.goto('/acesso');
-  await expect(page.getByRole('heading', { name: 'Acessar o SAGER' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Entrar no SAGER' })).toBeVisible();
   await page.getByRole('link', { name: 'Explorar demonstração' }).click();
   await page.locator('.role-card').filter({ hasText: 'Supervisor' }).click();
   await expect(page.getByRole('heading', { name: /Olá, supervisora/ })).toBeVisible();
@@ -134,6 +145,22 @@ test('acesso, painel e avisos sem violações axe graves', async ({ page }) => {
   expect(
     result.violations.filter((item) => ['critical', 'serious'].includes(item.impact ?? '')),
   ).toEqual([]);
+});
+
+test('foco por teclado usa anel duplo: amarelo por fora e verde-escuro por dentro', async ({
+  page,
+}) => {
+  await page.goto('/residentes');
+  await page.keyboard.press('Tab');
+  // O atalho não anima box-shadow; um .btn teria transição e leitura instável do estilo.
+  await expect(page.locator('.skip-link')).toBeFocused();
+  const ring = await page.evaluate(() => {
+    const style = getComputedStyle(document.activeElement as Element);
+    return { outline: style.outlineColor, shadow: style.boxShadow };
+  });
+  // O amarelo sozinho fica abaixo de 3:1 sobre fundos claros; o anel interno garante o contraste.
+  expect(ring.outline).toBe('rgb(244, 186, 53)');
+  expect(ring.shadow).toContain('rgb(7, 59, 45)');
 });
 
 test('atalho de conteúdo, menu móvel e abas funcionam pelo teclado', async ({ page }) => {

@@ -326,7 +326,6 @@ import {
                   class="btn op-primary"
                   [routerLink]="busy() || conflict() ? null : ['/saidas/longas', exit.id, 'editar']"
                   [attr.aria-disabled]="busy() || conflict()"
-                  [class.action-disabled]="busy() || conflict()"
                   >Editar solicitação</a
                 >
                 <p class="op-help">
@@ -459,9 +458,6 @@ import {
       :host {
         display: block;
       }
-      .op-definition dd {
-        overflow-wrap: anywhere;
-      }
       .op-definition small {
         display: block;
         color: var(--muted);
@@ -493,10 +489,6 @@ import {
       }
       .long-bindings p {
         margin: 6px 0;
-      }
-      .action-disabled {
-        opacity: 0.55;
-        cursor: not-allowed;
       }
     `,
   ],

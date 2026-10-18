@@ -1,4 +1,4 @@
-@use '../cleaning/cleaning-local.shared.scss';
+@use '../../shared/comm-base';
 .report-integrity {
   margin-top: 20px;
 }
@@ -8,6 +8,7 @@
   min-height: 44px;
   display: flex;
   align-items: center;
+  color: var(--green-800);
   font-weight: 600;
 }
 .report-integrity dd,
@@ -18,27 +19,19 @@
 .report-desktop-table {
   max-width: 100%;
   overflow-x: auto;
-}
-.report-desktop-table table {
-  width: 100%;
-  border-collapse: collapse;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: #fff;
 }
 .report-desktop-table th,
 .report-desktop-table td {
-  text-align: left;
-  padding: 14px 12px;
-  border-bottom: 1px solid var(--line);
-  vertical-align: top;
   overflow-wrap: anywhere;
   font-size: var(--text-meta);
-}
-.report-desktop-table th {
-  color: var(--ink);
 }
 .report-desktop-table caption {
   text-align: left;
   font-weight: 700;
-  padding-bottom: 16px;
+  padding: 14px 18px;
 }
 .report-local-mobile {
   display: none;
@@ -59,6 +52,7 @@
   }
   .report-local-mobile {
     display: block;
+    border-top: 1px solid var(--line);
   }
   .report-local-mobile details {
     border-bottom: 1px solid var(--line);
@@ -70,6 +64,10 @@
     gap: 8px;
     min-height: 44px;
     overflow-wrap: anywhere;
+  }
+  .report-local-mobile summary span {
+    color: var(--muted);
+    font-size: var(--text-meta);
   }
   .report-local-mobile .comm-definition {
     margin-top: 16px;

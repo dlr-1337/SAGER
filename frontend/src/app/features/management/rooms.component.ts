@@ -79,7 +79,7 @@ interface RoomGroup {
         <section class="panel mg-panel" aria-labelledby="room-filter-heading">
           <h2 id="room-filter-heading">Filtrar mapa</h2>
           <form class="mg-filters" [formGroup]="filters">
-            <label class="field mg-field"
+            <label class="field mg-field mg-grow"
               >Buscar quarto, código ou bloco<input type="search" formControlName="search"
             /></label>
             @if (isDemo()) {
@@ -215,9 +215,26 @@ interface RoomGroup {
             </div>
           } @else if (groups().length) {
             @if (!isDemo()) {
-              <p class="mg-muted" aria-live="polite">
-                {{ capacitySummary() }} · {{ occupancySummary() }}
-              </p>
+              <dl class="mg-stats" aria-live="polite">
+                <div>
+                  <dt>Capacidade cadastrada</dt>
+                  <dd>{{ totals().known ? totals().capacity : 'Não definida' }}</dd>
+                </div>
+                <div>
+                  <dt>Moradores</dt>
+                  <dd>{{ totals().people }}</dd>
+                </div>
+                <div>
+                  <dt>Vagas livres</dt>
+                  <dd>{{ totals().known ? totals().vacancies : 'Não definidas' }}</dd>
+                </div>
+              </dl>
+              @if (totals().missing && totals().known) {
+                <p class="mg-muted">
+                  Capacidade e vagas em soma parcial; {{ totals().missing }}
+                  {{ totals().missing === 1 ? 'quarto sem capacidade' : 'quartos sem capacidade' }}.
+                </p>
+              }
             }
             @for (group of groups(); track group.key) {
               <section
@@ -419,20 +436,17 @@ export class RoomsComponent {
         a.floor.localeCompare(b.floor),
     );
   });
-  readonly capacitySummary = computed(() => {
+  // vacancies é null exatamente quando capacity é null (validado em room-api.service).
+  readonly totals = computed(() => {
     const rooms = this.filteredRooms();
     const known = rooms.filter((room) => room.capacity !== null);
-    if (!known.length) return 'Capacidade não definida';
-    const sum = known.reduce((total, room) => total + (room.capacity ?? 0), 0);
-    const missing = rooms.length - known.length;
-    return `Capacidade cadastrada: ${sum} ${sum === 1 ? 'vaga' : 'vagas'}${missing ? ` (soma parcial; ${missing} ${missing === 1 ? 'quarto sem capacidade' : 'quartos sem capacidade'})` : ''}`;
-  });
-  readonly occupancySummary = computed(() => {
-    const rooms = this.filteredRooms();
-    const people = rooms.reduce((total, room) => total + (room.occupancy ?? 0), 0);
-    const known = rooms.filter((room) => room.vacancies !== null);
-    const vacancies = known.reduce((total, room) => total + (room.vacancies ?? 0), 0);
-    return `${people} ${people === 1 ? 'morador' : 'moradores'} · ${vacancies} ${vacancies === 1 ? 'vaga livre' : 'vagas livres'}${known.length < rooms.length ? ' (soma parcial)' : ''}`;
+    return {
+      known: known.length,
+      missing: rooms.length - known.length,
+      capacity: known.reduce((total, room) => total + (room.capacity ?? 0), 0),
+      people: rooms.reduce((total, room) => total + (room.occupancy ?? 0), 0),
+      vacancies: known.reduce((total, room) => total + (room.vacancies ?? 0), 0),
+    };
   });
 
   constructor() {

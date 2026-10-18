@@ -1,4 +1,5 @@
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
+import { ProgressBarComponent } from '../../shared/progress-bar.component';
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -15,6 +16,7 @@ import { NightCallLocalComponent } from './night-call-local.component';
   selector: 'app-night-call',
   imports: [
     SearchableSelectDirective,
+    ProgressBarComponent,
     NightCallLocalComponent,
     CommonModule,
     ReactiveFormsModule,
@@ -49,6 +51,11 @@ import { NightCallLocalComponent } from './night-call-local.component';
                   ><span>ausências justificadas</span>
                 </div>
               </div>
+              <sager-progress-bar
+                [done]="service.callSummary().marked"
+                [total]="service.callSummary().total"
+                noun="marcações concluídas"
+              />
               @if (service.callCompleted()) {
                 <p class="op-success" role="status">
                   <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>

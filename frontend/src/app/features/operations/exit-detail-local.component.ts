@@ -189,7 +189,6 @@ import {
               @if (session.hasRole('residente') && exit.capabilities.canEdit) {
                 <a
                   class="btn op-primary"
-                  [class.action-disabled]="busy() || conflict()"
                   [attr.aria-disabled]="busy() || conflict()"
                   [routerLink]="busy() || conflict() ? null : ['/saidas', exit.id, 'editar']"
                   >Editar solicitação</a
@@ -296,18 +295,11 @@ import {
       :host {
         display: block;
       }
-      .op-definition dd {
-        overflow-wrap: anywhere;
-      }
       .op-definition small {
         display: block;
         color: var(--muted);
         font-weight: 400;
         margin-top: 5px;
-      }
-      .action-disabled {
-        opacity: 0.55;
-        cursor: not-allowed;
       }
     `,
   ],

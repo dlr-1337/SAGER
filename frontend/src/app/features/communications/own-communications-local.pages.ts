@@ -48,7 +48,7 @@ type OwnTab = 'avisos' | 'advertencias' | 'termos';
         (retry)="load()"
       />
       @if (!session.active() && session.hasRole('residente')) {
-        <nav class="comm-tabs" aria-label="Tipo de comunicação">
+        <nav class="comm-tabs segmented" aria-label="Tipo de comunicação">
           <button
             type="button"
             [attr.aria-current]="tab() === 'avisos' ? 'page' : null"

@@ -1,4 +1,4 @@
-@use './cleaning-local.shared.scss';
+@use '../../shared/comm-base';
 .cleaning-score {
   font-variant-numeric: tabular-nums;
   font-weight: 700;
@@ -23,15 +23,16 @@
 }
 .cleaning-rank p {
   margin: 4px 0;
+  color: var(--muted);
+  font-size: var(--text-meta);
 }
 .cleaning-rank strong {
   overflow-wrap: anywhere;
 }
 .cleaning-rank > strong {
   overflow-wrap: normal;
-}
-.cleaning-rank .cleaning-score {
-  font-size: var(--text-body);
+  color: var(--green-900);
+  font-weight: 800;
 }
 .indicator-stack {
   display: grid;
@@ -40,7 +41,7 @@
 }
 .indicator-series h3 {
   margin: 0 0 12px;
-  font-size: var(--text-body);
+  font-size: 1.1rem;
 }
 .indicator-row {
   display: grid;
@@ -50,6 +51,9 @@
   min-height: 36px;
   font-size: var(--text-meta);
 }
+.indicator-row time {
+  color: var(--muted);
+}
 .indicator-row time,
 .indicator-row strong {
   font-variant-numeric: tabular-nums;
@@ -58,40 +62,56 @@
   text-align: right;
 }
 .indicator-bar-slot {
-  height: 16px;
+  height: 10px;
   min-width: 0;
-  border-bottom: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--track);
+  overflow: hidden;
 }
 .indicator-bar {
   display: block;
-  height: 15px;
+  height: 100%;
+  border-radius: 999px;
   background: var(--green-800);
 }
+// Alto contraste apaga fundos: trilho contornado e preenchimento na cor do texto.
+@media (forced-colors: active) {
+  .indicator-bar-slot {
+    border: 1px solid CanvasText;
+  }
+  .indicator-bar {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+}
+// Caixa com borda arredondada: exige bordas separadas no lugar de border-collapse.
 .indicator-table {
   width: 100%;
-  border-collapse: collapse;
   margin: 20px 0;
   table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: #fff;
 }
 .indicator-table th,
 .indicator-table td {
-  border-bottom: 1px solid var(--line);
-  padding: 12px 8px;
-  text-align: left;
+  padding: 12px 10px;
   overflow-wrap: anywhere;
   font-size: var(--text-meta);
-  vertical-align: top;
 }
 .indicator-table td {
   font-variant-numeric: tabular-nums;
 }
-.indicator-table th {
-  color: var(--ink);
+.indicator-table tbody tr:last-child th {
+  border-bottom: 0;
 }
 .indicator-table caption {
   text-align: left;
   font-weight: 700;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 @media (max-width: 540px) {
   .cleaning-criteria {
@@ -105,6 +125,6 @@
   }
   .indicator-table th,
   .indicator-table td {
-    padding: 10px 4px;
+    padding: 10px 6px;
   }
 }

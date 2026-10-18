@@ -1,3 +1,5 @@
+@use '../../shared/back-link';
+
 :host {
   display: block;
   min-width: 0;
@@ -14,13 +16,8 @@
   align-items: end;
 }
 .health-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
+  @include back-link.back-link;
   margin-bottom: 12px;
-  font-weight: 700;
-  text-decoration: none;
 }
 .health-section {
   margin-top: 28px;
@@ -70,18 +67,20 @@
 }
 .health-alert,
 .health-success {
-  padding: 14px 16px;
-  border-radius: 8px;
+  padding: 16px 18px;
+  border-radius: 12px;
   margin: 20px 0;
   overflow-wrap: anywhere;
 }
 .health-alert {
-  color: var(--danger);
+  color: var(--danger-ink);
   background: var(--danger-bg);
+  font-weight: 600;
 }
 .health-success {
   color: var(--green-950);
-  background: var(--green-100);
+  background: var(--green-50);
+  border: 1px solid var(--success-line);
 }
 .health-note {
   white-space: pre-wrap;
@@ -102,16 +101,18 @@
 .health-details dd {
   margin: 4px 0 0;
   font-weight: 600;
+  color: var(--ink);
   overflow-wrap: anywhere;
 }
 .health-filter {
   display: flex;
+  flex-direction: row;
   flex-wrap: wrap;
-  align-items: end;
-  gap: 16px;
+  align-items: flex-end;
+  gap: 12px;
 }
 .health-filter .field {
-  flex: 1 1 240px;
+  flex: 3 1 320px;
 }
 .health-actions {
   margin-top: 20px;
@@ -133,8 +134,8 @@
 }
 .health-check input {
   flex: none;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   accent-color: var(--green-900);
 }
 .health-check span {
@@ -194,6 +195,6 @@
     width: 100%;
   }
   .health-page .panel {
-    padding: 16px;
+    padding: 18px;
   }
 }

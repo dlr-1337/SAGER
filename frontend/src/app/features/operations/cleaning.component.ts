@@ -50,10 +50,12 @@ import { OperationsDemoService } from './operations-demo.service';
           @if (error()) {
             <p class="op-error" role="alert">{{ error() }}</p>
           }
-          <button class="btn op-primary" type="button" (click)="save()">
-            <span class="material-symbols-outlined" aria-hidden="true">task_alt</span> Simular
-            avaliação
-          </button>
+          <div class="op-actions">
+            <button class="btn op-primary" type="button" (click)="save()">
+              <span class="material-symbols-outlined" aria-hidden="true">task_alt</span> Simular
+              avaliação
+            </button>
+          </div>
         </section>
         @if (service.cleaningFeedback(); as result) {
           <section

@@ -1,6 +1,7 @@
 @use './app/features/management/management.scss';
 @use './app/features/operations/operations.scss';
 @use './app/app.scss';
+@use './app/shared/chip';
 
 @import '@fontsource/open-sans/latin-400.css';
 @import '@fontsource/open-sans/latin-600.css';
@@ -26,9 +27,26 @@
   --danger-bg: #fff0f0;
   --warning: #794b0b;
   --warning-bg: #fff5d9;
+  /* Marcador âmbar (pontos de legenda): mais claro que --warning para não se confundir com --danger. */
+  --warning-mark: #b7791f;
   --info: #185a82;
   --info-bg: #e7f4fe;
   --focus: #f4ba35;
+  /* Borda de campo com contraste não textual ≥ 3:1 sobre branco (WCAG 1.4.11). */
+  --field-border: #758a94;
+  --btn-secondary-border: #9fb8ae;
+  /* Tons do design convergido: neutro, desabilitado, texto das notas e trilho das barras. */
+  --neutral-bg: #eef2f3;
+  --neutral-ink: #3f505e;
+  --disabled-bg: #eef2f3;
+  --disabled-ink: #6b7b88;
+  --disabled-line: #dfe6e9;
+  --info-ink: #123f5c;
+  --warning-ink: #5c3906;
+  --danger-ink: #7a1520;
+  --success-line: #cfe3d5;
+  --track: #e6edf0;
+  --on-green-muted: #d9eadf;
   --shadow: 0 8px 25px rgba(24, 47, 44, 0.07);
   --space-1: 4px;
   --space-2: 8px;
@@ -98,10 +116,12 @@ h4 {
   letter-spacing: -0.025em;
 }
 h1 {
-  font-size: clamp(1.8rem, 2.6vw, 2.8rem);
+  font-size: clamp(1.8rem, 2.6vw, 2.25rem);
+  font-weight: 800;
+  line-height: 1.15;
 }
 h2 {
-  font-size: clamp(1.3rem, 1.9vw, 1.8rem);
+  font-size: clamp(1.3rem, 1.9vw, 1.5rem);
 }
 h3 {
   font-size: 1.15rem;
@@ -113,9 +133,17 @@ p {
   color: #fff;
   background: var(--green-800);
 }
+/* Anel duplo: o amarelo contrasta com o verde do cabeçalho e o verde-escuro interno com fundos
+   claros, onde o amarelo sozinho fica abaixo de 3:1 (WCAG 1.4.11). */
 :focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;
+  box-shadow: 0 0 0 3px var(--green-950);
+}
+/* Alvos de foco programático (conteúdo principal, títulos): anel interno fino, sem moldura
+   grossa, mas ainda com contraste sobre fundos claros. */
+:is(.app-main, h1, h2, h3)[tabindex='-1']:focus-visible {
+  box-shadow: 0 0 0 1px var(--green-950);
 }
 input,
 textarea {
@@ -181,13 +209,14 @@ textarea {
 .page-header p {
   margin-bottom: 0;
   color: var(--muted);
-  font-size: 1.04rem;
+  font-size: 1.1rem;
 }
 .panel {
   background: #fff;
   border: 1px solid var(--line);
   border-radius: var(--radius-card);
-  padding: clamp(var(--space-5), 2vw, var(--space-8));
+  box-shadow: var(--shadow);
+  padding: clamp(var(--space-5), 2vw, var(--space-6));
 }
 .panel + .panel {
   margin-top: var(--space-5);
@@ -202,11 +231,7 @@ textarea {
   justify-content: flex-end;
 }
 .btn,
-.btn-secondary,
-button.btn,
-button.btn-secondary,
-a.btn,
-a.btn-secondary {
+.btn-secondary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -223,31 +248,22 @@ a.btn-secondary {
     box-shadow 0.15s ease,
     transform 0.15s ease;
 }
-.btn,
-button.btn,
-a.btn {
+.btn {
   background: var(--green-900);
   border: 1px solid var(--green-900);
   color: #fff;
 }
-.btn:hover,
-button.btn:hover,
-a.btn:hover {
-  background: var(--green-800);
-  border-color: var(--green-800);
+.btn:hover {
+  background: var(--green-950);
+  border-color: var(--green-950);
   color: #fff;
-  box-shadow: 0 5px 14px rgba(9, 67, 48, 0.17);
 }
-.btn-secondary,
-button.btn-secondary,
-a.btn-secondary {
+.btn-secondary {
   background: #fff;
-  border: 1px solid var(--green-800);
+  border: 1px solid var(--btn-secondary-border);
   color: var(--green-900);
 }
-.btn-secondary:hover,
-button.btn-secondary:hover,
-a.btn-secondary:hover {
+.btn-secondary:hover {
   background: var(--green-50);
   color: var(--green-950);
 }
@@ -255,24 +271,82 @@ a.btn-secondary:hover {
 .btn-secondary:active {
   transform: translateY(1px);
 }
+/* Mesma especificidade de :hover e declarado depois: desabilitado não reage ao hover. */
 .btn:disabled,
 .btn-secondary:disabled {
+  background: var(--disabled-bg);
+  border-color: var(--disabled-line);
+  color: var(--disabled-ink);
   box-shadow: none;
   transform: none;
+  opacity: 1;
 }
-.status {
+.btn .material-symbols-rounded,
+.btn .material-symbols-outlined,
+.btn-secondary .material-symbols-rounded,
+.btn-secondary .material-symbols-outlined {
+  font-size: 20px;
+}
+/* Controle segmentado (abas e modalidades): o fundo de linha aparece no gap e separa os
+   itens, inclusive quando quebram de linha. */
+.segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--line);
+}
+.segmented > :is(a, button) {
+  flex: 1 1 auto;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  width: fit-content;
-  min-height: 32px;
-  border-radius: 99px;
-  padding: 4px 10px;
-  background: #eef2f5;
-  color: #344651;
-  font-size: var(--text-meta);
-  line-height: 1.25;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 20px;
+  border: 0;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.segmented > :is(a, button):hover {
+  background: var(--green-50);
+  color: var(--green-950);
+}
+.segmented > :is(a, button):is(.active, .selected, [aria-current='page'], [aria-selected='true']) {
+  background: var(--green-900);
+  color: #fff;
   font-weight: 700;
+}
+/* Em alto contraste fundo e sombra somem: item atual, pressionado ou selecionado (menu, abas,
+   marcações, etapas) ganha sublinhado. :root sobe a especificidade acima de `text-decoration: none`. */
+@media (forced-colors: active) {
+  :root
+    :is(
+      .segmented > :is(.active, .selected),
+      [aria-current]:not([aria-current='false']),
+      [aria-pressed='true'],
+      [aria-selected='true']
+    ) {
+    text-decoration: underline 3px;
+    text-underline-offset: 6px;
+  }
+}
+/* overflow: hidden recortaria o anel externo: o par amarelo/verde-escuro vai para dentro. */
+.segmented > :is(a, button):focus-visible {
+  outline-offset: -4px;
+  box-shadow: inset 0 0 0 7px var(--green-950);
+}
+.status {
+  @include chip.chip;
+  background: var(--neutral-bg);
+  color: var(--neutral-ink);
 }
 .status[data-tone='success'],
 .status.success {
@@ -311,6 +385,7 @@ a.btn-secondary:hover {
 .field label,
 label.field {
   font-weight: 700;
+  font-size: 0.95rem;
   color: var(--ink);
 }
 .field input,
@@ -321,11 +396,11 @@ select.field,
 textarea.field {
   width: 100%;
   min-height: 48px;
-  border: 1px solid #879ca4;
-  border-radius: 8px;
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius-control);
   background: #fff;
   color: var(--ink);
-  padding: 10px 13px;
+  padding: 10px 14px;
 }
 .field textarea {
   min-height: 112px;
@@ -340,10 +415,18 @@ textarea.field {
 .field textarea:focus {
   border-color: var(--green-800);
 }
-.field input[aria-invalid='true'],
-.field select[aria-invalid='true'],
-.field textarea[aria-invalid='true'] {
+/* Campo inválido: aria-invalid nos campos .field e .mg-field; as telas de operação ainda marcam
+   pelas classes do Angular. Uma regra só, com a variante de foco que combina o vermelho com o anel. */
+:is(.field, .mg-field) :is(input, select, textarea)[aria-invalid='true'],
+.op-page .field :is(input, select, textarea).ng-invalid.ng-touched {
   border-color: var(--danger);
+  box-shadow: 0 0 0 1px var(--danger);
+}
+:is(.field, .mg-field) :is(input, select, textarea)[aria-invalid='true']:focus-visible,
+.op-page .field :is(input, select, textarea).ng-invalid.ng-touched:focus-visible {
+  box-shadow:
+    0 0 0 1px var(--danger),
+    0 0 0 4px var(--green-950);
 }
 .field-hint {
   font-size: var(--text-meta);
@@ -355,6 +438,17 @@ textarea.field {
   font-weight: 700;
 }
 .muted {
+  color: var(--muted);
+}
+.lead {
+  font-size: 1.1rem;
+  color: var(--muted);
+}
+.eyebrow {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--muted);
 }
 .sr-only {
@@ -379,18 +473,30 @@ table,
 }
 th,
 td {
-  padding: 14px 12px;
+  padding: 14px 18px;
   border-bottom: 1px solid var(--line);
   text-align: left;
   vertical-align: top;
 }
-th {
-  color: var(--green-950);
-  font-size: var(--text-meta);
-  font-weight: 800;
+/* Só o cabeçalho de colunas; rótulos de linha (tbody th) mantêm a cor do corpo. */
+thead th {
+  background: #f4f8f6;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
 }
 tbody tr:hover {
   background: var(--green-50);
+}
+tbody tr:last-child td {
+  border-bottom: 0;
+}
+/* Tabelas largas rolam dentro da própria caixa, nunca a página. */
+.table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: #fff;
 }
 .report-mobile-list {
   display: none;
@@ -414,9 +520,6 @@ tbody tr:hover {
   }
   .panel {
     padding: 18px;
-  }
-  .table-scroll {
-    overflow-x: auto;
   }
   .reports-page .results-panel > .table-scroll {
     display: none;
@@ -523,19 +626,73 @@ tbody tr:hover {
   min-height: 44px;
   padding: 8px 12px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 999px;
   color: var(--ink);
-  background: var(--surface, #fff);
+  background: #fff;
   font: inherit;
+  font-weight: 600;
   cursor: pointer;
 }
 .filter-chips button:hover {
-  background: var(--green-soft, #eef5ef);
-}
-.filter-chips button:focus-visible {
-  outline: 3px solid var(--focus, #a45c00);
-  outline-offset: 2px;
+  background: var(--green-50);
 }
 .filter-chips .material-symbols-rounded {
   font-size: 18px;
+}
+
+/* Início (demonstração e conta local): cartão de destaque da próxima tarefa e selo circular das
+   pendências. Cada página define só o próprio layout. */
+.home-hero {
+  padding: 24px 28px;
+  border-radius: var(--radius-card);
+  background: var(--green-900);
+  color: #fff;
+}
+.home-hero h2 {
+  font-size: 1.4rem;
+  color: #fff;
+}
+.home-hero p {
+  color: var(--on-green-muted);
+}
+.home-hero .btn {
+  border-color: #fff;
+  background: #fff;
+  color: var(--green-900);
+}
+.home-hero .btn:hover {
+  background: var(--green-50);
+  color: var(--green-950);
+}
+.home-hero .btn-secondary {
+  border-color: rgb(255 255 255 / 60%);
+  background: transparent;
+  color: #fff;
+}
+.home-hero .btn-secondary:hover {
+  background: rgb(255 255 255 / 12%);
+  color: #fff;
+}
+.home-hero-icon {
+  font-size: 48px;
+  font-variation-settings:
+    'FILL' 1,
+    'wght' 500,
+    'GRAD' 0,
+    'opsz' 48;
+}
+.home-badge {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--green-100);
+  color: var(--green-900);
+}
+@media (max-width: 760px) {
+  .home-hero {
+    padding: 18px;
+  }
 }
