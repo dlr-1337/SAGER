@@ -1,3 +1,4 @@
+import { ERROR_FORBIDDEN, ERROR_GENERIC } from '../../core/error-messages';
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import {
   ChangeDetectionStrategy,
@@ -19,7 +20,17 @@ import { ManagementDemoService } from './management-demo.service';
 import { ResidentApiError, ResidentApiService, ResidentRecord } from './resident-api.service';
 import { Course, CourseApiService } from './course-api.service';
 import { RoomApiService } from './room-api.service';
-import { HousingMap } from './housing.models';
+import {
+  AccommodationUnit,
+  HousingMap,
+  RoomRecord,
+  cascadeLocation,
+  clearMissingLocation,
+  roomOptionLabel,
+  roomsIn,
+  unitOptionLabel,
+  unitsIn,
+} from './housing.models';
 
 @Component({
   selector: 'app-residents',
@@ -31,7 +42,7 @@ import { HousingMap } from './housing.models';
       <div>
         <a class="mg-back" routerLink="/inicio">Início</a>
         <h1>Residentes</h1>
-        <p>Encontre um cadastro, confira vínculos e consulte o histórico.</p>
+        <p>Encontre um residente e veja os dados dele.</p>
       </div>
       <a class="btn mg-primary" routerLink="/residentes/novo">Cadastrar residente</a>
     </header>
@@ -69,22 +80,32 @@ import { HousingMap } from './housing.models';
             }
           </select></label
         >
+        @if (!isDemo()) {
+          <label class="field mg-field"
+            >Casa ou bloco<select sagerSearchable formControlName="unitId">
+              <option value="">Todos</option>
+              @for (u of units(); track u.id) {
+                <option [value]="u.id">{{ unitLabel(u) }}</option>
+              }
+            </select></label
+          >
+        }
         <label class="field mg-field"
           >Quarto<select sagerSearchable formControlName="roomId">
             <option value="">Todos os quartos</option>
             @if (isDemo()) {
-              @for (r of service.rooms(); track r.id) {
+              @for (r of demoRooms(); track r.id) {
                 <option [value]="r.id">{{ r.block }} · {{ r.number }}</option>
               }
             } @else {
               @for (r of rooms(); track r.id) {
-                <option [value]="r.id">{{ r.code }} · {{ r.number }}</option>
+                <option [value]="r.id">{{ roomLabel(r) }}</option>
               }
             }
           </select></label
         >
         <label class="field mg-field"
-          >Alocação<select sagerSearchable formControlName="allocated">
+          >Tem quarto?<select sagerSearchable formControlName="allocated">
             <option value="">Todas</option>
             <option value="true">Com quarto</option>
             <option value="false">Sem quarto</option>
@@ -118,7 +139,9 @@ import { HousingMap } from './housing.models';
     <section class="mg-section" aria-labelledby="resident-results-title">
       <div class="mg-section-heading">
         <h2 id="resident-results-title">Cadastros</h2>
-        <p role="status">{{ total() }} residentes encontrados</p>
+        <p role="status">
+          {{ total() === 1 ? '1 residente encontrado' : total() + ' residentes encontrados' }}
+        </p>
       </div>
       @if (loading() || (isDemo() && scenario() === 'carregando')) {
         <div class="mg-empty" role="status">
@@ -202,6 +225,7 @@ export class ResidentsComponent {
     search: new FormControl('', { nonNullable: true }),
     courseId: new FormControl('', { nonNullable: true }),
     accommodationId: new FormControl('', { nonNullable: true }),
+    unitId: new FormControl('', { nonNullable: true }),
     roomId: new FormControl('', { nonNullable: true }),
     allocated: new FormControl('', { nonNullable: true }),
   });
@@ -214,11 +238,16 @@ export class ResidentsComponent {
   readonly loading = signal(false);
   readonly loadError = signal('');
   readonly blocks = computed(() => [...new Set(this.service.rooms().map((r) => r.block))].sort());
+  readonly units = computed(() => unitsIn(this.housing(), this.criteria().accommodationId));
   readonly rooms = computed(() =>
-    this.housing().rooms.filter(
-      (r) =>
-        !this.criteria().accommodationId || r.accommodationId === this.criteria().accommodationId,
-    ),
+    roomsIn(this.housing(), this.criteria().accommodationId, this.criteria().unitId),
+  );
+  readonly demoRooms = computed(() =>
+    this.service
+      .rooms()
+      .filter(
+        (r) => !this.criteria().accommodationId || r.block === this.criteria().accommodationId,
+      ),
   );
   readonly applied = computed(() =>
     Object.entries(this.criteria())
@@ -230,8 +259,9 @@ export class ResidentsComponent {
             search: 'Busca',
             courseId: 'Curso',
             accommodationId: 'Alojamento',
+            unitId: 'Casa ou bloco',
             roomId: 'Quarto',
-            allocated: 'Alocação',
+            allocated: 'Tem quarto?',
           } as Record<string, string>
         )[key],
         value:
@@ -239,15 +269,17 @@ export class ResidentsComponent {
             ? (this.courses().find((c) => c.id === value)?.name ?? value)
             : key === 'accommodationId'
               ? (this.housing().accommodations.find((a) => a.id === value)?.name ?? value)
-              : key === 'roomId'
-                ? (this.housing().rooms.find((r) => r.id === value)?.code ??
-                  this.service.room(value ?? '')?.number ??
-                  value)
-                : key === 'allocated'
-                  ? value === 'true'
-                    ? 'Com quarto'
-                    : 'Sem quarto'
-                  : value,
+              : key === 'unitId'
+                ? (this.housing().units.find((u) => u.id === value)?.name ?? value)
+                : key === 'roomId'
+                  ? (this.housing().rooms.find((r) => r.id === value)?.code ??
+                    this.service.room(value ?? '')?.number ??
+                    value)
+                  : key === 'allocated'
+                    ? value === 'true'
+                      ? 'Com quarto'
+                      : 'Sem quarto'
+                    : value,
       })),
   );
   readonly demoFiltered = computed(() => {
@@ -285,14 +317,15 @@ export class ResidentsComponent {
   private request?: AbortController;
   constructor() {
     rememberFilters('residents', this.filters);
-    this.filters.valueChanges.pipe(debounceTime(250), takeUntilDestroyed()).subscribe(() => {
+    // A página volta ao início na hora: esperar a pausa desfazia um clique em "Próxima".
+    this.filters.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => {
       this.page.set(0);
       this.memory.values.set('resident-page', 0);
+    });
+    this.filters.valueChanges.pipe(debounceTime(250), takeUntilDestroyed()).subscribe(() => {
       if (!this.isDemo()) void this.load();
     });
-    this.filters.controls.accommodationId.valueChanges
-      .pipe(takeUntilDestroyed())
-      .subscribe(() => this.filters.controls.roomId.setValue(''));
+    cascadeLocation(this.filters.controls);
     this.destroy.onDestroy(() => this.request?.abort());
     void this.loadOptions();
     if (!this.isDemo()) void this.load();
@@ -308,7 +341,9 @@ export class ResidentsComponent {
         this.changePage(Math.max(0, Math.min(this.page(), lastPage)));
       } else {
         const map = await this.roomApi.map();
-        if (!this.destroy.destroyed) this.housing.set(map);
+        if (this.destroy.destroyed) return;
+        this.housing.set(map);
+        clearMissingLocation(map, this.filters.controls);
       }
     } catch {
       if (!this.destroy.destroyed)
@@ -340,8 +375,8 @@ export class ResidentsComponent {
       this.remoteTotal.set(0);
       this.loadError.set(
         error instanceof ResidentApiError && [401, 403].includes(error.status)
-          ? 'Sua sessão não permite consultar estes cadastros.'
-          : 'Confira a conexão e tente novamente.',
+          ? ERROR_FORBIDDEN
+          : ERROR_GENERIC,
       );
     } finally {
       if (!request.signal.aborted && !this.destroy.destroyed) this.loading.set(false);
@@ -352,6 +387,12 @@ export class ResidentsComponent {
     this.memory.values.set('resident-page', page);
     if (!this.isDemo()) void this.load();
   }
+  roomLabel(room: RoomRecord): string {
+    return roomOptionLabel(room, this.housing().units);
+  }
+  unitLabel(unit: AccommodationUnit): string {
+    return unitOptionLabel(unit, this.housing(), this.criteria().accommodationId);
+  }
   removeFilter(key: string): void {
     this.filters.get(key)?.setValue('');
   }
@@ -360,6 +401,7 @@ export class ResidentsComponent {
       search: '',
       courseId: '',
       accommodationId: '',
+      unitId: '',
       roomId: '',
       allocated: '',
     });

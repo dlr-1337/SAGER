@@ -97,8 +97,10 @@ export class LocalAuthService {
     }
     if (response.status === 429)
       throw new Error('Muitas tentativas. Aguarde 15 minutos e tente novamente.');
-    if (!response.ok) throw new Error('Não foi possível iniciar a sessão local.');
-    if (!(await this.refresh())) throw new Error('A sessão local não pôde ser confirmada.');
+    if (!response.ok)
+      throw new Error('Não foi possível entrar. Verifique a internet e tente de novo.');
+    if (!(await this.refresh()))
+      throw new Error('Não foi possível entrar. Verifique a internet e tente de novo.');
     return 'success';
   }
 
@@ -116,10 +118,7 @@ export class LocalAuthService {
     });
     if (response.status === 429)
       throw new Error('Muitas tentativas. Aguarde 15 minutos e tente novamente.');
-    if (!response.ok)
-      throw new Error(
-        'Não foi possível redefinir. Confira os dados e a senha ou procure a equipe responsável.',
-      );
+    if (!response.ok) throw new Error('Confira os dados e a senha e tente de novo.');
   }
 
   async logout(): Promise<void> {
@@ -130,7 +129,8 @@ export class LocalAuthService {
       cache: 'no-store',
       headers: { [csrf.headerName]: csrf.token },
     });
-    if (!response.ok) throw new Error('Não foi possível encerrar a sessão local.');
+    if (!response.ok)
+      throw new Error('Não foi possível sair. Verifique a internet e tente de novo.');
     this.principal.set(null);
     this.filters.setUser(null);
     this.filters.clear();
@@ -148,12 +148,13 @@ export class LocalAuthService {
       cache: 'no-store',
       headers: { Accept: 'application/json' },
     });
-    if (!response.ok) throw new Error('Não foi possível obter a proteção da sessão.');
+    if (!response.ok) throw new Error('Não deu certo. Verifique a internet e tente de novo.');
     const value: unknown = await response.json();
-    if (!value || typeof value !== 'object') throw new Error('Resposta CSRF inválida.');
+    if (!value || typeof value !== 'object')
+      throw new Error('Não deu certo. Verifique a internet e tente de novo.');
     const token = value as Partial<CsrfToken>;
     if (typeof token.headerName !== 'string' || typeof token.token !== 'string') {
-      throw new Error('Resposta CSRF inválida.');
+      throw new Error('Não deu certo. Verifique a internet e tente de novo.');
     }
     return { headerName: token.headerName, token: token.token };
   }

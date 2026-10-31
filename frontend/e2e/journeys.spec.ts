@@ -40,25 +40,29 @@ test('acesso e painéis de cada perfil', async ({ page }) => {
   await expect(page.getByRole('heading', { name: /Acesso não disponível/ })).toBeVisible();
 });
 
-test('aprovação longa bloqueada até assinatura simulada', async ({ page }) => {
+test('aprovação longa bloqueada até a conferência simulada do arquivo recebido', async ({
+  page,
+}) => {
   await page.goto('/saidas/S-1048');
   await expect(page.getByRole('button', { name: 'Aprovar' })).toBeDisabled();
-  await page.getByRole('link', { name: /Abrir link de assinatura simulada/ }).click();
-  await expect(page.getByText('Simulação sem validade jurídica.')).toBeVisible();
-  await page.getByRole('button', { name: /Revisar documento/ }).click();
-  await page.getByRole('button', { name: 'Continuar para confirmação' }).click();
-  await page.getByRole('checkbox', { name: /Entendi que esta é uma confirmação/ }).check();
-  await page.getByRole('button', { name: 'Confirmar simulação' }).click();
+  await page.getByRole('button', { name: 'Simular arquivo recebido' }).click();
   await expect(
-    page.getByRole('heading', { name: 'Confirmação simulada registrada' }),
+    page.getByText('Arquivo simulado recebido.', { exact: false }).first(),
   ).toBeVisible();
-  await page.getByRole('link', { name: 'Acompanhar solicitação' }).click();
-  await page
-    .locator('.op-row')
-    .filter({ hasText: 'S-1048' })
-    .getByRole('link', { name: /Ver solicitação/ })
-    .click();
+  await expect(page.getByRole('button', { name: 'Aprovar' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Conferir autorização' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(
+    dialog.getByText('Simulação sem validade jurídica.', { exact: false }),
+  ).toBeVisible();
+  await dialog.getByRole('button', { name: 'Confirmar conferência' }).click();
+  await expect(page.getByText('Simulada e conferida', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Aprovar' })).toBeEnabled();
+});
+
+test('endereço antigo de convite mostra página não encontrada', async ({ page }) => {
+  await page.goto('/assinatura/S-1048');
+  await expect(page.getByRole('heading', { name: 'Página não encontrada' })).toBeVisible();
 });
 
 test('chamada exige revisão e permite cancelar', async ({ page }) => {
@@ -90,24 +94,25 @@ test('abrir aviso não equivale a registrar ciência', async ({ page }) => {
   await expect(page.getByRole('status').filter({ hasText: 'Ciente' })).toBeVisible();
 });
 
-test('relatório combina filtros, valida datas e simula exportação', async ({ page }) => {
+test('relatório na demonstração segue o mesmo fluxo e não baixa arquivo', async ({ page }) => {
   await chooseProfile(page, 'Gestor');
   await page.goto('/relatorios');
-  await page.getByLabel('Tipo de relatório').selectOption('saidas');
-  await page.getByLabel('Residente').selectOption('Ana Luísa Ribeiro');
-  await page.getByLabel('Ocorrência').selectOption('Saída longa');
-  await page.getByLabel('Status').selectOption('Aprovada');
-  await page.getByRole('button', { name: 'Aplicar filtros' }).click();
-  await expect(page.getByText('1 registro encontrado')).toBeVisible();
-  await page.getByRole('button', { name: 'Simular exportação PDF' }).click();
-  await expect(page.getByRole('dialog', { name: 'Exportação de PDF simulada' })).toBeVisible();
-  await page.getByRole('button', { name: 'Entendi' }).click();
+  await page.getByRole('radio', { name: /Saídas e retornos/ }).check();
+  await page.getByRole('radio', { name: 'Escolher datas', exact: true }).check();
   await page.getByLabel('Data inicial').fill('2026-09-30');
   await page.getByLabel('Data final').fill('2026-09-01');
-  await page.getByRole('button', { name: 'Aplicar filtros' }).click();
-  await expect(page.getByRole('alert')).toContainText(
-    'A data inicial não pode ser posterior à data final',
-  );
+  await page.getByRole('button', { name: 'Gerar relatório' }).click();
+  await expect(page.getByRole('alert')).toContainText('A data inicial deve anteceder');
+  await page.getByRole('radio', { name: 'Este mês', exact: true }).check();
+  await page.getByRole('button', { name: 'Gerar relatório' }).click();
+  await expect(page.getByText('3 registros', { exact: false })).toBeVisible();
+  const download = page.getByRole('button', { name: 'Baixar PDF' });
+  await expect(download).toBeVisible({ timeout: 8000 });
+  await download.click();
+  await expect(page.getByText('Na demonstração nenhum arquivo é baixado.')).toBeVisible();
+  await page.getByRole('link', { name: 'Ver na tela' }).click();
+  await expect(page.getByRole('heading', { name: 'Registros', exact: true })).toBeVisible();
+  await expect(page.getByText('Ana Luísa Ribeiro').first()).toBeVisible();
 });
 
 test('telas no celular de 320 px sem rolagem horizontal da página', async ({ page }) => {
@@ -220,9 +225,9 @@ test('gestor cadastra e edita responsável e consulta detalhe do supervisor', as
   await page.goto('/responsaveis');
   await expect(page.getByRole('heading', { name: 'Responsáveis legais' })).toBeVisible();
   await page.getByRole('link', { name: /Cadastrar responsável/ }).click();
-  await page.getByLabel(/Residente vinculado/).selectOption('r-ana');
+  await page.getByLabel(/^Residente/).selectOption('r-ana');
   await page.getByLabel(/Nome completo/).fill('Carla Ribeiro');
-  await page.getByLabel(/Vínculo com o residente/).fill('Tia');
+  await page.getByLabel(/Parentesco com o residente/).fill('Tia');
   await page.getByLabel(/Telefone com DDD/).fill('62999990011');
   await page.getByRole('button', { name: /Salvar responsável/ }).click();
   await expect(page.getByRole('heading', { name: 'Carla Ribeiro' })).toBeVisible();
@@ -230,11 +235,13 @@ test('gestor cadastra e edita responsável e consulta detalhe do supervisor', as
   await page.getByRole('link', { name: /Editar responsável/ }).click();
   await page.getByLabel(/Telefone com DDD/).fill('62999990012');
   await page.getByRole('button', { name: /Salvar responsável/ }).click();
-  await expect(page.getByText('62999990012')).toBeVisible();
+  await expect(page.getByText('(62) 99999-0012')).toBeVisible();
   await page.getByRole('link', { name: 'Responsáveis', exact: true }).first().click();
   await expect(page).toHaveURL(/\/responsaveis$/);
   await expect(page.getByRole('heading', { name: 'Carla Ribeiro' })).toBeVisible();
   await page.getByRole('link', { name: 'Supervisores', exact: true }).first().click();
+  // A tela anterior também tem "Ver detalhes": sem esperar, o clique abre um responsável.
+  await expect(page.getByRole('heading', { name: 'Buscar supervisores' })).toBeVisible();
   await page
     .getByRole('link', { name: /Ver detalhes/ })
     .first()

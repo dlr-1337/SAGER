@@ -1,0 +1,53 @@
+# The gateway shares no network with the backend, which trusts X-Forwarded-* from any peer.
+worker_processes 1;
+pid /tmp/nginx.pid;
+error_log /dev/stderr warn;
+events { worker_connections 128; }
+http {
+  server_tokens off;
+  log_format operational '$time_iso8601 $request_id $status $request_time';
+  access_log /dev/stdout operational;
+  client_body_temp_path /tmp/client;
+  proxy_temp_path /tmp/proxy;
+  fastcgi_temp_path /tmp/fastcgi;
+  uwsgi_temp_path /tmp/uwsgi;
+  scgi_temp_path /tmp/scgi;
+  # Names resolve per request, so this proxy starts even with the gateway or the backend down.
+  resolver 127.0.0.11 valid=10s ipv6=off;
+  proxy_http_version 1.1;
+  proxy_set_header Connection '';
+  proxy_connect_timeout 5s;
+  proxy_send_timeout 30s;
+
+  # Gateway to backend: one fixed route, with every forwarding header rebuilt.
+  server {
+    listen 8080;
+    client_max_body_size 1m;
+    proxy_read_timeout 35s;
+    location = /api/v1/integracoes/whatsapp/webhook {
+      if ($request_method != POST) { return 404; }
+      set $sager_webhook http://${SAGER_WEBHOOK_UPSTREAM}/api/v1/integracoes/whatsapp/webhook;
+      proxy_set_header Host ${SAGER_PUBLIC_HOST};
+      proxy_set_header X-Forwarded-Host ${SAGER_PUBLIC_HOST};
+      proxy_set_header X-Forwarded-Proto https;
+      proxy_set_header X-Forwarded-Port 443;
+      proxy_set_header X-Forwarded-For $remote_addr;
+      proxy_set_header Forwarded '';
+      proxy_pass $sager_webhook;
+    }
+    location / { return 404; }
+  }
+
+  # Backend to gateway: 10 MiB in base64 passes 13 MiB, and nothing may spool to the small tmpfs.
+  server {
+    listen 3000;
+    client_max_body_size 16m;
+    proxy_request_buffering off;
+    proxy_buffering off;
+    proxy_read_timeout 60s;
+    location / {
+      set $sager_gateway http://whatsapp-gateway:3000;
+      proxy_pass $sager_gateway;
+    }
+  }
+}

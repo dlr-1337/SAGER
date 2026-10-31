@@ -26,7 +26,7 @@ as próximas fatias.
 
 Em 30/09/2026, o solicitante escolheu o login próprio do SAGER, com integrações
 SUAP/Google adiadas; confirmou cadastro manual, nascimento obrigatório,
-supervisor com autoridade de gestão, uma assinatura válida de qualquer responsável
+supervisor com autoridade de gestão, uma única autorização de qualquer responsável
 cadastrado para saída longa, compartilhamento entre profissionais de saúde e
 retenção permanente da auditoria. A implementação atual do login continua local;
 a configuração e a validação de produção ainda precisam ser concluídas.
@@ -58,8 +58,8 @@ responsividade e ajuda) acompanha as fases e é fechado na Fase 7.
    provisionamento, perfis, desligamento, recuperação e política de sessão. A prova
    atual em loopback cobre desenvolvimento; o ambiente de produção requer configuração
    e testes próprios. Integrações SUAP/Google ficam para uma fase futura.
-4. Validar com a instituição acesso, modalidade, identidade e custos da assinatura, além dos
-   requisitos da conta Meta/WhatsApp. Definir quais adaptadores terão sandbox utilizável.
+4. Validar com a instituição o nível de assinatura exigido, a identidade do responsável e o
+   aceite do gateway WhatsApp não oficial (nota da Fase 4).
 5. Concordar no primeiro contrato vertical de API, erros, datas, autorização e dicionário
    cadastral; atualizar o modelo de dados quando decisões alterarem vínculos ou estados.
 
@@ -97,7 +97,7 @@ implantação da Fase 7.
 4. Integrar uma primeira fatia protegida de cadastro/consulta de residente ao Angular,
    usando um serviço de API e banco real. Unificar o identificador do residente entre gestão e
    operações antes de expandir os módulos. A D02 autoriza digitação local provisória:
-   nome, matrícula e nascimento obrigatórios, curso opcional, UUID interno estável
+   nome, matrícula, nascimento e curso (desde 31/10/2026) obrigatórios, UUID interno estável
    e matrícula única após retirar espaços nas pontas. Não inferir matrícula do login;
    origem e validação institucionais continuam pendentes.
 5. Criar pipeline de build, testes Java/Angular e migração em PostgreSQL de teste, sem dados
@@ -126,7 +126,7 @@ de autenticação para produção e a homologação da Fase 1 permanecem pendent
 
 1. Persistir residentes, matrícula, condição etária, responsáveis ativos e vínculos;
    proteger informações médicas em recurso e permissão separados.
-2. Integrar cadastro e edição de supervisores ao gestor ou supervisor autenticado;
+2. Integrar cadastro e edição de supervisores ao gestor autenticado (só ele, desde 31/10/2026);
    as contas locais usadas em desenvolvimento não substituem o provisionamento
    e a validação de contas no ambiente de produção.
 3. Persistir alojamentos, unidades internas opcionais (casas/blocos) e quartos com piso
@@ -183,7 +183,7 @@ gravações e edições de residentes; registros legados sem nascimento continua
 legíveis e exigem preenchimento ao editar. A matrícula é digitada manualmente;
 integração SUAP foi adiada. A planilha do ZIP prevalece nas capacidades divergentes
 de R4 e Laticínio; o PDF complementa o inventário ausente, sem inferir quartos ou
-distribuições. Uma assinatura válida de qualquer responsável cadastrado e vinculado
+distribuições. Uma autorização conferida de qualquer responsável cadastrado e vinculado
 será suficiente na saída longa da Fase 4. Dados médicos terão compartilhamento entre
 profissionais de saúde, respeitado o sigilo profissional. Auditoria terá retenção
 permanente na fundação já implementada. A área de saúde agora usa habilitações
@@ -228,38 +228,41 @@ registra as regras delegadas de janela, idade, alocação, duração e expiraç�
 O [QA](fase-3/QA.md) registra os testes e a prova integrada com reinício.
 Alertas disciplinares fecham na Fase 5; esta entrega não registra aceite da AE/TI.
 
-### Fase 4 — Saída longa, WhatsApp, documento e assinatura
+### Fase 4 — Saída longa, WhatsApp, documento e autorização
 
 **Cobertura:** E06/E07 na modalidade longa e E09; AC09–AC10, AC25–AC26, AC30 e
 AC39–AC44; AT09–AT12.
 
+**Nota de substituição (2026-10-31):** Clicksign, Meta e o convite por link foram
+retirados por decisão do dono do produto. Os itens abaixo já descrevem o fluxo novo, e a
+operação está em [docs/whatsapp/OPERACAO.md](whatsapp/OPERACAO.md).
+
 1. Validar responsável cadastrado, vinculado e autorizado e telefone pré-cadastrado;
-   uma assinatura válida de qualquer um deles é suficiente, sem exigir assinatura
+   uma autorização conferida de qualquer um deles é suficiente, sem exigir a
    de ambos os pais. Criar solicitação e tarefa de
    integração na mesma transação. Versionar os dados usados para gerar o documento.
 2. Gerar e guardar PDF em volume privado, com metadados, hash e versões imutáveis. Servir
    downloads somente pelo backend, após autorização por vínculo.
-3. Implementar adaptadores de assinatura e do provedor de WhatsApp escolhido após D16/D25,
-   envio mínimo de dados, estado das
-   mensagens, reenvio, retentativas com lease e recuperação após reinício.
-4. Autenticar webhooks, deduplicar eventos e conferir pela API do provedor signatário,
-   documento e versão. Armazenar arquivo assinado e evidências antes de liberar a aprovação.
-5. Substituir a rota de assinatura demonstrativa por acesso seguro do provedor aprovado e
-   exibir separadamente estado da solicitação, da mensagem e da assinatura.
+3. Implementar o gateway de WhatsApp atrás de uma interface única, envio mínimo de dados,
+   estado das mensagens, reenvio, retentativas com lease e recuperação após reinício.
+4. Autenticar webhooks e deduplicar eventos. Guardar o arquivo recebido com hash, como
+   candidato, e exigir conferência de um supervisor antes de liberar a aprovação.
+5. Retirar a rota pública de assinatura, oferecer anexo manual e exibir separadamente
+   estado da solicitação, da mensagem e da autorização.
 
-**Saída verificável:** jornada longa em sandbox/homologação real, inclusive falha e reenvio;
-webhook inválido ou antigo não altera a saída; queda do processo preserva a tarefa; falha
-de armazenamento e ausência de assinatura bloqueiam aprovação. A integração real só fecha
-após autorização institucional e credenciais operacionais.
+**Saída verificável:** jornada longa com o teste de aceite em número de teste, inclusive falha
+e reenvio; webhook inválido ou antigo não altera a saída; queda do processo preserva a
+tarefa; falha de armazenamento e ausência de conferência bloqueiam aprovação. A integração
+real só fecha após aceite institucional e número dedicado.
 
-**Decisões de entrada:** D07, D15–D17 e D25; confirmar termos do provedor e requisitos
-de segurança antes de ativar o fluxo real.
+**Decisões de entrada:** D07, D15–D17 e D25; aceite formal da integração não oficial e
+requisitos de segurança antes de ativar o fluxo real.
 
-**Estado em 30/09/2026:** implementação persistida de saídas longas, revisão/PDF
-privado, convite, outbox e webhooks autenticados, com interface ligada à API.
-O [contrato local](fase-4/CONTRATO.md) e o [registro técnico](fase-4/QA.md)
-distinguem testes sintéticos da homologação Clicksign/Meta, ainda pendente de
-credenciais e configuração institucional. Provedores ficam desativados por padrão.
+**Estado em 31/10/2026:** saídas longas com revisão e PDF privado, envio pelo gateway,
+webhook autenticado, conferência humana, anexo manual e conversas para supervisor, com
+interface ligada à API. O [contrato local](fase-4/CONTRATO.md) registra o fluxo. Nada foi
+testado com número real, e o [registro técnico](fase-4/QA.md) de 30/09 é anterior a essa troca.
+O gateway fica desligado por padrão.
 
 ### Fase 5 — Ocorrências, notificações, avisos e termos
 

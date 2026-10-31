@@ -1,0 +1,101 @@
+// Regras comuns às três telas de Conversas. Sem encapsulamento (ver os componentes): lista e conversa
+// são rotas aninhadas e partilham estes banners, avisos e botões.
+.conv-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  max-width: none;
+  margin: 0 0 var(--space-3);
+  padding: 10px var(--space-4);
+  border-radius: var(--radius-control);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  background: var(--neutral-bg);
+  color: var(--neutral-ink);
+}
+.conv-banner > span:not(.material-symbols-rounded) {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.conv-banner > .material-symbols-rounded {
+  flex: none;
+}
+.conv-banner a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: inherit;
+  font-weight: 700;
+}
+.conv-banner[data-tone='info'] {
+  background: var(--info-bg);
+  color: var(--info-ink);
+}
+.conv-banner[data-tone='warning'] {
+  background: var(--warning-bg);
+  color: var(--warning-ink);
+}
+.conv-banner[data-tone='danger'] {
+  background: var(--danger-bg);
+  color: var(--danger-ink);
+}
+.conv-banner[data-tone='success'] {
+  background: var(--green-100);
+  color: var(--green-950);
+}
+.conv-flush {
+  flex: none;
+  margin: 0;
+  border-radius: 0;
+}
+.conv-error {
+  max-width: none;
+  margin: 0 0 var(--space-2);
+  padding: 10px var(--space-3);
+  border-radius: var(--radius-control);
+  background: var(--danger-bg);
+  color: var(--danger-ink);
+  font-weight: 600;
+  line-height: 1.4;
+}
+.conv-placeholder {
+  max-width: none;
+  margin: 0;
+  padding: var(--space-6) var(--space-4);
+  color: var(--muted);
+  text-align: center;
+}
+.conv-placeholder h2 {
+  color: var(--ink);
+}
+.conv-back,
+.conv-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  color: var(--green-800);
+  font-weight: 600;
+  text-decoration: none;
+}
+.conv-back:hover,
+.conv-back-link:hover {
+  color: var(--green-950);
+  text-decoration: underline;
+}
+.conv-back-link {
+  margin-bottom: var(--space-2);
+}
+.conv-back {
+  display: none;
+}
+@media (max-width: 800px) {
+  .conv-has-thread .conv-banner {
+    margin-bottom: var(--space-2);
+  }
+  .conv-back {
+    display: inline-flex;
+    flex: 1 1 100%;
+  }
+}

@@ -1,6 +1,7 @@
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import { UnsavedFormDirective } from '../../shared/unsaved-form';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -13,11 +14,19 @@ import {
 } from '../communications/communications-local.shared';
 import {
   CommunicationIntent,
-  formatCivilDate,
   formatCommunicationTime,
 } from '../communications/communications-local.utils';
 import { RoomApiService } from '../management/room-api.service';
-import { RoomRecord } from '../management/housing.models';
+import {
+  AccommodationUnit,
+  HousingMap,
+  RoomRecord,
+  cascadeLocation,
+  roomOptionLabel,
+  roomsIn,
+  unitOptionLabel,
+  unitsIn,
+} from '../management/housing.models';
 import {
   CleaningCriteriaFieldsComponent,
   criteriaForm,
@@ -58,8 +67,8 @@ import { ReportingApiError, reportingError } from './reporting-local.transport';
           <p>
             {{
               id
-                ? 'A correção preserva o quarto, o instante avaliado, os participantes e todas as revisões anteriores.'
-                : 'Registre a avaliação presencial do quarto com os quatro critérios institucionais.'
+                ? 'Corrija as notas e explique o motivo. As notas antigas continuam guardadas.'
+                : 'Dê uma nota de 0 a 10 para cada item do quarto.'
             }}
           </p>
         </div>
@@ -81,12 +90,8 @@ import { ReportingApiError, reportingError } from './reporting-local.transport';
                 <dd>{{ item.roomCode }}</dd>
               </div>
               <div>
-                <dt>Instante avaliado</dt>
+                <dt>Avaliado em</dt>
                 <dd>{{ formatTime(item.evaluatedAt) }}</dd>
-              </div>
-              <div>
-                <dt>Versão consultada</dt>
-                <dd>{{ item.version }}</dd>
               </div>
             </dl>
           }
@@ -100,15 +105,29 @@ import { ReportingApiError, reportingError } from './reporting-local.transport';
             @if (!id) {
               <div class="comm-form-grid">
                 <label class="field"
-                  >Quarto<select sagerSearchable formControlName="roomId">
-                    <option value="">Selecione o quarto</option>
-                    @for (room of rooms(); track room.id) {
-                      <option [value]="room.id">{{ room.code }}</option>
+                  >Alojamento<select sagerSearchable formControlName="accommodationId">
+                    <option value="">Todos os alojamentos</option>
+                    @for (item of housing().accommodations; track item.id) {
+                      <option [value]="item.id">{{ item.name }}</option>
                     }
                   </select></label
                 ><label class="field"
-                  >Momento da avaliação<select sagerSearchable formControlName="timeMode">
-                    <option value="NOW">Agora, pelo horário do servidor</option>
+                  >Casa ou bloco<select sagerSearchable formControlName="unitId">
+                    <option value="">Todas as casas e blocos</option>
+                    @for (unit of visibleUnits(); track unit.id) {
+                      <option [value]="unit.id">{{ unitLabel(unit) }}</option>
+                    }
+                  </select></label
+                ><label class="field"
+                  >Quarto<select sagerSearchable formControlName="roomId">
+                    <option value="">Selecione o quarto</option>
+                    @for (room of visibleRooms(); track room.id) {
+                      <option [value]="room.id">{{ roomLabel(room) }}</option>
+                    }
+                  </select></label
+                ><label class="field"
+                  >Quando foi a avaliação?<select sagerSearchable formControlName="timeMode">
+                    <option value="NOW">Agora</option>
                     <option value="RETROACTIVE">Registrar uma avaliação anterior</option>
                   </select></label
                 >
@@ -116,12 +135,14 @@ import { ReportingApiError, reportingError } from './reporting-local.transport';
               @if (form.controls.timeMode.value === 'RETROACTIVE') {
                 <div class="comm-form-grid">
                   <label class="field"
-                    >Instante real da avaliação<input
+                    >Data e hora da avaliação<input
                       type="datetime-local"
                       formControlName="civilTime"
-                    /><span class="field-hint">Horário de São Paulo, nunca futuro.</span></label
+                    /><span class="field-hint"
+                      >Horário de Brasília. Não pode ser no futuro.</span
+                    ></label
                   ><label class="field"
-                    >Justificativa do registro histórico<textarea
+                    >Por que está registrando depois?<textarea
                       rows="3"
                       maxlength="2000"
                       formControlName="registrationReason"
@@ -134,8 +155,7 @@ import { ReportingApiError, reportingError } from './reporting-local.transport';
             <h3>Critérios de limpeza</h3>
             <sager-cleaning-criteria-fields [form]="criteria" />
             <p class="comm-help">
-              Peso de 25% por critério. Prévia da média: <strong>{{ decimal(preview()) }}</strong
-              >. A nota gravada será calculada pelo servidor com duas casas decimais.
+              Média: <strong>{{ decimal(preview()) }}</strong>
             </p>
             <label class="field"
               >Observação da avaliação<textarea
@@ -143,36 +163,26 @@ import { ReportingApiError, reportingError } from './reporting-local.transport';
                 maxlength="2000"
                 formControlName="observation"
               ></textarea
-              ><span class="field-hint"
-                >Até 2.000 caracteres. Nenhuma advertência é emitida automaticamente.</span
-              ></label
+              ><span class="field-hint">Até 2.000 caracteres.</span></label
             >
             @if (actionError()) {
               <p class="comm-error" role="alert">{{ actionError() }}</p>
             }
             @if (conflict()) {
               <p class="comm-warning" role="alert">
-                A avaliação mudou. Atualize e confira a versão antes de corrigir.
+                Outra pessoa alterou esta avaliação. Clique em Recarregar, confira e tente de novo.
               </p>
-              <button class="btn-secondary" type="button" (click)="load()">
-                Recarregar avaliação
-              </button>
+              <button class="btn-secondary" type="button" (click)="load()">Recarregar dados</button>
             }
             <div class="comm-actions">
               <button class="btn" type="submit" [disabled]="busy() || conflict()">
                 {{
-                  busy() ? 'Conferindo avaliação…' : id ? 'Revisar correção' : 'Revisar registro'
+                  busy() ? 'Conferindo avaliação…' : id ? 'Conferir correção' : 'Conferir avaliação'
                 }}</button
               ><a [routerLink]="id ? ['/limpeza', id] : '/limpeza'">Cancelar</a>
             </div>
           </form>
         </section>
-        @if (policy(); as rules) {
-          <p class="comm-help">
-            Política {{ rules.version }} · data institucional {{ civil(rules.currentDate) }} ·
-            horário de São Paulo.
-          </p>
-        }
       }
     </main>
   `,
@@ -187,13 +197,22 @@ export class CleaningFormLocalPage {
   readonly id = inject(ActivatedRoute).snapshot.paramMap.get('id') ?? '';
   readonly criteria = criteriaForm();
   readonly form = new FormGroup({
+    accommodationId: new FormControl('', { nonNullable: true }),
+    unitId: new FormControl('', { nonNullable: true }),
     roomId: new FormControl('', { nonNullable: true }),
     timeMode: new FormControl<'NOW' | 'RETROACTIVE'>('NOW', { nonNullable: true }),
     civilTime: new FormControl('', { nonNullable: true }),
     registrationReason: new FormControl('', { nonNullable: true }),
     observation: new FormControl('', { nonNullable: true }),
   });
-  readonly rooms = signal<RoomRecord[]>([]);
+  private readonly location = toSignal(this.form.valueChanges, {
+    initialValue: this.form.getRawValue(),
+  });
+  readonly housing = signal<HousingMap>({ accommodations: [], units: [], rooms: [] });
+  readonly visibleUnits = computed(() => unitsIn(this.housing(), this.location().accommodationId));
+  readonly visibleRooms = computed(() =>
+    roomsIn(this.housing(), this.location().accommodationId, this.location().unitId),
+  );
   readonly existing = signal<CleaningAssessment | null>(null);
   readonly policy = signal<CleaningPolicy | null>(null);
   readonly loading = signal(false);
@@ -203,13 +222,19 @@ export class CleaningFormLocalPage {
   readonly conflict = signal(false);
   private readonly intent = new CommunicationIntent();
   readonly formatTime = formatCommunicationTime;
-  readonly civil = formatCivilDate;
   readonly decimal = decimal;
   constructor() {
+    cascadeLocation(this.form.controls);
     void this.load();
   }
   allowed(): boolean {
     return this.session.hasRole('supervisor');
+  }
+  roomLabel(room: RoomRecord): string {
+    return roomOptionLabel(room, this.housing().units);
+  }
+  unitLabel(unit: AccommodationUnit): string {
+    return unitOptionLabel(unit, this.housing(), this.location().accommodationId);
   }
   preview(): number | null {
     return previewCleaningScore(criteriaInput(this.criteria));
@@ -221,13 +246,13 @@ export class CleaningFormLocalPage {
     this.actionError.set('');
     this.conflict.set(false);
     try {
-      const [policy, rooms, item] = await Promise.all([
+      const [policy, housing, item] = await Promise.all([
         this.api.policy(),
-        this.id ? Promise.resolve([]) : this.roomApi.list(),
+        this.id ? Promise.resolve(null) : this.roomApi.map(),
         this.id ? this.api.get(this.id) : Promise.resolve(null),
       ]);
       this.policy.set(policy);
-      this.rooms.set(rooms);
+      if (housing) this.housing.set(housing);
       this.existing.set(item);
       if (item) {
         this.criteria.setValue(item.criteria);
@@ -257,7 +282,7 @@ export class CleaningFormLocalPage {
       this.id ? { ...input, timeMode: 'NOW' } : input,
       this.policy()?.now ?? '',
     );
-    if (error || (!this.id && !this.rooms().some((room) => room.id === value.roomId))) {
+    if (error || (!this.id && !this.visibleRooms().some((room) => room.id === value.roomId))) {
       this.criteria.markAllAsTouched();
       this.actionError.set(error || 'Selecione um quarto cadastrado.');
       return;
@@ -285,21 +310,23 @@ export class CleaningFormLocalPage {
         {
           label: 'Quarto',
           value:
-            existing?.roomCode ?? this.rooms().find((room) => room.id === value.roomId)?.code ?? '',
+            existing?.roomCode ??
+            this.housing().rooms.find((room) => room.id === value.roomId)?.code ??
+            '',
         },
         {
-          label: 'Instante avaliado',
+          label: 'Avaliado em',
           value: this.id
             ? this.formatTime(existing?.evaluatedAt ?? '')
             : value.timeMode === 'NOW'
-              ? 'Agora, calculado pelo servidor ao gravar'
+              ? 'Agora'
               : this.formatTime(input.evaluatedAt ?? ''),
         },
         ...criteriaKeys.map((key) => ({
           label: criterionLabels[key],
           value: decimal(criteria[key]),
         })),
-        { label: 'Prévia da nota', value: decimal(previewCleaningScore(criteria)) },
+        { label: 'Média', value: decimal(previewCleaningScore(criteria)) },
       ];
       const result = await firstValueFrom(
         this.dialog
@@ -311,13 +338,11 @@ export class CleaningFormLocalPage {
               autoFocus: 'first-tabbable',
               restoreFocus: true,
               data: {
-                title: this.id ? 'Revisar correção da avaliação' : 'Revisar avaliação do quarto',
+                title: this.id ? 'Conferir correção da avaliação' : 'Conferir avaliação do quarto',
                 action: this.id ? 'Confirmar correção' : 'Confirmar avaliação',
                 lines,
                 requireReason: !!this.id,
-                warning: this.id
-                  ? 'A nova revisão preserva as notas anteriores e será reavaliada pelas ocorrências derivadas. Não há sanção automática.'
-                  : undefined,
+                warning: this.id ? 'As notas anteriores ficam guardadas no histórico.' : undefined,
               },
             },
           )

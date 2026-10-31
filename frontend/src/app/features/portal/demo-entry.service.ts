@@ -44,7 +44,7 @@ export class DemoEntry {
         try {
           await this.auth.logout();
         } catch {
-          this.error.set('Não foi possível encerrar a sessão local. Tente novamente.');
+          this.error.set('Não foi possível sair. Verifique a internet e tente de novo.');
           return;
         }
       }

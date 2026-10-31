@@ -19,6 +19,7 @@ import { HealthApiService, healthErrorMessage } from './health-api.service';
 import {
   CareAssignment,
   HealthAccount,
+  HealthAuthor,
   HealthCustody,
   HealthProfession,
   ProfessionalGrant,
@@ -49,7 +50,7 @@ type EndAction = {
       <header class="page-header health-heading">
         <div>
           <h1>Acessos de saúde</h1>
-          <p>Confira habilitações profissionais, vínculos assistenciais e custódias.</p>
+          <p>Confira quem atua na saúde, quem atende cada residente e quem recebeu registros.</p>
         </div>
         @if (professionalAccess()) {
           <a class="btn-secondary" routerLink="/saude">Área assistencial</a>
@@ -69,7 +70,7 @@ type EndAction = {
       }
       @if (allowed()) {
         <section class="panel health-section" aria-labelledby="grant-title">
-          <h2 id="grant-title">Habilitações profissionais</h2>
+          <h2 id="grant-title">Profissionais de saúde</h2>
           <p>
             A administração confere os metadados de acesso. O papel de gestão não libera conteúdo
             assistencial.
@@ -87,7 +88,7 @@ type EndAction = {
             <button type="submit" class="btn" [disabled]="busy()">Buscar contas</button>
           </form>
           <div class="field health-section">
-            <label for="grant-account">Conta a habilitar *</label>
+            <label for="grant-account">Conta do profissional *</label>
             <select
               sagerSearchable
               id="grant-account"
@@ -124,7 +125,7 @@ type EndAction = {
             </button>
           }
           <details class="health-disclosure">
-            <summary>Conferir e habilitar profissional</summary>
+            <summary>Conferir e liberar profissional</summary>
             <form
               sagerUnsaved
               [sagerSaving]="busy"
@@ -189,9 +190,7 @@ type EndAction = {
                 </div>
               </div>
               <div class="action-row">
-                <button class="btn" type="submit" [disabled]="busy()">
-                  Habilitar profissional
-                </button>
+                <button class="btn" type="submit" [disabled]="busy()">Liberar profissional</button>
               </div>
             </form>
           </details>
@@ -206,7 +205,7 @@ type EndAction = {
                         grant.registrationRegion
                       }}
                     </h3>
-                    <p>{{ grant.endedAt ? 'Habilitação revogada' : 'Habilitação vigente' }}</p>
+                    <p>{{ grant.endedAt ? 'Acesso retirado' : 'Acesso liberado' }}</p>
                     <p class="health-meta">
                       Conferida em {{ grant.verifiedAt | date: 'dd/MM/yyyy HH:mm' }} ·
                       {{ grant.verificationReason }}
@@ -219,12 +218,12 @@ type EndAction = {
                       [disabled]="busy()"
                       (click)="prepareEnd('grant', grant, grant.accountName)"
                     >
-                      Revogar habilitação
+                      Retirar acesso
                     </button>
                   }
                 </li>
               } @empty {
-                <li class="health-state">Nenhuma habilitação registrada para esta conta.</li>
+                <li class="health-state">Nenhum acesso registrado para esta conta.</li>
               }
             </ul>
             @if (grantCursor() !== null) {
@@ -234,7 +233,7 @@ type EndAction = {
                 [disabled]="busy()"
                 (click)="loadGrants(true)"
               >
-                Carregar habilitações anteriores
+                Carregar acessos anteriores
               </button>
             }
           }
@@ -273,7 +272,7 @@ type EndAction = {
           >
             <div class="form-grid">
               <div class="field">
-                <label for="care-grant">Habilitação vigente *</label
+                <label for="care-grant">Profissional *</label
                 ><select
                   sagerSearchable
                   id="care-grant"
@@ -281,7 +280,7 @@ type EndAction = {
                   aria-describedby="care-grant-help"
                   [attr.aria-invalid]="invalid(assignmentForm, 'professionalGrantId')"
                 >
-                  <option value="">Selecione uma habilitação</option>
+                  <option value="">Selecione o profissional</option>
                   @for (grant of activeGrants(); track grant.id) {
                     <option [value]="grant.id">
                       {{ grant.accountName }} · {{ professions[grant.profession] }}
@@ -291,7 +290,7 @@ type EndAction = {
                   id="care-grant-help"
                   class="field-hint"
                   [class.field-error]="invalid(assignmentForm, 'professionalGrantId')"
-                  >Use a conta selecionada na seção de habilitações.</span
+                  >Use a conta escolhida em Profissionais de saúde.</span
                 >
               </div>
               <div class="field span-2">
@@ -372,21 +371,27 @@ type EndAction = {
           >
             <div class="form-grid">
               <div class="field">
-                <label for="custody-source">UUID da conta do autor desligado *</label
-                ><input
+                <label for="custody-source">Autor das anotações *</label
+                ><select
+                  sagerSearchable
                   id="custody-source"
                   formControlName="sourceAuthorAccountId"
                   aria-describedby="custody-source-help"
                   [attr.aria-invalid]="invalid(custodyForm, 'sourceAuthorAccountId')"
-                /><span
+                >
+                  <option value="">Selecione o autor</option>
+                  @for (author of authors(); track author.id) {
+                    <option [value]="author.id">{{ author.name }}</option>
+                  }</select
+                ><span
                   id="custody-source-help"
                   class="field-hint"
                   [class.field-error]="invalid(custodyForm, 'sourceAuthorAccountId')"
-                  >Informe o UUID completo da conta de origem.</span
+                  >Só aparece quem já escreveu sobre este residente.</span
                 >
               </div>
               <div class="field">
-                <label for="custody-recipient">Habilitação do custodiante *</label
+                <label for="custody-recipient">Profissional que recebe os registros *</label
                 ><select
                   sagerSearchable
                   id="custody-recipient"
@@ -394,7 +399,7 @@ type EndAction = {
                   aria-describedby="custody-recipient-help"
                   [attr.aria-invalid]="invalid(custodyForm, 'recipientGrantId')"
                 >
-                  <option value="">Selecione uma habilitação</option>
+                  <option value="">Selecione o profissional</option>
                   @for (grant of activeGrants(); track grant.id) {
                     <option [value]="grant.id">
                       {{ grant.accountName }} · {{ professions[grant.profession] }}
@@ -404,7 +409,7 @@ type EndAction = {
                   id="custody-recipient-help"
                   class="field-hint"
                   [class.field-error]="invalid(custodyForm, 'recipientGrantId')"
-                  >Selecione uma habilitação da conta escolhida acima.</span
+                  >Use a conta escolhida em Profissionais de saúde.</span
                 >
               </div>
               <div class="field span-2">
@@ -436,7 +441,7 @@ type EndAction = {
                   <div>
                     <h3>{{ custody.recipientAccountName }}</h3>
                     <p>{{ custody.endedAt ? 'Custódia encerrada' : 'Custódia vigente' }}</p>
-                    <p class="health-meta">Autor de origem: {{ custody.sourceAuthorAccountId }}</p>
+                    <p class="health-meta">Autor das anotações: {{ custody.sourceAuthorName }}</p>
                     <p class="health-meta">
                       {{ custody.createdAt | date: 'dd/MM/yyyy HH:mm' }} · {{ custody.reason }}
                     </p>
@@ -529,6 +534,7 @@ export class HealthAccessPage {
   readonly error = signal('');
   readonly success = signal('');
   readonly accounts = signal<HealthAccount[]>([]);
+  readonly authors = signal<HealthAuthor[]>([]);
   readonly grants = signal<ProfessionalGrant[]>([]);
   readonly residents = signal<ResidentRecord[]>([]);
   readonly assignments = signal<CareAssignment[]>([]);
@@ -571,10 +577,7 @@ export class HealthAccessPage {
   readonly custodyForm = new FormGroup({
     sourceAuthorAccountId: new FormControl('', {
       nonNullable: true,
-      validators: [
-        Validators.required,
-        Validators.pattern(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i),
-      ],
+      validators: [Validators.required],
     }),
     recipientGrantId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     reason: new FormControl('', { nonNullable: true, validators: [trimmedLength(10, 500)] }),
@@ -599,7 +602,7 @@ export class HealthAccessPage {
     this.pendingEnd.set(null);
     this.endForm.reset();
     try {
-      if (this.session.active()) throw new Error('A área de saúde requer uma conta local.');
+      if (this.session.active()) throw new Error('A área de saúde não faz parte da demonstração.');
       const me = await firstValueFrom(this.api.getMe());
       this.professionalAccess.set(!!me.professionalGrant);
       if (!me.canAdministerAccess) {
@@ -665,13 +668,15 @@ export class HealthAccessPage {
     const id = this.residentId.value;
     this.assignments.set([]);
     this.custodies.set([]);
+    this.authors.set([]);
     this.assignmentCursor.set(null);
     this.custodyCursor.set(null);
     if (!id) return;
     try {
-      const [assignments, custodies] = await Promise.all([
+      const [assignments, custodies, authors] = await Promise.all([
         this.api.assignments(id),
         this.api.custodies(id),
+        this.api.noteAuthors(id),
       ]);
       if (this.destroy.destroyed || request !== this.accessRequest || id !== this.residentId.value)
         return;
@@ -679,6 +684,9 @@ export class HealthAccessPage {
       this.assignmentCursor.set(assignments.nextCursor);
       this.custodies.set(custodies.items);
       this.custodyCursor.set(custodies.nextCursor);
+      this.authors.set(authors);
+      const source = this.custodyForm.controls.sourceAuthorAccountId;
+      if (!authors.some((author) => author.id === source.value)) source.setValue('');
     } catch (error) {
       if (!this.destroy.destroyed && request === this.accessRequest)
         this.error.set(healthErrorMessage(error));
@@ -716,7 +724,7 @@ export class HealthAccessPage {
       });
       this.grantForm.markAsPristine();
       await this.loadGrants();
-    }, 'Habilitação registrada.');
+    }, 'Profissional liberado.');
   }
   async createAssignment(): Promise<void> {
     this.residentId.markAsTouched();
@@ -747,7 +755,6 @@ export class HealthAccessPage {
       await this.api.createCustody({
         ...value,
         residentId: this.residentId.value,
-        sourceAuthorAccountId: value.sourceAuthorAccountId.trim(),
         reason: value.reason.trim(),
       });
       await this.loadResidentAccess();

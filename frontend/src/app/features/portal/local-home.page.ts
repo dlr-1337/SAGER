@@ -37,22 +37,22 @@ const supervisorTasks: HomeTask[] = [
   },
   {
     title: 'Saídas e retornos',
-    text: 'Analise as solicitações e registre a partida ou a chegada presencial.',
+    text: 'Veja os pedidos e registre a saída e a volta.',
     icon: 'directions_walk',
-    links: [{ label: 'Consultar saídas', to: '/saidas' }],
+    links: [{ label: 'Ver saídas', to: '/saidas' }],
   },
   {
     title: 'Notificações e advertências',
-    text: 'Confira a origem das ocorrências e registre a análise antes de uma decisão.',
+    text: 'Veja o que aconteceu e decida o que fazer.',
     icon: 'notifications',
     links: [
-      { label: 'Analisar notificações', to: '/notificacoes' },
-      { label: 'Consultar advertências', to: '/advertencias' },
+      { label: 'Ver notificações', to: '/notificacoes' },
+      { label: 'Ver advertências', to: '/advertencias' },
     ],
   },
   {
-    title: 'Avisos institucionais',
-    text: 'Prepare avisos para os residentes selecionados e confira a versão publicada.',
+    title: 'Avisos',
+    text: 'Envie avisos aos residentes.',
     icon: 'campaign',
     links: [{ label: 'Gerenciar avisos', to: '/comunicacoes/avisos' }],
   },
@@ -61,29 +61,29 @@ const supervisorTasks: HomeTask[] = [
 const residentTasks: HomeTask[] = [
   {
     title: 'Minhas saídas',
-    text: 'Solicite uma saída e acompanhe a decisão e o histórico.',
+    text: 'Peça uma saída e veja a resposta.',
     icon: 'directions_walk',
     links: [{ label: 'Ver minhas saídas', to: '/saidas' }],
   },
   {
     title: 'Minhas comunicações',
-    text: 'Acompanhe avisos, advertências e termos. Leitura e ciência são registradas separadamente.',
+    text: 'Veja avisos e advertências.',
     icon: 'campaign',
-    links: [{ label: 'Consultar comunicações', to: '/avisos' }],
+    links: [{ label: 'Ver comunicações', to: '/avisos' }],
   },
   {
     title: 'Minha saúde',
-    text: 'Consulte e exporte os registros de saúde vinculados ao seu cadastro.',
+    text: 'Veja seus registros de saúde.',
     icon: 'health_and_safety',
-    links: [{ label: 'Consultar minha saúde', to: '/minha-saude' }],
+    links: [{ label: 'Ver minha saúde', to: '/minha-saude' }],
   },
   {
     title: 'Minha limpeza',
-    text: 'Consulte as avaliações vinculadas ao seu quarto e acompanhe o período do ranking.',
+    text: 'Veja as notas de limpeza do seu quarto.',
     icon: 'cleaning_services',
     links: [
-      { label: 'Consultar minhas avaliações', to: '/minha-limpeza' },
-      { label: 'Consultar ranking', to: '/ranking' },
+      { label: 'Ver minhas notas', to: '/minha-limpeza' },
+      { label: 'Ver ranking', to: '/ranking' },
     ],
   },
 ];
@@ -91,7 +91,7 @@ const residentTasks: HomeTask[] = [
 const healthTasks: HomeTask[] = [
   {
     title: 'Atendimento de saúde',
-    text: 'Consulte os residentes assistidos e os registros autorizados para você.',
+    text: 'Veja os residentes que você atende e os registros deles.',
     icon: 'health_and_safety',
     links: [{ label: 'Abrir área de saúde', to: '/saude' }],
   },
@@ -100,28 +100,28 @@ const healthTasks: HomeTask[] = [
 const staffTasks: HomeTask[] = [
   {
     title: 'Avaliações de limpeza',
-    text: 'Confira as avaliações e seus participantes históricos. Veja a regra e o período.',
+    text: 'Veja as notas de limpeza dos quartos.',
     icon: 'cleaning_services',
     links: [
-      { label: 'Consultar avaliações', to: '/limpeza' },
-      { label: 'Consultar ranking', to: '/ranking' },
+      { label: 'Ver avaliações', to: '/limpeza' },
+      { label: 'Ver ranking', to: '/ranking' },
     ],
   },
   {
     title: 'Relatórios',
-    text: 'Escolha uma consulta e confira os mesmos dados na prévia e na exportação.',
+    text: 'Gere relatórios em PDF ou Excel.',
     icon: 'description',
-    links: [{ label: 'Consultar relatórios', to: '/relatorios' }],
+    links: [{ label: 'Gerar relatório', to: '/relatorios' }],
   },
   {
-    title: 'Cadastros e alocações',
-    text: 'Consulte residentes, responsáveis e vínculos de moradia.',
+    title: 'Cadastros e quartos',
+    text: 'Veja residentes, responsáveis e quartos.',
     icon: 'groups',
-    links: [{ label: 'Consultar residentes', to: '/residentes' }],
+    links: [{ label: 'Ver residentes', to: '/residentes' }],
   },
   {
     title: 'Acessos de saúde',
-    text: 'Gerencie habilitações e vínculos assistenciais da equipe.',
+    text: 'Escolha quem da saúde pode ver os registros.',
     icon: 'admin_panel_settings',
     links: [{ label: 'Gerenciar acessos', to: '/saude/acessos' }],
   },

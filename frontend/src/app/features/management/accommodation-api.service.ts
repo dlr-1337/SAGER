@@ -1,3 +1,11 @@
+import {
+  ERROR_CONFLICT,
+  ERROR_FORBIDDEN,
+  ERROR_GENERIC,
+  ERROR_INVALID,
+  ERROR_NOT_FOUND,
+  ERROR_SESSION,
+} from '../../core/error-messages';
 import { readArrayPage } from '../../core/list-page';
 import { Injectable } from '@angular/core';
 import { Accommodation, AccommodationInput, AccommodationUnit } from './housing.models';
@@ -158,14 +166,12 @@ export class AccommodationApiService {
 
 export function accommodationErrorMessage(error: unknown): string {
   if (error instanceof AccommodationApiError) {
-    if (error.status === 401) return 'Sua sessão expirou. Entre novamente pelo acesso local.';
-    if (error.status === 403) return 'Seu perfil não tem permissão para esta ação.';
-    if (error.status === 404) return 'O cadastro solicitado não está disponível.';
-    if (error.code === 'stale_version')
-      return 'Este cadastro foi alterado por outra sessão. Carregue a versão atual antes de salvar novamente.';
+    if (error.status === 401) return ERROR_SESSION;
+    if (error.status === 403) return ERROR_FORBIDDEN;
+    if (error.status === 404) return ERROR_NOT_FOUND;
+    if (error.code === 'stale_version') return ERROR_CONFLICT;
     if (error.status === 409) return 'Já existe um cadastro com este código. Informe outro código.';
-    if (error.status === 400)
-      return 'Os dados foram recusados. Confira os campos e tente novamente.';
+    if (error.status === 400) return ERROR_INVALID;
   }
-  return 'Não foi possível concluir. Confira a conexão com o backend local e tente novamente.';
+  return ERROR_GENERIC;
 }

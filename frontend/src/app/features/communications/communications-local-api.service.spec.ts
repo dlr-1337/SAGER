@@ -136,7 +136,7 @@ describe('Contrato privado de disciplina e comunicações', () => {
     const api = TestBed.inject(CommunicationsLocalApiService);
     const error = await api.own(id).catch((error) => error);
     expect(error).toBeInstanceOf(CommunicationsApiError);
-    expect(communicationsError(error)).toContain('Recarregue');
+    expect(communicationsError(error)).toContain('Recarregar');
     expect(communicationsError(error)).not.toContain('db-secret');
     expect(fetch).toHaveBeenCalledTimes(1);
   });

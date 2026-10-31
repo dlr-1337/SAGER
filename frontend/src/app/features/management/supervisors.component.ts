@@ -1,3 +1,4 @@
+import { ERROR_FORBIDDEN, ERROR_GENERIC } from '../../core/error-messages';
 import { debounceTime } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { PaginationComponent } from '../../shared/pagination.component';
@@ -26,7 +27,7 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
               ><span class="material-symbols-rounded" aria-hidden="true">arrow_back</span> Início</a
             >
             <h1>Supervisores</h1>
-            <p>Gerencie os registros funcionais da equipe de residência.</p>
+            <p>Veja quem faz parte da equipe.</p>
           </div>
           <a class="btn mg-primary" routerLink="/supervisores/novo"
             ><span class="material-symbols-rounded" aria-hidden="true">person_add</span> Cadastrar
@@ -36,10 +37,10 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
         <section class="panel mg-panel" aria-labelledby="supervisor-search-title">
           <h2 id="supervisor-search-title">Buscar supervisores</h2>
           <label class="field mg-field"
-            >Nome ou identificação institucional<input
+            >Nome, matrícula ou SIAPE<input
               type="search"
               [formControl]="search"
-              placeholder="Digite um nome ou identificação"
+              placeholder="Digite para buscar"
               autocomplete="off" /></label
           ><button type="button" class="btn mg-secondary" (click)="search.setValue('')">
             Limpar filtros
@@ -52,7 +53,9 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
               @if (isDemo() && scenario() !== 'padrao') {
                 Cenário demonstrativo
               } @else if (!loading() && !loadError()) {
-                {{ total() }} supervisores encontrados
+                {{
+                  total() === 1 ? '1 supervisor encontrado' : total() + ' supervisores encontrados'
+                }}
               }
             </p>
           </div>
@@ -91,7 +94,7 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
                 >progress_activity</span
               >
               <h3>Carregando supervisores</h3>
-              <p>Consultando os cadastros locais de teste.</p>
+              <p>Aguarde um momento.</p>
             </div>
           } @else if (loadError()) {
             <div class="mg-empty" role="alert">
@@ -112,7 +115,7 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
                     <p>{{ supervisor.institutionalId }}</p>
                   </div>
                   <div class="mg-row-detail">
-                    <strong>Contato institucional</strong><span>{{ supervisor.email }}</span>
+                    <strong>E-mail</strong><span>{{ supervisor.email }}</span>
                   </div>
                   <a class="mg-row-link" [routerLink]="['/supervisores', supervisor.id]"
                     >Ver detalhes
@@ -131,7 +134,7 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
                 {{
                   isDemo()
                     ? 'Este é o estado vazio da demonstração.'
-                    : 'Cadastre o primeiro supervisor com dados fictícios para testar este fluxo.'
+                    : 'Cadastre o primeiro supervisor.'
                 }}
               </p>
             </div>
@@ -147,21 +150,17 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
           }
           <sager-pagination [page]="page()" [total]="total()" (pageChange)="changePage($event)" />
         </section>
-        <div class="mg-note">
-          <span class="material-symbols-rounded" aria-hidden="true">info</span>
-          <p>
-            {{
-              isDemo()
-                ? 'Estes registros são demonstrativos e não criam credenciais.'
-                : 'Ambiente local de teste: use apenas dados fictícios. O cadastro funcional não cria credencial ou senha.'
-            }}
-          </p>
-        </div>
+        @if (isDemo()) {
+          <div class="mg-note">
+            <span class="material-symbols-rounded" aria-hidden="true">info</span>
+            <p>Estes registros são demonstrativos.</p>
+          </div>
+        }
       } @else {
         <section class="mg-empty" role="alert">
           <span class="material-symbols-rounded" aria-hidden="true">lock</span>
           <h1>Acesso restrito</h1>
-          <p>A gestão de supervisores está disponível para gestor e supervisor.</p>
+          <p>A gestão de supervisores está disponível só para o gestor.</p>
           <a class="btn mg-primary" routerLink="/inicio">Voltar ao início</a>
         </section>
       }
@@ -173,7 +172,7 @@ export class SupervisorsComponent {
   private readonly api = inject(SupervisorApiService);
   private readonly session = inject(DemoSessionService);
   readonly isDemo = this.session.active;
-  readonly canEdit = computed(() => this.session.hasRole('gestor', 'supervisor'));
+  readonly canEdit = computed(() => this.session.hasRole('gestor'));
   readonly scenario = this.session.scenario;
   readonly search = new FormControl('', { nonNullable: true });
   readonly localSupervisors = signal<Supervisor[]>([]);
@@ -204,8 +203,9 @@ export class SupervisorsComponent {
 
   constructor() {
     rememberFilters('supervisors', this.search);
+    // A página volta ao início na hora: esperar a pausa desfazia um clique em "Próxima".
+    this.search.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => this.page.set(0));
     this.search.valueChanges.pipe(debounceTime(250), takeUntilDestroyed()).subscribe(() => {
-      this.page.set(0);
       if (!this.isDemo()) void this.load();
     });
     if (this.isDemo()) {
@@ -241,8 +241,8 @@ export class SupervisorsComponent {
       this.localSupervisors.set([]);
       this.loadError.set(
         error instanceof SupervisorApiError && error.status === 403
-          ? 'Seu perfil não tem permissão para consultar esta equipe.'
-          : 'Confira a conexão com o backend local e tente novamente.',
+          ? ERROR_FORBIDDEN
+          : ERROR_GENERIC,
       );
     } finally {
       if (generation === this.generation) this.loading.set(false);

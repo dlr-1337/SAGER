@@ -10,6 +10,8 @@ import type {
 
 const residentId = '00000000-0000-0000-0000-000000000041';
 const accommodationId = '00000000-0000-0000-0000-000000000011';
+const roomAId = '00000000-0000-0000-0000-000000000111';
+const roomBId = '00000000-0000-0000-0000-000000000112';
 const callId = '00000000-0000-0000-0000-000000000901';
 const exitId = '00000000-0000-0000-0000-000000000801';
 const initialNow = '2026-09-30T16:00:00Z';
@@ -67,20 +69,36 @@ function callFixture(): NightCall {
     justification: null,
     closeOutsideWindowConfirmed: false,
     closeJustification: null,
-    summary: { total: 2, present: 0, absent: 0, justified: 0, unmarked: 2 },
+    summary: { total: 2, present: 0, absent: 0, justified: 1, unmarked: 1 },
     records: [0, 1].map((index) => ({
       id: `registro-${index}`,
       residentId: index === 0 ? residentId : '00000000-0000-0000-0000-000000000042',
       residentName: index === 0 ? 'Estudante Sintético' : 'Residente de Teste',
       enrollment: `TESTE-00${index + 1}`,
       birthDate: '2010-05-14',
-      roomId: '00000000-0000-0000-0000-000000000111',
+      roomId: index === 0 ? roomAId : roomBId,
       roomNumber: '101',
-      mark: null,
-      authorizedExitId: null,
-      authorizedExitType: null,
-      version: 0,
-      history: [],
+      mark: index === 1 ? ('AUSENCIA_JUSTIFICADA' as const) : null,
+      authorizedExitId: index === 1 ? exitId : null,
+      authorizedExitType: index === 1 ? 'SHORT' : null,
+      version: index,
+      history:
+        index === 1
+          ? [
+              {
+                id: 'historico-sistema',
+                mark: 'AUSENCIA_JUSTIFICADA' as const,
+                authorizedExitId: exitId,
+                authorizedExitType: 'SHORT',
+                justification: null,
+                recordedAt: '2026-10-01T01:30:00Z',
+                actorId: '00000000-0000-0000-0000-000000000001',
+                actorProfile: 'sistema',
+                version: 1,
+                callVersion: 0,
+              },
+            ]
+          : [],
       authorizedExits: index === 1 ? [{ id: exitId, type: 'SHORT' as const }] : [],
     })),
   };
@@ -165,6 +183,36 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
           status: 503,
           json: { message: 'Serviço temporariamente indisponível.' },
         });
+      if (path === '/api/v1/quartos/mapa') {
+        const unit = (id: string, name: string) => ({
+          id,
+          accommodationId,
+          code: id,
+          name,
+          version: 0,
+        });
+        const room = (id: string, code: string, unitId: string) => ({
+          id,
+          code,
+          number: '101',
+          accommodationId,
+          unitId,
+          floor: null,
+          capacity: 4,
+          situation: 'Ocupado',
+          occupancy: 1,
+          vacancies: 3,
+          cleaningScore: null,
+          version: 0,
+        });
+        return ok({
+          accommodations: [
+            { id: accommodationId, code: 'T', name: 'Alojamento Teste', version: 0 },
+          ],
+          units: [unit('bloco-a', 'Bloco A'), unit('bloco-b', 'Bloco B')],
+          rooms: [room(roomAId, 'A-101', 'bloco-a'), room(roomBId, 'B-101', 'bloco-b')],
+        });
+      }
       if (path === '/api/v1/chamadas/contexto') {
         const ctx: CallContext = {
           accommodationId: url.searchParams.get('accommodationId'),
@@ -377,8 +425,8 @@ test('redução de 26 para 25 saídas curtas retorna à página válida com filt
   await expect(pagination).toContainText('1–25 de 26');
   await pagination.getByRole('button', { name: 'Próxima' }).click();
   await expect(pagination).toContainText('1–25 de 25');
-  await expect(page.getByRole('link', { name: 'Ver solicitação' })).toHaveCount(25);
-  await expect(page.getByRole('heading', { name: 'Nenhuma saída encontrada' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Ver pedido' })).toHaveCount(25);
+  await expect(page.getByRole('heading', { name: 'Nenhum pedido ainda.' })).toHaveCount(0);
   await expect(search).toHaveValue('TESTE-001');
   await expect(page.getByLabel('Situação', { exact: true })).toHaveValue('APROVADA');
   expect(queries.slice(-2).map((params) => params.get('offset'))).toEqual(['25', '0']);
@@ -402,15 +450,43 @@ test('situação Aprovada permanece ao abrir uma saída curta e retornar à list
   });
   await page.getByRole('button', { name: 'Buscar', exact: true }).click();
   await filtered;
-  await page.getByRole('link', { name: 'Ver solicitação' }).click();
-  await expect(page.getByRole('heading', { name: 'Solicitação de saída curta' })).toBeVisible();
+  await page.getByRole('link', { name: 'Ver pedido' }).click();
+  await expect(page.getByRole('heading', { name: 'Pedido de saída curta' })).toBeVisible();
   const restored = page.waitForRequest(
     (request) => new URL(request.url()).pathname === '/api/v1/saidas-curtas',
   );
   await page.getByRole('link', { name: '← Saídas', exact: true }).click();
   await expect(page.getByLabel('Situação', { exact: true })).toHaveValue('APROVADA');
   expect(new URL((await restored).url()).searchParams.get('status')).toBe('APROVADA');
-  await expect(page.getByRole('link', { name: 'Ver solicitação' })).toHaveCount(1);
+  await expect(page.getByRole('link', { name: 'Ver pedido' })).toHaveCount(1);
+});
+
+test('chamada filtra por bloco e quarto, com número repetido, sem liberar o fechamento', async ({
+  page,
+}) => {
+  await mockApi(page, { calls: [callFixture()] });
+  await page.goto('/chamada');
+  const unit = page.getByRole('combobox', { name: 'Casa ou bloco', exact: true });
+  const room = page.getByRole('combobox', { name: 'Quarto', exact: true });
+  await expect(room.locator('option')).toHaveText([
+    'Todos os quartos',
+    'A-101 · Bloco A',
+    'B-101 · Bloco B',
+  ]);
+  await room.selectOption({ label: 'B-101 · Bloco B' });
+  await expect(page.getByRole('heading', { name: 'Residente de Teste' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Estudante Sintético' })).toHaveCount(0);
+  await expect(page.getByText('1 de 2 residentes')).toBeVisible();
+  await expect(page.getByText('Falta marcar 1 residente')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Fechar chamada' })).toBeDisabled();
+  await unit.selectOption({ label: 'Bloco A' });
+  await expect(room).toHaveValue('');
+  await expect(room.locator('option')).toHaveText(['Todos os quartos', 'A-101 · Bloco A']);
+  await expect(page.getByRole('heading', { name: 'Estudante Sintético' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Residente de Teste' })).toHaveCount(0);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page.getByRole('button', { name: 'Limpar filtros', exact: true }).click();
+  await expect(page.getByText('2 de 2 residentes')).toBeVisible();
 });
 
 test('chamada persiste após recarga, confirma alerta e preserva correção da chamada fechada', async ({
@@ -418,19 +494,19 @@ test('chamada persiste após recarga, confirma alerta e preserva correção da c
 }) => {
   const state = await mockApi(page, { outsideWindow: true, now: '2026-10-01T01:00:00Z' });
   await page.goto('/chamada');
-  await page.getByRole('button', { name: 'Revisar e abrir chamada' }).click();
+  await page.getByRole('button', { name: 'Abrir chamada' }).click();
   let dialog = page.getByRole('dialog');
-  await expect(dialog).toContainText('fora da janela');
+  await expect(dialog).toContainText('não é o horário da chamada');
   await dialog.getByRole('button', { name: 'Cancelar', exact: true }).click();
   expect(state.writes).toHaveLength(0);
-  await page.getByRole('button', { name: 'Revisar e abrir chamada' }).click();
+  await page.getByRole('button', { name: 'Abrir chamada' }).click();
   dialog = page.getByRole('dialog');
   await dialog.getByRole('button', { name: 'Abrir chamada', exact: true }).click();
   await expect(dialog.getByRole('alert').last()).toContainText('justificativa');
   await dialog
     .getByLabel('Justificativa', { exact: true })
     .fill('Ronda presencial concluída antes da janela.');
-  await dialog.getByLabel('Confirmo o registro fora da janela').check();
+  await dialog.getByLabel('Confirmo o registro fora do horário').check();
   await dialog.getByRole('button', { name: 'Abrir chamada', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Chamada aberta' })).toBeVisible();
   const first = page.getByRole('group', { name: 'Presença de Estudante Sintético' });
@@ -440,22 +516,30 @@ test('chamada persiste após recarga, confirma alerta e preserva correção da c
     'true',
   );
   const second = page.getByRole('group', { name: 'Presença de Residente de Teste' });
-  await second.getByRole('button', { name: 'Ausência justificada', exact: true }).click();
   await expect(
     second.getByRole('button', { name: 'Ausência justificada', exact: true }),
   ).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByText('já entram como ausência justificada')).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'saída curta de Residente de Teste' }),
+  ).toHaveAttribute('href', `/saidas/${exitId}`);
+  const automatic = page.getByRole('article').filter({ hasText: 'Residente de Teste' });
+  await automatic.getByText('Histórico da marcação (1)').click();
+  await expect(automatic.locator('.local-history').getByText('Sistema')).toBeVisible();
+  await expect(page.getByText(exitId)).toHaveCount(0);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.reload();
   await expect(
     page
       .getByRole('group', { name: 'Presença de Estudante Sintético' })
       .getByRole('button', { name: 'Presente', exact: true }),
   ).toHaveAttribute('aria-pressed', 'true');
-  await page.getByRole('button', { name: 'Revisar e fechar chamada' }).click();
+  await page.getByRole('button', { name: 'Fechar chamada' }).click();
   dialog = page.getByRole('dialog');
   await dialog
     .getByLabel('Justificativa', { exact: true })
     .fill('Fechamento revisado após a ronda presencial.');
-  await dialog.getByLabel('Confirmo o registro fora da janela').check();
+  await dialog.getByLabel('Confirmo o registro fora do horário').check();
   await dialog.getByRole('button', { name: 'Fechar chamada', exact: true }).click();
   await expect(page.getByText('Fechada', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Corrigir marcação de Estudante Sintético' }).click();
@@ -477,7 +561,7 @@ test('chamada persiste após recarga, confirma alerta e preserva correção da c
   ]);
   expect(
     state.writes.map((write) => write.body.version).filter((version) => version !== undefined),
-  ).toEqual([0, 1, 2, 3]);
+  ).toEqual([0, 1, 2]);
 });
 
 test('data de nascimento ausente bloqueia abertura e falha da API não mostra demonstração', async ({
@@ -485,11 +569,11 @@ test('data de nascimento ausente bloqueia abertura e falha da API não mostra de
 }) => {
   const state = await mockApi(page, { missingBirthDates: true });
   await page.goto('/chamada');
-  await expect(page.getByText(/A abertura está bloqueada/)).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Revisar e abrir chamada' })).toBeDisabled();
+  await expect(page.getByText(/Não é possível abrir a chamada/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Abrir chamada' })).toBeDisabled();
   expect(state.writes).toHaveLength(0);
   state.failReads = true;
-  await page.getByRole('button', { name: 'Consultar chamadas' }).click();
+  await page.getByRole('button', { name: 'Ver chamada' }).click();
   await expect(
     page.getByRole('heading', { name: 'Não foi possível carregar a chamada' }),
   ).toBeVisible();
@@ -497,7 +581,7 @@ test('data de nascimento ausente bloqueia abertura e falha da API não mostra de
   state.failReads = false;
   state.missingBirthDates = false;
   await page.getByRole('button', { name: 'Tentar novamente' }).click();
-  await expect(page.getByRole('button', { name: 'Revisar e abrir chamada' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Abrir chamada' })).toBeEnabled();
 });
 
 test('residente envia NOW sem relógio do navegador, edita e consulta depois de recarregar', async ({
@@ -505,27 +589,27 @@ test('residente envia NOW sem relógio do navegador, edita e consulta depois de 
 }) => {
   const state = await mockApi(page, { role: 'residente' });
   await page.goto('/saidas');
-  await expect(page.getByRole('heading', { name: 'Nenhuma saída encontrada' })).toBeVisible();
-  await page.getByRole('link', { name: 'Solicitar saída curta' }).click();
-  await expect(page.getByLabel('Retorno previsto')).toHaveValue('2026-09-30T16:00');
-  await page.getByLabel('Motivo da saída').fill('Buscar material escolar');
-  await page.getByRole('button', { name: 'Enviar solicitação' }).click();
+  await expect(page.getByRole('heading', { name: 'Nenhum pedido ainda.' })).toBeVisible();
+  await page.getByRole('link', { name: 'Pedir saída curta' }).click();
+  await expect(page.getByLabel('Que horas você volta?')).toHaveValue('2026-09-30T16:00');
+  await page.getByLabel('Por que você quer sair?').fill('Buscar material escolar');
+  await page.getByRole('button', { name: 'Enviar pedido' }).click();
   await expect(page).toHaveURL(new RegExp(`/saidas/${exitId}`));
-  await expect(page.getByText('Solicitação salva.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Pedido salvo.', { exact: true })).toBeVisible();
   expect(state.writes[0].body).not.toHaveProperty('requestedDepartureAt');
   expect(state.exits[0].residentId).toBe(residentId);
   await page.reload();
   await expect(page.getByText('Buscar material escolar', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Confirmar retorno presencial' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Registrar partida presencial' })).toHaveCount(0);
-  await page.getByRole('link', { name: 'Editar solicitação' }).click();
-  await page.getByLabel('Motivo da saída').fill('Buscar material escolar na papelaria');
+  await expect(page.getByRole('button', { name: 'Registrar volta' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Registrar saída' })).toHaveCount(0);
+  await page.getByRole('link', { name: 'Mudar pedido' }).click();
+  await page.getByLabel('Por que você quer sair?').fill('Buscar material escolar na papelaria');
   await page.getByRole('button', { name: 'Salvar alterações' }).click();
   await expect(
     page.getByText('Buscar material escolar na papelaria', { exact: true }),
   ).toBeVisible();
   expect(state.writes[1].body.version).toBe(1);
-  await page.getByRole('button', { name: 'Cancelar solicitação', exact: true }).click();
+  await page.getByRole('button', { name: 'Cancelar pedido', exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Cancelar', exact: true }).click();
   expect(state.writes).toHaveLength(2);
 });
@@ -535,23 +619,60 @@ test('saída agendada limita duração, converte São Paulo e não solicita sem 
 }) => {
   const state = await mockApi(page, { role: 'residente' });
   await page.goto('/saidas/nova');
-  await page.getByLabel('Quando deseja sair?').selectOption('SCHEDULED');
+  await page.getByLabel('Quando você quer sair?').selectOption('SCHEDULED');
   await page.getByLabel('Data e hora de saída').fill('2026-09-30T14:00');
-  await page.getByLabel('Retorno previsto').fill('2026-09-30T17:01');
-  await page.getByLabel('Motivo da saída').fill('Buscar material escolar');
-  await page.getByRole('button', { name: 'Enviar solicitação' }).click();
+  await page.getByLabel('Que horas você volta?').fill('2026-09-30T17:01');
+  await page.getByLabel('Por que você quer sair?').fill('Buscar material escolar');
+  await page.getByRole('button', { name: 'Enviar pedido' }).click();
   await expect(page.getByRole('alert')).toContainText('3 horas');
   expect(state.writes).toHaveLength(0);
-  await page.getByLabel('Retorno previsto').fill('2026-09-30T17:00');
-  await page.getByRole('button', { name: 'Enviar solicitação' }).click();
+  await page.getByLabel('Que horas você volta?').fill('2026-09-30T17:00');
+  await page.getByRole('button', { name: 'Enviar pedido' }).click();
   await expect(page).toHaveURL(new RegExp(`/saidas/${exitId}`));
   expect(state.writes[0].body.requestedDepartureAt).toBe('2026-09-30T17:00:00.000Z');
   expect(state.writes[0].body.expectedReturnAt).toBe('2026-09-30T20:00:00.000Z');
   state.eligible = false;
   await page.goto('/saidas/nova');
-  await expect(page.getByRole('heading', { name: 'Solicitação indisponível' })).toBeVisible();
-  await expect(page.getByText('É necessária uma alocação ativa em quarto.')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Enviar solicitação' })).toHaveCount(0);
+  await expect(
+    page.getByRole('heading', { name: 'Você não pode pedir esta saída agora' }),
+  ).toBeVisible();
+  await expect(
+    page.getByText('Você ainda não tem quarto no sistema. Fale com o supervisor.'),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Enviar pedido' })).toHaveCount(0);
+});
+
+test('Agendar pede a partida, retorno manual sobrevive e ajuste fora do limite é anunciado', async ({
+  page,
+}) => {
+  const state = await mockApi(page, { role: 'residente', now: '2026-09-30T16:00:20Z' });
+  await page.goto('/saidas/nova');
+  const departure = page.getByLabel('Data e hora de saída');
+  const expectedReturn = page.getByLabel('Que horas você volta?');
+  await expect(expectedReturn).toHaveValue('2026-09-30T16:00');
+  await page.getByLabel('Quando você quer sair?').selectOption('SCHEDULED');
+  await expect(departure).toHaveValue('');
+  await expect(departure).toHaveAttribute('min', '2026-09-30T13:01');
+  await page.getByLabel('Por que você quer sair?').fill('Buscar material escolar');
+  await page.getByRole('button', { name: 'Enviar pedido' }).click();
+  await expect(page.getByText('Informe a data e hora de saída.', { exact: true })).toBeVisible();
+  expect(state.writes).toHaveLength(0);
+  await departure.fill('2026-09-30T14:00');
+  await expect(expectedReturn).toHaveValue('2026-09-30T17:00');
+  await expectedReturn.fill('2026-09-30T15:30');
+  await departure.fill('2026-09-30T14:10');
+  await expect(expectedReturn).toHaveValue('2026-09-30T15:30');
+  await expect(expectedReturn).toHaveAttribute('max', '2026-09-30T17:10');
+  await expect(page.getByText('Duração: 1 h 20 min (máx. 3 h).', { exact: true })).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await departure.fill('2026-09-30T16:00');
+  await expect(expectedReturn).toHaveValue('2026-09-30T19:00');
+  await expect(page.getByRole('status').filter({ hasText: 'não dava' })).toContainText('19:00');
+  await expectedReturn.fill('2026-09-30T18:00');
+  await page.getByRole('button', { name: 'Enviar pedido' }).click();
+  await expect(page).toHaveURL(new RegExp(`/saidas/${exitId}`));
+  expect(state.writes[0].body.requestedDepartureAt).toBe('2026-09-30T19:00:00.000Z');
+  expect(state.writes[0].body.expectedReturnAt).toBe('2026-09-30T21:00:00.000Z');
 });
 
 test('supervisor aprova e registra partida e retorno tardio com histórico persistente', async ({
@@ -565,14 +686,14 @@ test('supervisor aprova e registra partida e retorno tardio com histórico persi
   await page.getByRole('button', { name: 'Aprovar', exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Confirmar aprovação' }).click();
   await expect(page.getByText('Aprovada', { exact: true }).first()).toBeVisible();
-  await page.getByRole('button', { name: 'Registrar partida presencial' }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Confirmar partida' }).click();
+  await page.getByRole('button', { name: 'Registrar saída' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Confirmar saída' }).click();
   await expect(page.getByText('Em andamento', { exact: true })).toBeVisible();
   expect(state.writes[1].body).toEqual({ version: 1, timeMode: 'NOW' });
   state.now = '2026-09-30T20:00:00Z';
-  await page.getByRole('button', { name: 'Confirmar retorno presencial' }).click();
+  await page.getByRole('button', { name: 'Registrar volta' }).click();
   let dialog = page.getByRole('dialog');
-  await dialog.getByRole('button', { name: 'Confirmar retorno', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Confirmar volta', exact: true }).click();
   await expect(dialog.getByRole('alert').last()).toContainText('observação do atraso');
   await dialog.getByLabel('Horário do registro').selectOption('RETROACTIVE');
   await dialog.getByLabel('Horário real do retorno').fill('2026-09-30T16:30');
@@ -582,7 +703,7 @@ test('supervisor aprova e registra partida e retorno tardio com histórico persi
   await dialog
     .getByLabel('Observação do atraso', { exact: true })
     .fill('Problema no transporte causou atraso no retorno.');
-  await dialog.getByRole('button', { name: 'Confirmar retorno', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Confirmar volta', exact: true }).click();
   await expect(page.getByText('Retorno confirmado com atraso', { exact: true })).toBeVisible();
   expect(state.writes[2].body).toEqual({
     version: 2,
@@ -592,8 +713,8 @@ test('supervisor aprova e registra partida e retorno tardio com histórico persi
     lateObservation: 'Problema no transporte causou atraso no retorno.',
   });
   await page.reload();
-  await expect(page.getByText('Partida presencial registrada', { exact: true })).toBeVisible();
-  await expect(page.getByText('Retorno presencial registrado', { exact: true })).toBeVisible();
+  await expect(page.getByText('Saída registrada', { exact: true })).toBeVisible();
+  await expect(page.getByText('Volta registrada', { exact: true })).toBeVisible();
   expect(state.exits[0].history).toHaveLength(3);
 });
 
@@ -604,12 +725,12 @@ test('conflito exige recarga explícita e nunca repete a decisão com outra vers
   await page.goto(`/saidas/${exitId}`);
   await page.getByRole('button', { name: 'Aprovar', exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Confirmar aprovação' }).click();
-  await expect(page.getByRole('alert')).toContainText('Recarregue');
+  await expect(page.getByRole('alert')).toContainText('Clique em Recarregar');
   await expect(page.getByRole('button', { name: 'Aprovar', exact: true })).toBeDisabled();
   expect(state.writes).toHaveLength(1);
   state.exits[0].status = 'REJEITADA';
   state.exits[0].version = 1;
-  await page.getByRole('button', { name: 'Recarregar solicitação' }).click();
+  await page.getByRole('button', { name: 'Recarregar dados' }).click();
   await expect(page.getByText('Rejeitada', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Aprovar', exact: true })).toHaveCount(0);
   expect(state.writes).toHaveLength(1);
@@ -659,7 +780,7 @@ test('gestor não opera saídas ou chamada, supervisor não solicita e residente
   await expect(page).toHaveURL(/\/acesso-negado$/);
   await page.goto(`/saidas/${exitId}`);
   await expect(page.getByText('Em andamento', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Confirmar retorno presencial' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Registrar partida presencial' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Registrar volta' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Registrar saída' })).toHaveCount(0);
   expect(state.writes).toHaveLength(0);
 });

@@ -5,10 +5,39 @@ import { BehaviorSubject } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { FilterState } from '../../core/filter-state';
-import { AccommodationApiService } from '../management/accommodation-api.service';
+import { HousingMap } from '../management/housing.models';
+import { RoomApiService } from '../management/room-api.service';
 import { ExitsLocalComponent } from './exits-local.component';
 import { LongExitApiService } from './long-exit-api.service';
 import { OperationsLocalApiService } from './operations-local-api.service';
+
+const room = (id: string, code: string, accommodationId: string, unitId: string | null) => ({
+  id,
+  code,
+  number: '101',
+  accommodationId,
+  unitId,
+  floor: null,
+  capacity: 4,
+  situation: 'Ocupado' as const,
+  occupancy: 1,
+  vacancies: 3,
+  cleaningScore: null,
+  version: 0,
+});
+const housing: HousingMap = {
+  accommodations: [
+    { id: 'alojamento-teste', code: 'A1', name: 'Alojamento Um', version: 0 },
+    { id: 'outro-alojamento', code: 'A2', name: 'Alojamento Dois', version: 0 },
+  ],
+  units: [
+    { id: 'bloco-a', accommodationId: 'alojamento-teste', code: 'BA', name: 'Bloco A', version: 0 },
+  ],
+  rooms: [
+    room('quarto-teste', 'A-101', 'alojamento-teste', 'bloco-a'),
+    room('quarto-outro', 'C-101', 'outro-alojamento', null),
+  ],
+};
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -30,9 +59,15 @@ describe('Critérios restaurados da lista de saídas', () => {
     from: '2026-10-01',
     to: '2026-10-31',
     accommodationId: 'alojamento-teste',
+    unitId: 'bloco-a',
+    roomId: 'quarto-teste',
   };
+  let role: string;
+  let map: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    role = 'supervisor';
+    map = vi.fn().mockResolvedValue(structuredClone(housing));
     params = new BehaviorSubject(convertToParamMap({}));
     shortPage = vi.fn().mockResolvedValue({ items: [], total: 0 });
     longPage = vi.fn().mockResolvedValue({ items: [], total: 0 });
@@ -55,12 +90,12 @@ describe('Critérios restaurados da lista de saídas', () => {
           provide: DemoSessionService,
           useValue: {
             active: signal(false),
-            hasRole: (...roles: string[]) => roles.includes('supervisor'),
+            hasRole: (...roles: string[]) => roles.includes(role),
           },
         },
         { provide: OperationsLocalApiService, useValue: { exitsPage: shortPage } },
         { provide: LongExitApiService, useValue: { page: longPage } },
-        { provide: AccommodationApiService, useValue: { list: vi.fn().mockResolvedValue([]) } },
+        { provide: RoomApiService, useValue: { map } },
       ],
     });
     TestBed.inject(FilterState).values.set('exits-local.component', { ...criteria });
@@ -153,6 +188,116 @@ describe('Critérios restaurados da lista de saídas', () => {
       expect(component.page()).toBe(0);
       expect(component.loading()).toBe(false);
       expect(api).toHaveBeenCalledTimes(change === 'busca' ? 2 : 1);
+    });
+  });
+
+  describe('Filtro de quarto', () => {
+    const roomSelect = (element: HTMLElement) =>
+      Array.from(element.querySelectorAll('label'))
+        .find((label) => label.textContent?.trim().startsWith('Quarto'))
+        ?.querySelector('select');
+
+    it('oferece só quartos do alojamento, com código e bloco, e os envia à consulta', async () => {
+      const fixture = TestBed.createComponent(ExitsLocalComponent);
+      await fixture.whenStable();
+      fixture.detectChanges();
+      const select = roomSelect(fixture.nativeElement);
+      expect(Array.from(select?.options ?? []).map((item) => item.textContent?.trim())).toEqual([
+        'Todos os quartos',
+        'A-101 · Bloco A',
+      ]);
+      expect(shortPage).toHaveBeenLastCalledWith(
+        expect.objectContaining({ roomId: 'quarto-teste' }),
+        expect.any(AbortSignal),
+      );
+    });
+
+    it('volta o quarto a todos ao trocar de alojamento e ao limpar', async () => {
+      const fixture = TestBed.createComponent(ExitsLocalComponent);
+      await fixture.whenStable();
+      const { accommodationId, roomId } = fixture.componentInstance.filters.controls;
+      accommodationId.setValue('outro-alojamento');
+      expect(roomId.value).toBe('');
+      expect(fixture.componentInstance.visibleRooms().map((item) => item.id)).toEqual([
+        'quarto-outro',
+      ]);
+      roomId.setValue('quarto-outro');
+      fixture.componentInstance.clear();
+      expect(roomId.value).toBe('');
+      await fixture.whenStable();
+    });
+
+    it('oferece casa ou bloco na ordem certa, envia unitId e limpa a seleção em cascata', async () => {
+      const fixture = TestBed.createComponent(ExitsLocalComponent);
+      await fixture.whenStable();
+      fixture.detectChanges();
+      const page = fixture.componentInstance;
+      const labels = Array.from<HTMLLabelElement>(
+        fixture.nativeElement.querySelectorAll('.op-filters label'),
+      ).map((label) => label.firstChild?.textContent?.trim());
+      expect(labels.slice(-3)).toEqual(['Alojamento', 'Casa ou bloco', 'Quarto']);
+      const { accommodationId, unitId, roomId } = page.filters.controls;
+      unitId.setValue('bloco-a');
+      expect(roomId.value).toBe('');
+      expect(page.visibleRooms().map((item) => item.id)).toEqual(['quarto-teste']);
+      await page.load();
+      expect(shortPage).toHaveBeenLastCalledWith(
+        expect.objectContaining({ unitId: 'bloco-a' }),
+        expect.any(AbortSignal),
+      );
+      accommodationId.setValue('');
+      expect(unitId.value).toBe('');
+      expect(page.visibleUnits().map((item) => page.unitLabel(item))).toEqual([
+        'Bloco A · Alojamento Um',
+      ]);
+      unitId.setValue('bloco-a');
+      page.clear();
+      expect(unitId.value).toBe('');
+      await fixture.whenStable();
+    });
+
+    it('descarta bloco lembrado que não pertence ao alojamento', async () => {
+      TestBed.inject(FilterState).values.set('exits-local.component', {
+        ...criteria,
+        accommodationId: 'outro-alojamento',
+        unitId: 'bloco-a',
+        roomId: '',
+      });
+      const fixture = TestBed.createComponent(ExitsLocalComponent);
+      await fixture.whenStable();
+      expect(fixture.componentInstance.filters.controls.unitId.value).toBe('');
+    });
+
+    it('descarta quarto lembrado que não existe mais nas opções', async () => {
+      TestBed.inject(FilterState).values.set('exits-local.component', {
+        ...criteria,
+        roomId: 'quarto-outro',
+      });
+      const fixture = TestBed.createComponent(ExitsLocalComponent);
+      await fixture.whenStable();
+      expect(fixture.componentInstance.filters.controls.roomId.value).toBe('');
+      await vi.waitFor(() => {
+        const { roomId } = shortPage.mock.lastCall![0];
+        expect(roomId).toBeUndefined();
+      });
+    });
+
+    it('mantém o quarto lembrado quando as opções não carregam', async () => {
+      map.mockRejectedValue(new Error('offline'));
+      const fixture = TestBed.createComponent(ExitsLocalComponent);
+      await fixture.whenStable();
+      expect(fixture.componentInstance.filters.controls.roomId.value).toBe('quarto-teste');
+      expect(fixture.componentInstance.optionsError()).toContain('alojamentos e quartos');
+    });
+
+    it('não oferece o filtro ao residente nem consulta o mapa', async () => {
+      role = 'residente';
+      TestBed.inject(FilterState).values.delete('exits-local.component');
+      const fixture = TestBed.createComponent(ExitsLocalComponent);
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(roomSelect(fixture.nativeElement)).toBeUndefined();
+      expect(map).not.toHaveBeenCalled();
     });
   });
 

@@ -65,6 +65,8 @@ load_setting SAGER_STACK_NAME sager-homologacao
 load_setting SAGER_PUBLIC_HOST
 load_setting SAGER_SECRETS_DIR
 load_setting SAGER_COOLIFY_APPLICATION_ID
+load_setting SAGER_GATEWAY_IMAGE sager-homologacao-gateway:current
+load_setting SAGER_INTEGRATIONS_WHATSAPP_ENABLED false
 [[ $SAGER_STACK_NAME =~ ^[a-z0-9][a-z0-9_-]*$ ]] || fail 'Invalid Compose project name.'
 [[ $SAGER_PUBLIC_HOST =~ ^[a-z0-9][a-z0-9.-]*[a-z0-9]$ && $SAGER_PUBLIC_HOST == *.* ]] \
   || fail 'Set a DNS hostname without a scheme, port or path.'
@@ -77,6 +79,13 @@ compose=(docker compose --project-name "$SAGER_STACK_NAME" \
 # Preflight has not entered maintenance: invalid settings/config preserve the
 # existing runtime. Arm failure cleanup only after the target configuration is valid.
 "${compose[@]}" config --quiet >/dev/null || fail 'Invalid Compose configuration.'
+# This wrapper may run in a helper container, so only the daemon can see the host secrets.
+# Enabled without them, the backend would refuse to start and take the SAGER down.
+if [[ $SAGER_INTEGRATIONS_WHATSAPP_ENABLED == true ]]; then
+  docker run --rm --network none --mount "type=bind,src=$SAGER_SECRETS_DIR,dst=/secrets,readonly" \
+    --entrypoint sh "$SAGER_GATEWAY_IMAGE" -c 'test -f /secrets/waha_api_key && test -f /secrets/waha_webhook_hmac' \
+    || fail 'WhatsApp is enabled but its secret files are missing.'
+fi
 
 assert_runtime_stopped() {
   local ids states state
@@ -114,4 +123,11 @@ assert_runtime_stopped || fail 'Runtime must be stopped before migration.'
 "${compose[@]}" --profile maintenance run --rm -T --no-deps --pull never initialize-runtime
 "${compose[@]}" up -d --no-build --no-deps --pull never --wait --wait-timeout 240 backend
 "${compose[@]}" up -d --no-build --no-deps --pull never --wait --wait-timeout 90 gateway
+# Optional by design: the SAGER stays up without WhatsApp, and long exits accept manual attachment.
+if [[ $SAGER_INTEGRATIONS_WHATSAPP_ENABLED == true ]]; then
+  "${compose[@]}" --profile whatsapp run --rm -T --no-deps --pull never whatsapp-gateway-prepare \
+    && "${compose[@]}" --profile whatsapp up -d --no-build --no-deps --pull never --wait \
+      --wait-timeout 90 whatsapp-gateway whatsapp-gateway-proxy \
+    || printf '%s\n' 'SAGER startup: WhatsApp gateway unavailable; the SAGER stays up.' >&2
+fi
 printf '%s\n' 'SAGER startup complete: database, backend and gateway are healthy.'

@@ -10,6 +10,7 @@ import java.util.UUID;
 import br.edu.ifgoiano.sager.audit.AuditAction;
 import br.edu.ifgoiano.sager.audit.AuditResource;
 import br.edu.ifgoiano.sager.audit.AuditService;
+import br.edu.ifgoiano.sager.management.FieldRules;
 import org.springframework.context.annotation.Profile;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -43,7 +44,7 @@ public class GuardianService {
     @Transactional
     public Guardian create(UUID residentId, String name, String relationship, String phone,
             Boolean active) {
-        CheckedInput checked = checked(residentId, name, relationship, phone, active);
+        CheckedInput checked = checked(residentId, name, relationship, phone, active, null);
         UUID id = UUID.randomUUID();
         try {
             repository.insert(id, checked.residentId(), checked.name(), checked.relationship(),
@@ -61,7 +62,7 @@ public class GuardianService {
     public Guardian update(UUID id, UUID residentId, String name, String relationship,
             String phone, Boolean active, long version) {
         Guardian current = get(id);
-        CheckedInput checked = checked(residentId, name, relationship, phone, active);
+        CheckedInput checked = checked(residentId, name, relationship, phone, active, current);
         if (current.version() != version) {
             throw new GuardianApiException(HttpStatus.CONFLICT, "stale_version",
                     "O responsável foi alterado. Recarregue o registro antes de salvar.");
@@ -100,13 +101,17 @@ public class GuardianService {
     }
 
     private CheckedInput checked(UUID residentId, String name, String relationship,
-            String phone, Boolean active) {
+            String phone, Boolean active, Guardian current) {
         if (residentId == null) {
             throw invalidInput("residentId é obrigatório.");
         }
-        String checkedName = required(name, "name", 3, 200);
+        String checkedName = checkedName(required(name, "name", 3, 200), current);
         String checkedRelationship = required(relationship, "relationship", 2, 80);
-        String checkedPhone = optional(phone, "phone", 30);
+        if ((current == null || !checkedRelationship.equals(current.relationship()))
+                && !FieldRules.hasLetter(checkedRelationship)) {
+            throw invalidInput("Escreva o vínculo com letras.");
+        }
+        String checkedPhone = checkedPhone(optional(phone, "phone", 30), current);
         if (active == null) {
             throw invalidInput("active é obrigatório.");
         }
@@ -115,6 +120,23 @@ public class GuardianService {
         }
         return new CheckedInput(residentId, checkedName, checkedRelationship,
                 checkedPhone, active);
+    }
+
+    // A assinatura compara o nome salvo exatamente: um nome que não mudou nunca é reescrito.
+    private String checkedName(String typed, Guardian current) {
+        if (current != null && typed.equals(stripEdgeSpaces(current.name()))) return current.name();
+        String normalized = FieldRules.normalizeName(typed);
+        if (!FieldRules.validName(normalized)) throw invalidInput("Digite o nome completo, como no documento.");
+        return normalized;
+    }
+
+    private String checkedPhone(String typed, Guardian current) {
+        String canonical = BrazilianPhone.canonical(typed);
+        // Com 11 dígitos, o número depois do DDD começa com 9.
+        if (canonical != null && (canonical.length() == 13 || canonical.charAt(5) == '9')) return canonical;
+        if (current != null && (Objects.equals(typed, current.phone())
+                || (canonical != null && canonical.equals(current.phone())))) return current.phone();
+        throw invalidInput("Digite o telefone com DDD.");
     }
 
     private String required(String value, String field, int minLength, int maxLength) {

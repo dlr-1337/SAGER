@@ -204,6 +204,9 @@ interface State {
   conflictOnce: boolean;
   expired: boolean;
   limit: boolean;
+  created: boolean;
+  zeroRows: boolean;
+  failResidents: boolean;
   leakRanking: boolean;
   jobs: Map<string, ReportExport>;
   writes: { path: string; body: Record<string, any>; csrf: string | undefined }[];
@@ -223,6 +226,9 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
     conflictOnce: false,
     expired: false,
     limit: false,
+    created: false,
+    zeroRows: false,
+    failResidents: false,
     leakRanking: false,
     jobs: new Map(),
     writes: [],
@@ -263,7 +269,19 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
           currentDate: '2026-09-30',
         } satisfies CleaningPolicy);
       if (path === '/quartos') return ok([room]);
-      if (path === '/residentes') return ok([resident]);
+      if (path === '/quartos/mapa')
+        return ok({
+          accommodations: [
+            { id: accommodationId, code: 'T', name: 'Alojamento Sintético', version: 0 },
+            { id: uuid(12), code: 'U', name: 'Outro Alojamento', version: 0 },
+          ],
+          units: [{ id: uuid(13), accommodationId, code: 'C1', name: 'Casa 1', version: 0 }],
+          rooms: [room, { ...room, id: uuid(112), accommodationId: uuid(12), code: 'U-201' }],
+        });
+      if (path === '/residentes')
+        return state.failResidents
+          ? route.fulfill({ status: 503, json: { message: 'db-password-secret' } })
+          : ok([resident]);
       if (path === '/alojamentos')
         return ok([{ id: accommodationId, code: 'T', name: 'Alojamento Sintético', version: 0 }]);
       if (path === '/limpeza/avaliacoes')
@@ -319,6 +337,22 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
           { month: '2026-09', unjustifiedAbsences: 3, confirmedLateReturns: 0, activeWarnings: 1 },
         ]);
       if (path === '/relatorios/catalogo') return ok(catalog);
+      if (path === '/relatorios/consultas')
+        return ok(
+          state.created
+            ? [
+                {
+                  id: state.snapshot.id,
+                  catalogCode: state.snapshot.catalogCode,
+                  filters: state.snapshot.filters,
+                  rowCount: state.snapshot.rowCount,
+                  asOf: state.snapshot.asOf,
+                  expiresAt: state.snapshot.expiresAt,
+                  exports: [...state.jobs.values()],
+                },
+              ]
+            : [],
+        );
       if (path === '/relatorios/consultas/' + snapshotId)
         return state.expired
           ? route.fulfill({ status: 410, json: { message: 'secret' } })
@@ -428,8 +462,12 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
             status: 422,
             json: { code: 'report_limit_exceeded', message: 'private-secret' },
           });
+        state.created = !state.zeroRows;
         state.snapshot = {
           ...snapshot(),
+          ...(state.zeroRows
+            ? { rowCount: 0, summary: { ...summary, totalRows: 0 }, monthly: [] }
+            : {}),
           catalogCode: body.catalogCode,
           filters: {
             from: body.filters.from,
@@ -444,6 +482,7 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
       }
       if (path === '/relatorios/consultas/' + snapshotId + '/exportacoes') {
         const id = body.format === 'PDF' ? uuid(701) : uuid(702);
+        if (state.jobs.get(id)?.status === 'FAILED') state.jobs.get(id)!.status = 'PENDING';
         if (!state.jobs.has(id))
           state.jobs.set(id, {
             id,
@@ -464,7 +503,7 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
   return state;
 }
 async function grades(page: Page, value = '6') {
-  for (const label of ['Piso', 'Superfícies', 'Resíduos', 'Organização'])
+  for (const label of ['Piso', 'Superfícies', 'Lixo', 'Organização'])
     await page.getByRole('spinbutton', { name: label, exact: false }).fill(value);
 }
 async function confirm(page: Page, action: string) {
@@ -486,13 +525,13 @@ test('supervisor registra quatro notas NOW, cancela revisão sem escrita e prese
   await page.goto('/limpeza/nova');
   await expect(page.getByRole('heading', { name: 'Registrar avaliação de limpeza' })).toBeVisible();
   expect(state.writes).toHaveLength(0);
-  await page.getByRole('button', { name: 'Revisar registro', exact: true }).click();
+  await page.getByRole('button', { name: 'Conferir avaliação', exact: true }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'quatro critérios' })).toBeVisible();
   await page.getByRole('combobox', { name: 'Quarto', exact: true }).selectOption(roomId);
   await grades(page, '0');
   await page.getByRole('spinbutton', { name: 'Piso', exact: false }).fill('0.1');
-  await expect(page.getByText('Prévia da média:', { exact: false })).toContainText('0,03');
-  const review = page.getByRole('button', { name: 'Revisar registro', exact: true });
+  await expect(page.getByText('Média:', { exact: false })).toContainText('0,03');
+  const review = page.getByRole('button', { name: 'Conferir avaliação', exact: true });
   await review.click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(
@@ -525,17 +564,17 @@ test('registro histórico exige instante não futuro e motivo; usa horário de S
   await page.getByRole('combobox', { name: 'Quarto', exact: true }).selectOption(roomId);
   await grades(page);
   await page
-    .getByRole('combobox', { name: 'Momento da avaliação', exact: true })
+    .getByRole('combobox', { name: 'Quando foi a avaliação?', exact: true })
     .selectOption('RETROACTIVE');
-  await page.getByLabel('Instante real da avaliação', { exact: false }).fill('2026-09-30T14:00');
+  await page.getByLabel('Data e hora da avaliação', { exact: false }).fill('2026-09-30T14:00');
   await page
-    .getByLabel('Justificativa do registro histórico', { exact: false })
+    .getByLabel('Por que está registrando depois?', { exact: false })
     .fill('Avaliação presencial conferida antes do registro.');
-  await page.getByRole('button', { name: 'Revisar registro', exact: true }).click();
-  await expect(page.getByRole('alert').filter({ hasText: 'não futuro' })).toBeVisible();
+  await page.getByRole('button', { name: 'Conferir avaliação', exact: true }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'no futuro' })).toBeVisible();
   expect(state.writes).toHaveLength(0);
-  await page.getByLabel('Instante real da avaliação', { exact: false }).fill('2026-09-30T12:30');
-  await page.getByRole('button', { name: 'Revisar registro', exact: true }).click();
+  await page.getByLabel('Data e hora da avaliação', { exact: false }).fill('2026-09-30T12:30');
+  await page.getByRole('button', { name: 'Conferir avaliação', exact: true }).click();
   await confirm(page, 'Confirmar avaliação');
   await expect(page).toHaveURL(new RegExp(assessmentId));
   expect(state.writes[0].body).toMatchObject({
@@ -552,13 +591,13 @@ test('correção motivada preserva instante e participantes, bloqueia versão al
   await expect(page.getByRole('heading', { name: 'Corrigir avaliação de limpeza' })).toBeVisible();
   await grades(page, '8');
   state.item.version = 1;
-  await page.getByRole('button', { name: 'Revisar correção', exact: true }).click();
-  await expect(page.getByRole('alert').filter({ hasText: 'avaliação mudou' })).toBeVisible();
+  await page.getByRole('button', { name: 'Conferir correção', exact: true }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Outra pessoa alterou' })).toBeVisible();
   expect(state.writes).toHaveLength(0);
-  await expect(page.getByRole('button', { name: 'Revisar correção', exact: true })).toBeDisabled();
-  await page.getByRole('button', { name: 'Recarregar avaliação' }).click();
+  await expect(page.getByRole('button', { name: 'Conferir correção', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Recarregar dados' }).click();
   await grades(page, '8');
-  await page.getByRole('button', { name: 'Revisar correção', exact: true }).click();
+  await page.getByRole('button', { name: 'Conferir correção', exact: true }).click();
   await page
     .getByRole('dialog')
     .getByLabel('Justificativa', { exact: true })
@@ -573,7 +612,63 @@ test('correção motivada preserva instante e participantes, bloqueia versão al
     page.getByText('Notas conferidas novamente com evidência presencial.'),
   ).toBeVisible();
   await page.reload();
-  await expect(page.getByText('Versão 0 · nota 6,00')).toBeVisible();
+  await expect(page.getByText('Nota 6,00')).toBeVisible();
+});
+test('lista de limpeza filtra por alojamento com quarto dependente', async ({ page }) => {
+  const state = await mockApi(page);
+  await page.goto('/limpeza');
+  const room = page.getByRole('combobox', { name: 'Quarto', exact: true });
+  await expect(room.locator('option')).toHaveText(['Todos os quartos', 'T-101', 'U-201']);
+  await room.selectOption(roomId);
+  await page.getByRole('combobox', { name: 'Alojamento', exact: true }).selectOption(uuid(12));
+  await expect(room).toHaveValue('');
+  await expect(room.locator('option')).toHaveText(['Todos os quartos', 'U-201']);
+  await page.getByRole('button', { name: 'Buscar avaliações', exact: true }).click();
+  await expect
+    .poll(() =>
+      state.gets.some(
+        (path) =>
+          path.startsWith('/limpeza/avaliacoes?') &&
+          path.includes('accommodationId=' + uuid(12)) &&
+          !path.includes('roomId'),
+      ),
+    )
+    .toBe(true);
+  await expect(room).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+});
+test('lista de limpeza filtra por casa ou bloco, com opções distinguíveis e cascata', async ({
+  page,
+}) => {
+  const state = await mockApi(page);
+  await page.goto('/limpeza');
+  const accommodation = page.getByRole('combobox', { name: 'Alojamento', exact: true });
+  const unit = page.getByRole('combobox', { name: 'Casa ou bloco', exact: true });
+  const room = page.getByRole('combobox', { name: 'Quarto', exact: true });
+  await expect(unit.locator('option')).toHaveText(['Todos', 'Casa 1 · Alojamento Sintético']);
+  await unit.selectOption(uuid(13));
+  await expect(room.locator('option')).toHaveText(['Todos os quartos']);
+  await page.getByRole('button', { name: 'Buscar avaliações', exact: true }).click();
+  await expect
+    .poll(() =>
+      state.gets.some(
+        (path) => path.startsWith('/limpeza/avaliacoes?') && path.includes('unitId=' + uuid(13)),
+      ),
+    )
+    .toBe(true);
+  await accommodation.selectOption(accommodationId);
+  await expect(unit).toHaveValue('');
+  await expect(unit.locator('option')).toHaveText(['Todos', 'Casa 1']);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+});
+test('registro de limpeza escolhe alojamento e casa antes do quarto', async ({ page }) => {
+  await mockApi(page);
+  await page.goto('/limpeza/nova');
+  const room = page.getByRole('combobox', { name: 'Quarto', exact: true });
+  await expect(room.locator('option')).toHaveText(['Selecione o quarto', 'T-101', 'U-201']);
+  await page.getByRole('combobox', { name: 'Alojamento', exact: true }).selectOption(uuid(12));
+  await expect(room.locator('option')).toHaveText(['Selecione o quarto', 'U-201']);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });
 test('residente consulta avaliações pela participação histórica e ranking omite notas dos outros quartos', async ({
   page,
@@ -585,18 +680,18 @@ test('residente consulta avaliações pela participação histórica e ranking o
   expect(
     state.gets.some((path) => path.startsWith('/residentes') || path.startsWith('/quartos')),
   ).toBe(false);
-  await page.getByRole('link', { name: 'Consultar avaliação', exact: false }).click();
+  await page.getByRole('link', { name: 'Ver avaliação', exact: false }).click();
   await expect(
     page.getByRole('heading', { name: 'Avaliação do quarto', exact: true }),
   ).toBeVisible();
-  await expect(page.getByText('Participantes capturados')).toHaveCount(0);
+  await expect(page.getByText('Quem estava no quarto')).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Corrigir com justificativa' })).toHaveCount(0);
   await page.goto('/ranking');
-  await expect(page.getByRole('heading', { name: 'Ranking interno de limpeza' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Ranking de limpeza' })).toBeVisible();
   await expect(page.getByText('Nota privada do quarto')).toHaveCount(3);
   expect(state.writes).toHaveLength(0);
   state.leakRanking = true;
-  await page.getByRole('button', { name: 'Consultar período', exact: true }).click();
+  await page.getByRole('button', { name: 'Ver período', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Registros indisponíveis' })).toBeVisible();
   await expect(page.getByText('Classificação ilustrativa')).toHaveCount(0);
 });
@@ -610,53 +705,126 @@ test('ranking usa posições e nulos do servidor, empates 1 1 3 e período expl�
   await expect(page.getByText('Sem posição', { exact: true })).toHaveCount(1);
   await expect(page.getByText('Sem avaliações no período', { exact: true })).toBeVisible();
   await page.getByRole('combobox', { name: 'Período', exact: true }).selectOption('SEMESTER');
-  await page.getByRole('button', { name: 'Consultar período', exact: true }).click();
+  await page.getByRole('button', { name: 'Ver período', exact: true }).click();
   await expect(
     page.getByRole('heading', { name: 'Semestre · 01/09/2026 a 30/09/2026' }),
   ).toBeVisible();
   expect(state.gets.some((path) => path.includes('period=SEMESTER'))).toBe(true);
   state.failReads = true;
-  await page.getByRole('button', { name: 'Consultar período', exact: true }).click();
+  await page.getByRole('button', { name: 'Ver período', exact: true }).click();
   await expect(
     page.getByRole('alert').filter({ hasText: 'Registros indisponíveis' }),
   ).toBeVisible();
   await expect(page.getByText('Fórmula pendente da AE')).toHaveCount(0);
   await expect(page.getByText('db-password-secret')).toHaveCount(0);
 });
-test('catálogo filtra situações pertinentes, limite inclusivo e repete mesma intenção manual sem duplicar consulta', async ({
+const ready = (state: State) => {
+  for (const job of state.jobs.values()) {
+    job.status = 'READY';
+    job.document = { id: uuid(750), sha256: 'b'.repeat(64), size: 987, state: 'STORED' };
+  }
+};
+const generate = (page: Page) =>
+  page.getByRole('button', { name: 'Gerar relatório', exact: true }).click();
+const consultWrites = (state: State) =>
+  state.writes.filter((item) => item.path === '/relatorios/consultas');
+const exportWrites = (state: State) =>
+  state.writes.filter((item) => item.path.endsWith('/exportacoes'));
+test('um clique gera PDF e Excel, a tela acompanha sozinha e o download sai com nome claro', async ({
   page,
 }) => {
   const state = await mockApi(page);
   await page.goto('/relatorios');
   await expect(page.getByRole('heading', { name: 'Relatórios', exact: true })).toBeVisible();
-  await page
-    .getByRole('combobox', { name: 'Tipo de relatório', exact: true })
-    .selectOption('TERMOS');
+  await expect(page.getByRole('radio', { name: /Presença na chamada/ })).toBeChecked();
+  await expect(page.getByText('De 01/09/2026 a 30/09/2026', { exact: true })).toBeVisible();
+  await expect(page.getByText('Nenhum relatório gerado ainda.', { exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Gerar relatório', exact: true }).dblclick();
+  await expect(page.getByText('Montando os arquivos', { exact: false })).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect(consultWrites(state)).toHaveLength(1);
+  expect(
+    exportWrites(state)
+      .map((item) => item.body.format)
+      .sort(),
+  ).toEqual(['PDF', 'XLSX']);
+  expect(state.writes.every((item) => item.csrf === 'synthetic-csrf')).toBe(true);
+  await expect(page.getByRole('button', { name: 'Baixar PDF', exact: true })).toHaveCount(0);
+
+  ready(state);
+  await expect(page.getByRole('button', { name: 'Baixar PDF', exact: true })).toBeVisible({
+    timeout: 8000,
+  });
+  await expect(page.getByRole('status').filter({ hasText: 'Pronto para baixar.' })).toBeVisible();
+  const readyGets = state.gets.length;
+  await page.waitForTimeout(3500);
+  expect(state.gets).toHaveLength(readyGets);
+
+  for (const [name, file] of [
+    ['Baixar PDF', 'relatorio-presenca-2026-09-01-a-2026-09-30.pdf'],
+    ['Baixar planilha Excel', 'relatorio-presenca-2026-09-01-a-2026-09-30.xlsx'],
+  ] as const) {
+    const download = page.waitForEvent('download');
+    await page.getByRole('button', { name, exact: true }).click();
+    expect((await download).suggestedFilename()).toBe(file);
+  }
+  expect(state.files).toHaveLength(2);
+
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Baixar PDF', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Baixar planilha Excel', exact: true }),
+  ).toBeVisible();
+  expect(consultWrites(state)).toHaveLength(1);
+});
+test('filtros ficam recolhidos e removíveis; a mesma intenção após falha não duplica', async ({
+  page,
+}) => {
+  const state = await mockApi(page);
+  await page.goto('/relatorios');
+  await page.getByRole('radio', { name: /Termos de compromisso/ }).check();
+  await expect(page.getByRole('combobox', { name: 'Situação', exact: true })).toBeHidden();
+  await page.getByText('Filtrar por alojamento', { exact: false }).click();
   await expect(
     page
       .getByRole('combobox', { name: 'Situação', exact: true })
       .getByRole('option', { name: 'Termo emitido', exact: true }),
   ).toHaveCount(1);
+  await page.getByRole('radio', { name: 'Escolher datas', exact: true }).check();
   await page.getByLabel('Data inicial', { exact: true }).fill('2025-01-01');
-  await page.getByRole('button', { name: 'Revisar consulta', exact: true }).click();
+  await generate(page);
   await expect(page.getByRole('alert').filter({ hasText: '366 dias' })).toBeVisible();
   expect(state.writes).toHaveLength(0);
   await page.getByLabel('Data inicial', { exact: true }).fill('2026-09-01');
-  await page
-    .getByRole('combobox', { name: 'Alojamento', exact: true })
-    .selectOption(accommodationId);
+  const accommodation = page.getByRole('combobox', { name: 'Alojamento', exact: true });
+  const unit = page.getByRole('combobox', { name: 'Casa ou bloco', exact: true });
+  await expect(unit.locator('option')).toHaveText([
+    'Todas as casas e blocos',
+    'Casa 1 · Alojamento Sintético',
+  ]);
+  await accommodation.selectOption(accommodationId);
+  await expect(unit.locator('option')).toHaveText(['Todas as casas e blocos', 'Casa 1']);
+  await unit.selectOption(uuid(13));
+  await accommodation.selectOption(uuid(12));
+  await expect(unit).toHaveValue('');
+  await accommodation.selectOption(accommodationId);
+  await unit.selectOption(uuid(13));
+  await page.getByRole('button', { name: 'Remover filtro Casa 1', exact: true }).click();
   await page.getByRole('combobox', { name: 'Quarto', exact: true }).selectOption(roomId);
   await page.getByRole('combobox', { name: 'Residente', exact: true }).selectOption(residentId);
   await page.getByRole('combobox', { name: 'Situação', exact: true }).selectOption('EMITIDO');
+  await expect(page.getByRole('group', { name: 'Filtros ativos' }).getByRole('button')).toHaveCount(
+    5,
+  );
   state.failWriteOnce = true;
-  await page.getByRole('button', { name: 'Revisar consulta', exact: true }).click();
-  await confirm(page, 'Preparar consulta');
-  await expect(page.getByRole('alert').filter({ hasText: 'Não foi possível' })).toBeVisible();
-  await page.getByRole('button', { name: 'Revisar consulta', exact: true }).click();
-  await confirm(page, 'Preparar consulta');
-  await expect(page).toHaveURL(new RegExp(snapshotId));
-  expect(state.writes[0].body.idempotencyKey).toBe(state.writes[1].body.idempotencyKey);
-  expect(state.writes[1].body).toMatchObject({
+  await generate(page);
+  await expect(page.getByRole('alert').filter({ hasText: 'Não deu certo' })).toBeVisible();
+  await generate(page);
+  await expect(page.getByText('Montando os arquivos', { exact: false })).toBeVisible();
+  const [first, second] = consultWrites(state);
+  expect(first.body.idempotencyKey).toBe(second.body.idempotencyKey);
+  expect(second.body).toMatchObject({
     catalogCode: 'TERMOS',
     filters: {
       from: '2026-09-01',
@@ -667,95 +835,126 @@ test('catálogo filtra situações pertinentes, limite inclusivo e repete mesma 
       status: 'EMITIDO',
     },
   });
-  await page.reload();
-  await expect(page.getByText('21 linhas', { exact: true })).toBeVisible();
-  expect(state.writes).toHaveLength(2);
+  await page.getByRole('button', { name: 'Limpar filtros', exact: true }).click();
+  await expect(page.getByRole('group', { name: 'Filtros ativos' })).toHaveCount(0);
+  await generate(page);
+  await expect.poll(() => consultWrites(state).length).toBe(3);
+  expect(consultWrites(state)[2].body.idempotencyKey).not.toBe(second.body.idempotencyKey);
+  expect(consultWrites(state)[2].body.filters).toEqual({ from: '2026-09-01', to: '2026-09-30' });
 });
-test('páginas totais séries PDF e Excel compartilham snapshot, fila manual e download real apenas READY', async ({
+test('sem registros orienta a mudar o período e nenhum arquivo é preparado', async ({ page }) => {
+  const state = await mockApi(page, { zeroRows: true });
+  await page.goto('/relatorios');
+  await generate(page);
+  await expect(
+    page.getByText('Não encontramos registros nesse período', { exact: false }),
+  ).toBeVisible();
+  expect(exportWrites(state)).toHaveLength(0);
+  await expect(page.locator('sager-report-card')).toHaveCount(0);
+  await page.getByRole('radio', { name: 'Mês passado', exact: true }).check();
+  await expect(page.getByText('De 01/08/2026 a 31/08/2026', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText('Não encontramos registros nesse período', { exact: false }),
+  ).toHaveCount(0);
+});
+test('falha mostra "Tentar de novo" e um novo preparo começa sem criar outro relatório', async ({
   page,
 }) => {
   const state = await mockApi(page);
-  await page.goto('/relatorios/consultas/' + snapshotId);
-  await expect(page.getByText('20 de 21 linhas consultadas.', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Carregar mais linhas', exact: true }).click();
-  await expect(page.getByText('21 de 21 linhas consultadas.', { exact: true })).toBeVisible();
-  expect(state.writes).toHaveLength(0);
-  await page.getByRole('button', { name: 'Preparar PDF', exact: true }).click();
-  await confirm(page, 'Solicitar preparação');
-  await expect(page.getByText('Na fila', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Baixar PDF', exact: true })).toHaveCount(0);
-  expect(state.files).toHaveLength(0);
-  const pendingGets = state.gets.filter((path) =>
-    path.startsWith('/relatorios/exportacoes'),
-  ).length;
-  await page.waitForTimeout(150);
-  expect(state.gets.filter((path) => path.startsWith('/relatorios/exportacoes')).length).toBe(
-    pendingGets,
-  );
-  for (const [format, title, id] of [
-    ['PDF', 'PDF', uuid(701)],
-    ['XLSX', 'Excel', uuid(702)],
-  ] as const) {
-    if (format === 'XLSX') {
-      await page.getByRole('button', { name: 'Preparar Excel', exact: true }).click();
-      await confirm(page, 'Solicitar preparação');
-    }
-    await expect(
-      page.getByRole('button', { name: 'Consultar preparação de ' + title, exact: true }),
-    ).toBeVisible();
-    const job = state.jobs.get(id)!;
-    job.status = 'READY';
-    job.document = { id: uuid(750), sha256: 'b'.repeat(64), size: 987, state: 'STORED' };
-    await page
-      .getByRole('button', { name: 'Consultar preparação de ' + title, exact: true })
-      .click();
-    const download = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'Baixar ' + title, exact: true }).click();
-    expect((await download).suggestedFilename()).toContain(format.toLowerCase());
+  await page.goto('/relatorios');
+  await generate(page);
+  await expect(page.getByText('Montando os arquivos', { exact: false })).toBeVisible();
+  for (const job of state.jobs.values()) {
+    job.status = 'FAILED';
+    job.errorCode = 'internal-secret';
   }
-  expect(state.writes.map((item) => item.body)).toEqual([{ format: 'PDF' }, { format: 'XLSX' }]);
-  expect(
-    state.writes.every((item) => item.path.includes(snapshotId) && item.csrf === 'synthetic-csrf'),
-  ).toBe(true);
-  expect(state.files).toHaveLength(2);
-  await page.reload();
-  await page.getByRole('button', { name: 'Preparar PDF', exact: true }).click();
-  await confirm(page, 'Solicitar preparação');
-  await expect(page.getByRole('button', { name: 'Baixar PDF', exact: true })).toBeVisible();
+  const retry = page.getByRole('button', { name: 'Tentar de novo', exact: true });
+  await expect(retry).toBeVisible({ timeout: 8000 });
+  await expect(page.getByText('internal-secret')).toHaveCount(0);
+  await retry.click();
+  await expect(page.getByText('Montando os arquivos', { exact: false })).toBeVisible();
+  expect(exportWrites(state)).toHaveLength(4);
+  expect(consultWrites(state)).toHaveLength(1);
   expect(state.jobs.size).toBe(2);
+  ready(state);
+  await expect(page.getByRole('button', { name: 'Baixar PDF', exact: true })).toBeVisible({
+    timeout: 8000,
+  });
 });
-test('consulta expirada e limite de linhas ficam explícitos sem resultado truncado ou dados demo', async ({
+test('falha na lista de residentes não impede gerar e os filtros avisam', async ({ page }) => {
+  const state = await mockApi(page, { failResidents: true });
+  await page.goto('/relatorios');
+  await page.getByText('Filtrar por alojamento', { exact: false }).click();
+  await expect(
+    page.getByText('Não foi possível carregar todas as opções de filtro', { exact: false }),
+  ).toBeVisible();
+  await expect(page.getByText('db-password-secret')).toHaveCount(0);
+  await generate(page);
+  await expect(page.getByText('Montando os arquivos', { exact: false })).toBeVisible();
+  expect(consultWrites(state)).toHaveLength(1);
+});
+test('falha da API não usa dados de demonstração', async ({ page }) => {
+  await mockApi(page, { failReads: true });
+  await page.goto('/relatorios');
+  await expect(page.getByRole('heading', { name: 'Registros indisponíveis' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Gerar relatório', exact: true })).toHaveCount(0);
+  await expect(page.getByText('Ana Luísa Ribeiro')).toHaveCount(0);
+});
+test('"Ver na tela" mostra baixar no topo, páginas de registros e nada técnico', async ({
+  page,
+}) => {
+  const state = await mockApi(page);
+  await page.goto('/relatorios');
+  await generate(page);
+  await expect(page.getByText('Montando os arquivos', { exact: false })).toBeVisible();
+  ready(state);
+  await page.goto('/relatorios');
+  await page.getByRole('link', { name: 'Ver na tela', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(snapshotId));
+  await expect(page.getByText('20 de 21 registros na tela.', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Carregar mais registros', exact: true }).click();
+  await expect(page.getByText('21 de 21 registros na tela.', { exact: true })).toBeVisible();
+  const download = await page
+    .getByRole('button', { name: 'Baixar PDF', exact: true })
+    .boundingBox();
+  const summaryHeading = await page
+    .getByRole('heading', { name: 'Resumo do período', exact: true })
+    .boundingBox();
+  expect(download!.y).toBeLessThan(summaryHeading!.y);
+  await expect(page.getByRole('main')).not.toContainText(
+    /Identificador|Residente UUID|Catálogo|recorte|SHA-256|bytes/,
+  );
+  await expect(page.getByText(snapshotId)).toHaveCount(0);
+});
+test('consulta expirada e limite de registros orientam sem resultado truncado ou dados demo', async ({
   page,
 }) => {
   const state = await mockApi(page, { expired: true });
   await page.goto('/relatorios/consultas/' + snapshotId);
   await expect(page.getByRole('alert').filter({ hasText: 'expirou' })).toBeVisible();
   await expect(page.getByText('Ana Luísa Ribeiro', { exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Preparar PDF', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Baixar PDF', exact: true })).toHaveCount(0);
   state.expired = false;
   state.limit = true;
   await page.goto('/relatorios');
-  await page.getByRole('button', { name: 'Revisar consulta', exact: true }).click();
-  await confirm(page, 'Preparar consulta');
+  await generate(page);
   await expect(
-    page.getByRole('alert').filter({ hasText: 'nenhum resultado foi truncado' }),
+    page.getByRole('alert').filter({ hasText: 'Escolha um período menor' }),
   ).toBeVisible();
   await expect(page.getByText('private-secret')).toHaveCount(0);
   expect(state.writes).toHaveLength(1);
 });
-test('indicadores reais apresentam três séries sem pontuação de comportamento com tabela acessível', async ({
+test('indicadores reais apresentam três listas sem pontuação de comportamento com tabela acessível', async ({
   page,
 }) => {
   const state = await mockApi(page, { role: 'gestor' });
   await page.goto('/relatorios/individual/' + residentId);
   await expect(
-    page.getByRole('heading', { name: 'Indicadores individuais', exact: true }),
+    page.getByRole('heading', { name: 'Evolução do residente', exact: true }),
   ).toBeVisible();
   await expect(page.getByRole('figure')).toHaveCount(3);
-  await expect(page.getByText('Escala comum de 0 a 3 registros.', { exact: true })).toHaveCount(3);
-  await expect(
-    page.getByRole('table', { name: 'Valores mensais das três séries', exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText('A barra vai de 0 a 3.', { exact: true })).toHaveCount(3);
+  await expect(page.getByRole('table', { name: 'Números de cada mês', exact: true })).toBeVisible();
   expect(
     state.gets.some(
       (path) => path.includes('/limpeza/indicadores') && path.includes('residentId=' + residentId),
@@ -775,15 +974,23 @@ test('320px sem overflow e axe, teclado em revisão, papéis protegidos e demons
   await grades(page);
   await noOverflow(page);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-  await page.getByRole('button', { name: 'Revisar registro', exact: true }).click();
+  await page.getByRole('button', { name: 'Conferir avaliação', exact: true }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await noOverflow(page);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.keyboard.press('Escape');
+  await page.goto('/relatorios');
+  await generate(page);
+  await expect(page.getByText('Montando os arquivos', { exact: false })).toBeVisible();
+  ready(state);
+  await expect(page.getByRole('button', { name: 'Baixar PDF', exact: true })).toBeVisible({
+    timeout: 8000,
+  });
+  await page.getByText('Filtrar por alojamento', { exact: false }).click();
+  await noOverflow(page);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.goto('/relatorios/consultas/' + snapshotId);
-  await expect(
-    page.getByRole('heading', { name: 'Resultados da consulta', exact: true }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Registros', exact: true })).toBeVisible();
   await noOverflow(page);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   state.role = 'gestor';
@@ -796,10 +1003,10 @@ test('320px sem overflow e axe, teclado em revisão, papéis protegidos e demons
   await page.getByRole('button', { name: /Entrar como gestor/ }).click();
   await expect(page).toHaveURL(/\/inicio$/);
   await page.goto('/relatorios');
-  await expect(
-    page.locator('.demo-tag').getByText('Dados fictícios', { exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('button', { name: 'Simular exportação PDF', exact: false }),
-  ).toBeVisible();
+  await generate(page);
+  await expect(page.getByRole('button', { name: 'Baixar PDF', exact: true })).toBeVisible({
+    timeout: 8000,
+  });
+  await page.getByRole('button', { name: 'Baixar PDF', exact: true }).click();
+  await expect(page.getByText('Na demonstração nenhum arquivo é baixado.')).toBeVisible();
 });

@@ -51,8 +51,8 @@ import {
       />
       @if (!session.active() && session.hasRole('supervisor') && !loading() && !loadError()) {
         <p class="comm-help">
-          Dois registros da mesma categoria e de origens distintas em até 90 dias podem formar uma
-          base. O candidato exige análise e decisão humana; a consulta não emite termo.
+          Duas advertências da mesma categoria, por fatos diferentes, em até 90 dias podem levar a
+          um termo. Quem decide é você: nada é emitido sozinho.
         </p>
         <div class="comm-grid">
           <div class="comm-stack">
@@ -62,9 +62,7 @@ import {
                 <p>
                   {{ candidate.minimumWarnings }} advertências · janela de
                   {{ candidate.windowDays }} dias ·
-                  {{
-                    candidate.candidate ? 'Base disponível para revisão' : 'Sem candidato elegível'
-                  }}
+                  {{ candidate.candidate ? 'Pode gerar termo' : 'Ainda não pode gerar termo' }}
                 </p>
                 @for (warning of candidate.warnings; track warning.id) {
                   <label class="comm-check"
@@ -77,21 +75,24 @@ import {
                       ><strong
                         >{{ civil(warning.warningDate) }} ·
                         {{ severities[warning.severity] }}</strong
-                      ><span class="comm-check-description">{{ warning.description }}</span
-                      ><span class="comm-check-description"
-                        >Origem {{ warning.occurrenceId }}</span
-                      ></span
+                      ><span class="comm-check-description">{{ warning.description }}</span></span
                     ></label
-                  ><a [routerLink]="['/advertencias', warning.id]">Consultar conteúdo e origem</a>
+                  ><a [routerLink]="['/advertencias', warning.id]">Ver advertência</a>
                 } @empty {
-                  <p>Nenhuma advertência elegível nesta categoria.</p>
+                  <p>Nenhuma advertência que conte nesta categoria.</p>
                 }
               </section>
             }
           </div>
           <section class="panel op-panel">
             <h2>Decisão sobre a base selecionada</h2>
-            <p>{{ selected().length }} advertência(s) selecionada(s)</p>
+            <p>
+              {{
+                selected().length === 1
+                  ? '1 advertência selecionada'
+                  : selected().length + ' advertências selecionadas'
+              }}
+            </p>
             <label class="field"
               >Justificativa da decisão<textarea
                 rows="5"
@@ -109,7 +110,7 @@ import {
               >
                 Revisar emissão de termo</button
               ><button class="btn-secondary" type="button" [disabled]="busy()" (click)="load()">
-                {{ conflict() ? 'Recarregar base' : 'Atualizar base' }}
+                {{ conflict() ? 'Recarregar dados' : 'Atualizar dados' }}
               </button>
             </div>
             @if (error()) {
@@ -123,12 +124,12 @@ import {
             @for (term of terms(); track term.id) {
               <article class="op-row">
                 <div class="op-row-main">
-                  <h3>{{ term.status === 'EMITIDO' ? 'Termo vigente' : 'Termo anulado' }}</h3>
+                  <h3>{{ term.status === 'EMITIDO' ? 'Termo valendo' : 'Termo anulado' }}</h3>
                   <p>{{ formatTime(term.issuedAt) }} · {{ term.warningIds.length }} advertências</p>
                   <p>{{ term.decision }}</p>
                 </div>
                 <a class="op-row-link" [routerLink]="['/termos', term.id]"
-                  >Consultar termo<span class="material-symbols-outlined" aria-hidden="true"
+                  >Ver termo<span class="material-symbols-outlined" aria-hidden="true"
                     >arrow_forward</span
                   ></a
                 >
@@ -255,7 +256,7 @@ export class RecurrenceLocalPage {
     const decision = this.decision.value.trim();
     const invalid = candidate
       ? recurrenceSelectionError(candidate, warningIds)
-      : 'Selecione uma base elegível da mesma categoria.';
+      : 'Selecione advertências da mesma categoria.';
     if (invalid || decision.length < 10 || decision.length > 2000) {
       this.error.set(invalid || 'Explique a decisão em 10 a 2.000 caracteres.');
       return;
@@ -288,7 +289,7 @@ export class RecurrenceLocalPage {
           CommunicationReviewResult
         >(CommunicationReviewDialogComponent, {
           data: {
-            title: 'Revisar termo de reincidência',
+            title: 'Conferir termo de compromisso',
             action: 'Confirmar emissão do termo',
             warning:
               'O termo terá conteúdo e PDF imutáveis e será publicado para o residente. A base e a decisão permanecerão preservadas.',
@@ -353,7 +354,7 @@ export class RecurrenceLocalPage {
       <header class="op-heading">
         <div>
           <a class="op-back" routerLink="/advertencias">← Advertências</a>
-          <h1>Termo de reincidência</h1>
+          <h1>Termo de compromisso</h1>
           @if (item(); as term) {
             <p>{{ term.residentName }} · emitido em {{ formatTime(term.issuedAt) }}</p>
           }
@@ -371,19 +372,18 @@ export class RecurrenceLocalPage {
         as term
       ) {
         <section class="panel op-panel">
-          <h2>{{ term.status === 'EMITIDO' ? 'Termo vigente' : 'Termo anulado' }}</h2>
+          <h2>{{ term.status === 'EMITIDO' ? 'Termo valendo' : 'Termo anulado' }}</h2>
           <p class="comm-message">{{ term.decision }}</p>
-          <h3>Advertências que formaram a base</h3>
+          <h3>Advertências que levaram a este termo</h3>
           <ul class="comm-basis">
-            @for (id of term.warningIds; track id) {
+            @for (id of term.warningIds; track id; let index = $index) {
               <li>
-                <a [routerLink]="['/advertencias', id]">Consultar advertência {{ id }}</a>
+                <a [routerLink]="['/advertencias', id]">Ver advertência {{ index + 1 }}</a>
               </li>
             }
           </ul>
           <p class="comm-help">
-            A base e o conteúdo emitido são históricos. Anulação de uma advertência ou mudança na
-            origem não apaga este termo.
+            Este termo fica guardado mesmo se uma destas advertências for anulada depois.
           </p>
           @if (term.annulmentReason) {
             <dl class="comm-definition">
@@ -395,7 +395,7 @@ export class RecurrenceLocalPage {
           }
           <div class="comm-actions">
             <a [routerLink]="['/residentes', term.residentId, 'reincidencias']"
-              >Consultar base atual do residente</a
+              >Ver advertências do residente</a
             ><button
               class="btn-secondary"
               type="button"
@@ -426,7 +426,7 @@ export class RecurrenceLocalPage {
             <p class="comm-success" role="status">{{ success() }}</p>
           }
           <button class="btn-secondary" type="button" [disabled]="busy()" (click)="load()">
-            {{ conflict() ? 'Recarregar termo' : 'Atualizar dados' }}
+            {{ conflict() ? 'Recarregar dados' : 'Atualizar dados' }}
           </button>
         </section>
       }
@@ -522,9 +522,7 @@ export class TermDetailLocalPage implements OnDestroy {
     this.error.set('');
     try {
       this.item.set(await this.api.annulTerm(item.id, item.version, reason));
-      this.success.set(
-        'Termo anulado por decisão humana. O documento e o histórico foram preservados.',
-      );
+      this.success.set('Termo anulado. O documento e o histórico continuam guardados.');
     } catch (error) {
       this.error.set(communicationsError(error));
       if (error instanceof CommunicationsApiError && error.status === 409) this.conflict.set(true);

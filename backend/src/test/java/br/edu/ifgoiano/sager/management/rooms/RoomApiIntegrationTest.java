@@ -127,12 +127,29 @@ class RoomApiIntegrationTest {
     }
 
     @Test
+    void roomAboveTheCapacityLimitEditsOtherFieldsButCannotRaiseOrChangeIt() throws Exception {
+        gestorAccount();
+        try (HttpClient client = browser()) {
+            login(client, "gestor");
+            String accommodation = accommodation(client, "DEMO-A");
+            String id = createRoom(client, room("LEGADO", "01", accommodation, null, null, 4, "Disponível"));
+            jdbc.update("UPDATE sager_room SET capacity = 500 WHERE id = ?", UUID.fromString(id));
+            assertThat(put(client, PATH + "/" + id,
+                    edit(room("LEGADO", "02", accommodation, null, null, 500, "Disponível"), 0), csrf(client))
+                    .statusCode()).isEqualTo(200);
+            assertError(put(client, PATH + "/" + id,
+                    edit(room("LEGADO", "02", accommodation, null, null, 400, "Disponível"), 1), csrf(client)),
+                    400, "invalid_input");
+        }
+    }
+
+    @Test
     void acceptsUnknownCapacityAndPositiveIntegersButRejectsInvalidNumericPayloads() throws Exception {
         gestorAccount();
         try (HttpClient client = browser()) {
             login(client, "gestor");
             String accommodation = accommodation(client, "DEMO-A");
-            for (Object capacity : new Object[] { 0, -1, 1.5, "4", true, 2147483648L }) {
+            for (Object capacity : new Object[] { 0, -1, 21, 500, 1.5, "4", true, 2147483648L }) {
                 assertError(post(client, PATH,
                         room("INVALID", "01", accommodation, null, null, capacity, "Disponível"), csrf(client)),
                         400, "invalid_input");

@@ -106,7 +106,17 @@ describe('App', () => {
     expect(fixture.componentInstance.navItems().map((item) => item.path)).toContain(
       '/comunicacoes/avisos',
     );
+    expect(fixture.componentInstance.navItems().map((item) => item.path)).toContain('/conversas');
+    expect(fixture.componentInstance.navItems().map((item) => item.path)).not.toContain(
+      '/supervisores',
+    );
     auth.principal.set({ ...account, perfis: ['gestor'] });
+    expect(fixture.componentInstance.navItems().map((item) => item.path)).toContain(
+      '/supervisores',
+    );
+    expect(fixture.componentInstance.navItems().map((item) => item.path)).not.toContain(
+      '/conversas',
+    );
     expect(fixture.componentInstance.navItems().map((item) => item.path)).toContain('/limpeza');
     expect(fixture.componentInstance.navItems().map((item) => item.path)).not.toContain(
       '/advertencias',

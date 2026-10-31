@@ -1,5 +1,13 @@
+import { ERROR_GENERIC } from '../../core/error-messages';
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import { UnsavedFormDirective, UnsavedForms } from '../../shared/unsaved-form';
+import {
+  fieldRule,
+  nameProblem,
+  phoneMask,
+  phoneProblem,
+  relationshipProblem,
+} from '../../shared/field-rules';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -49,7 +57,7 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
               >progress_activity</span
             >
             <h1>Carregando residente</h1>
-            <p>Consultando o cadastro local de teste.</p>
+            <p>Aguarde um momento.</p>
           </section>
         } @else if (loadError()) {
           <section class="mg-empty" role="alert">
@@ -84,7 +92,7 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
           @if (saved()) {
             <p class="mg-success" role="status">
               <span class="material-symbols-rounded" aria-hidden="true">check_circle</span> Cadastro
-              salvo no ambiente local de teste.
+              salvo.
             </p>
           }
           <nav class="mg-tabs segmented" aria-label="Seções do residente">
@@ -121,306 +129,304 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
               Termos
             </button>
           </nav>
-          @if (tab() === 'dados') {
-            <section class="panel mg-panel" aria-labelledby="resident-data-heading">
-              <h2 id="resident-data-heading">Identificação</h2>
-              <dl class="mg-details">
-                <div>
-                  <dt>Nome completo</dt>
-                  <dd>{{ item.name }}</dd>
+          <div class="mg-tab-panel">
+            @if (tab() === 'dados') {
+              <section class="panel mg-panel" aria-labelledby="resident-data-heading">
+                <h2 id="resident-data-heading">Identificação</h2>
+                <dl class="mg-details">
+                  <div>
+                    <dt>Nome completo</dt>
+                    <dd>{{ item.name }}</dd>
+                  </div>
+                  <div>
+                    <dt>Matrícula</dt>
+                    <dd>{{ item.enrollment }}</dd>
+                  </div>
+                  <div>
+                    <dt>Data de nascimento</dt>
+                    <dd>{{ item.birthDate ? formattedDate(item.birthDate) : 'Não informado' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Curso</dt>
+                    <dd>{{ item.course || 'Não informado' }}</dd>
+                  </div>
+                  <div>
+                    <dt>E-mail institucional</dt>
+                    <dd>{{ localResident()?.institutionalEmail || 'Não informado' }}</dd>
+                  </div>
+                </dl>
+              </section>
+              <section class="panel mg-panel" aria-labelledby="resident-allocation-heading">
+                <div class="mg-section-heading">
+                  <div>
+                    <h2 id="resident-allocation-heading">Quarto do residente</h2>
+                  </div>
                 </div>
-                <div>
-                  <dt>Matrícula</dt>
-                  <dd>{{ item.enrollment }}</dd>
-                </div>
-                <div>
-                  <dt>Data de nascimento</dt>
-                  <dd>{{ item.birthDate ? formattedDate(item.birthDate) : 'Não informado' }}</dd>
-                </div>
-                <div>
-                  <dt>Curso</dt>
-                  <dd>{{ item.course || 'Não informado' }}</dd>
-                </div>
-                <div>
-                  <dt>E-mail institucional</dt>
-                  <dd>{{ localResident()?.institutionalEmail || 'Não informado' }}</dd>
-                </div>
-              </dl>
-            </section>
-            <section class="panel mg-panel" aria-labelledby="resident-allocation-heading">
-              <div class="mg-section-heading">
-                <div>
-                  <h2 id="resident-allocation-heading">Quarto do residente</h2>
-                  <p>Vínculo local provisório. A situação do quarto é registrada separadamente.</p>
-                </div>
-              </div>
-              @if (allocationLoading()) {
-                <p class="mg-muted" role="status">Carregando alocação e quartos...</p>
-              } @else if (allocationLoadError()) {
-                <div class="mg-empty mg-empty-inline" role="alert">
-                  <h3>Não foi possível carregar a alocação</h3>
-                  <p>{{ allocationLoadError() }}</p>
-                  <button type="button" class="btn mg-secondary" (click)="loadAllocations()">
-                    Tentar novamente
-                  </button>
-                </div>
-              } @else {
-                @if (activeAllocation(); as allocation) {
-                  <p class="mg-muted">Alocado desde {{ allocationDate(allocation.startedAt) }}.</p>
-                  <p>
-                    <a [routerLink]="['/quartos', allocation.roomId]">{{
-                      roomName(allocation.roomId)
-                    }}</a>
-                  </p>
+                @if (allocationLoading()) {
+                  <p class="mg-muted" role="status">Carregando quartos…</p>
+                } @else if (allocationLoadError()) {
+                  <div class="mg-empty mg-empty-inline" role="alert">
+                    <h3>Não foi possível carregar o quarto</h3>
+                    <p>{{ allocationLoadError() }}</p>
+                    <button type="button" class="btn mg-secondary" (click)="loadAllocations()">
+                      Tentar novamente
+                    </button>
+                  </div>
                 } @else {
-                  <p class="mg-muted">Nenhum quarto ativo vinculado a este residente.</p>
-                }
-                @if (canEdit()) {
-                  <form
-                    sagerUnsaved
-                    #allocationDraft="sagerUnsaved"
-                    [sagerSaving]="allocationSaving"
-                    class="mg-inline-form"
-                    (submit)="$event.preventDefault(); saveAllocation()"
-                  >
-                    <label class="field mg-field"
-                      >{{ activeAllocation() ? 'Transferir para' : 'Alocar em' }}
-                      <select sagerSearchable [formControl]="selectedRoom" required>
-                        <option value="">Selecione um quarto</option>
-                        @for (room of allocationMap().rooms; track room.id) {
-                          <option
-                            [value]="room.id"
-                            [disabled]="
-                              !roomCanReceive(room) || room.id === activeAllocation()?.roomId
-                            "
-                          >
-                            {{ roomName(room.id) }} · {{ roomAvailability(room) }}
-                          </option>
-                        }
-                      </select>
-                    </label>
-                    <div class="action-row mg-actions">
-                      <button
-                        type="submit"
-                        class="btn mg-primary"
-                        [disabled]="allocationSaving() || !selectedRoom.value"
-                      >
-                        {{
-                          allocationSaving()
-                            ? 'Salvando...'
-                            : activeAllocation()
-                              ? 'Transferir residente'
-                              : 'Alocar residente'
-                        }}
-                      </button>
-                      @if (activeAllocation() && !confirmEnd()) {
-                        <button
-                          type="button"
-                          class="btn mg-secondary"
-                          [disabled]="allocationSaving()"
-                          (click)="confirmEnd.set(true)"
-                        >
-                          Encerrar alocação
-                        </button>
-                      }
-                    </div>
-                  </form>
-                  @if (confirmEnd()) {
-                    <div
-                      class="mg-note"
-                      role="group"
-                      aria-label="Confirmar encerramento da alocação"
+                  @if (activeAllocation(); as allocation) {
+                    <p class="mg-muted">
+                      No quarto desde {{ allocationDate(allocation.startedAt) }}.
+                    </p>
+                    <p>
+                      <a [routerLink]="['/quartos', allocation.roomId]">{{
+                        roomName(allocation.roomId)
+                      }}</a>
+                    </p>
+                  } @else {
+                    <p class="mg-muted">Nenhum quarto ativo vinculado a este residente.</p>
+                  }
+                  @if (canEdit()) {
+                    <form
+                      sagerUnsaved
+                      #allocationDraft="sagerUnsaved"
+                      [sagerSaving]="allocationSaving"
+                      class="mg-inline-form"
+                      (submit)="$event.preventDefault(); saveAllocation()"
                     >
-                      <span class="material-symbols-rounded" aria-hidden="true">info</span>
-                      <div>
-                        <p>
-                          Encerrar libera a vaga e preserva o histórico. Confirme para continuar.
-                        </p>
-                        <div class="action-row mg-actions">
-                          <button
-                            type="button"
-                            class="btn mg-primary"
-                            [disabled]="allocationSaving()"
-                            (click)="endAllocation()"
-                          >
-                            Confirmar encerramento
-                          </button>
+                      <label class="field mg-field"
+                        >{{ activeAllocation() ? 'Mudar para' : 'Colocar no quarto' }}
+                        <select sagerSearchable [formControl]="selectedRoom" required>
+                          <option value="">Selecione um quarto</option>
+                          @for (room of allocationMap().rooms; track room.id) {
+                            <option
+                              [value]="room.id"
+                              [disabled]="
+                                !roomCanReceive(room) || room.id === activeAllocation()?.roomId
+                              "
+                            >
+                              {{ roomName(room.id) }} · {{ roomAvailability(room) }}
+                            </option>
+                          }
+                        </select>
+                      </label>
+                      <div class="action-row mg-actions">
+                        <button
+                          type="submit"
+                          class="btn mg-primary"
+                          [disabled]="allocationSaving() || !selectedRoom.value"
+                        >
+                          {{
+                            allocationSaving()
+                              ? 'Salvando...'
+                              : activeAllocation()
+                                ? 'Mudar de quarto'
+                                : 'Colocar no quarto'
+                          }}
+                        </button>
+                        @if (activeAllocation() && !confirmEnd()) {
                           <button
                             type="button"
                             class="btn mg-secondary"
-                            (click)="confirmEnd.set(false)"
+                            [disabled]="allocationSaving()"
+                            (click)="confirmEnd.set(true)"
                           >
-                            Cancelar
+                            Tirar do quarto
                           </button>
+                        }
+                      </div>
+                    </form>
+                    @if (confirmEnd()) {
+                      <div class="mg-note" role="group" aria-label="Confirmar saída do quarto">
+                        <span class="material-symbols-rounded" aria-hidden="true">info</span>
+                        <div>
+                          <p>
+                            A vaga fica livre e o histórico é guardado. Confirme para continuar.
+                          </p>
+                          <div class="action-row mg-actions">
+                            <button
+                              type="button"
+                              class="btn mg-primary"
+                              [disabled]="allocationSaving()"
+                              (click)="endAllocation()"
+                            >
+                              Confirmar saída do quarto
+                            </button>
+                            <button
+                              type="button"
+                              class="btn mg-secondary"
+                              (click)="confirmEnd.set(false)"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    }
+                    @if (allocationActionError()) {
+                      <p class="mg-alert" role="alert">{{ allocationActionError() }}</p>
+                    }
                   }
-                  @if (allocationActionError()) {
-                    <p class="mg-alert" role="alert">{{ allocationActionError() }}</p>
+                  <p class="mg-muted">
+                    Só é possível colocar o residente em um quarto com vaga e disponível.
+                  </p>
+                }
+              </section>
+              <div class="mg-note">
+                <span class="material-symbols-rounded" aria-hidden="true">info</span>
+                <p>
+                  A situação do quarto é manual e não define sua ocupação.
+                  @if (!item.birthDate) {
+                    A ausência da data de nascimento não indica maioridade.
                   }
+                </p>
+              </div>
+              <section class="mg-note mg-sensitive" aria-labelledby="medical-title">
+                <span class="material-symbols-rounded" aria-hidden="true">lock</span>
+                <div>
+                  <h2 id="medical-title">Informações médicas restritas</h2>
+                  <p>
+                    As notas assistenciais têm habilitação, vínculo e partilha próprios. O perfil de
+                    gestão não concede acesso ao conteúdo.
+                  </p>
+                  <a [routerLink]="['/saude/residentes', item.id]">Ver área de saúde</a>
+                </div>
+              </section>
+            } @else if (tab() === 'responsaveis') {
+              <section class="panel mg-panel" aria-labelledby="local-guardians-heading">
+                <div class="mg-section-heading">
+                  <div>
+                    <h2 id="local-guardians-heading">Responsáveis legais</h2>
+                    <p>Pessoas ligadas a este residente.</p>
+                  </div>
+                  @if (canEdit()) {
+                    <a
+                      class="btn mg-primary"
+                      [routerLink]="['/responsaveis/novo']"
+                      [queryParams]="{ residente: item.id }"
+                    >
+                      <span class="material-symbols-rounded" aria-hidden="true">person_add</span>
+                      Vincular responsável
+                    </a>
+                  }
+                </div>
+                @if (guardiansLoading()) {
+                  <div class="mg-empty mg-empty-inline" role="status">
+                    <h3>Carregando responsáveis</h3>
+                    <p>Consultando os vínculos deste residente.</p>
+                  </div>
+                } @else if (guardiansError()) {
+                  <div class="mg-empty mg-empty-inline" role="alert">
+                    <h3>Não foi possível carregar responsáveis</h3>
+                    <p>Não deu certo. Verifique a internet e tente de novo.</p>
+                    <button type="button" class="btn mg-primary" (click)="loadLocalGuardians()">
+                      Tentar novamente
+                    </button>
+                  </div>
+                } @else if (localGuardians().length) {
+                  <div class="mg-list">
+                    @for (guardian of localGuardians(); track guardian.id) {
+                      <article class="mg-row mg-guardian-row">
+                        <div class="mg-avatar" aria-hidden="true">
+                          {{ guardian.name.slice(0, 1) }}
+                        </div>
+                        <div class="mg-row-main">
+                          <h3>{{ guardian.name }}</h3>
+                          <p>
+                            {{ guardian.relationship }} · Telefone
+                            {{ phoneMask(guardian.phone) || 'não informado' }}
+                          </p>
+                        </div>
+                        <div class="mg-row-detail">
+                          <span
+                            class="mg-status"
+                            [attr.data-tone]="guardian.active ? null : 'neutral'"
+                            ><span class="material-symbols-rounded" aria-hidden="true">{{
+                              guardian.active ? 'check_circle' : 'block'
+                            }}</span
+                            >{{ guardian.active ? 'Ativo' : 'Inativo' }}</span
+                          >
+                        </div>
+                        <a class="mg-row-link" [routerLink]="['/responsaveis', guardian.id]"
+                          >Ver detalhes
+                          <span class="material-symbols-rounded" aria-hidden="true"
+                            >arrow_forward</span
+                          ></a
+                        >
+                      </article>
+                    }
+                  </div>
+                } @else {
+                  <div class="mg-empty mg-empty-inline" role="status">
+                    <h3>Nenhum responsável vinculado</h3>
+                    <p>O cadastro do residente ainda não tem vínculos de responsáveis.</p>
+                  </div>
                 }
                 <p class="mg-muted">
-                  Capacidade definida limita novas alocações; quartos em manutenção ou indisponíveis
-                  bloqueiam entrada. Regra local provisória, sujeita à AE.
+                  Cada saída longa precisa da autorização do responsável, conferida por um servidor.
                 </p>
-              }
-            </section>
-            <div class="mg-note">
-              <span class="material-symbols-rounded" aria-hidden="true">info</span>
-              <p>
-                A situação do quarto é manual e não define sua ocupação.
-                @if (!item.birthDate) {
-                  A ausência da data de nascimento não indica maioridade.
-                }
-              </p>
-            </div>
-            <section class="mg-note mg-sensitive" aria-labelledby="medical-title">
-              <span class="material-symbols-rounded" aria-hidden="true">lock</span>
-              <div>
-                <h2 id="medical-title">Informações médicas restritas</h2>
-                <p>
-                  As notas assistenciais têm habilitação, vínculo e partilha próprios. O perfil de
-                  gestão não concede acesso ao conteúdo.
-                </p>
-                <a [routerLink]="['/saude/residentes', item.id]">Consultar área de saúde</a>
-              </div>
-            </section>
-          } @else if (tab() === 'responsaveis') {
-            <section class="panel mg-panel" aria-labelledby="local-guardians-heading">
-              <div class="mg-section-heading">
-                <div>
-                  <h2 id="local-guardians-heading">Responsáveis legais</h2>
-                  <p>Vínculos cadastrados no ambiente local de teste.</p>
-                </div>
-                @if (canEdit()) {
-                  <a
-                    class="btn mg-primary"
-                    [routerLink]="['/responsaveis/novo']"
-                    [queryParams]="{ residente: item.id }"
-                  >
-                    <span class="material-symbols-rounded" aria-hidden="true">person_add</span>
-                    Vincular responsável
-                  </a>
-                }
-              </div>
-              @if (guardiansLoading()) {
-                <div class="mg-empty mg-empty-inline" role="status">
-                  <h3>Carregando responsáveis</h3>
-                  <p>Consultando os vínculos deste residente.</p>
-                </div>
-              } @else if (guardiansError()) {
-                <div class="mg-empty mg-empty-inline" role="alert">
-                  <h3>Não foi possível carregar responsáveis</h3>
-                  <p>Confira a conexão com o backend local e tente novamente.</p>
-                  <button type="button" class="btn mg-primary" (click)="loadLocalGuardians()">
+              </section>
+            } @else if (tab() === 'historico') {
+              <section class="panel mg-panel" aria-labelledby="allocation-history-heading">
+                <h2 id="allocation-history-heading">Histórico de quartos</h2>
+                @if (allocationLoading()) {
+                  <p role="status">Carregando histórico...</p>
+                } @else if (allocationLoadError()) {
+                  <p role="alert">{{ allocationLoadError() }}</p>
+                  <button type="button" class="btn mg-secondary" (click)="loadAllocations()">
                     Tentar novamente
                   </button>
-                </div>
-              } @else if (localGuardians().length) {
-                <div class="mg-list">
-                  @for (guardian of localGuardians(); track guardian.id) {
-                    <article class="mg-row mg-guardian-row">
-                      <div class="mg-avatar" aria-hidden="true">
-                        {{ guardian.name.slice(0, 1) }}
-                      </div>
-                      <div class="mg-row-main">
-                        <h3>{{ guardian.name }}</h3>
-                        <p>
-                          {{ guardian.relationship }} · Telefone
-                          {{ guardian.phone || 'não informado' }}
-                        </p>
-                      </div>
-                      <div class="mg-row-detail">
-                        <span
-                          class="mg-status"
-                          [attr.data-tone]="guardian.active ? null : 'neutral'"
-                          ><span class="material-symbols-rounded" aria-hidden="true">{{
-                            guardian.active ? 'check_circle' : 'block'
-                          }}</span
-                          >{{ guardian.active ? 'Ativo' : 'Inativo' }}</span
-                        ><span>Assinatura pendente de definição institucional</span>
-                      </div>
-                      <a class="mg-row-link" [routerLink]="['/responsaveis', guardian.id]"
-                        >Ver detalhes
-                        <span class="material-symbols-rounded" aria-hidden="true"
-                          >arrow_forward</span
-                        ></a
-                      >
-                    </article>
-                  }
-                </div>
-              } @else {
+                } @else if (allocations().length) {
+                  <ol class="mg-timeline">
+                    @for (allocation of allocations(); track allocation.id) {
+                      <li>
+                        <time>{{ allocationDate(allocation.startedAt) }}</time>
+                        <div>
+                          <strong>{{ roomName(allocation.roomId) }}</strong>
+                          <p>
+                            {{
+                              allocation.endedAt
+                                ? (allocation.endReason === 'TRANSFER'
+                                    ? 'Transferido'
+                                    : 'Encerrado') +
+                                  ' em ' +
+                                  allocationDate(allocation.endedAt)
+                                : 'No quarto atualmente'
+                            }}
+                          </p>
+                        </div>
+                      </li>
+                    }
+                  </ol>
+                } @else {
+                  <div class="mg-empty mg-empty-inline" role="status">
+                    <h3>Nunca teve quarto</h3>
+                    <p>Este residente ainda não foi colocado em um quarto.</p>
+                  </div>
+                }
+              </section>
+            } @else {
+              <section class="panel mg-panel" aria-labelledby="resident-pending-heading">
+                <h2 id="resident-pending-heading">
+                  {{
+                    tab() === 'responsaveis'
+                      ? 'Responsáveis legais'
+                      : tab() === 'historico'
+                        ? 'Histórico individual'
+                        : 'Termos de Compromisso'
+                  }}
+                </h2>
                 <div class="mg-empty mg-empty-inline" role="status">
-                  <h3>Nenhum responsável vinculado</h3>
-                  <p>O cadastro do residente ainda não tem vínculos de responsáveis.</p>
+                  <span class="material-symbols-rounded" aria-hidden="true">schedule</span>
+                  <h3>Ainda não integrado</h3>
+                  <p>Esta seção depende de definição e integração em outra entrega da Fase 2.</p>
                 </div>
-              }
-              <p class="mg-muted">
-                A autorização de saída e a assinatura válida dependem de definição institucional.
-              </p>
-            </section>
-          } @else if (tab() === 'historico') {
-            <section class="panel mg-panel" aria-labelledby="allocation-history-heading">
-              <h2 id="allocation-history-heading">Histórico de quartos</h2>
-              @if (allocationLoading()) {
-                <p role="status">Carregando histórico...</p>
-              } @else if (allocationLoadError()) {
-                <p role="alert">{{ allocationLoadError() }}</p>
-                <button type="button" class="btn mg-secondary" (click)="loadAllocations()">
-                  Tentar novamente
-                </button>
-              } @else if (allocations().length) {
-                <ol class="mg-timeline">
-                  @for (allocation of allocations(); track allocation.id) {
-                    <li>
-                      <time>{{ allocationDate(allocation.startedAt) }}</time>
-                      <div>
-                        <strong>{{ roomName(allocation.roomId) }}</strong>
-                        <p>
-                          {{
-                            allocation.endedAt
-                              ? (allocation.endReason === 'TRANSFER'
-                                  ? 'Transferido'
-                                  : 'Encerrado') +
-                                ' em ' +
-                                allocationDate(allocation.endedAt)
-                              : 'Alocação ativa'
-                          }}
-                        </p>
-                      </div>
-                    </li>
-                  }
-                </ol>
-              } @else {
-                <div class="mg-empty mg-empty-inline" role="status">
-                  <h3>Sem alocações</h3>
-                  <p>Nenhum quarto foi vinculado a este residente.</p>
-                </div>
-              }
-            </section>
-          } @else {
-            <section class="panel mg-panel" aria-labelledby="resident-pending-heading">
-              <h2 id="resident-pending-heading">
-                {{
-                  tab() === 'responsaveis'
-                    ? 'Responsáveis legais'
-                    : tab() === 'historico'
-                      ? 'Histórico individual'
-                      : 'Termos de Compromisso'
-                }}
-              </h2>
-              <div class="mg-empty mg-empty-inline" role="status">
-                <span class="material-symbols-rounded" aria-hidden="true">schedule</span>
-                <h3>Ainda não integrado</h3>
-                <p>Esta seção depende de definição e integração em outra entrega da Fase 2.</p>
-              </div>
-            </section>
-          }
+              </section>
+            }
+          </div>
         } @else {
           <section class="mg-empty" role="alert">
             <h1>Residente não encontrado</h1>
-            <p>O cadastro solicitado não está disponível no ambiente local de teste.</p>
+            <p>Não encontramos este cadastro. Volte à lista e tente de novo.</p>
             <a class="btn mg-primary" routerLink="/residentes">Voltar aos residentes</a>
           </section>
         }
@@ -482,240 +488,251 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
           </button>
         </nav>
 
-        @if (tab() === 'dados') {
-          <section class="panel mg-panel" aria-labelledby="resident-data-heading">
-            <h2 id="resident-data-heading">Identificação e residência</h2>
-            <dl class="mg-details">
-              <div>
-                <dt>Nome completo</dt>
-                <dd>{{ item.name }}</dd>
-              </div>
-              <div>
-                <dt>Matrícula</dt>
-                <dd>{{ item.enrollment }}</dd>
-              </div>
-              <div>
-                <dt>Data de nascimento</dt>
-                <dd>{{ formattedDate(item.birthDate) }} · {{ age(item.birthDate) }} anos</dd>
-              </div>
-              <div>
-                <dt>Curso</dt>
-                <dd>{{ item.course }}</dd>
-              </div>
-              <div>
-                <dt>Quarto</dt>
-                <dd>{{ service.roomLabel(item.roomId) }}</dd>
-              </div>
-              <div>
-                <dt>Situação</dt>
-                <dd>
-                  <span
-                    class="mg-status"
-                    [attr.data-tone]="item.status === 'Ativo' ? null : 'neutral'"
-                    ><span class="material-symbols-rounded" aria-hidden="true">{{
-                      item.status === 'Ativo' ? 'check_circle' : 'block'
-                    }}</span
-                    >{{ item.status }}</span
-                  >
-                </dd>
-              </div>
-            </dl>
-          </section>
-          <section class="mg-note mg-sensitive" aria-labelledby="medical-title">
-            <span class="material-symbols-rounded" aria-hidden="true">lock</span>
-            <div>
-              <h2 id="medical-title">Informações médicas restritas</h2>
-              <p>
-                A matriz de acesso a dados médicos ainda depende de definição da AE/TI. Nenhum dado
-                médico é exibido ou armazenado nesta demonstração.
-              </p>
-            </div>
-          </section>
-        }
-
-        @if (tab() === 'responsaveis') {
-          <section class="panel mg-panel" aria-labelledby="guardians-title">
-            <div class="mg-section-heading">
-              <div>
-                <h2 id="guardians-title">Responsáveis legais</h2>
-                <p>O contato autorizado é necessário para o fluxo de saída longa.</p>
-              </div>
-              @if (canEdit() && !editingGuardian()) {
-                <button type="button" class="btn mg-primary" (click)="openGuardianForm()">
-                  <span class="material-symbols-rounded" aria-hidden="true">person_add</span>
-                  Vincular responsável
-                </button>
-              }
-            </div>
-            @if (canEdit()) {
-              @if (guardians().length) {
-                <div class="mg-list">
-                  @for (guardian of guardians(); track guardian.id) {
-                    <article class="mg-row mg-guardian-row">
-                      <div class="mg-avatar" aria-hidden="true">
-                        {{ guardian.name.slice(0, 1) }}
-                      </div>
-                      <div class="mg-row-main">
-                        <h3>{{ guardian.name }}</h3>
-                        <p>{{ guardian.relationship }} · Telefone {{ guardian.phone }}</p>
-                      </div>
-                      <div class="mg-row-detail">
-                        <span
-                          class="mg-status"
-                          [attr.data-tone]="guardian.active ? null : 'neutral'"
-                          ><span class="material-symbols-rounded" aria-hidden="true">{{
-                            guardian.active ? 'check_circle' : 'block'
-                          }}</span
-                          >{{ guardian.active ? 'Ativo' : 'Inativo' }}</span
-                        ><span>{{
-                          guardian.authorized
-                            ? 'Autorizado para assinatura'
-                            : 'Sem autorização de assinatura'
-                        }}</span>
-                      </div>
-                      <a class="mg-row-link" [routerLink]="['/responsaveis', guardian.id]"
-                        >Ver detalhes
-                        <span class="material-symbols-rounded" aria-hidden="true"
-                          >arrow_forward</span
-                        ></a
-                      ><button
-                        type="button"
-                        class="btn mg-secondary"
-                        (click)="openGuardianForm(guardian)"
-                      >
-                        Editar
-                      </button>
-                    </article>
-                  }
+        <div class="mg-tab-panel">
+          @if (tab() === 'dados') {
+            <section class="panel mg-panel" aria-labelledby="resident-data-heading">
+              <h2 id="resident-data-heading">Identificação e residência</h2>
+              <dl class="mg-details">
+                <div>
+                  <dt>Nome completo</dt>
+                  <dd>{{ item.name }}</dd>
                 </div>
+                <div>
+                  <dt>Matrícula</dt>
+                  <dd>{{ item.enrollment }}</dd>
+                </div>
+                <div>
+                  <dt>Data de nascimento</dt>
+                  <dd>{{ formattedDate(item.birthDate) }} · {{ age(item.birthDate) }} anos</dd>
+                </div>
+                <div>
+                  <dt>Curso</dt>
+                  <dd>{{ item.course }}</dd>
+                </div>
+                <div>
+                  <dt>Quarto</dt>
+                  <dd>{{ service.roomLabel(item.roomId) }}</dd>
+                </div>
+                <div>
+                  <dt>Situação</dt>
+                  <dd>
+                    <span
+                      class="mg-status"
+                      [attr.data-tone]="item.status === 'Ativo' ? null : 'neutral'"
+                      ><span class="material-symbols-rounded" aria-hidden="true">{{
+                        item.status === 'Ativo' ? 'check_circle' : 'block'
+                      }}</span
+                      >{{ item.status }}</span
+                    >
+                  </dd>
+                </div>
+              </dl>
+            </section>
+            <section class="mg-note mg-sensitive" aria-labelledby="medical-title">
+              <span class="material-symbols-rounded" aria-hidden="true">lock</span>
+              <div>
+                <h2 id="medical-title">Informações médicas restritas</h2>
+                <p>
+                  A matriz de acesso a dados médicos ainda depende de definição da AE/TI. Nenhum
+                  dado médico é exibido ou armazenado nesta demonstração.
+                </p>
+              </div>
+            </section>
+          }
+
+          @if (tab() === 'responsaveis') {
+            <section class="panel mg-panel" aria-labelledby="guardians-title">
+              <div class="mg-section-heading">
+                <div>
+                  <h2 id="guardians-title">Responsáveis legais</h2>
+                  <p>O contato autorizado é necessário para o fluxo de saída longa.</p>
+                </div>
+                @if (canEdit() && !editingGuardian()) {
+                  <button type="button" class="btn mg-primary" (click)="openGuardianForm()">
+                    <span class="material-symbols-rounded" aria-hidden="true">person_add</span>
+                    Vincular responsável
+                  </button>
+                }
+              </div>
+              @if (canEdit()) {
+                @if (guardians().length) {
+                  <div class="mg-list">
+                    @for (guardian of guardians(); track guardian.id) {
+                      <article class="mg-row mg-guardian-row">
+                        <div class="mg-avatar" aria-hidden="true">
+                          {{ guardian.name.slice(0, 1) }}
+                        </div>
+                        <div class="mg-row-main">
+                          <h3>{{ guardian.name }}</h3>
+                          <p>
+                            {{ guardian.relationship }} · Telefone {{ phoneMask(guardian.phone) }}
+                          </p>
+                        </div>
+                        <div class="mg-row-detail">
+                          <span
+                            class="mg-status"
+                            [attr.data-tone]="guardian.active ? null : 'neutral'"
+                            ><span class="material-symbols-rounded" aria-hidden="true">{{
+                              guardian.active ? 'check_circle' : 'block'
+                            }}</span
+                            >{{ guardian.active ? 'Ativo' : 'Inativo' }}</span
+                          ><span>{{
+                            guardian.authorized
+                              ? 'Autorizado para assinatura'
+                              : 'Sem autorização de assinatura'
+                          }}</span>
+                        </div>
+                        <a class="mg-row-link" [routerLink]="['/responsaveis', guardian.id]"
+                          >Ver detalhes
+                          <span class="material-symbols-rounded" aria-hidden="true"
+                            >arrow_forward</span
+                          ></a
+                        ><button
+                          type="button"
+                          class="btn mg-secondary"
+                          (click)="openGuardianForm(guardian)"
+                        >
+                          Editar
+                        </button>
+                      </article>
+                    }
+                  </div>
+                } @else {
+                  <div class="mg-empty mg-empty-inline">
+                    <h3>Nenhum responsável vinculado</h3>
+                    <p>
+                      Vincule um responsável ativo e autorizado antes de solicitar uma saída longa.
+                    </p>
+                  </div>
+                }
+                @if (editingGuardian()) {
+                  <form
+                    sagerUnsaved
+                    class="mg-inline-form"
+                    [formGroup]="guardianForm"
+                    (ngSubmit)="saveGuardian()"
+                    novalidate
+                  >
+                    <h3>{{ guardianId() ? 'Editar responsável' : 'Novo responsável' }}</h3>
+                    <div class="form-grid mg-form-grid">
+                      <label class="field mg-field"
+                        >Nome completo *<input formControlName="name" autocomplete="off" />
+                        @if (
+                          guardianForm.controls.name.invalid && guardianForm.controls.name.touched
+                        ) {
+                          <span class="mg-field-error">{{
+                            guardianForm.controls.name.errors?.['fieldRule']
+                          }}</span>
+                        }
+                      </label>
+                      <label class="field mg-field"
+                        >Parentesco com o residente *<input
+                          formControlName="relationship"
+                          placeholder="Ex.: mãe, pai ou tutor"
+                        />
+                        @if (
+                          guardianForm.controls.relationship.invalid &&
+                          guardianForm.controls.relationship.touched
+                        ) {
+                          <span class="mg-field-error">{{
+                            guardianForm.controls.relationship.errors?.['fieldRule']
+                          }}</span>
+                        }
+                      </label>
+                      <label class="field mg-field"
+                        >Telefone para o fluxo de assinatura *<input
+                          type="tel"
+                          formControlName="phone"
+                          inputmode="tel"
+                          autocomplete="off"
+                          placeholder="(62) 91234-5678"
+                          (blur)="
+                            guardianForm.controls.phone.setValue(
+                              phoneMask(guardianForm.controls.phone.value)
+                            )
+                          "
+                        />
+                        @if (
+                          guardianForm.controls.phone.invalid && guardianForm.controls.phone.touched
+                        ) {
+                          <span class="mg-field-error">{{
+                            guardianForm.controls.phone.errors?.['fieldRule']
+                          }}</span>
+                        }
+                      </label>
+                    </div>
+                    <label class="mg-check"
+                      ><input type="checkbox" formControlName="active" /> Responsável ativo</label
+                    >
+                    <label class="mg-check"
+                      ><input type="checkbox" formControlName="authorized" /> Autorizado para
+                      assinatura de saída longa</label
+                    >
+                    <p class="mg-muted">Nenhuma mensagem será enviada nesta demonstração.</p>
+                    @if (guardianError()) {
+                      <p role="alert" class="mg-alert">{{ guardianError() }}</p>
+                    }
+                    <div class="action-row mg-actions">
+                      <button type="button" class="btn mg-secondary" (click)="closeGuardianForm()">
+                        Cancelar</button
+                      ><button type="submit" class="btn mg-primary">Salvar responsável</button>
+                    </div>
+                  </form>
+                }
               } @else {
-                <div class="mg-empty mg-empty-inline">
-                  <h3>Nenhum responsável vinculado</h3>
+                <div class="mg-note">
+                  <span class="material-symbols-rounded" aria-hidden="true">lock</span>
                   <p>
-                    Vincule um responsável ativo e autorizado antes de solicitar uma saída longa.
+                    Os contatos e autorizações demonstrativos são visíveis para gestor e supervisor.
+                    Nenhuma assinatura é emitida nesta demonstração.
                   </p>
                 </div>
               }
-              @if (editingGuardian()) {
-                <form
-                  sagerUnsaved
-                  class="mg-inline-form"
-                  [formGroup]="guardianForm"
-                  (ngSubmit)="saveGuardian()"
-                  novalidate
-                >
-                  <h3>{{ guardianId() ? 'Editar responsável' : 'Novo responsável' }}</h3>
-                  <div class="form-grid mg-form-grid">
-                    <label class="field mg-field"
-                      >Nome completo *<input formControlName="name" autocomplete="name" />
-                      @if (
-                        guardianForm.controls.name.invalid && guardianForm.controls.name.touched
-                      ) {
-                        <span class="mg-field-error"
-                          >Informe o nome com pelo menos 3 caracteres.</span
-                        >
-                      }
-                    </label>
-                    <label class="field mg-field"
-                      >Vínculo com o residente *<input
-                        formControlName="relationship"
-                        placeholder="Ex.: mãe, pai ou tutor"
-                      />
-                      @if (
-                        guardianForm.controls.relationship.invalid &&
-                        guardianForm.controls.relationship.touched
-                      ) {
-                        <span class="mg-field-error">Informe o vínculo com o residente.</span>
-                      }
-                    </label>
-                    <label class="field mg-field"
-                      >Telefone para o fluxo de assinatura *<input
-                        type="tel"
-                        formControlName="phone"
-                        inputmode="tel"
-                        autocomplete="tel"
-                        placeholder="DDD e número, somente dígitos"
-                      />
-                      @if (
-                        guardianForm.controls.phone.invalid && guardianForm.controls.phone.touched
-                      ) {
-                        <span class="mg-field-error"
-                          >Informe 10 ou 11 dígitos, incluindo o DDD.</span
-                        >
-                      }
-                    </label>
-                  </div>
-                  <label class="mg-check"
-                    ><input type="checkbox" formControlName="active" /> Responsável ativo</label
-                  >
-                  <label class="mg-check"
-                    ><input type="checkbox" formControlName="authorized" /> Autorizado para
-                    assinatura de saída longa</label
-                  >
-                  <p class="mg-muted">Nenhuma mensagem será enviada nesta demonstração.</p>
-                  @if (guardianError()) {
-                    <p role="alert" class="mg-alert">{{ guardianError() }}</p>
+            </section>
+          }
+
+          @if (tab() === 'historico') {
+            <section class="panel mg-panel" aria-labelledby="history-title">
+              <h2 id="history-title">Histórico individual</h2>
+              <p class="mg-muted">
+                Eventos abaixo são exemplos fictícios. Registros reais serão fornecidos pelos
+                módulos operacionais.
+              </p>
+              @if (history().length) {
+                <ol class="mg-timeline">
+                  @for (entry of history(); track entry.id) {
+                    <li>
+                      <time>{{ formattedDate(entry.date) }}</time>
+                      <div>
+                        <strong>{{ entry.category }}</strong>
+                        <p>{{ entry.description }}</p>
+                      </div>
+                    </li>
                   }
-                  <div class="action-row mg-actions">
-                    <button type="button" class="btn mg-secondary" (click)="closeGuardianForm()">
-                      Cancelar</button
-                    ><button type="submit" class="btn mg-primary">Salvar responsável</button>
-                  </div>
-                </form>
+                </ol>
+              } @else {
+                <div class="mg-empty mg-empty-inline">
+                  <h3>Sem eventos demonstrativos</h3>
+                  <p>O histórico aparecerá aqui quando existirem registros da operação.</p>
+                </div>
               }
-            } @else {
-              <div class="mg-note">
-                <span class="material-symbols-rounded" aria-hidden="true">lock</span>
+            </section>
+          }
+
+          @if (tab() === 'termos') {
+            <section class="panel mg-panel" aria-labelledby="terms-title">
+              <h2 id="terms-title">Termos de Compromisso</h2>
+              <div class="mg-empty mg-empty-inline">
+                <span class="material-symbols-rounded" aria-hidden="true">description</span>
+                <h3>Nenhum termo disponível</h3>
                 <p>
-                  Os contatos e autorizações demonstrativos são visíveis para gestor e supervisor.
-                  Nenhuma assinatura é emitida nesta demonstração.
+                  Critérios de emissão, ciência e assinatura do Termo de Compromisso dependem de
+                  homologação pela AE. Nenhum documento é gerado nesta demonstração.
                 </p>
               </div>
-            }
-          </section>
-        }
-
-        @if (tab() === 'historico') {
-          <section class="panel mg-panel" aria-labelledby="history-title">
-            <h2 id="history-title">Histórico individual</h2>
-            <p class="mg-muted">
-              Eventos abaixo são exemplos fictícios. Registros reais serão fornecidos pelos módulos
-              operacionais.
-            </p>
-            @if (history().length) {
-              <ol class="mg-timeline">
-                @for (entry of history(); track entry.id) {
-                  <li>
-                    <time>{{ formattedDate(entry.date) }}</time>
-                    <div>
-                      <strong>{{ entry.category }}</strong>
-                      <p>{{ entry.description }}</p>
-                    </div>
-                  </li>
-                }
-              </ol>
-            } @else {
-              <div class="mg-empty mg-empty-inline">
-                <h3>Sem eventos demonstrativos</h3>
-                <p>O histórico aparecerá aqui quando existirem registros da operação.</p>
-              </div>
-            }
-          </section>
-        }
-
-        @if (tab() === 'termos') {
-          <section class="panel mg-panel" aria-labelledby="terms-title">
-            <h2 id="terms-title">Termos de Compromisso</h2>
-            <div class="mg-empty mg-empty-inline">
-              <span class="material-symbols-rounded" aria-hidden="true">description</span>
-              <h3>Nenhum termo disponível</h3>
-              <p>
-                Critérios de emissão, ciência e assinatura do Termo de Compromisso dependem de
-                homologação pela AE. Nenhum documento é gerado nesta demonstração.
-              </p>
-            </div>
-          </section>
-        }
+            </section>
+          }
+        </div>
       } @else {
         <section class="mg-empty" role="alert">
           <h1>Residente não encontrado</h1>
@@ -769,15 +786,28 @@ export class ResidentDetailComponent {
   readonly editingGuardian = signal(false);
   readonly guardianId = signal<string | null>(null);
   readonly guardianError = signal('');
+  readonly phoneMask = phoneMask;
+  private readonly savedGuardian = () => {
+    const id = this.guardianId();
+    return id ? this.service.guardian(id) : undefined;
+  };
   readonly guardianForm = new FormGroup({
     name: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.required, Validators.minLength(3)],
+      validators: [fieldRule(nameProblem, () => this.savedGuardian()?.name)],
     }),
-    relationship: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    relationship: new FormControl('', {
+      nonNullable: true,
+      validators: [fieldRule(relationshipProblem, () => this.savedGuardian()?.relationship)],
+    }),
     phone: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.required, Validators.pattern(/^\d{10,11}$/)],
+      validators: [
+        fieldRule(phoneProblem, () => {
+          const guardian = this.savedGuardian();
+          return guardian && phoneMask(guardian.phone);
+        }),
+      ],
     }),
     active: new FormControl(true, { nonNullable: true }),
     authorized: new FormControl(true, { nonNullable: true }),
@@ -803,8 +833,8 @@ export class ResidentDetailComponent {
       this.missing.set(error instanceof ResidentApiError && error.status === 404);
       this.loadError.set(
         this.missing()
-          ? 'O cadastro solicitado não está disponível no ambiente local de teste.'
-          : 'Confira a conexão com o backend local e tente novamente.',
+          ? 'Não encontramos este cadastro. Volte à lista e tente de novo.'
+          : ERROR_GENERIC,
       );
     } finally {
       this.loading.set(false);
@@ -929,7 +959,7 @@ export class ResidentDetailComponent {
     this.guardianForm.reset({
       name: guardian?.name ?? '',
       relationship: guardian?.relationship ?? '',
-      phone: guardian?.phone ?? '',
+      phone: phoneMask(guardian?.phone),
       active: guardian?.active ?? true,
       authorized: guardian?.authorized ?? true,
     });

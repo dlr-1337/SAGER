@@ -56,7 +56,7 @@ interface RoomGroup {
               {{
                 isDemo()
                   ? 'Consulte a situação e a ocupação por bloco e piso.'
-                  : 'Consulte a localização, a capacidade cadastrada e a situação manual dos quartos.'
+                  : 'Veja onde fica cada quarto, quantas vagas tem e a situação dele.'
               }}
             </p>
           </div>
@@ -64,7 +64,7 @@ interface RoomGroup {
             <div class="action-row mg-actions">
               @if (!isDemo()) {
                 <a class="btn mg-secondary" routerLink="/alojamentos">{{
-                  canEdit() ? 'Gerenciar alojamentos' : 'Consultar alojamentos'
+                  canEdit() ? 'Gerenciar alojamentos' : 'Ver alojamentos'
                 }}</a>
               }
               @if (canEdit()) {
@@ -168,7 +168,7 @@ interface RoomGroup {
                 {{
                   isDemo()
                     ? 'Este é um estado simulado para revisão da interface.'
-                    : 'Consultando os registros locais de teste.'
+                    : 'Aguarde um momento.'
                 }}
               </p>
               @if (isDemo()) {
@@ -204,7 +204,7 @@ interface RoomGroup {
                 {{
                   isDemo()
                     ? 'Este é o estado vazio da demonstração.'
-                    : 'Cadastre os alojamentos e quartos para montar o mapa. Use somente registros fictícios no ambiente local de teste.'
+                    : 'Cadastre os alojamentos e quartos para montar o mapa.'
                 }}
               </p>
               @if (isDemo()) {
@@ -299,7 +299,7 @@ interface RoomGroup {
             {{
               isDemo()
                 ? 'Estes registros são demonstrativos. A situação do quarto é registrada separadamente da quantidade de moradores.'
-                : 'Use somente dados fictícios no ambiente local de teste. A ocupação vem dos vínculos ativos; a situação do quarto é manual e independente. Capacidades em revisão podem permanecer não definidas.'
+                : 'O número de moradores vem dos cadastros. A situação do quarto é escolhida por você.'
             }}
           </p>
         </div>

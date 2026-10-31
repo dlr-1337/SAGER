@@ -8,9 +8,11 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import tools.jackson.databind.JsonNode;
 
+import java.io.IOException;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
@@ -123,10 +125,60 @@ public class LongExitController {
                         OpsInput.text(body, "comment", true, 10, 2000)));
     }
 
-    @PostMapping("/{id}/reconciliacao")
-    public ResponseEntity<LongExit> reconcile(@PathVariable UUID id, @RequestBody JsonNode body) {
-        OpsInput.object(body, "version");
-        return ok(service.reconcile(id, OpsInput.version(body)));
+    @PostMapping("/{id}/autorizacao/arquivos/{fileId}/conferencia")
+    public ResponseEntity<LongExit> confirmAuthorization(
+            @PathVariable UUID id, @PathVariable UUID fileId, @RequestBody JsonNode body) {
+        OpsInput.object(body, "version", "confirmed", "justification");
+        return ok(
+                service.confirmAuthorization(
+                        id,
+                        fileId,
+                        OpsInput.version(body),
+                        OpsInput.bool(body, "confirmed"),
+                        OpsInput.text(body, "justification", false, 1, 2000)));
+    }
+
+    @PostMapping("/{id}/autorizacao/arquivos/{fileId}/recusa")
+    public ResponseEntity<LongExit> refuseAuthorization(
+            @PathVariable UUID id, @PathVariable UUID fileId, @RequestBody JsonNode body) {
+        OpsInput.object(body, "version", "comment");
+        return ok(
+                service.refuseAuthorization(
+                        id,
+                        fileId,
+                        OpsInput.version(body),
+                        OpsInput.text(body, "comment", true, 10, 2000)));
+    }
+
+    @PostMapping(
+            value = "/{id}/autorizacao/arquivos",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<LongExit> attachAuthorization(
+            @PathVariable UUID id,
+            @RequestParam("version") long version,
+            @RequestParam("file") MultipartFile file)
+            throws IOException {
+        return ok(service.attachAuthorization(id, version, file.getBytes()));
+    }
+
+    @GetMapping("/{id}/autorizacao/arquivos/{fileId}")
+    public ResponseEntity<byte[]> authorizationFile(
+            @PathVariable UUID id, @PathVariable UUID fileId) {
+        return download(service.authorizationFile(id, fileId));
+    }
+
+    @PostMapping("/{id}/autorizacao/vinculos")
+    public ResponseEntity<LongExit> linkAuthorization(
+            @PathVariable UUID id, @RequestBody JsonNode body) {
+        OpsInput.object(body, "version", "messageId");
+        return ok(
+                service.linkAuthorization(
+                        id, OpsInput.version(body), uuid(body, "messageId", true)));
+    }
+
+    @GetMapping("/{id}/autorizacao/nao-vinculados")
+    public ResponseEntity<List<LongExitService.ReceivedFile>> unlinkedFiles(@PathVariable UUID id) {
+        return ok(service.unlinkedFiles(id));
     }
 
     @GetMapping("/{id}/documentos/{documentVersionId}/original")
@@ -178,7 +230,7 @@ public class LongExitController {
     private ResponseEntity<byte[]> download(LongExitService.Download d) {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
-                .contentType(MediaType.APPLICATION_PDF)
+                .contentType(MediaType.parseMediaType(d.mediaType()))
                 .header("X-Content-Type-Options", "nosniff")
                 .header(
                         HttpHeaders.CONTENT_DISPOSITION,

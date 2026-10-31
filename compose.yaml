@@ -38,11 +38,16 @@ services:
       SAGER_DOCUMENTS_PRIVATE_ROOT: /data/documents
       SAGER_REPORTS_PRIVATE_ROOT: /data/reports
       SAGER_PRODUCTION_RATE_LIMIT_SECRET: ${SAGER_RATE_LIMIT_SECRET:?Use ./sager up}
+      SAGER_INTEGRATIONS_WHATSAPP_ENABLED: ${SAGER_INTEGRATIONS_WHATSAPP_ENABLED:-false}
+      SAGER_INTEGRATIONS_WHATSAPP_BASE_URL: http://whatsapp-gateway-proxy:3000
+      SAGER_INTEGRATIONS_WHATSAPP_API_KEY: ${SAGER_INTEGRATIONS_WHATSAPP_API_KEY:?Use ./sager up}
+      SAGER_INTEGRATIONS_WHATSAPP_WEBHOOK_SECRET: ${SAGER_INTEGRATIONS_WHATSAPP_WEBHOOK_SECRET:?Use ./sager up}
     depends_on:
       postgres:
         condition: service_healthy
       prepare-data:
         condition: service_completed_successfully
+    networks: [default, whatsapp_api]
     ports:
       - '127.0.0.1:${SAGER_PORT:-4200}:4200'
     volumes:
@@ -65,8 +70,92 @@ services:
         condition: service_started
         restart: true
     restart: unless-stopped
+  whatsapp-gateway-prepare:
+    image: devlikeapro/waha:gows-2026.10.1@sha256:1f7faeb0227ad5edb5711f7058bfce807ea65e5f92234af0778e4db140f6eb46
+    profiles: [whatsapp]
+    user: "0:0"
+    entrypoint: [sh, -c, 'chown 10001:10001 /app/.sessions /app/.media && chmod 700 /app/.sessions /app/.media']
+    volumes:
+      - waha_sessions:/app/.sessions
+      - waha_media:/app/.media
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, FOWNER]
+    security_opt: [no-new-privileges:true]
+  whatsapp-gateway:
+    image: devlikeapro/waha:gows-2026.10.1@sha256:1f7faeb0227ad5edb5711f7058bfce807ea65e5f92234af0778e4db140f6eb46
+    profiles: [whatsapp]
+    restart: unless-stopped
+    user: "10001:10001"
+    environment:
+      WAHA_API_KEY: ${SAGER_INTEGRATIONS_WHATSAPP_API_KEY:?Use ./sager up}
+      WHATSAPP_HOOK_HMAC_KEY: ${SAGER_INTEGRATIONS_WHATSAPP_WEBHOOK_SECRET:?Use ./sager up}
+      NODE_OPTIONS: --max-old-space-size=384
+      WHATSAPP_DEFAULT_ENGINE: GOWS
+      WAHA_DASHBOARD_ENABLED: "false"
+      WHATSAPP_SWAGGER_ENABLED: "false"
+      WHATSAPP_FILES_FOLDER: /app/.media
+      WHATSAPP_FILES_LIFETIME: "86400"
+      WHATSAPP_HOOK_URL: http://whatsapp-gateway-proxy:8080/api/v1/integracoes/whatsapp/webhook
+      WHATSAPP_HOOK_EVENTS: message.any,message.ack,session.status
+      # Covers the backup and deployment windows: 15 tries, 60 s apart.
+      WHATSAPP_HOOK_RETRIES_POLICY: constant
+      WHATSAPP_HOOK_RETRIES_DELAY_SECONDS: "60"
+      WHATSAPP_HOOK_RETRIES_ATTEMPTS: "15"
+    volumes:
+      - waha_sessions:/app/.sessions
+      - waha_media:/app/.media
+    depends_on:
+      whatsapp-gateway-prepare: { condition: service_completed_successfully }
+    networks: [whatsapp_private, whatsapp_egress]
+    read_only: true
+    tmpfs: ["/tmp:rw,nosuid,size=64m"]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 768m
+    memswap_limit: 768m
+    cpus: 0.5
+    cpu_shares: 256
+    oom_score_adj: 500
+    pids_limit: 256
+    healthcheck:
+      test: [CMD, curl, -fsS, http://127.0.0.1:3000/ping]
+      start_period: 30s
+      interval: 10s
+      timeout: 5s
+      retries: 6
+  whatsapp-gateway-proxy:
+    image: nginx:1.30.0-alpine@sha256:0272e4604ed93c1792f03695a033a6e8546840f86e0de20a884bb17d2c924883
+    profiles: [whatsapp]
+    restart: unless-stopped
+    user: "101:101"
+    entrypoint: [sh, -c, "envsubst '$$SAGER_PUBLIC_HOST $$SAGER_WEBHOOK_UPSTREAM' < /etc/nginx/whatsapp-gateway-proxy.conf.template > /tmp/nginx.conf && exec nginx -c /tmp/nginx.conf -g 'daemon off;'"]
+    environment:
+      SAGER_PUBLIC_HOST: localhost
+      # The local backend binds loopback, so its webhook is reached through the dev server beside it.
+      SAGER_WEBHOOK_UPSTREAM: backend:4200
+    volumes:
+      - ./infra/production/whatsapp-gateway-proxy.conf.template:/etc/nginx/whatsapp-gateway-proxy.conf.template:ro
+    networks: [whatsapp_api, whatsapp_private]
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=8m"]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 32m
+    cpus: 0.10
+networks:
+  whatsapp_api: { internal: true }
+  whatsapp_private: { internal: true }
+  # Fixed so the host firewall can block this subnet from private ranges and the public IP.
+  whatsapp_egress:
+    ipam:
+      config:
+        - subnet: 10.250.77.0/24
 volumes:
   sager_postgres_data:
     name: ${SAGER_DB_VOLUME:-sager-local_sager_postgres_data}
   documents:
   reports:
+  waha_sessions:
+  waha_media:

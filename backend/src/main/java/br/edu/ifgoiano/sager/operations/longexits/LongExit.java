@@ -43,6 +43,9 @@ public record LongExit(
         int remainingResends,
         Capabilities capabilities,
         List<Binding> bindings,
+        List<AuthorizationFile> authorizationFiles,
+        boolean whatsappAvailable,
+        boolean deliveryUnconfirmed,
         List<History> history) {
     public static final String PENDING = "AGUARDANDO_ANALISE";
     public static final String APPROVED = "APROVADA";
@@ -65,7 +68,7 @@ public record LongExit(
             boolean canDepart,
             boolean canReturn,
             boolean canResend,
-            boolean canReconcile,
+            boolean canAttachAuthorization,
             boolean canDownloadOriginal,
             boolean canDownloadSigned) {}
 
@@ -81,8 +84,26 @@ public record LongExit(
             Instant revokedAt,
             Instant signedAt,
             Instant verifiedAt,
-            String failureCode,
-            boolean widgetAvailable) {}
+            UUID verifiedBy,
+            String verifiedByName,
+            String failureCode) {}
+
+    public record AuthorizationFile(
+            UUID id,
+            UUID documentVersionId,
+            UUID bindingId,
+            String origin,
+            String state,
+            String mediaType,
+            long size,
+            String sha256,
+            String senderPhone,
+            boolean senderDivergent,
+            Instant receivedAt,
+            UUID decidedBy,
+            String decidedByName,
+            Instant decidedAt,
+            String decisionReason) {}
 
     public record History(
             UUID id,

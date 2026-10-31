@@ -73,13 +73,17 @@ class ResidentApiIntegrationTest {
         jdbc.update("DELETE FROM spring_session");
         jdbc.update("DELETE FROM sager_local_account");
         jdbc.update("DELETE FROM sager_guardian");
+        jdbc.update("DELETE FROM sager_room_allocation");
+        jdbc.update("DELETE FROM sager_room");
+        jdbc.update("DELETE FROM sager_accommodation_unit");
+        jdbc.update("DELETE FROM sager_accommodation");
         jdbc.update("DELETE FROM sager_resident");
         jdbc.update("DELETE FROM sager_course");
         jdbc.update("DELETE FROM sager_login_rate_bucket");
     }
 
     @Test
-    void gestorCreatesReadsAndUpdatesWithRequiredBirthDateAndOptionalCourse() throws Exception {
+    void gestorCreatesReadsAndUpdatesWithRequiredBirthDateAndCourse() throws Exception {
         account("gestor");
         try (HttpClient client = browser()) {
             login(client, "gestor");
@@ -89,7 +93,7 @@ class ResidentApiIntegrationTest {
             assertThat(json.readTree(empty.body()).size()).isZero();
 
             HttpResponse<String> created = post(client, PATH,
-                    body("  Estudante Sintético  ", "  DEMO-2026-A  ", BIRTH_DATE, "  ", null),
+                    body("  Estudante Sintético  ", "  20261DEMO00000A  ", BIRTH_DATE, "Curso Inicial", null),
                     csrf(client));
             assertThat(created.statusCode()).isEqualTo(201);
             assertNoStore(created);
@@ -100,22 +104,22 @@ class ResidentApiIntegrationTest {
                     .isEqualTo(PATH + "/" + id);
             assertThat(value.size()).isEqualTo(8);
             assertThat(value.path("name").asText()).isEqualTo("Estudante Sintético");
-            assertThat(value.path("enrollment").asText()).isEqualTo("DEMO-2026-A");
+            assertThat(value.path("enrollment").asText()).isEqualTo("20261DEMO00000A");
             assertThat(value.path("birthDate").asText()).isEqualTo(BIRTH_DATE);
-            assertThat(value.path("course").isNull()).isTrue();
+            assertThat(value.path("course").asText()).isEqualTo("Curso Inicial");
             assertThat(value.path("version").asLong()).isZero();
             assertThat(json.readTree(get(client, PATH).body()).size()).isEqualTo(1);
             assertNoStore(get(client, PATH + "/" + id));
 
             HttpResponse<String> changed = put(client, PATH + "/" + id,
-                    body("Estudante Atualizado", " demo-2026-a ", "2005-04-09",
+                    body("Estudante Atualizado", " 20261demo00000a ", "2005-04-09",
                             "  Curso Sintético  ", 0), csrf(client));
             assertThat(changed.statusCode()).isEqualTo(200);
             assertNoStore(changed);
             JsonNode updated = json.readTree(changed.body());
             assertThat(updated.path("birthDate").asText()).isEqualTo("2005-04-09");
             assertThat(updated.path("course").asText()).isEqualTo("Curso Sintético");
-            assertThat(updated.path("enrollment").asText()).isEqualTo("demo-2026-a");
+            assertThat(updated.path("enrollment").asText()).isEqualTo("20261DEMO00000A");
             assertThat(updated.path("version").asLong()).isEqualTo(1);
             assertThat(json.readTree(get(client, PATH + "/" + id).body()).path("name").asText())
                     .isEqualTo("Estudante Atualizado");
@@ -131,20 +135,20 @@ class ResidentApiIntegrationTest {
         account("gestor");
         try (HttpClient client = browser()) {
             login(client, "gestor");
-            for (String invalid : List.of("{}", "{", body("Pessoa", "DEMO-A", null, null, null),
-                    body("Pessoa", "DEMO-A", "", null, null),
-                    body("Pessoa", "DEMO-A", "  ", null, null),
-                    body("AB", "DEMO-A", BIRTH_DATE, null, null),
-                    body("Pessoa", " ", BIRTH_DATE, null, null),
-                    body("Pessoa", "A".repeat(65), BIRTH_DATE, null, null),
-                    body("N".repeat(201), "DEMO-A", BIRTH_DATE, null, null),
-                    body("Pessoa", "DEMO-A", "2026-02-30", null, null),
-                    body("Pessoa", "DEMO-A", LocalDate.now().plusDays(1).toString(), null, null),
-                    body("Pessoa", "DEMO-A", BIRTH_DATE, "C".repeat(201), null),
-                    body(123, "DEMO-A", BIRTH_DATE, null, null),
-                    body("Pessoa", 123, BIRTH_DATE, null, null),
-                    body("Pessoa", "DEMO-A", 20260101, null, null),
-                    body("Pessoa", "DEMO-A", BIRTH_DATE, false, null))) {
+            for (String invalid : List.of("{}", "{", body("Pessoa Sintética", "20261DEMO00000A", null, null, null),
+                    body("Pessoa Sintética", "20261DEMO00000A", "", null, null),
+                    body("Pessoa Sintética", "20261DEMO00000A", "  ", null, null),
+                    body("AB", "20261DEMO00000A", BIRTH_DATE, null, null),
+                    body("Pessoa Sintética", " ", BIRTH_DATE, null, null),
+                    body("Pessoa Sintética", "A".repeat(65), BIRTH_DATE, null, null),
+                    body("N".repeat(201), "20261DEMO00000A", BIRTH_DATE, null, null),
+                    body("Pessoa Sintética", "20261DEMO00000A", "2026-02-30", null, null),
+                    body("Pessoa Sintética", "20261DEMO00000A", LocalDate.now().plusDays(1).toString(), null, null),
+                    body("Pessoa Sintética", "20261DEMO00000A", BIRTH_DATE, "C".repeat(201), null),
+                    body(123, "20261DEMO00000A", BIRTH_DATE, null, null),
+                    body("Pessoa Sintética", 123, BIRTH_DATE, null, null),
+                    body("Pessoa Sintética", "20261DEMO00000A", 20260101, null, null),
+                    body("Pessoa Sintética", "20261DEMO00000A", BIRTH_DATE, false, null))) {
                 assertError(post(client, PATH, invalid, csrf(client)), 400, "invalid_input");
             }
             assertError(get(client, PATH + "/not-a-uuid"), 400, "invalid_input");
@@ -154,42 +158,113 @@ class ResidentApiIntegrationTest {
     }
 
     @Test
+    void rejectsFormatsOutsideTheRulesAndNormalizesTyping() throws Exception {
+        account("gestor");
+        try (HttpClient client = browser()) {
+            login(client, "gestor");
+            String valid = "20261REGRA00001";
+            String future = (LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo")).getYear() + 1) + "1ABCD000123";
+            for (String invalid : List.of(body("Maria", valid, BIRTH_DATE, null, null),
+                    body("Ana2 Silva", valid, BIRTH_DATE, null, null),
+                    body("Pessoa Sintética", "123", BIRTH_DATE, null, null),
+                    body("Pessoa Sintética", "SAGER-QA-2026-001", BIRTH_DATE, null, null),
+                    body("Pessoa Sintética", future, BIRTH_DATE, null, null),
+                    body("Pessoa Sintética", valid, "1900-01-01", null, null),
+                    body("Pessoa Sintética", valid, LocalDate.now().toString(), null, null),
+                    body("Pessoa Sintética", valid, BIRTH_DATE, "  ", null))) {
+                assertError(post(client, PATH, invalid, csrf(client)), 400, "invalid_input");
+            }
+            var input = new LinkedHashMap<String, Object>(Map.of("name", "Pessoa Sintética", "enrollment", valid,
+                    "birthDate", BIRTH_DATE, "courseId", courseId("Curso Sintético"),
+                    "institutionalEmail", "pessoa@gmail.com", "password", PASSWORD, "passwordConfirmation", PASSWORD));
+            assertError(post(client, PATH, json.writeValueAsString(input), csrf(client)), 400, "invalid_input");
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_resident", Integer.class)).isZero();
+            input.put("institutionalEmail", "Pessoa.Silva@ESTUDANTE.ifgoiano.edu.br");
+            input.put("name", "ana   d\u2019ávila");
+            input.put("enrollment", "2017 1.abcd/000-123");
+            JsonNode created = json.readTree(post(client, PATH, json.writeValueAsString(input), csrf(client)).body());
+            assertThat(created.path("name").asText()).isEqualTo("Ana D'Ávila");
+            assertThat(created.path("enrollment").asText()).isEqualTo("20171ABCD000123");
+            assertThat(created.path("institutionalEmail").asText()).isEqualTo("pessoa.silva@estudante.ifgoiano.edu.br");
+        }
+    }
+
+    @Test
+    void legacyResidentEditsWithoutFixingUnchangedFieldsButMustChooseACourse() throws Exception {
+        account("gestor");
+        UUID id = UUID.randomUUID();
+        jdbc.update("INSERT INTO sager_resident (id, name, enrollment, birth_date, institutional_email) VALUES (?, ?, ?, ?, ?)",
+                id, "Maria", "SAGER-QA-2026-001", LocalDate.of(1900, 1, 1), "maria@gmail.com");
+        try (HttpClient client = browser()) {
+            login(client, "gestor");
+            assertThat(json.readTree(get(client, PATH + "/" + id).body()).path("course").isNull()).isTrue();
+            assertError(put(client, PATH + "/" + id, legacy("Maria", "SAGER-QA-2026-001", "1900-01-01", null, "maria@gmail.com", 0), csrf(client)),
+                    400, "invalid_input");
+            UUID course = courseId("Curso Sintético");
+            HttpResponse<String> edited = put(client, PATH + "/" + id,
+                    legacy("Maria", "SAGER-QA-2026-001", "1900-01-01", course, "maria@gmail.com", 0), csrf(client));
+            assertThat(edited.statusCode()).isEqualTo(200);
+            JsonNode value = json.readTree(edited.body());
+            assertThat(value.path("name").asText()).isEqualTo("Maria");
+            assertThat(value.path("enrollment").asText()).isEqualTo("SAGER-QA-2026-001");
+            assertThat(auditRows(id).getLast().fields()).containsExactlyInAnyOrder("course", "courseId");
+            for (String changed : List.of(legacy("Mariana", "SAGER-QA-2026-001", "1900-01-01", course, "maria@gmail.com", 1),
+                    legacy("Maria", "SAGER-QA-2026-002", "1900-01-01", course, "maria@gmail.com", 1),
+                    legacy("Maria", "SAGER-QA-2026-001", "1900-01-02", course, "maria@gmail.com", 1),
+                    legacy("Maria", "SAGER-QA-2026-001", "1900-01-01", course, "nova@gmail.com", 1))) {
+                assertError(put(client, PATH + "/" + id, changed, csrf(client)), 400, "invalid_input");
+            }
+        }
+    }
+
+    private String legacy(String name, String enrollment, String birthDate, UUID course, String email, long version) {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("name", name);
+        fields.put("enrollment", enrollment);
+        fields.put("birthDate", birthDate);
+        fields.put("courseId", course);
+        fields.put("institutionalEmail", email);
+        fields.put("version", version);
+        return json.writeValueAsString(fields);
+    }
+
+    @Test
     void duplicateEnrollmentAndStaleVersionDoNotOverwriteOtherRecords() throws Exception {
         account("gestor");
         try (HttpClient client = browser()) {
             login(client, "gestor");
-            String first = create(client, "Estudante Primeiro", "DEMO-2026-A");
-            String second = create(client, "Estudante Segundo", "DEMO-2026-B");
+            String first = create(client, "Estudante Primeiro", "20261DEMO00000A");
+            String second = create(client, "Estudante Segundo", "20261DEMO00000B");
             assertError(post(client, PATH,
-                    body("Estudante Duplicado", " demo-2026-a ", BIRTH_DATE, null, null), csrf(client)),
+                    body("Estudante Duplicado", " 20261demo00000a ", BIRTH_DATE, null, null), csrf(client)),
                     409, "duplicate_enrollment");
             assertError(put(client, PATH + "/" + second,
-                    body("Estudante Segundo", "DEMO-2026-A", BIRTH_DATE, null, 0), csrf(client)),
+                    body("Estudante Segundo", "20261DEMO00000A", BIRTH_DATE, null, 0), csrf(client)),
                     409, "duplicate_enrollment");
-            String fresh = body("Estudante Primeiro Atualizado", "DEMO-2026-A", BIRTH_DATE, null, 0);
+            String fresh = body("Estudante Primeiro Atualizado", "20261DEMO00000A", BIRTH_DATE, null, 0);
             assertThat(put(client, PATH + "/" + first, fresh, csrf(client)).statusCode())
                     .isEqualTo(200);
             assertError(put(client, PATH + "/" + first,
-                    body("Alteração Perdida", "DEMO-2026-A", BIRTH_DATE, null, 0), csrf(client)),
+                    body("Alteração Perdida", "20261DEMO00000A", BIRTH_DATE, null, 0), csrf(client)),
                     409, "stale_version");
             for (Object invalidVersion : List.of(-1, 0.5, "0", Long.MAX_VALUE, true)) {
                 assertError(put(client, PATH + "/" + first,
-                        body("Estudante Primeiro", "DEMO-2026-A", BIRTH_DATE, null, invalidVersion),
+                        body("Estudante Primeiro", "20261DEMO00000A", BIRTH_DATE, null, invalidVersion),
                         csrf(client)), 400, "invalid_input");
             }
             assertError(put(client, PATH + "/" + first,
-                    body("Estudante Primeiro", "DEMO-2026-A", BIRTH_DATE, null, null), csrf(client)),
+                    body("Estudante Primeiro", "20261DEMO00000A", BIRTH_DATE, null, null), csrf(client)),
                     400, "invalid_input");
             for (Object missingDate : List.of("", "   ")) {
                 assertError(put(client, PATH + "/" + first,
-                        body("Estudante Primeiro", "DEMO-2026-A", missingDate, null, 1),
+                        body("Estudante Primeiro", "20261DEMO00000A", missingDate, null, 1),
                         csrf(client)), 400, "invalid_input");
             }
             assertError(put(client, PATH + "/" + first,
-                    body("Estudante Primeiro", "DEMO-2026-A", null, null, 1), csrf(client)),
+                    body("Estudante Primeiro", "20261DEMO00000A", null, null, 1), csrf(client)),
                     400, "invalid_input");
             assertError(put(client, PATH + "/" + first,
-                    "{\"name\":\"Estudante Primeiro\",\"enrollment\":\"DEMO-2026-A\",\"version\":1}",
+                    "{\"name\":\"Estudante Primeiro\",\"enrollment\":\"20261DEMO00000A\",\"version\":1}",
                     csrf(client)), 400, "invalid_input");
             assertError(put(client, PATH + "/" + UUID.randomUUID(), fresh, csrf(client)),
                     404, "not_found");
@@ -197,7 +272,7 @@ class ResidentApiIntegrationTest {
             assertThat(value.path("name").asText()).isEqualTo("Estudante Primeiro Atualizado");
             assertThat(value.path("version").asLong()).isEqualTo(1);
             assertThat(json.readTree(get(client, PATH + "/" + second).body())
-                    .path("enrollment").asText()).isEqualTo("DEMO-2026-B");
+                    .path("enrollment").asText()).isEqualTo("20261DEMO00000B");
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_resident", Integer.class)).isEqualTo(2);
         }
     }
@@ -208,20 +283,19 @@ class ResidentApiIntegrationTest {
         try (HttpClient client = browser()) {
             login(client, "gestor");
             HttpResponse<String> created = post(client, PATH,
-                    body("\u00a0Estudante Sintético\u2003", "\u00a0DEMO-2026-A\u2003", BIRTH_DATE,
-                            "\u00a0\u2003", null), csrf(client));
+                    body("\u00a0Estudante Sintético\u2003", "\u00a020261DEMO00000A\u2003", BIRTH_DATE,
+                            null, null), csrf(client));
             assertThat(created.statusCode()).isEqualTo(201);
             JsonNode value = json.readTree(created.body());
             assertThat(value.path("name").asText()).isEqualTo("Estudante Sintético");
-            assertThat(value.path("enrollment").asText()).isEqualTo("DEMO-2026-A");
-            assertThat(value.path("course").isNull()).isTrue();
+            assertThat(value.path("enrollment").asText()).isEqualTo("20261DEMO00000A");
 
             assertError(post(client, PATH,
-                    body("Outra Pessoa", "demo-2026-a\u00a0", BIRTH_DATE, null, null), csrf(client)),
+                    body("Outra Pessoa", "20261demo00000a\u00a0", BIRTH_DATE, null, null), csrf(client)),
                     409, "duplicate_enrollment");
-            String otherId = create(client, "Estudante Segundo", "DEMO-2026-B");
+            String otherId = create(client, "Estudante Segundo", "20261DEMO00000B");
             assertError(put(client, PATH + "/" + otherId,
-                    body("Estudante Segundo", "\u2003demo-2026-a", BIRTH_DATE, null, 0), csrf(client)),
+                    body("Estudante Segundo", "\u200320261demo00000a", BIRTH_DATE, null, 0), csrf(client)),
                     409, "duplicate_enrollment");
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_resident", Integer.class))
                     .isEqualTo(2);
@@ -236,7 +310,7 @@ class ResidentApiIntegrationTest {
                 UUID.class, "gestor@example.invalid");
         try (HttpClient client = browser()) {
             login(client, "gestor");
-            UUID id = UUID.fromString(create(client, "Estudante Privado", "AUDIT-PRIVATE-2026"));
+            UUID id = UUID.fromString(create(client, "Estudante Privado", "20261AUDIT00001"));
             List<AuditRow> created = auditRows(id);
             assertThat(created).hasSize(1);
             AuditRow first = created.getFirst();
@@ -249,14 +323,14 @@ class ResidentApiIntegrationTest {
             assertThat(first.requestId()).isNotNull();
             assertThat(jdbc.queryForObject("SELECT row_to_json(event)::text FROM sager_audit_event event "
                     + "WHERE resource_id = ?", String.class, id))
-                    .doesNotContain("Estudante Privado", "AUDIT-PRIVATE-2026", BIRTH_DATE,
+                    .doesNotContain("Estudante Privado", "20261AUDIT00001", BIRTH_DATE,
                             "gestor@example.invalid", PASSWORD);
 
             assertThat(get(client, PATH).statusCode()).isEqualTo(200);
             assertThat(get(client, PATH + "/" + id).statusCode()).isEqualTo(200);
             assertThat(auditRows(id)).hasSize(1);
             assertThat(put(client, PATH + "/" + id,
-                    body("\u00a0Estudante Privado\u2003", "AUDIT-PRIVATE-2026", BIRTH_DATE,
+                    body("\u00a0Estudante Privado\u2003", "20261AUDIT00001", BIRTH_DATE,
                             "  Curso Privado  ", 0), csrf(client)).statusCode()).isEqualTo(200);
             List<AuditRow> updated = auditRows(id);
             assertThat(updated).hasSize(2);
@@ -266,18 +340,18 @@ class ResidentApiIntegrationTest {
             assertThat(updated.getLast().requestId()).isNotEqualTo(first.requestId());
 
             assertThat(put(client, PATH + "/" + id,
-                    body("Estudante Privado", "AUDIT-PRIVATE-2026", BIRTH_DATE,
+                    body("Estudante Privado", "20261AUDIT00001", BIRTH_DATE,
                             "Curso Privado", 1), csrf(client)).statusCode()).isEqualTo(200);
             assertThat(auditRows(id).getLast().fields()).isEmpty();
             assertThat(auditRows(id).getLast().version()).isEqualTo(2);
             assertError(put(client, PATH + "/" + id,
-                    body("Outra Pessoa", "AUDIT-PRIVATE-2026", BIRTH_DATE, null, 1), csrf(client)),
+                    body("Outra Pessoa", "20261AUDIT00001", BIRTH_DATE, null, 1), csrf(client)),
                     409, "stale_version");
             assertError(put(client, PATH + "/" + id,
-                    body("AB", "AUDIT-PRIVATE-2026", BIRTH_DATE, null, 2), csrf(client)),
+                    body("AB", "20261AUDIT00001", BIRTH_DATE, null, 2), csrf(client)),
                     400, "invalid_input");
             assertError(post(client, PATH,
-                    body("Outra Pessoa", "AUDIT-PRIVATE-2026", BIRTH_DATE, null, null), csrf(client)),
+                    body("Outra Pessoa", "20261AUDIT00001", BIRTH_DATE, null, null), csrf(client)),
                     409, "duplicate_enrollment");
             assertThat(auditRows(id)).hasSize(3);
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_audit_event WHERE actor_id = ?",
@@ -307,10 +381,10 @@ class ResidentApiIntegrationTest {
         try (HttpClient client = browser()) {
             login(client, "gestor");
             assertThat(post(client, PATH,
-                    body("Estudante Novo", "AUDIT-ROLLBACK-CREATE", BIRTH_DATE, null, null), csrf(client))
+                    body("Estudante Novo", "20261AUDIT00002", BIRTH_DATE, null, null), csrf(client))
                     .statusCode()).isEqualTo(500);
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_resident WHERE enrollment = ?",
-                    Integer.class, "AUDIT-ROLLBACK-CREATE")).isZero();
+                    Integer.class, "20261AUDIT00002")).isZero();
             assertThat(put(client, PATH + "/" + id,
                     body("Estudante Modificado", "AUDIT-ROLLBACK-UPDATE", BIRTH_DATE, null, 0), csrf(client))
                     .statusCode()).isEqualTo(500);
@@ -332,13 +406,13 @@ class ResidentApiIntegrationTest {
         try (HttpClient one = browser(); HttpClient two = browser()) {
             login(one, "gestor");
             login(two, "gestor");
-            UUID id = UUID.fromString(create(one, "Estudante Original", "AUDIT-CONCURRENT"));
+            UUID id = UUID.fromString(create(one, "Estudante Original", "20261AUDIT00003"));
             String tokenOne = csrf(one);
             String tokenTwo = csrf(two);
             CompletableFuture<Integer> nameChange = CompletableFuture.supplyAsync(() -> parallelUpdate(
-                    one, id, body("Estudante Atualizado", "AUDIT-CONCURRENT", BIRTH_DATE, null, 0), tokenOne));
+                    one, id, body("Estudante Atualizado", "20261AUDIT00003", BIRTH_DATE, null, 0), tokenOne));
             CompletableFuture<Integer> courseChange = CompletableFuture.supplyAsync(() -> parallelUpdate(
-                    two, id, body("Estudante Original", "AUDIT-CONCURRENT", BIRTH_DATE, "Curso Novo", 0), tokenTwo));
+                    two, id, body("Estudante Original", "20261AUDIT00003", BIRTH_DATE, "Curso Novo", 0), tokenTwo));
             assertThat(List.of(nameChange.join(), courseChange.join())).containsExactlyInAnyOrder(200, 409);
             List<AuditRow> rows = auditRows(id);
             assertThat(rows).hasSize(2);
@@ -358,11 +432,11 @@ class ResidentApiIntegrationTest {
         String id;
         try (HttpClient gestor = browser()) {
             login(gestor, "gestor");
-            id = create(gestor, "Estudante Exemplo", "DEMO-2026-A");
-            assertThat(post(gestor, PATH, body("Outro Estudante", "DEMO-2026-B", BIRTH_DATE, null, null),
+            id = create(gestor, "Estudante Exemplo", "20261DEMO00000A");
+            assertThat(post(gestor, PATH, body("Outro Estudante", "20261DEMO00000B", BIRTH_DATE, null, null),
                     null).statusCode()).isEqualTo(403);
             assertThat(put(gestor, PATH + "/" + id,
-                    body("Estudante Exemplo", "DEMO-2026-A", BIRTH_DATE, null, 0), null).statusCode())
+                    body("Estudante Exemplo", "20261DEMO00000A", BIRTH_DATE, null, 0), null).statusCode())
                     .isEqualTo(403);
         }
         try (HttpClient supervisor = browser()) {
@@ -370,10 +444,10 @@ class ResidentApiIntegrationTest {
             assertThat(get(supervisor, PATH).statusCode()).isEqualTo(200);
             assertThat(get(supervisor, PATH + "/" + id).statusCode()).isEqualTo(200);
             assertThat(post(supervisor, PATH,
-                    body("Outro Estudante", "DEMO-2026-B", BIRTH_DATE, null, null), csrf(supervisor))
+                    body("Outro Estudante", "20261DEMO00000B", BIRTH_DATE, null, null), csrf(supervisor))
                     .statusCode()).isEqualTo(201);
             assertThat(put(supervisor, PATH + "/" + id,
-                    body("Estudante Editado", "DEMO-2026-A", BIRTH_DATE, null, 0), csrf(supervisor))
+                    body("Estudante Editado", "20261DEMO00000A", BIRTH_DATE, null, 0), csrf(supervisor))
                     .statusCode()).isEqualTo(200);
             provisioning.disable("supervisor@example.invalid");
             assertThat(get(supervisor, PATH).statusCode()).isEqualTo(401);
@@ -385,16 +459,16 @@ class ResidentApiIntegrationTest {
                 assertThat(get(anonymous, path).statusCode()).isEqualTo(401);
             }
             assertThat(post(residente, PATH,
-                    body("Outro Estudante", "DEMO-2026-C", BIRTH_DATE, null, null), csrf(residente))
+                    body("Outro Estudante", "20261DEMO00000C", BIRTH_DATE, null, null), csrf(residente))
                     .statusCode()).isEqualTo(403);
             assertThat(post(anonymous, PATH,
-                    body("Outro Estudante", "DEMO-2026-C", BIRTH_DATE, null, null), csrf(anonymous))
+                    body("Outro Estudante", "20261DEMO00000C", BIRTH_DATE, null, null), csrf(anonymous))
                     .statusCode()).isEqualTo(401);
             assertThat(put(residente, PATH + "/" + id,
-                    body("Estudante Exemplo", "DEMO-2026-A", BIRTH_DATE, null, 1), csrf(residente))
+                    body("Estudante Exemplo", "20261DEMO00000A", BIRTH_DATE, null, 1), csrf(residente))
                     .statusCode()).isEqualTo(403);
             assertThat(put(anonymous, PATH + "/" + id,
-                    body("Estudante Exemplo", "DEMO-2026-A", BIRTH_DATE, null, 1), csrf(anonymous))
+                    body("Estudante Exemplo", "20261DEMO00000A", BIRTH_DATE, null, 1), csrf(anonymous))
                     .statusCode()).isEqualTo(401);
         }
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_resident", Integer.class)).isEqualTo(2);
@@ -425,19 +499,19 @@ class ResidentApiIntegrationTest {
     }
 
     @Test
-    void createsLinkedLoginAtomicallyAndPreservesLeadingZeroes() throws Exception {
+    void createsLinkedLoginAtomically() throws Exception {
         account("gestor");
         try (HttpClient manager = browser(); HttpClient resident = browser()) {
             login(manager, "gestor");
-            String id = create(manager, "Residente Sintético", "0012345");
-            assertThat(jdbc.queryForObject("SELECT resident_id FROM sager_local_account WHERE enrollment='0012345'", UUID.class)).isEqualTo(UUID.fromString(id));
-            assertThat(jdbc.queryForObject("SELECT profile FROM sager_local_account WHERE enrollment='0012345'", String.class)).isEqualTo("residente");
-            assertThat(form(resident, "/api/v1/auth/login", Map.of("matricula","0012345","password",PASSWORD)).statusCode()).isEqualTo(204);
-            assertThat(json.readTree(get(resident,"/api/v1/auth/me").body()).path("matricula").asText()).isEqualTo("0012345");
-            assertThat(form(browser(), "/api/v1/auth/login", Map.of("email","0012345","password",PASSWORD)).statusCode()).isEqualTo(401);
-            assertThat(form(browser(), "/api/v1/auth/login", Map.of("matricula","12345","password",PASSWORD)).statusCode()).isEqualTo(401);
-            String textualEnrollment=UUID.randomUUID().toString();String textualId=create(manager,"Matrícula Textual",textualEnrollment);
-            assertThat(jdbc.queryForObject("SELECT enrollment FROM sager_local_account WHERE resident_id=?",String.class,UUID.fromString(textualId))).isEqualTo(textualEnrollment);
+            String id = create(manager, "Residente Sintético", "2026100000012345");
+            assertThat(jdbc.queryForObject("SELECT resident_id FROM sager_local_account WHERE enrollment='2026100000012345'", UUID.class)).isEqualTo(UUID.fromString(id));
+            assertThat(jdbc.queryForObject("SELECT profile FROM sager_local_account WHERE enrollment='2026100000012345'", String.class)).isEqualTo("residente");
+            assertThat(form(resident, "/api/v1/auth/login", Map.of("matricula","2026100000012345","password",PASSWORD)).statusCode()).isEqualTo(204);
+            assertThat(json.readTree(get(resident,"/api/v1/auth/me").body()).path("matricula").asText()).isEqualTo("2026100000012345");
+            assertThat(form(browser(), "/api/v1/auth/login", Map.of("email","2026100000012345","password",PASSWORD)).statusCode()).isEqualTo(401);
+            assertThat(form(browser(), "/api/v1/auth/login", Map.of("matricula","2026100000012346","password",PASSWORD)).statusCode()).isEqualTo(401);
+            String textualId=create(manager,"Matrícula Textual","20171-abcd.000123");
+            assertThat(jdbc.queryForObject("SELECT enrollment FROM sager_local_account WHERE resident_id=?",String.class,UUID.fromString(textualId))).isEqualTo("20171ABCD000123");
         }
     }
 
@@ -447,19 +521,19 @@ class ResidentApiIntegrationTest {
         account("gestor");
         try (HttpClient manager = browser(); HttpClient resident = browser()) {
             login(manager, "gestor");
-            UUID id = UUID.fromString(create(manager, "Pessoa Sintética", "cad-res-001"));
+            UUID id = UUID.fromString(create(manager, "Pessoa Sintética", "20261CADRES00001"));
             var linked = provisioning.list().stream().filter(a -> id.equals(a.residentId())).findFirst().orElseThrow();
             provisioning.assignEnrollment(linked.id(), "acesso-res-001");
             var assigned = provisioning.list().stream().filter(a -> a.id().equals(linked.id())).findFirst().orElseThrow();
             if (originalEnrollmentOccupied)
-                provisioning.create("cad-res-001", null, "Outra Conta Sintética", "saude", PASSWORD.toCharArray());
+                provisioning.create("20261CADRES00001", null, "Outra Conta Sintética", "saude", PASSWORD.toCharArray());
             assertThat(form(resident, "/api/v1/auth/login", Map.of("matricula", assigned.enrollment(), "password", PASSWORD)).statusCode()).isEqualTo(204);
 
             HttpResponse<String> updated = put(manager, PATH + "/" + id,
-                    body("Nome Editado", " cad-res-001 ", BIRTH_DATE, null, 0), csrf(manager));
+                    body("Nome Editado", " 20261CADRES00001 ", BIRTH_DATE, null, 0), csrf(manager));
             assertThat(updated.statusCode()).isEqualTo(200);
             assertThat(json.readTree(updated.body()).path("name").asText()).isEqualTo("Nome Editado");
-            assertThat(json.readTree(updated.body()).path("enrollment").asText()).isEqualTo("cad-res-001");
+            assertThat(json.readTree(updated.body()).path("enrollment").asText()).isEqualTo("20261CADRES00001");
             assertThat(provisioning.list()).contains(assigned);
             assertThat(auditRows(id).getLast().fields()).containsExactly("name");
             HttpResponse<String> me = get(resident, "/api/v1/auth/me");
@@ -474,17 +548,17 @@ class ResidentApiIntegrationTest {
         account("gestor");
         try (HttpClient manager = browser(); HttpClient resident = browser()) {
             login(manager, "gestor");
-            UUID id = UUID.fromString(create(manager, "Pessoa Sintética", "cad-res-001"));
+            UUID id = UUID.fromString(create(manager, "Pessoa Sintética", "20261CADRES00001"));
             var linked = provisioning.list().stream().filter(a -> id.equals(a.residentId())).findFirst().orElseThrow();
             provisioning.assignEnrollment(linked.id(), "acesso-res-001");
             var assigned = provisioning.list().stream().filter(a -> a.id().equals(linked.id())).findFirst().orElseThrow();
-            provisioning.create("ocupada-res-001", null, "Outra Conta Sintética", "saude", PASSWORD.toCharArray());
+            provisioning.create("20261OCUPADA0001", null, "Outra Conta Sintética", "saude", PASSWORD.toCharArray());
             assertThat(form(resident, "/api/v1/auth/login", Map.of("matricula", assigned.enrollment(), "password", PASSWORD)).statusCode()).isEqualTo(204);
             String before = get(manager, PATH + "/" + id).body();
             int audits = auditRows(id).size();
 
             assertError(put(manager, PATH + "/" + id,
-                    body("Não Persistir", "ocupada-res-001", BIRTH_DATE, null, 0), csrf(manager)),
+                    body("Não Persistir", "20261OCUPADA0001", BIRTH_DATE, null, 0), csrf(manager)),
                     409, "duplicate_enrollment");
             assertThat(get(manager, PATH + "/" + id).body()).isEqualTo(before);
             assertThat(provisioning.list()).contains(assigned);
@@ -492,9 +566,9 @@ class ResidentApiIntegrationTest {
             assertThat(get(resident, "/api/v1/auth/me").statusCode()).isEqualTo(200);
 
             assertThat(put(manager, PATH + "/" + id,
-                    body("Nome Editado", "nova-res-001", BIRTH_DATE, null, 0), csrf(manager)).statusCode()).isEqualTo(200);
+                    body("Nome Editado", "20261NOVARES0001", BIRTH_DATE, null, 0), csrf(manager)).statusCode()).isEqualTo(200);
             var changed = provisioning.list().stream().filter(a -> a.id().equals(assigned.id())).findFirst().orElseThrow();
-            assertThat(changed.enrollment()).isEqualTo("nova-res-001");
+            assertThat(changed.enrollment()).isEqualTo("20261NOVARES0001");
             assertThat(changed).usingRecursiveComparison().ignoringFields("enrollment").isEqualTo(assigned);
             assertThat(auditRows(id).getLast().fields()).containsExactlyInAnyOrder("name", "enrollment");
             assertThat(get(resident, "/api/v1/auth/me").statusCode()).isEqualTo(401);
@@ -509,12 +583,13 @@ class ResidentApiIntegrationTest {
         account("gestor");
         try (HttpClient client = browser()) {
             login(client,"gestor");
-            var input = new LinkedHashMap<String,Object>(Map.of("name","Pessoa Sintética","enrollment","00123","birthDate",BIRTH_DATE,"password",PASSWORD,"passwordConfirmation","diferente"));
+            provisioning.create("2026100000000123", null, "Outra Conta Sintética", "saude", PASSWORD.toCharArray());
+            var input = new LinkedHashMap<String,Object>(Map.of("name","Pessoa Sintética","enrollment","2026100000000123","birthDate",BIRTH_DATE,"courseId",courseId("Curso Sintético"),"password",PASSWORD,"passwordConfirmation","diferente"));
             assertThat(post(client,PATH,json.writeValueAsString(input),csrf(client)).statusCode()).isEqualTo(400);
-            input.put("passwordConfirmation", PASSWORD); input.put("enrollment","gestor");
+            input.put("passwordConfirmation", PASSWORD);
             assertThat(post(client,PATH,json.writeValueAsString(input),csrf(client)).statusCode()).isEqualTo(409);
             assertThat(jdbc.queryForObject("SELECT count(*) FROM sager_resident",Integer.class)).isZero();
-            assertThat(jdbc.queryForObject("SELECT count(*) FROM sager_local_account",Integer.class)).isEqualTo(1);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM sager_local_account",Integer.class)).isEqualTo(2);
         }
     }
 
@@ -523,33 +598,77 @@ class ResidentApiIntegrationTest {
         account("gestor");
         try (HttpClient manager = browser(); HttpClient resident = browser(); HttpClient visitor = browser()) {
             login(manager,"gestor");
-            UUID id=UUID.fromString(create(manager,"João Antônio da Silva","00042"));
+            UUID id=UUID.fromString(create(manager,"João Antônio da Silva","2026100000000042"));
             jdbc.update("INSERT INTO sager_guardian(id,resident_id,name,relationship,active) VALUES (?,?,?,?,true)",UUID.randomUUID(),id,"Maria Rita dos Santos","Mãe");
-            assertThat(form(resident,"/api/v1/auth/login",Map.of("matricula","00042","password",PASSWORD)).statusCode()).isEqualTo(204);
-            Map<String,String> input=new LinkedHashMap<>(Map.of("matricula","00042","name"," JOAO  ANTONIO DA SILVA ","birthDate",BIRTH_DATE,"guardianName","Maria errada","password","Nova senha teste 123!","passwordConfirmation","Nova senha teste 123!"));
+            assertThat(form(resident,"/api/v1/auth/login",Map.of("matricula","2026100000000042","password",PASSWORD)).statusCode()).isEqualTo(204);
+            Map<String,String> input=new LinkedHashMap<>(Map.of("matricula","2026100000000042","name"," JOAO  ANTONIO DA SILVA ","birthDate",BIRTH_DATE,"guardianName","Maria errada","password","Nova senha teste 123!","passwordConfirmation","Nova senha teste 123!"));
             assertThat(form(visitor,"/api/v1/auth/recover",input).statusCode()).isEqualTo(400);
             input.put("guardianName"," MARIA RITA DOS SANTOS ");
+            input.put("matricula","2026.1000.0000.0042");
             assertThat(form(visitor,"/api/v1/auth/recover",input).statusCode()).isEqualTo(204);
             assertThat(get(resident,"/api/v1/auth/me").statusCode()).isEqualTo(401);
             assertThat(get(visitor,"/api/v1/auth/me").statusCode()).isEqualTo(401);
-            assertThat(form(visitor,"/api/v1/auth/login",Map.of("matricula","00042","password",PASSWORD)).statusCode()).isEqualTo(401);
-            assertThat(form(visitor,"/api/v1/auth/login",Map.of("matricula","00042","password","Nova senha teste 123!")).statusCode()).isEqualTo(204);
+            assertThat(form(visitor,"/api/v1/auth/login",Map.of("matricula","2026100000000042","password",PASSWORD)).statusCode()).isEqualTo(401);
+            assertThat(form(visitor,"/api/v1/auth/login",Map.of("matricula","2026100000000042","password","Nova senha teste 123!")).statusCode()).isEqualTo(204);
         }
+    }
+
+    @Test
+    void creatingResidentAppliesPasswordRulesWithoutLeavingPartialRecords() throws Exception {
+        account("gestor");
+        try (HttpClient manager = browser(); HttpClient resident = browser()) {
+            login(manager,"gestor");
+            var input=new LinkedHashMap<String,Object>(Map.of("name","Pessoa Sintética","enrollment","2026100000000777","birthDate",BIRTH_DATE,"courseId",courseId("Curso Sintético")));
+            for (String refused : List.of("gato az", "12345678", "2026100000000777", "x".repeat(73))) {
+                input.put("password",refused); input.put("passwordConfirmation",refused);
+                assertThat(post(manager,PATH,json.writeValueAsString(input),csrf(manager)).statusCode()).as(refused).isEqualTo(400);
+            }
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM sager_resident",Integer.class)).isZero();
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM sager_local_account",Integer.class)).isEqualTo(1);
+            input.put("password","gato azul"); input.put("passwordConfirmation","gato azul");
+            assertThat(post(manager,PATH,json.writeValueAsString(input),csrf(manager)).statusCode()).isEqualTo(201);
+            assertThat(form(resident,"/api/v1/auth/login",Map.of("matricula","2026100000000777","password","gato azul")).statusCode()).isEqualTo(204);
+        }
+    }
+
+    @Test
+    void recoveryRefusesBadPasswordsIdenticallyWhetherOrNotTheAccountExists() throws Exception {
+        account("gestor");
+        try (HttpClient manager = browser(); HttpClient visitor = browser()) {
+            login(manager,"gestor"); create(manager,"Pessoa Com Conta","2026100000555555");
+            String sql="SELECT password_hash FROM sager_local_account WHERE enrollment='2026100000555555'";
+            String hash=jdbc.queryForObject(sql,String.class);
+            for (String refused : List.of("curta","12345678","2026100000555555","x".repeat(73))) {
+                var existing=form(visitor,"/api/v1/auth/recover",recovery("2026100000555555",refused));
+                var missing=form(visitor,"/api/v1/auth/recover",recovery("99999999",refused));
+                assertThat(existing.statusCode()).as(refused).isEqualTo(400);
+                assertThat(missing.statusCode()).as(refused).isEqualTo(400);
+                assertThat(json.readTree(existing.body()).path("code")).isEqualTo(json.readTree(missing.body()).path("code"));
+                assertThat(json.readTree(existing.body()).path("message")).isEqualTo(json.readTree(missing.body()).path("message"));
+            }
+            assertThat(jdbc.queryForObject(sql,String.class)).isEqualTo(hash);
+            assertThat(form(visitor,"/api/v1/auth/recover",recovery("2026100000555555","gato azul")).statusCode()).isEqualTo(204);
+            assertThat(jdbc.queryForObject(sql,String.class)).isNotEqualTo(hash);
+        }
+    }
+
+    private Map<String,String> recovery(String enrollment,String password) {
+        return Map.of("matricula",enrollment,"name","Pessoa Com Conta","birthDate",BIRTH_DATE,"password",password,"passwordConfirmation",password);
     }
 
     @Test
     void recoveryWithoutGuardianDoesNotCreateNewRegistrationRequirementsAndIsThrottled() throws Exception {
         account("gestor");
         try (HttpClient manager = browser(); HttpClient visitor=browser()) {
-            login(manager,"gestor"); create(manager,"Pessoa Sem Responsável","00099");
-            Map<String,String> input=new LinkedHashMap<>(Map.of("matricula","00099","name","Pessoa Sem Responsavel","birthDate",BIRTH_DATE,"password",PASSWORD,"passwordConfirmation",PASSWORD));
+            login(manager,"gestor"); create(manager,"Pessoa Sem Responsável","2026100000000099");
+            Map<String,String> input=new LinkedHashMap<>(Map.of("matricula","2026100000000099","name","Pessoa Sem Responsavel","birthDate",BIRTH_DATE,"password",PASSWORD,"passwordConfirmation",PASSWORD));
             assertThat(form(visitor,"/api/v1/auth/recover",input).statusCode()).isEqualTo(204);
             input.put("matricula","gestor"); input.put("name","Pessoa Sintética");
             for (int i=0;i<5;i++) assertThat(form(visitor,"/api/v1/auth/recover",input).statusCode()).isEqualTo(400);
             var limited=form(visitor,"/api/v1/auth/recover",input);
             assertThat(limited.statusCode()).isEqualTo(429);
             assertThat(limited.headers().firstValue("Retry-After")).contains("900");
-            assertThat(limited.body()).doesNotContain("Pessoa", "gestor");
+            assertThat(limited.body()).doesNotContain("Pessoa Sintética", "gestor");
         }
     }
 
@@ -562,15 +681,15 @@ class ResidentApiIntegrationTest {
             assertThat(response.statusCode()).isEqualTo(201);
             String course=json.readTree(response.body()).path("id").asText();
             assertThat(post(manager,"/api/v1/cursos",json.writeValueAsString(Map.of("name"," curso sintético ")),csrf(manager)).statusCode()).isEqualTo(409);
-            var input=new LinkedHashMap<String,Object>(Map.of("name","Pessoa Sintética","enrollment","00003","birthDate",BIRTH_DATE,"courseId",course,"institutionalEmail","Pessoa@instituicao.invalid","password",PASSWORD,"passwordConfirmation",PASSWORD));
+            var input=new LinkedHashMap<String,Object>(Map.of("name","Pessoa Sintética","enrollment","2026100000000003","birthDate",BIRTH_DATE,"courseId",course,"institutionalEmail","Pessoa@estudante.ifgoiano.edu.br","password",PASSWORD,"passwordConfirmation",PASSWORD));
             var created=post(manager,PATH,json.writeValueAsString(input),csrf(manager));
             assertThat(created.statusCode()).isEqualTo(201);
             String resident=json.readTree(created.body()).path("id").asText();
-            assertThat(json.readTree(created.body()).path("institutionalEmail").asText()).isEqualTo("pessoa@instituicao.invalid");
+            assertThat(json.readTree(created.body()).path("institutionalEmail").asText()).isEqualTo("pessoa@estudante.ifgoiano.edu.br");
             assertThat(put(manager,"/api/v1/cursos/"+course,json.writeValueAsString(Map.of("name","Curso Sintético","active",false,"version",0)),csrf(manager)).statusCode()).isEqualTo(200);
             input.put("version",0);input.remove("password");input.remove("passwordConfirmation");input.put("name","Pessoa Atualizada");
             assertThat(put(manager,PATH+"/"+resident,json.writeValueAsString(input),csrf(manager)).statusCode()).isEqualTo(200);
-            input.remove("version"); input.put("enrollment","00004");input.put("password",PASSWORD);input.put("passwordConfirmation",PASSWORD);
+            input.remove("version"); input.put("enrollment","2026100000000004");input.put("password",PASSWORD);input.put("passwordConfirmation",PASSWORD);
             assertThat(post(manager,PATH,json.writeValueAsString(input),csrf(manager)).statusCode()).isEqualTo(400);
             assertThat(put(manager,"/api/v1/cursos/"+course,json.writeValueAsString(Map.of("name","Curso Sintético","active",true,"version",0)),csrf(manager)).statusCode()).isEqualTo(409);
         }
@@ -589,6 +708,37 @@ class ResidentApiIntegrationTest {
             assertThat(get(client,PATH+"?limit=0").statusCode()).isEqualTo(400);
             assertThat(get(client,PATH+"?search=joao&allocated=true&limit=25").headers().firstValue("X-Total-Count")).contains("0");
         }
+    }
+
+    @Test
+    void filtersByUnitBeforeCountingAndPaginatingOnlyCurrentAllocations() throws Exception {
+        account("gestor");
+        UUID accommodation=UUID.randomUUID(),unit=UUID.randomUUID(),otherUnit=UUID.randomUUID(),room=UUID.randomUUID(),otherRoom=UUID.randomUUID();
+        jdbc.update("INSERT INTO sager_accommodation(id,code,name) VALUES (?,'ALO','Alojamento Sintético')",accommodation);
+        jdbc.update("INSERT INTO sager_accommodation_unit(id,accommodation_id,code,name) VALUES (?,?,'BL-A','Bloco A'),(?,?,'BL-B','Bloco B')",unit,accommodation,otherUnit,accommodation);
+        jdbc.update("INSERT INTO sager_room(id,code,number,accommodation_id,unit_id,capacity,situation) VALUES (?,'A-1','1',?,?,40,'Disponível'),(?,'B-1','1',?,?,40,'Disponível')",room,accommodation,unit,otherRoom,accommodation,otherUnit);
+        for(int i=0;i<27;i++) allocated("Bloco A "+i,"A"+i,room);
+        UUID moved=allocated("Mudou de bloco","MUDOU",room);
+        jdbc.update("UPDATE sager_room_allocation SET ended_at=CURRENT_TIMESTAMP,end_reason='END' WHERE resident_id=?",moved);
+        jdbc.update("INSERT INTO sager_room_allocation(id,resident_id,room_id,started_at) VALUES (?,?,?,CURRENT_TIMESTAMP)",UUID.randomUUID(),moved,otherRoom);
+        try(HttpClient client=browser()) {
+            login(client,"gestor");
+            var first=get(client,PATH+"?unitId="+unit+"&limit=25&offset=0");
+            assertThat(first.headers().firstValue("X-Total-Count")).contains("27");
+            assertThat(json.readTree(first.body()).size()).isEqualTo(25);
+            assertThat(json.readTree(get(client,PATH+"?unitId="+unit+"&limit=25&offset=25").body()).size()).isEqualTo(2);
+            var other=get(client,PATH+"?unitId="+otherUnit+"&limit=25");
+            assertThat(other.headers().firstValue("X-Total-Count")).contains("1");
+            assertThat(json.readTree(other.body()).get(0).path("id").asText()).isEqualTo(moved.toString());
+            assertThat(get(client,PATH+"?unitId=invalido").statusCode()).isEqualTo(400);
+        }
+    }
+
+    private UUID allocated(String name,String enrollment,UUID room) {
+        UUID id=UUID.randomUUID();
+        jdbc.update("INSERT INTO sager_resident(id,name,enrollment,birth_date) VALUES (?,?,?,?::date)",id,name,enrollment,BIRTH_DATE);
+        jdbc.update("INSERT INTO sager_room_allocation(id,resident_id,room_id,started_at) VALUES (?,?,?,CURRENT_TIMESTAMP - INTERVAL '1 day')",UUID.randomUUID(),id,room);
+        return id;
     }
 
     private HttpResponse<String> form(HttpClient client,String path,Map<String,String> input) throws Exception {
@@ -623,6 +773,24 @@ class ResidentApiIntegrationTest {
             UUID actorId, String profile, UUID requestId) {
     }
 
+    @Test
+    void createAndUpdateFormatResidentNameWhateverTheTypedCase() throws Exception {
+        account("gestor");
+        try (HttpClient manager = browser()) {
+            login(manager, "gestor");
+            UUID id = UUID.fromString(create(manager, "JOÃO silva", "20261NOMERES0001"));
+            assertThat(json.readTree(get(manager, PATH + "/" + id).body()).path("name").asText())
+                    .isEqualTo("João Silva");
+            assertThat(provisioning.list().stream().filter(a -> id.equals(a.residentId())).findFirst()
+                    .orElseThrow().name()).isEqualTo("João Silva");
+
+            HttpResponse<String> updated = put(manager, PATH + "/" + id,
+                    body("josé DA silva", "20261NOMERES0001", BIRTH_DATE, null, 0), csrf(manager));
+            assertThat(updated.statusCode()).isEqualTo(200);
+            assertThat(json.readTree(updated.body()).path("name").asText()).isEqualTo("José Da Silva");
+        }
+    }
+
     private String create(HttpClient client, String name, String enrollment) throws Exception {
         HttpResponse<String> response = post(client, PATH, body(name, enrollment, BIRTH_DATE, null, null),
                 csrf(client));
@@ -630,22 +798,17 @@ class ResidentApiIntegrationTest {
         return json.readTree(response.body()).path("id").asText();
     }
 
+    /** Null course means the default one; a blank course sends no courseId at all. */
     private String body(Object name, Object enrollment, Object birthDate, Object course,
             Object version) {
         Map<String, Object> fields = new LinkedHashMap<>();
         fields.put("name", name);
         fields.put("enrollment", enrollment);
         fields.put("birthDate", birthDate);
-        Object courseId = course;
-        if (course instanceof String courseName && courseName.strip().length() <= 200) {
-            if (courseName.isBlank()) courseId = null;
-            else {
-                var ids = jdbc.query("SELECT id FROM sager_course WHERE normalized_name=lower(?)", (r,n) -> r.getObject(1,UUID.class), courseName.strip());
-                UUID id = ids.isEmpty() ? UUID.randomUUID() : ids.getFirst();
-                if (ids.isEmpty()) jdbc.update("INSERT INTO sager_course(id,name) VALUES (?,?)", id, courseName.strip());
-                courseId = id;
-            }
-        }
+        Object chosen = course == null ? "Curso Sintético" : course;
+        Object courseId = chosen;
+        if (chosen instanceof String courseName && courseName.strip().length() <= 200)
+            courseId = courseName.isBlank() ? null : courseId(courseName.strip());
         fields.put("courseId", courseId);
         if (version == null) {
             fields.put("password", PASSWORD);
@@ -655,6 +818,13 @@ class ResidentApiIntegrationTest {
             fields.put("version", version);
         }
         return json.writeValueAsString(fields);
+    }
+
+    private UUID courseId(String name) {
+        var ids = jdbc.query("SELECT id FROM sager_course WHERE normalized_name=lower(?)", (r,n) -> r.getObject(1,UUID.class), name);
+        UUID id = ids.isEmpty() ? UUID.randomUUID() : ids.getFirst();
+        if (ids.isEmpty()) jdbc.update("INSERT INTO sager_course(id,name) VALUES (?,?)", id, name);
+        return id;
     }
 
     private void login(HttpClient client, String profile) throws Exception {

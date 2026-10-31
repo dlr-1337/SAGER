@@ -32,6 +32,10 @@ explícito, sem presumir maioridade. O relógio do servidor governa validações
 - Ausência justificada exige saída autorizada antes da abertura, partida física
   registrada e intervalo válido no instante da chamada. Solicitação pendente,
   aprovação sem partida e prazo de retorno vencido não justificam ausência.
+- Na abertura, o sistema marca a ausência justificada de quem tem exatamente uma
+  saída válida naquele instante. O histórico registra `sistema` como autor, a
+  chamada segue na versão 0 e o supervisor pode corrigir. Com mais de uma saída
+  válida, a marcação fica pendente até o supervisor escolher.
 - A referência de autorização inclui UUID e modalidade; o contrato admite a
   integração posterior de saídas longas.
 

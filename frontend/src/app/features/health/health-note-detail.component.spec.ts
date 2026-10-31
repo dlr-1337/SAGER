@@ -155,7 +155,7 @@ describe('HealthNoteDetailComponent', () => {
     expect(component.note()).toBeNull();
     expect(component.revisions()).toEqual([]);
     expect(component.correction.controls.body.value).toBe('');
-    expect(component.error()).toContain('acesso não está disponível');
+    expect(component.error()).toContain('não pode ver isto');
   });
 
   it('não anexa uma resposta atrasada do histórico depois de trocar o registro', async () => {

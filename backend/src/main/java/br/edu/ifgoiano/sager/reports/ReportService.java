@@ -26,15 +26,22 @@ public class ReportService {
  @Transactional
  public Snapshot create(JsonNode body){
   fields(body,"catalogCode","filters","idempotencyKey");var account=actor.administrative();String code=text(body,"catalogCode",3,32);var item=catalog.item(code);
-  var node=body.get("filters");fields(node,"from","to","accommodationId","roomId","residentId","status");
+  var node=body.get("filters");fields(node,"from","to","accommodationId","unitId","roomId","residentId","status");
   LocalDate from=date(node,"from"),to=date(node,"to");if(from.isAfter(to)||ChronoUnit.DAYS.between(from,to)>365)throw invalid("Informe período entre 1 e 366 dias.");
-  Filters filters=new Filters(from,to,optionalUuid(node,"accommodationId"),optionalUuid(node,"roomId"),optionalUuid(node,"residentId"),node.hasNonNull("status")?text(node,"status",1,40):null);
+  Filters filters=new Filters(from,to,optionalUuid(node,"accommodationId"),optionalUuid(node,"roomId"),optionalUuid(node,"residentId"),node.hasNonNull("status")?text(node,"status",1,40):null,optionalUuid(node,"unitId"));
   UUID key=uuid(body,"idempotencyKey");UUID replay=keys.replay(account.id(),"REPORT_SNAPSHOT_CREATE",key,body);if(replay!=null)return snapshot(replay,account.id());
   List<Map<String,Object>> rows=catalog.rows(code,filters);var summary=catalog.summary(rows);var monthly=catalog.monthly(rows,filters);
   String hash=contentHash(json.valueToTree(Map.of("catalogVersion",1,"catalogCode",code,"filters",filters,"columns",item.columns(),"rows",rows,"summary",summary,"monthly",monthly)));
   UUID id=UUID.randomUUID();OffsetDateTime at=now();
   jdbc.update("INSERT INTO sager_report_snapshot(id,owner_id,catalog_code,catalog_version,filters,columns,rows,summary,monthly,row_count,content_hash,as_of,expires_at) VALUES (?,?,?,1,?::jsonb,?::jsonb,?::jsonb,?::jsonb,?::jsonb,?,?,?,?)",id,account.id(),code,json.writeValueAsString(filters),json.writeValueAsString(item.columns()),json.writeValueAsString(rows),json.writeValueAsString(summary),json.writeValueAsString(monthly),rows.size(),hash,at,at.plusHours(24));
   audit.record(AuditResource.REPORT_SNAPSHOT,id,AuditAction.CREATE,0,Set.of("catalogCode","filters","rowCount","expiresAt"));keys.remember(account.id(),"REPORT_SNAPSHOT_CREATE",key,body,id,at);return snapshot(id,account.id());
+ }
+ /** Reports without records have no file to offer, so they stay out of the list. Rows are never read here. */
+ @Transactional(readOnly=true)
+ public List<SnapshotListItem> list(){
+  UUID owner=actor.administrative().id();OffsetDateTime at=now();Map<UUID,List<Export>> exports=new HashMap<>();
+  for(var r:jdbc.queryForList("SELECT * FROM sager_report_export WHERE owner_id=? AND expires_at>?",owner,at)){var item=decodeExport(r);exports.computeIfAbsent(item.snapshotId(),k->new ArrayList<>()).add(item);}
+  return jdbc.queryForList("SELECT id,catalog_code,filters,row_count,as_of,expires_at FROM sager_report_snapshot WHERE owner_id=? AND expires_at>? AND row_count>0 ORDER BY as_of DESC,id LIMIT 100",owner,at).stream().map(r->new SnapshotListItem((UUID)r.get("id"),(String)r.get("catalog_code"),json.readValue(r.get("filters").toString(),Filters.class),((Number)r.get("row_count")).intValue(),time(r.get("as_of")),time(r.get("expires_at")),exports.getOrDefault((UUID)r.get("id"),List.of()))).toList();
  }
  @Transactional(readOnly=true)
  public Snapshot get(UUID id){return snapshot(id,actor.administrative().id());}
@@ -58,7 +65,13 @@ public class ReportService {
   if(jdbc.queryForList("SELECT id FROM sager_report_snapshot WHERE id=? AND owner_id=? FOR UPDATE",id,account.id()).isEmpty()){
    snapshot(id,account.id());throw missing();
   }
-  var snapshot=snapshot(id,account.id());var previous=jdbc.queryForList("SELECT id FROM sager_report_export WHERE snapshot_id=? AND format=?",id,format);if(!previous.isEmpty())return export((UUID)previous.getFirst().get("id"),account.id());
+  var snapshot=snapshot(id,account.id());var previous=jdbc.queryForList("SELECT id,status,version FROM sager_report_export WHERE snapshot_id=? AND format=?",id,format);
+  if(!previous.isEmpty()){
+   var job=previous.getFirst();UUID existing=(UUID)job.get("id");
+   // Only a failed job goes back to the queue; claim() repeats the permission and integrity checks.
+   if("FAILED".equals(job.get("status"))){jdbc.update("UPDATE sager_report_export SET status='PENDING',error_code=NULL,version=version+1 WHERE id=?",existing);audit.record(AuditResource.REPORT_EXPORT,existing,AuditAction.UPDATE,((Number)job.get("version")).longValue()+1,Set.of("status"));}
+   return export(existing,account.id());
+  }
   UUID job=UUID.randomUUID();jdbc.update("INSERT INTO sager_report_export(id,snapshot_id,owner_id,format,created_at,expires_at) VALUES (?,?,?,?,?,?)",job,id,account.id(),format,now(),snapshot.expiresAt());
   audit.record(AuditResource.REPORT_EXPORT,job,AuditAction.CREATE,0,Set.of("snapshotId","format","status"));return export(job,account.id());
  }

@@ -71,7 +71,9 @@ public class LongExitRepository implements AuthorizedExitLookup, ExitOccupancyLo
                 java.util.Map.of("residentId","resident_id=?::uuid","status","status=?",
                     "from","(requested_departure_at AT TIME ZONE 'America/Sao_Paulo')::date>=?::date",
                     "to","(requested_departure_at AT TIME ZONE 'America/Sao_Paulo')::date<=?::date",
-                    "accommodationId","EXISTS (SELECT 1 FROM sager_room_allocation al JOIN sager_room room ON room.id=al.room_id WHERE al.resident_id=sager_long_exit.resident_id AND al.started_at<=sager_long_exit.requested_departure_at AND (al.ended_at IS NULL OR al.ended_at>sager_long_exit.requested_departure_at) AND room.accommodation_id=?::uuid)"),filters,(r,n)->row(r));
+                    "accommodationId","EXISTS (SELECT 1 FROM sager_room_allocation al JOIN sager_room room ON room.id=al.room_id WHERE al.resident_id=sager_long_exit.resident_id AND al.started_at<=sager_long_exit.requested_departure_at AND (al.ended_at IS NULL OR al.ended_at>sager_long_exit.requested_departure_at) AND room.accommodation_id=?::uuid)",
+                    "unitId","EXISTS (SELECT 1 FROM sager_room_allocation al JOIN sager_room room ON room.id=al.room_id WHERE al.resident_id=sager_long_exit.resident_id AND al.started_at<=sager_long_exit.requested_departure_at AND (al.ended_at IS NULL OR al.ended_at>sager_long_exit.requested_departure_at) AND room.unit_id=?::uuid)",
+                    "roomId","EXISTS (SELECT 1 FROM sager_room_allocation al WHERE al.resident_id=sager_long_exit.resident_id AND al.started_at<=sager_long_exit.requested_departure_at AND (al.ended_at IS NULL OR al.ended_at>sager_long_exit.requested_departure_at) AND al.room_id=?::uuid)"),filters,(r,n)->row(r));
     }
 
     public List<Row> list(UUID residentId, String search, String status) {
@@ -168,7 +170,8 @@ VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING *
                                                         r.getObject("signed_file_id", UUID.class),
                                                         r.getString("signed_hash"),
                                                         r.getLong("signed_size"),
-                                                        r.getString("signed_state"))),
+                                                        r.getString("signed_state")),
+                                        r.getString("signed_media_type")),
                         id)
                 .stream()
                 .findFirst()
@@ -373,7 +376,8 @@ ORDER BY actual_departure_at DESC,id
             int revision,
             String snapshot,
             StoredFile original,
-            StoredFile signed) {}
+            StoredFile signed,
+            String signedMediaType) {}
 
     public record Row(
             UUID id,

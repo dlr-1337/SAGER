@@ -23,8 +23,8 @@ F5 para análise humana. Correção revisa a mesma origem sem advertência autom
 ## Consultas e exportações
 
 Catálogo administrativo: presença, saídas, limpeza, ocorrências, notificações,
-advertências, termos e consolidado. Período, alojamento, quarto, residente UUID e
-situação são filtros combináveis e tipados. Dados clínicos não integram o catálogo.
+advertências, termos e consolidado. Período, alojamento, casa ou bloco, quarto,
+residente UUID e situação são filtros combináveis e tipados. Dados clínicos não integram o catálogo.
 
 Criar consulta preserva filtros, linhas, resumo, séries mensais, regra e instante.
 Prévia paginada e exportação usam esse mesmo conjunto, mesmo após mudanças no
@@ -32,8 +32,11 @@ domínio. PDF e XLSX contêm todas as linhas da consulta. Entradas de texto do X
 não geram fórmulas. Os gráficos têm tabelas como alternativa de leitura.
 
 Consulta pertence ao autor e dura 24 horas. Exportação usa tarefa persistida,
-com lease, retomada após reinício e integridade SHA-256. A tela acompanha o estado
-da tarefa e permite download autorizado quando pronto. Residentes não recebem
+com lease, retomada após reinício e integridade SHA-256. Um clique em "Gerar
+relatório" cria a consulta e pede PDF e Excel, sem diálogo. A tela consulta a lista a
+cada 3 segundos só enquanto há arquivo em preparo e mostra o download quando pronto.
+Arquivo com falha volta à fila por "Tentar de novo". Período sem registros não pede
+arquivo nem entra na lista. Residentes não recebem
 exportações administrativas e outra conta não abre a consulta pelo UUID.
 
 ## API e operação
@@ -41,6 +44,8 @@ exportações administrativas e outra conta não abre a consulta pelo UUID.
 - `/api/v1/limpeza/politica`, `/avaliacoes`, `/avaliacoes/{id}/corrigir` e `/ranking`.
 - `/api/v1/me/limpeza/avaliacoes`: consulta do residente por participação capturada.
 - `/api/v1/relatorios/catalogo` e `POST /relatorios/consultas`.
+- `GET /api/v1/relatorios/consultas`: consultas válidas do autor com registros e o
+  estado das exportações, sem as linhas.
 - `/api/v1/relatorios/consultas/{id}` e `/linhas`: resumo e prévia paginada.
 - `/api/v1/relatorios/consultas/{id}/exportacoes`: tarefa PDF/XLSX.
 - `/api/v1/relatorios/exportacoes/{id}` e `/arquivo`: estado e download privado.

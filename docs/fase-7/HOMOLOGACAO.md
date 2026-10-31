@@ -51,6 +51,6 @@ mensal foi observada nesta implementação.
 
 O responsável AE/TI registra aceite datado das regras delegadas, finalidade e
 retenção, contas e acesso assistencial, segredo/certificado, custódia e cópia externa
-de backup, contingência e responsáveis. Clicksign e WhatsApp precisam de credenciais,
-template, custos/licenças e testes reais autorizados. A CI verde comprova os gates
+de backup, contingência e responsáveis. O gateway de WhatsApp precisa de número dedicado,
+de aceite formal da integração não oficial e do [teste de aceite](../whatsapp/OPERACAO.md#teste-de-aceite-obrigatório). A CI verde comprova os gates
 técnicos descritos no QA e não substitui esse aceite.

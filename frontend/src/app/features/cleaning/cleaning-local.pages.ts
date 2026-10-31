@@ -1,6 +1,14 @@
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import { rememberFilters } from '../../core/filter-state';
-import { ChangeDetectionStrategy, Component, forwardRef, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  forwardRef,
+  inject,
+  signal,
+} from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
@@ -12,7 +20,17 @@ import {
 } from '../communications/communications-local.utils';
 import { RoomApiService } from '../management/room-api.service';
 import { ResidentApiService, ResidentRecord } from '../management/resident-api.service';
-import { RoomRecord } from '../management/housing.models';
+import {
+  AccommodationUnit,
+  HousingMap,
+  RoomRecord,
+  cascadeLocation,
+  clearMissingLocation,
+  roomOptionLabel,
+  roomsIn,
+  unitOptionLabel,
+  unitsIn,
+} from '../management/housing.models';
 import { CleaningComponent } from '../operations/cleaning.component';
 import { RankingComponent } from '../operations/ranking.component';
 import { CleaningLocalApiService } from './cleaning-local-api.service';
@@ -61,8 +79,8 @@ export class CleaningPage {
           <p>
             {{
               own
-                ? 'Consulte avaliações em que sua participação foi registrada no instante avaliado.'
-                : 'Confira notas, feedback e o histórico de cada avaliação do quarto.'
+                ? 'Veja as avaliações dos quartos em que você estava.'
+                : 'Veja as notas e o histórico de cada avaliação do quarto.'
             }}
           </p>
         </div>
@@ -79,9 +97,9 @@ export class CleaningPage {
       />
       @if (!session.active() && allowed() && !loading() && !error()) {
         <nav class="comm-links" aria-label="Limpeza">
-          <a routerLink="/ranking">Consultar ranking interno</a>
+          <a routerLink="/ranking">Ver ranking</a>
           @if (!own) {
-            <a routerLink="/relatorios">Consultar relatórios</a>
+            <a routerLink="/relatorios">Gerar relatório</a>
           }
         </nav>
         <section class="panel op-panel">
@@ -91,10 +109,24 @@ export class CleaningPage {
             ><label class="field">Data final<input type="date" formControlName="to" /></label>
             @if (!own) {
               <label class="field"
+                >Alojamento<select sagerSearchable formControlName="accommodationId">
+                  <option value="">Todos</option>
+                  @for (accommodation of housing().accommodations; track accommodation.id) {
+                    <option [value]="accommodation.id">{{ accommodation.name }}</option>
+                  }
+                </select></label
+              ><label class="field"
+                >Casa ou bloco<select sagerSearchable formControlName="unitId">
+                  <option value="">Todos</option>
+                  @for (unit of visibleUnits(); track unit.id) {
+                    <option [value]="unit.id">{{ unitLabel(unit) }}</option>
+                  }
+                </select></label
+              ><label class="field"
                 >Quarto<select sagerSearchable formControlName="roomId">
                   <option value="">Todos os quartos</option>
-                  @for (room of rooms(); track room.id) {
-                    <option [value]="room.id">{{ room.code }}</option>
+                  @for (room of visibleRooms(); track room.id) {
+                    <option [value]="room.id">{{ roomLabel(room) }}</option>
                   }
                 </select></label
               ><label class="field"
@@ -122,15 +154,14 @@ export class CleaningPage {
                 <div class="op-row-main">
                   <h3>Quarto {{ item.roomCode }}</h3>
                   <p>
-                    {{ civil(item.assessmentDate) }} · avaliação presencial
+                    {{ civil(item.assessmentDate) }} · avaliado em
                     {{ formatTime(item.evaluatedAt) }}
                   </p>
                   <p>
-                    Versão {{ item.version }} ·
                     {{
                       item.feedback.previousScore === null
-                        ? 'Primeiro registro desta avaliação'
-                        : 'Avaliação corrigida com histórico preservado'
+                        ? 'Primeira avaliação'
+                        : 'Avaliação corrigida'
                     }}
                   </p>
                 </div>
@@ -138,7 +169,7 @@ export class CleaningPage {
                   <span class="cleaning-score">Nota {{ decimal(item.score) }}</span>
                 </div>
                 <a class="op-row-link" [routerLink]="[own ? '/minha-limpeza' : '/limpeza', item.id]"
-                  >Consultar avaliação<span class="material-symbols-outlined" aria-hidden="true"
+                  >Ver avaliação<span class="material-symbols-outlined" aria-hidden="true"
                     >arrow_forward</span
                   ></a
                 >
@@ -187,10 +218,19 @@ export class CleaningListLocalPage {
   readonly filters = new FormGroup({
     from: new FormControl('', { nonNullable: true }),
     to: new FormControl('', { nonNullable: true }),
+    accommodationId: new FormControl('', { nonNullable: true }),
+    unitId: new FormControl('', { nonNullable: true }),
     roomId: new FormControl('', { nonNullable: true }),
     residentId: new FormControl('', { nonNullable: true }),
   });
-  readonly rooms = signal<RoomRecord[]>([]);
+  private readonly location = toSignal(this.filters.valueChanges, {
+    initialValue: this.filters.getRawValue(),
+  });
+  readonly housing = signal<HousingMap>({ accommodations: [], units: [], rooms: [] });
+  readonly visibleUnits = computed(() => unitsIn(this.housing(), this.location().accommodationId));
+  readonly visibleRooms = computed(() =>
+    roomsIn(this.housing(), this.location().accommodationId, this.location().unitId),
+  );
   readonly residents = signal<ResidentRecord[]>([]);
   readonly items = signal<(CleaningAssessment | OwnCleaningAssessment)[]>([]);
   readonly nextCursor = signal<number | null>(null);
@@ -206,7 +246,14 @@ export class CleaningListLocalPage {
   readonly decimal = decimal;
   constructor() {
     rememberFilters('cleaning-local.pages', this.filters);
+    cascadeLocation(this.filters.controls);
     void this.load();
+  }
+  roomLabel(room: RoomRecord): string {
+    return roomOptionLabel(room, this.housing().units);
+  }
+  unitLabel(unit: AccommodationUnit): string {
+    return unitOptionLabel(unit, this.housing(), this.location().accommodationId);
   }
   allowed(): boolean {
     return this.own
@@ -239,15 +286,16 @@ export class CleaningListLocalPage {
           this.applied = { from: filters.from, to: filters.to };
         }
       } else {
-        const [page, rooms, residents] = await Promise.all([
+        const [page, housing, residents] = await Promise.all([
           this.api.list(filters),
-          this.roomApi.list(),
+          this.roomApi.map(),
           this.residentApi.list(),
         ]);
         if (generation === this.generation) {
+          this.housing.set(housing);
+          if (clearMissingLocation(housing, this.filters.controls)) return this.load();
           this.items.set(page.items);
           this.nextCursor.set(page.nextCursor);
-          this.rooms.set(rooms);
           this.residents.set(residents);
           this.applied = filters;
         }
@@ -310,25 +358,21 @@ export class CleaningListLocalPage {
       />
       @if (!session.active() && allowed() && !loading() && !error() && item(); as assessment) {
         <section class="panel op-panel">
-          <h2>Notas e feedback da avaliação</h2>
+          <h2>Notas da avaliação</h2>
           <dl class="comm-definition">
             <div>
-              <dt>Instante avaliado</dt>
+              <dt>Avaliado em</dt>
               <dd>{{ formatTime(assessment.evaluatedAt) }}</dd>
             </div>
             @for (key of keys; track key) {
               <div>
-                <dt>{{ criteriaLabels[key] }} · peso 25%</dt>
+                <dt>{{ criteriaLabels[key] }}</dt>
                 <dd>{{ decimal(assessment.criteria[key]) }}</dd>
               </div>
             }
             <div>
-              <dt>Nota calculada pelo servidor</dt>
+              <dt>Nota</dt>
               <dd>{{ decimal(assessment.score) }}</dd>
-            </div>
-            <div>
-              <dt>Versão da avaliação</dt>
-              <dd>{{ assessment.version }}</dd>
             </div>
             @if (assessment.observation) {
               <div>
@@ -379,7 +423,7 @@ export class CleaningListLocalPage {
                 </dd>
               </div>
               <div>
-                <dt>Período de referência</dt>
+                <dt>Período</dt>
                 <dd>
                   {{ periodLabels[assessment.feedback.rankingReference] }} ·
                   {{ civil(assessment.feedback.from) }} a {{ civil(assessment.feedback.to) }}
@@ -388,8 +432,7 @@ export class CleaningListLocalPage {
             </dl>
           </div>
           <p class="comm-help">
-            A nota usa os quatro critérios com peso igual, média e duas casas decimais. A primeira
-            gravação não inventa nota anterior. Nenhuma advertência é automática.
+            A nota é a média dos quatro itens. Ninguém recebe advertência automática por causa dela.
           </p>
           <div class="comm-actions">
             @if (!own && session.hasRole('supervisor')) {
@@ -403,33 +446,29 @@ export class CleaningListLocalPage {
                 referencia: assessment.assessmentDate,
                 periodo: assessment.feedback.rankingReference,
               }"
-              >Consultar ranking deste período</a
+              >Ver ranking deste período</a
             ><button class="btn-secondary" type="button" (click)="load()">Atualizar dados</button>
           </div>
         </section>
         @if (administrative(); as admin) {
           <section class="panel op-panel op-section">
-            <h2>Participantes capturados no instante avaliado</h2>
-            <p class="comm-help">
-              Estes vínculos são históricos. Transferências posteriores não alteram esta avaliação
-              nem presumem responsabilidade coletiva.
-            </p>
+            <h2>Quem estava no quarto na hora da avaliação</h2>
+            <p class="comm-help">Esta lista não muda se alguém trocar de quarto depois.</p>
             <ul>
               @for (participant of admin.participants; track participant.allocationId) {
                 <li>{{ participant.residentName }}</li>
               } @empty {
-                <li>Quarto sem participantes registrados neste instante.</li>
+                <li>Ninguém registrado no quarto nessa hora.</li>
               }
             </ul>
-            <h3>Histórico das revisões</h3>
+            <h3>Histórico de correções</h3>
             <ol class="comm-history">
               @for (revision of admin.revisions; track revision.version) {
                 <li>
-                  <strong>Versão {{ revision.version }} · nota {{ decimal(revision.score) }}</strong
+                  <strong>Nota {{ decimal(revision.score) }}</strong
                   ><time [attr.datetime]="revision.recordedAt"
                     >Gravada em {{ formatTime(revision.recordedAt) }}</time
                   >
-                  <p>Autoria: conta {{ revision.recordedBy }}</p>
                   @for (key of keys; track key) {
                     <p>{{ criteriaLabels[key] }}: {{ decimal(revision.criteria[key]) }}</p>
                   }
@@ -521,10 +560,8 @@ export class RankingPage {
       <header class="op-heading">
         <div>
           <a class="op-back" routerLink="/inicio">← Início</a>
-          <h1>Ranking interno de limpeza</h1>
-          <p>
-            Compare posições no período com médias calculadas a partir das avaliações registradas.
-          </p>
+          <h1>Ranking de limpeza</h1>
+          <p>Veja a posição de cada quarto pela média das notas.</p>
         </div>
       </header>
       <sager-communications-state
@@ -535,7 +572,7 @@ export class RankingPage {
       />
       @if (allowed() && !loading() && !error()) {
         <section class="panel op-panel">
-          <h2>Período de comparação</h2>
+          <h2>Escolha o período</h2>
           <form class="comm-form-grid" [formGroup]="form" (ngSubmit)="load()">
             <label class="field"
               >Período<select sagerSearchable formControlName="period">
@@ -544,8 +581,8 @@ export class RankingPage {
                 <option value="SEMESTER">Semestre</option>
               </select></label
             ><label class="field"
-              >Data de referência<input type="date" formControlName="referenceDate" /></label
-            ><button class="btn-secondary" type="submit">Consultar período</button>
+              >Um dia do período<input type="date" formControlName="referenceDate" /></label
+            ><button class="btn-secondary" type="submit">Ver período</button>
           </form>
           @if (filterError()) {
             <p class="comm-error" role="alert">{{ filterError() }}</p>
@@ -555,13 +592,13 @@ export class RankingPage {
               {{ periods[result.period] }} · {{ civil(result.from) }} a {{ civil(result.to) }}
             </h3>
             <p class="comm-help">
-              Empates compartilham a posição e deixam a seguinte vaga: 1º, 1º, 3º. Sem avaliação, a
-              média e a posição permanecem ausentes.
+              Quartos com a mesma média ficam na mesma posição. Quarto sem avaliação fica sem
+              posição.
             </p>
             @if (session.hasRole('residente')) {
               <p class="comm-help">
-                Outros quartos mostram apenas código e posição. Suas notas exigem participação
-                registrada em uma avaliação deste período.
+                Dos outros quartos, você vê só o código e a posição. Você vê suas notas se estava no
+                quarto em uma avaliação deste período.
               </p>
             }
             <div aria-label="Posições dos quartos">
@@ -581,7 +618,9 @@ export class RankingPage {
                         {{
                           row.assessmentCount === 0
                             ? 'Sem avaliações no período'
-                            : row.assessmentCount + ' avaliação(ões)'
+                            : row.assessmentCount === 1
+                              ? '1 avaliação'
+                              : row.assessmentCount + ' avaliações'
                         }}
                       </p>
                     } @else {
@@ -597,9 +636,7 @@ export class RankingPage {
         </section>
         <nav class="comm-links" aria-label="Avaliações">
           <a [routerLink]="session.hasRole('residente') ? '/minha-limpeza' : '/limpeza'">{{
-            session.hasRole('residente')
-              ? 'Consultar minhas avaliações'
-              : 'Consultar avaliações de limpeza'
+            session.hasRole('residente') ? 'Ver minhas avaliações' : 'Ver avaliações de limpeza'
           }}</a>
         </nav>
       }

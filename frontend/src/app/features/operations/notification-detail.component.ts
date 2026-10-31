@@ -1,4 +1,5 @@
 import { UnsavedFormDirective } from '../../shared/unsaved-form';
+import { trimmedLength } from '../../shared/field-rules';
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -200,10 +201,10 @@ export class NotificationDetailComponent {
   readonly success = signal('');
   readonly today = new Date().toISOString().slice(0, 10);
   readonly warningForm = new FormGroup({
-    description: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    description: new FormControl('', { nonNullable: true, validators: [trimmedLength(1, 1800)] }),
     date: new FormControl(this.today, { nonNullable: true, validators: [Validators.required] }),
     severity: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
-    justification: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    justification: new FormControl('', { nonNullable: true, validators: [trimmedLength(1, 1800)] }),
   });
 
   constructor() {

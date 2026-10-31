@@ -49,7 +49,7 @@ app-root {
   line-height: 1;
 }
 .brand-product span {
-  font-size: 0.88rem;
+  font-size: 1rem;
   line-height: 1.35;
   color: #edf7f1;
 }
@@ -69,12 +69,12 @@ app-root {
   color: var(--green-900);
   border-radius: 7px;
   padding: 7px 13px;
-  font-size: 0.875rem;
+  font-size: 1rem;
   text-transform: uppercase;
   letter-spacing: 0.025em;
 }
 .demo-flag span {
-  font-size: 0.75rem;
+  font-size: 1rem;
   color: #ddf2e5;
 }
 .session-controls {
@@ -89,7 +89,7 @@ app-root {
 }
 .session-controls label {
   color: #d7ede1;
-  font-size: 0.875rem;
+  font-size: 1rem;
 }
 .session-controls select {
   color: #fff;
@@ -123,7 +123,7 @@ app-root {
 }
 .session-user small {
   color: var(--on-green-muted);
-  font-size: 0.8rem;
+  font-size: 1rem;
 }
 .exit-link,
 .menu-toggle {
@@ -179,7 +179,7 @@ app-root {
   min-height: 48px;
   padding: 10px 22px;
   color: var(--ink);
-  font-size: 0.98rem;
+  font-size: 1rem;
   font-weight: 600;
   text-decoration: none;
 }
@@ -220,18 +220,18 @@ app-root {
   border-top: 1px solid var(--line);
   padding: 19px 22px 26px;
   color: var(--muted);
-  font-size: 0.875rem;
+  font-size: 1rem;
   line-height: 1.5;
 }
 .sidebar-note strong {
   color: var(--green-900);
-  font-size: 0.875rem;
+  font-size: 1rem;
 }
 .sidebar-note a {
   min-height: 44px;
   display: flex;
   align-items: center;
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 700;
 }
 .sidebar-note button {
@@ -242,7 +242,7 @@ app-root {
   border: 0;
   background: transparent;
   color: var(--green-800);
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 700;
   text-align: left;
   cursor: pointer;
@@ -276,7 +276,7 @@ app-root {
   padding: 16px clamp(20px, 3vw, 44px);
   border-top: 1px solid var(--line);
   color: var(--muted);
-  font-size: 0.875rem;
+  font-size: 1rem;
 }
 .nav-scrim {
   display: none;
@@ -319,7 +319,7 @@ app-root {
     align-items: center;
   }
   .demo-flag strong {
-    font-size: 0.875rem;
+    font-size: 1rem;
     padding: 6px 9px;
     letter-spacing: 0;
     text-transform: none;
@@ -339,7 +339,7 @@ app-root {
     flex: 0 0 auto;
     min-height: 48px;
     gap: 4px;
-    font-size: 0.84rem;
+    font-size: 1rem;
   }
   .sidebar {
     position: fixed;
@@ -410,7 +410,7 @@ app-root {
   }
   .sidebar-demo-controls > strong {
     color: var(--green-900);
-    font-size: 0.94rem;
+    font-size: 1rem;
   }
   .sidebar-demo-controls .control {
     display: grid;
@@ -418,7 +418,7 @@ app-root {
   }
   .sidebar-demo-controls label {
     color: var(--ink);
-    font-size: 0.875rem;
+    font-size: 1rem;
     font-weight: 700;
   }
   .sidebar-demo-controls select {
@@ -432,11 +432,11 @@ app-root {
   }
   .sidebar-note {
     margin-top: auto;
-    font-size: 0.875rem;
+    font-size: 1rem;
   }
   .sidebar-note strong,
   .sidebar-note a {
-    font-size: 0.875rem;
+    font-size: 1rem;
   }
   .nav-scrim {
     display: block;

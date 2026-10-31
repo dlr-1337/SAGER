@@ -35,3 +35,7 @@ sager:
     private-root: ${SAGER_DOCUMENTS_PRIVATE_ROOT:/data/documents}
   reports:
     private-root: ${SAGER_REPORTS_PRIVATE_ROOT:/data/reports}
+  integrations:
+    whatsapp:
+      api-key: ${SAGER_INTEGRATIONS_WHATSAPP_API_KEY:}
+      webhook-secret: ${SAGER_INTEGRATIONS_WHATSAPP_WEBHOOK_SECRET:}

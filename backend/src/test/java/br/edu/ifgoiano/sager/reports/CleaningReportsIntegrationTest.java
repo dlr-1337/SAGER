@@ -40,7 +40,7 @@ class CleaningReportsIntegrationTest {
  }
  @Autowired JdbcTemplate jdbc;@Autowired ObjectMapper json;@Autowired LocalAccountProvisioningService accounts;
  @Autowired MutableClock clock;@Autowired ReportExportWorker worker;@Autowired ReportExportJobs jobs;
- @Autowired RecordingStore store;@Autowired PrivateFileStore permanent;@Autowired PdfTextRenderer renderer;
+ @Autowired RecordingStore store;@Autowired PrivateFileStore permanent;@Autowired PdfTextRenderer renderer;@Autowired ReportCatalog catalog;
  @LocalServerPort int port;
  UUID resident,other,accommodation;List<UUID> rooms;
  @BeforeEach void fixtures(){
@@ -117,6 +117,33 @@ class CleaningReportsIntegrationTest {
    var a=CompletableFuture.supplyAsync(()->rawWrite(sup,"POST",path,raw,token).statusCode());var b=CompletableFuture.supplyAsync(()->rawWrite(sup,"POST",path,raw,token).statusCode());assertThat(List.of(a.join(),b.join())).containsExactlyInAnyOrder(200,409);
   }
  }
+ @Test void listFiltersByAccommodationAcrossCursorPages()throws Exception{
+  UUID otherAccommodation=UUID.randomUUID(),otherRoom=UUID.randomUUID();
+  jdbc.update("INSERT INTO sager_accommodation(id,code,name) VALUES (?,?,'Outra Unidade Sintética')",otherAccommodation,"F6-"+otherAccommodation.toString().substring(0,8));
+  jdbc.update("INSERT INTO sager_room(id,code,number,accommodation_id,capacity,situation) VALUES (?,?,'9',?,5,'Disponível')",otherRoom,"F6-"+otherRoom.toString().substring(0,8),otherAccommodation);
+  try(var sup=login("supervisor")){
+   for(int i=0;i<3;i++){ok(sup,"POST","/api/v1/limpeza/avaliacoes",assessment(rooms.get(i),"NOW",null,new double[]{8,8,8,8}));ok(sup,"POST","/api/v1/limpeza/avaliacoes",assessment(otherRoom,"RETROACTIVE",START.minus(Duration.ofDays(i+1)),new double[]{7,7,7,7}));}
+   String list="/api/v1/limpeza/avaliacoes?accommodationId="+accommodation+"&limit=2";
+   var first=read(sup,list);assertThat(first.path("items").size()).isEqualTo(2);
+   var second=read(sup,list+"&beforeSequence="+first.path("nextCursor").asLong());assertThat(second.path("items").size()).isEqualTo(1);assertThat(second.path("nextCursor").isNull()).isTrue();
+   for(var page:List.of(first,second))for(var item:page.path("items"))assertThat(item.path("accommodationId").asText()).isEqualTo(accommodation.toString());
+   assertThat(read(sup,"/api/v1/limpeza/avaliacoes?accommodationId="+otherAccommodation).path("items").size()).isEqualTo(3);
+   assertThat(read(sup,"/api/v1/limpeza/avaliacoes?accommodationId="+otherAccommodation+"&roomId="+rooms.getFirst()).path("items").size()).isZero();
+  }
+ }
+ @Test void listFiltersByUnitAcrossCursorPages()throws Exception{
+  UUID unit=UUID.randomUUID();jdbc.update("INSERT INTO sager_accommodation_unit(id,accommodation_id,code,name) VALUES (?,?,?,'Casa Sintética')",unit,accommodation,"C-"+unit.toString().substring(0,8));
+  jdbc.update("UPDATE sager_room SET unit_id=? WHERE id IN (?,?,?)",unit,rooms.get(0),rooms.get(1),rooms.get(2));
+  try(var sup=login("supervisor")){
+   for(UUID room:rooms)ok(sup,"POST","/api/v1/limpeza/avaliacoes",assessment(room,"NOW",null,new double[]{8,8,8,8}));
+   String list="/api/v1/limpeza/avaliacoes?unitId="+unit+"&limit=2";
+   var first=read(sup,list);assertThat(first.path("items").size()).isEqualTo(2);
+   var second=read(sup,list+"&beforeSequence="+first.path("nextCursor").asLong());assertThat(second.path("items").size()).isEqualTo(1);assertThat(second.path("nextCursor").isNull()).isTrue();
+   for(var page:List.of(first,second))for(var item:page.path("items"))assertThat(item.path("roomId").asText()).isNotEqualTo(rooms.get(3).toString());
+   assertThat(read(sup,"/api/v1/limpeza/avaliacoes?unitId="+unit+"&roomId="+rooms.get(3)).path("items").size()).isZero();
+   assertThat(read(sup,"/api/v1/limpeza/avaliacoes").path("items").size()).isEqualTo(4);
+  }
+ }
  @Test void immutableSnapshotCombinedFiltersAndFullExportsKeepLiteralStrings()throws Exception{
   jdbc.update("UPDATE sager_resident SET name='=SUM(1,1)' WHERE id=?",resident);
   try(var sup=login("supervisor")){
@@ -129,9 +156,12 @@ class CleaningReportsIntegrationTest {
    assertThat(read(sup,"/api/v1/relatorios/consultas/"+id+"/linhas?limit=100").path("items").get(0).path("residentName").asText()).isEqualTo("=SUM(1,1)");
    var xlsx=export(sup,id,"XLSX");var pdf=export(sup,id,"PDF");assertThat(worker.runOnce()).isTrue();assertThat(worker.runOnce()).isTrue();assertThat(store.writtenOutsideTransaction).isTrue();
    var bytes=download(sup,xlsx.path("id").asText());assertThat(bytes.statusCode()).isEqualTo(200);
-   try(var workbook=new XSSFWorkbook(new java.io.ByteArrayInputStream(bytes.body()))){var sheet=workbook.getSheet("Resultados");assertThat(sheet.getLastRowNum()).isEqualTo(23);assertThat(sheet.getRow(0).getCell(5).getStringCellValue()).isEqualTo("Residente");assertThat(sheet.getRow(1).getCell(5).getCellType()).isEqualTo(CellType.STRING);assertThat(sheet.getRow(1).getCell(5).getStringCellValue()).isEqualTo("=SUM(1,1)");assertThat(workbook.getSheet("Consulta").getRow(4).getCell(1).getStringCellValue()).isEqualTo("23");}
+   try(var workbook=new XSSFWorkbook(new java.io.ByteArrayInputStream(bytes.body()))){var sheet=workbook.getSheet("Resultados");assertThat(sheet.getLastRowNum()).isEqualTo(26);assertThat(sheet.getRow(0).getCell(0).getStringCellValue()).isEqualTo("Relatório de limpeza dos quartos");assertThat(sheet.getRow(1).getCell(0).getStringCellValue()).isEqualTo("Período: 01/09/2026 a 30/09/2026");assertThat(sheet.getRow(2).getCell(0).getStringCellValue()).startsWith("Filtros: Alojamento: ").contains("Quarto: ","Residente: =SUM(1,1)","Situação: Dentro do limiar").doesNotContain(accommodation.toString(),"DENTRO_LIMITE","Novo Nome");
+    List<String> header=new ArrayList<>();sheet.getRow(3).forEach(cell->header.add(cell.getStringCellValue()));assertThat(header).containsExactly("Data","Tipo","Situação","Residente","Quarto","Nota","Categoria","Origem");
+    var record=sheet.getRow(4);assertThat(new org.apache.poi.ss.usermodel.DataFormatter().formatCellValue(record.getCell(0))).matches("\\d{2}/09/2026");assertThat(record.getCell(1).getStringCellValue()).isEqualTo("Limpeza dos quartos");assertThat(record.getCell(2).getStringCellValue()).isEqualTo("Dentro do limiar");assertThat(record.getCell(3).getCellType()).isEqualTo(CellType.STRING);assertThat(record.getCell(3).getStringCellValue()).isEqualTo("=SUM(1,1)");assertThat(record.getCell(5).getNumericCellValue()).isEqualTo(8d);assertThat(record.getCell(7).getStringCellValue()).isEqualTo("Avaliação de limpeza");
+    var meta=workbook.getSheet("Consulta");assertThat(meta.getRow(3).getCell(1).getStringCellValue()).isEqualTo("23");assertThat(meta.getRow(meta.getLastRowNum()).getCell(1).getStringCellValue()).isEqualTo(snapshot.path("contentHash").asText());}
    var binary=download(sup,pdf.path("id").asText());assertThat(binary.statusCode()).isEqualTo(200);
-   try(var document=Loader.loadPDF(binary.body())){String text=new PDFTextStripper().getText(document);assertThat(text).contains("Relatório SAGER","Linhas: 23","=SUM(1,1)",snapshot.path("contentHash").asText());}
+   try(var document=Loader.loadPDF(binary.body())){String text=new PDFTextStripper().getText(document);assertThat(text).contains("Relatório de limpeza dos quartos","Período: 01/09/2026 a 30/09/2026","Total de registros: 23","Filtros: Alojamento: ","Residente: =SUM(1,1)","Situação: Dentro do limiar","Nota: 8,00",snapshot.path("contentHash").asText()).doesNotContain(resident.toString(),id,"DENTRO_LIMITE","2026-09-","Identificador","UUID");assertThat(text.indexOf(snapshot.path("contentHash").asText())).isGreaterThan(text.lastIndexOf("=SUM(1,1)"));}
    assertThat(bytes.headers().firstValue("Cache-Control").orElseThrow()).contains("no-store");
    assertThatThrownBy(()->jdbc.update("UPDATE sager_report_snapshot SET row_count=0 WHERE id=?",UUID.fromString(id))).isInstanceOf(DataIntegrityViolationException.class);
   }
@@ -143,7 +173,7 @@ class CleaningReportsIntegrationTest {
    }
    ok(sup,"POST","/api/v1/limpeza/avaliacoes",assessment(rooms.getFirst(),"NOW",null,new double[]{8,8,8,8}));
    var snapshot=consult(sup,"LIMPEZA",filters());var job=export(sup,snapshot.path("id").asText(),"XLSX");worker.runOnce();
-   try(var workbook=new XSSFWorkbook(new java.io.ByteArrayInputStream(download(sup,job.path("id").asText()).body()))){var sheet=workbook.getSheet("Resultados");Set<String> names=new HashSet<>();for(int i=1;i<=sheet.getLastRowNum();i++){var cell=sheet.getRow(i).getCell(5);assertThat(cell.getCellType()).isEqualTo(CellType.STRING);names.add(cell.getStringCellValue());}assertThat(names).contains("+literal","-literal","@literal");}
+   try(var workbook=new XSSFWorkbook(new java.io.ByteArrayInputStream(download(sup,job.path("id").asText()).body()))){var sheet=workbook.getSheet("Resultados");assertThat(sheet.getRow(2).getCell(0).getStringCellValue()).isEqualTo("Filtros: nenhum");Set<String> names=new HashSet<>();for(int i=4;i<=sheet.getLastRowNum();i++){var cell=sheet.getRow(i).getCell(3);assertThat(cell.getCellType()).isEqualTo(CellType.STRING);names.add(cell.getStringCellValue());}assertThat(names).contains("+literal","-literal","@literal");}
   }
  }
  @Test void catalogUsesRealSourcesAndD11CountsAreDistinct()throws Exception{
@@ -216,6 +246,55 @@ class CleaningReportsIntegrationTest {
    assertThat(get(manager,"/api/v1/relatorios/consultas/"+id).statusCode()).isEqualTo(404);assertThat(download(manager,export).statusCode()).isEqualTo(404);assertThat(get(student,"/api/v1/relatorios/catalogo").statusCode()).isEqualTo(403);
    var ready=read(sup,"/api/v1/relatorios/exportacoes/"+export);Path file=REPORTS.resolve(ready.path("document").path("id").asText());Files.writeString(file,"conteúdo corrompido sintético");assertThat(download(sup,export).statusCode()).isEqualTo(503);
    var pending=export(sup,id,"XLSX");accounts.disable("supervisor@example.invalid");assertThat(download(sup,export).statusCode()).isEqualTo(401);assertThat(worker.runOnce()).isFalse();assertThat(jdbc.queryForObject("SELECT status FROM sager_report_export WHERE id=?",String.class,UUID.fromString(pending.path("id").asText()))).isEqualTo("FAILED");
+  }
+ }
+ @Test void listShowsOnlyOwnValidReportsWithRecordsAndNeverTheirRows()throws Exception{
+  try(var sup=login("supervisor");var manager=login("gestor");var student=login("residente")){
+   ok(sup,"POST","/api/v1/limpeza/avaliacoes",assessment(rooms.getFirst(),"NOW",null,new double[]{8,8,8,8}));var snapshot=consult(sup,"LIMPEZA",filters());String id=snapshot.path("id").asText(),path="/api/v1/relatorios/consultas";
+   var empty=filters();empty.put("from","2026-08-01");empty.put("to","2026-08-31");assertThat(consult(sup,"LIMPEZA",empty).path("rowCount").asInt()).isZero();
+   export(sup,id,"PDF");var response=get(sup,path);assertThat(response.statusCode()).isEqualTo(200);assertThat(response.headers().firstValue("Cache-Control").orElseThrow()).contains("no-store");assertThat(response.body()).doesNotContain("residentName","Estudante Sintético","\"rows\"");
+   var list=json.readTree(response.body());assertThat(list.size()).isEqualTo(1);var item=list.get(0);assertThat(item.path("id").asText()).isEqualTo(id);assertThat(item.path("catalogCode").asText()).isEqualTo("LIMPEZA");assertThat(item.path("rowCount").asInt()).isEqualTo(1);assertThat(item.path("filters").path("from").asText()).isEqualTo("2026-09-01");assertThat(item.path("exports").get(0).path("status").asText()).isEqualTo("PENDING");
+   assertThat(read(manager,path).size()).isZero();assertThat(get(student,path).statusCode()).isEqualTo(403);assertThat(get(HttpClient.newHttpClient(),path).statusCode()).isEqualTo(401);
+   worker.runOnce();var ready=read(sup,path).get(0).path("exports").get(0);assertThat(ready.path("status").asText()).isEqualTo("READY");assertThat(download(sup,ready.path("id").asText()).statusCode()).isEqualTo(200);
+   clock.set(START.plus(Duration.ofHours(24)));assertThat(read(sup,path).size()).isZero();
+  }
+ }
+ @Test void failedExportGoesBackToQueueOnRequestAndKeepsAudit()throws Exception{
+  try(var sup=login("supervisor");var manager=login("gestor")){
+   ok(sup,"POST","/api/v1/limpeza/avaliacoes",assessment(rooms.getFirst(),"NOW",null,new double[]{8,8,8,8}));String id=consult(sup,"LIMPEZA",filters()).path("id").asText();var job=export(sup,id,"PDF");String export=job.path("id").asText();
+   jdbc.update("UPDATE sager_report_export SET status='FAILED',error_code='export_failed' WHERE id=?",UUID.fromString(export));int audit=count("sager_audit_event");
+   assertThat(write(manager,"POST","/api/v1/relatorios/consultas/"+id+"/exportacoes",Map.of("format","PDF")).statusCode()).isEqualTo(404);assertThat(read(sup,"/api/v1/relatorios/exportacoes/"+export).path("status").asText()).isEqualTo("FAILED");
+   var retried=export(sup,id,"PDF");assertThat(retried.path("id").asText()).isEqualTo(export);assertThat(retried.path("status").asText()).isEqualTo("PENDING");assertThat(retried.path("errorCode").isNull()).isTrue();assertThat(count("sager_audit_event")).isEqualTo(audit+1);
+   assertThat(export(sup,id,"PDF").path("status").asText()).isEqualTo("PENDING");assertThat(count("sager_audit_event")).isEqualTo(audit+1);assertThat(count("sager_report_export")).isEqualTo(1);
+   assertThat(worker.runOnce()).isTrue();assertThat(export(sup,id,"PDF").path("status").asText()).isEqualTo("READY");assertThat(download(sup,export).statusCode()).isEqualTo(200);
+  }
+ }
+ @Test void unitFilterIsOptionalAndKeepsHashOfStoredSnapshots()throws Exception{
+  var legacy=json.readTree("{\"from\":\"2026-09-01\",\"to\":\"2026-09-30\",\"accommodationId\":null,\"roomId\":null,\"residentId\":null,\"status\":null}");
+  var current=new ReportModels.Filters(LocalDate.parse("2026-09-01"),LocalDate.parse("2026-09-30"),null,null,null,null,null);
+  assertThat(ReportService.contentHash(json.valueToTree(Map.of("filters",current)))).isEqualTo(ReportService.contentHash(json.valueToTree(Map.of("filters",legacy))));
+  UUID unit=UUID.randomUUID();jdbc.update("INSERT INTO sager_accommodation_unit(id,accommodation_id,code,name) VALUES (?,?,?,'Casa Sintética')",unit,accommodation,"C-"+unit.toString().substring(0,8));jdbc.update("UPDATE sager_room SET unit_id=? WHERE id=?",unit,rooms.getFirst());
+  try(var sup=login("supervisor")){
+   for(int i=0;i<2;i++)ok(sup,"POST","/api/v1/limpeza/avaliacoes",assessment(rooms.get(i),"NOW",null,new double[]{8,8,8,8}));
+   var all=consult(sup,"LIMPEZA",filters());assertThat(all.path("rowCount").asInt()).isEqualTo(2);assertThat(all.path("filters").has("unitId")).isFalse();assertThat(jdbc.queryForObject("SELECT filters::text FROM sager_report_snapshot WHERE id=?",String.class,UUID.fromString(all.path("id").asText()))).doesNotContain("unitId");
+   var job=export(sup,all.path("id").asText(),"XLSX");assertThat(worker.runOnce()).isTrue();assertThat(read(sup,"/api/v1/relatorios/exportacoes/"+job.path("id").asText()).path("status").asText()).isEqualTo("READY");
+   var filtered=filters();filtered.put("unitId",unit);var one=consult(sup,"LIMPEZA",filtered);assertThat(one.path("rowCount").asInt()).isEqualTo(1);assertThat(one.path("filters").path("unitId").asText()).isEqualTo(unit.toString());
+   var filteredJob=export(sup,one.path("id").asText(),"PDF");assertThat(worker.runOnce()).isTrue();assertThat(read(sup,"/api/v1/relatorios/exportacoes/"+filteredJob.path("id").asText()).path("status").asText()).isEqualTo("READY");
+  }
+ }
+ @Test void snapshotStoredBeforeUnitFilterStillExportsWithTranslatedLabels()throws Exception{
+  try(var sup=login("supervisor")){
+   UUID owner=jdbc.queryForObject("SELECT id FROM sager_local_account WHERE profile='supervisor'",UUID.class),id=UUID.randomUUID();OffsetDateTime asOf=at(START);
+   var legacy=json.readTree("{\"from\":\"2026-09-01\",\"to\":\"2026-09-30\",\"accommodationId\":null,\"roomId\":null,\"residentId\":null,\"status\":null}");
+   var row=new LinkedHashMap<String,Object>();row.put("id",UUID.randomUUID().toString());row.put("date","2026-09-15");row.put("type","PRESENCA");row.put("status","AUSENCIA_JUSTIFICADA");row.put("residentId",resident.toString());row.put("residentName","Estudante Sintético");row.put("roomId",null);row.put("roomCode","T-101");row.put("accommodationId",null);row.put("score",null);row.put("category",null);row.put("sourceType","NIGHT_CALL");
+   List<Map<String,Object>> rows=List.of(row);var columns=catalog.item("PRESENCA").columns();var summary=catalog.summary(rows);var monthly=catalog.monthly(rows,new ReportModels.Filters(LocalDate.parse("2026-09-01"),LocalDate.parse("2026-09-30"),null,null,null,null,null));
+   String hash=ReportService.contentHash(json.valueToTree(Map.of("catalogVersion",1,"catalogCode","PRESENCA","filters",legacy,"columns",columns,"rows",rows,"summary",summary,"monthly",monthly)));
+   jdbc.update("INSERT INTO sager_report_snapshot(id,owner_id,catalog_code,catalog_version,filters,columns,rows,summary,monthly,row_count,content_hash,as_of,expires_at) VALUES (?,?,'PRESENCA',1,?::jsonb,?::jsonb,?::jsonb,?::jsonb,?::jsonb,1,?,?,?)",id,owner,json.writeValueAsString(legacy),json.writeValueAsString(columns),json.writeValueAsString(rows),json.writeValueAsString(summary),json.writeValueAsString(monthly),hash,asOf,asOf.plusHours(24));
+   var pdf=export(sup,id.toString(),"PDF");var xlsx=export(sup,id.toString(),"XLSX");assertThat(worker.runOnce()).isTrue();assertThat(worker.runOnce()).isTrue();
+   assertThat(read(sup,"/api/v1/relatorios/exportacoes/"+pdf.path("id").asText()).path("status").asText()).isEqualTo("READY");
+   try(var document=Loader.loadPDF(download(sup,pdf.path("id").asText()).body())){assertThat(new PDFTextStripper().getText(document)).contains("Relatório de presença na chamada","Data: 15/09/2026","Ausência justificada","Chamada noturna",hash).doesNotContain("AUSENCIA_JUSTIFICADA",resident.toString());}
+   try(var workbook=new XSSFWorkbook(new java.io.ByteArrayInputStream(download(sup,xlsx.path("id").asText()).body()))){assertThat(workbook.getSheet("Resultados").getRow(4).getCell(2).getStringCellValue()).isEqualTo("Ausência justificada");}
+   assertThat(jdbc.queryForObject("SELECT content_hash FROM sager_report_snapshot WHERE id=?",String.class,id)).isEqualTo(hash);
   }
  }
  private void allocate(UUID resident,UUID room,Instant started){jdbc.update("INSERT INTO sager_room_allocation(id,resident_id,room_id,started_at) VALUES (?,?,?,?)",UUID.randomUUID(),resident,room,at(started));}

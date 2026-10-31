@@ -301,7 +301,13 @@ class HealthApiIntegrationTest {
         assertStatus(post(manager, PREFIX + "/custodias", Map.of("residentId", resident,
                 "sourceAuthorAccountId", doctor.id(), "recipientGrantId", psychological.path("id").asText(),
                 "reason", REASON)), 403);
+        JsonNode authors = ok(get(manager, PREFIX + "/custodias/autores?residentId=" + resident), 200);
+        assertThat(authors).hasSize(1);
+        assertThat(authors.get(0).path("id").asText()).isEqualTo(doctor.id().toString());
+        assertThat(authors.get(0).size()).isEqualTo(2);
+        assertStatus(get(nurse, PREFIX + "/custodias/autores?residentId=" + resident), 403);
         JsonNode custody = ok(post(manager, PREFIX + "/custodias", transfer), 201);
+        assertThat(custody.path("sourceAuthorName").asText()).isEqualTo(authors.get(0).path("name").asText());
         JsonNode inherited = ok(get(nurse, notePath(note)), 200);
         assertThat(inherited.path("custodyAccess").asBoolean()).isTrue();
         assertThat(inherited.path("canCorrect").asBoolean()).isFalse();

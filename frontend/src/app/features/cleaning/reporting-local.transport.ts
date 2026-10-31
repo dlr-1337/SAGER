@@ -1,3 +1,11 @@
+import {
+  ERROR_CONFLICT,
+  ERROR_FORBIDDEN,
+  ERROR_GENERIC,
+  ERROR_INVALID,
+  ERROR_NOT_FOUND,
+  ERROR_SESSION,
+} from '../../core/error-messages';
 import { validCivilDate } from '../communications/communications-local.utils';
 export type Guard<T> = (value: unknown) => value is T;
 export const record = (value: unknown): value is Record<string, unknown> =>
@@ -46,22 +54,18 @@ export function reportingError(error: unknown): string {
   ) {
     const status = error instanceof ReportingApiError ? error.status : error['status'];
     const code = error instanceof ReportingApiError ? error.code : '';
-    if (status === 401) return 'Sua sessão terminou. Entre novamente para continuar.';
-    if (status === 403)
-      return 'Seu perfil não tem acesso a esta ação ou a proteção da sessão expirou.';
-    if (status === 404) return 'Este registro não está disponível para sua conta.';
-    if (status === 410)
-      return 'A consulta ou o arquivo expirou. Crie uma nova consulta para usar os registros atuais.';
+    if (status === 401) return ERROR_SESSION;
+    if (status === 403) return ERROR_FORBIDDEN;
+    if (status === 404) return ERROR_NOT_FOUND;
+    if (status === 410) return 'Este relatório expirou. Gere outro.';
     if (code === 'assessment_exists')
-      return 'Já existe uma avaliação deste quarto nesta data. Consulte o registro e use a correção motivada.';
-    if (status === 409)
-      return 'O registro mudou. Recarregue a versão atual e confira os dados antes de confirmar novamente.';
+      return 'Já existe uma avaliação deste quarto nesta data. Abra essa avaliação e corrija por lá.';
+    if (status === 409) return ERROR_CONFLICT;
     if (code === 'report_limit_exceeded')
-      return 'A consulta ultrapassa 10.000 linhas. Reduza o período ou combine filtros; nenhum resultado foi truncado.';
-    if (status === 400 || status === 422)
-      return 'Os dados foram recusados. Confira os valores, o período e os filtros selecionados.';
+      return 'Muitos registros para um só relatório. Escolha um período menor.';
+    if (status === 400 || status === 422) return ERROR_INVALID;
   }
-  return 'Não foi possível consultar ou gravar os registros. Confira a conexão e tente novamente.';
+  return ERROR_GENERIC;
 }
 export class ReportingTransport {
   async get<T>(path: string, guard: Guard<T>): Promise<T> {

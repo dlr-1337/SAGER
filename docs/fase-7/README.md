@@ -50,5 +50,5 @@ antes de uso real. Os scripts entregues não criam rotinas agendadas.
 O Compose limita a execução a 1 CPU e 1.632 MiB somados entre os três serviços.
 A medição local está no QA; esse orçamento não comprova uma VPS física de
 2 GB/1 CPU/50 GB. Disponibilidade mensal, MTBF e MTTR exigem acompanhamento no
-piloto. Clicksign e WhatsApp permanecem desabilitados até configuração e
-homologação reais com credenciais autorizadas.
+piloto. O gateway de WhatsApp permanece desligado até configuração própria e
+aceite institucional ([operação](../whatsapp/OPERACAO.md)).

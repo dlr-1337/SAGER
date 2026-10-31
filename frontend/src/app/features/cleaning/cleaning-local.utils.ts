@@ -8,7 +8,7 @@ import {
 export const criterionLabels: Record<CleaningCriterion, string> = {
   PISO: 'Piso',
   SUPERFICIES: 'Superfícies',
-  RESIDUOS: 'Resíduos',
+  RESIDUOS: 'Lixo',
   ORGANIZACAO: 'Organização',
 };
 export const criteriaKeys = Object.keys(criterionLabels) as CleaningCriterion[];
@@ -54,7 +54,7 @@ export function cleaningInputError(input: CleaningInput, serverNow: string): str
   if (input.timeMode === 'RETROACTIVE') {
     const instant = Date.parse(input.evaluatedAt ?? '');
     if (!Number.isFinite(instant) || instant > Date.parse(serverNow))
-      return 'Informe o instante real da avaliação, válido e não futuro no horário de São Paulo.';
+      return 'Informe quando foi a avaliação. Não pode ser no futuro.';
     const reason = input.registrationReason?.trim() ?? '';
     if (reason.length < 10 || reason.length > 2000)
       return 'Explique o registro histórico em 10 a 2.000 caracteres.';

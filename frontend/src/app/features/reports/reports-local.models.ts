@@ -1,4 +1,6 @@
 import { MonthlyIndicator } from '../cleaning/cleaning-local.models';
+import { HousingMap } from '../management/housing.models';
+import { ResidentRecord } from '../management/resident-api.service';
 export type ReportCode =
   | 'PRESENCA'
   | 'SAIDAS'
@@ -44,6 +46,7 @@ export interface ReportFilters {
   from: string;
   to: string;
   accommodationId: string | null;
+  unitId?: string | null;
   roomId: string | null;
   residentId: string | null;
   status: string | null;
@@ -104,12 +107,27 @@ export interface ReportExport {
   errorCode: string | null;
   document: { id: string; sha256: string; size: number; state: string } | null;
 }
+export interface ReportListItem {
+  id: string;
+  catalogCode: ReportCode;
+  filters: ReportFilters;
+  rowCount: number;
+  asOf: string;
+  expiresAt: string;
+  exports: ReportExport[];
+}
+export interface ReportFilterOptions {
+  housing: HousingMap;
+  residents: ResidentRecord[];
+  failed: boolean;
+}
 export interface ReportInput {
   catalogCode: ReportCode;
   filters: {
     from: string;
     to: string;
     accommodationId?: string;
+    unitId?: string;
     roomId?: string;
     residentId?: string;
     status?: string;

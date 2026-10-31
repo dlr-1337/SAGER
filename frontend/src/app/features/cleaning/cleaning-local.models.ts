@@ -90,6 +90,8 @@ export interface CleaningCorrection {
   reason: string;
 }
 export interface CleaningFilters {
+  accommodationId?: string;
+  unitId?: string;
   roomId?: string;
   residentId?: string;
   from?: string;

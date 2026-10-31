@@ -125,13 +125,13 @@ test('gestor aloca, transfere e encerra com histórico persistido na interface',
   const state = await mockLocal(context);
   await page.goto(`/residentes/${residentId}`);
   await expect(page.getByText('Nenhum quarto ativo vinculado')).toBeVisible();
-  await page.getByRole('combobox', { name: 'Alocar em' }).selectOption(firstRoomId);
-  await page.getByRole('button', { name: 'Alocar residente' }).click();
+  await page.getByRole('combobox', { name: 'Colocar no quarto' }).selectOption(firstRoomId);
+  await page.getByRole('button', { name: 'Colocar no quarto' }).click();
   await expect.poll(() => state.writes.length).toBe(1);
   await expect.poll(() => state.allocations.length).toBe(1);
   await expect(page.getByRole('link', { name: /Quarto 01/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Encerrar alocação' })).toBeEnabled();
-  await page.screenshot({ path: 'test-results/allocation-desktop.png', fullPage: true });
+  await expect(page.getByRole('button', { name: 'Tirar do quarto' })).toBeEnabled();
+  await page.screenshot({ path: test.info().outputPath('allocation-desktop.png'), fullPage: true });
   expect(state.writes[0]).toMatchObject({
     path: '/api/v1/alocacoes',
     csrf: 'csrf-test',
@@ -139,13 +139,13 @@ test('gestor aloca, transfere e encerra com histórico persistido na interface',
   });
   await page.reload();
   await expect(page.getByRole('link', { name: /Quarto 01/ })).toBeVisible();
-  await page.getByRole('combobox', { name: 'Transferir para' }).selectOption(secondRoomId);
-  await page.getByRole('button', { name: 'Transferir residente' }).click();
+  await page.getByRole('combobox', { name: 'Mudar para' }).selectOption(secondRoomId);
+  await page.getByRole('button', { name: 'Mudar de quarto' }).click();
   await expect(page.getByRole('link', { name: /Quarto 02/ })).toBeVisible();
   expect(state.writes[1].body).toMatchObject({ roomId: secondRoomId, version: 0 });
-  await page.getByRole('button', { name: 'Encerrar alocação' }).click();
-  await expect(page.getByText('Encerrar libera a vaga')).toBeVisible();
-  await page.getByRole('button', { name: 'Confirmar encerramento' }).click();
+  await page.getByRole('button', { name: 'Tirar do quarto' }).click();
+  await expect(page.getByText('A vaga fica livre')).toBeVisible();
+  await page.getByRole('button', { name: 'Confirmar saída do quarto' }).click();
   await expect(page.getByText('Nenhum quarto ativo vinculado')).toBeVisible();
   await page.getByRole('button', { name: 'Histórico' }).click();
   await expect(page.getByRole('heading', { name: 'Histórico de quartos' })).toBeVisible();
@@ -171,9 +171,9 @@ test('supervisor em celular transfere alocação; navegação é acessível', as
   });
   await page.goto(`/residentes/${residentId}`);
   await expect(page.getByRole('link', { name: /Quarto 01/ })).toBeVisible();
-  await page.screenshot({ path: 'test-results/allocation-mobile.png', fullPage: true });
-  await page.getByRole('combobox', { name: 'Transferir para' }).selectOption(secondRoomId);
-  await page.getByRole('button', { name: 'Transferir residente' }).click();
+  await page.screenshot({ path: test.info().outputPath('allocation-mobile.png'), fullPage: true });
+  await page.getByRole('combobox', { name: 'Mudar para' }).selectOption(secondRoomId);
+  await page.getByRole('button', { name: 'Mudar de quarto' }).click();
   await expect(page.getByRole('link', { name: /Quarto 02/ })).toBeVisible();
   expect(state.writes[0].body).toMatchObject({ roomId: secondRoomId, version: 0 });
   await page.keyboard.press('Tab');
@@ -198,12 +198,12 @@ test('duas abas exibem conflito de versão e recarregam o vínculo atual', async
   await page.goto(`/residentes/${residentId}`);
   const second = await context.newPage();
   await second.goto(`/residentes/${residentId}`);
-  await page.getByRole('combobox', { name: 'Transferir para' }).selectOption(secondRoomId);
-  await second.getByRole('combobox', { name: 'Transferir para' }).selectOption(secondRoomId);
-  await page.getByRole('button', { name: 'Transferir residente' }).click();
+  await page.getByRole('combobox', { name: 'Mudar para' }).selectOption(secondRoomId);
+  await second.getByRole('combobox', { name: 'Mudar para' }).selectOption(secondRoomId);
+  await page.getByRole('button', { name: 'Mudar de quarto' }).click();
   await expect(page.getByRole('link', { name: /Quarto 02/ })).toBeVisible();
-  await second.getByRole('button', { name: 'Transferir residente' }).click();
-  await expect(second.getByRole('alert')).toContainText('alterado em outra aba');
+  await second.getByRole('button', { name: 'Mudar de quarto' }).click();
+  await expect(second.getByRole('alert')).toContainText('Outra pessoa alterou');
   await expect(second.getByRole('link', { name: /Quarto 02/ })).toBeVisible();
   await second.close();
 });

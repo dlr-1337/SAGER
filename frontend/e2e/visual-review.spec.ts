@@ -20,7 +20,7 @@ test('captura telas centrais para revisão visual', async ({ page }) => {
 
   await page.getByLabel('Perfil', { exact: true }).selectOption('gestor');
   await page.goto('/relatorios');
-  await expect(page.getByRole('heading', { name: 'Relatórios' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Relatórios', exact: true })).toBeVisible();
   await page.screenshot({ path: join(output, 'relatorios-desktop.png'), fullPage: true });
 
   await page.goto('/responsaveis');
@@ -32,18 +32,10 @@ test('captura telas centrais para revisão visual', async ({ page }) => {
   await page.goto('/relatorios');
   await page.screenshot({ path: join(output, 'relatorios-mobile-390.png'), fullPage: true });
   await page.setViewportSize({ width: 320, height: 740 });
-  await expect(page.locator('.report-mobile-list')).toBeVisible();
-  await expect(page.locator('.reports-page .results-panel > .table-scroll')).toBeHidden();
-  await page.locator('.report-mobile-row summary').first().click();
-  await expect(page.locator('.report-mobile-row').first()).toContainText(
-    'Chamada noturna · presente',
-  );
+  await page.getByRole('button', { name: 'Gerar relatório' }).click();
+  await expect(page.getByRole('button', { name: 'Baixar PDF' })).toBeVisible({ timeout: 8000 });
   await expect(page.locator('.skip-link')).not.toBeFocused();
   await page.screenshot({ path: join(output, 'relatorios-mobile-320.png'), fullPage: true });
-  await page.getByRole('button', { name: 'Simular exportação PDF' }).click();
-  await expect(page.getByRole('dialog', { name: 'Exportação de PDF simulada' })).toBeVisible();
-  await page.screenshot({ path: join(output, 'exportacao-modal-mobile-320.png') });
-  await page.keyboard.press('Escape');
   await page.setViewportSize({ width: 390, height: 844 });
 
   await page.getByRole('button', { name: 'Menu', exact: true }).click();

@@ -18,7 +18,6 @@ describe('Paginação autorizada de supervisores', () => {
 
   it.each([
     { role: 'gestor', demo: false },
-    { role: 'supervisor', demo: false },
     { role: 'gestor', demo: true },
   ])('permite avançar de 25 para três registros ($role, demo=$demo)', async ({ role, demo }) => {
     const page = vi.fn(async (params: Record<string, string>) => ({
@@ -60,7 +59,47 @@ describe('Paginação autorizada de supervisores', () => {
     else expect(page).toHaveBeenLastCalledWith({ search: '', limit: '25', offset: '25' });
   });
 
-  it('não oferece paginação nem consulta a API no ramo sem permissão', async () => {
+  it.each([{ demo: true }, { demo: false }])(
+    'mantém o clique em Próxima dado logo depois de filtrar (demo=$demo)',
+    async ({ demo }) => {
+      const page = vi.fn(async (params: Record<string, string>) => ({
+        items: records.slice(Number(params['offset']), Number(params['offset']) + 25),
+        total: 28,
+      }));
+      TestBed.configureTestingModule({
+        providers: [
+          provideRouter([]),
+          { provide: SupervisorApiService, useValue: { page } },
+          { provide: ManagementDemoService, useValue: { supervisors: signal(records) } },
+          {
+            provide: DemoSessionService,
+            useValue: {
+              active: signal(demo),
+              scenario: signal('padrao'),
+              hasRole: (...roles: string[]) => roles.includes('gestor'),
+            },
+          },
+        ],
+      });
+      const fixture = TestBed.createComponent(SupervisorsComponent);
+      await fixture.whenStable();
+      fixture.componentInstance.changePage(1);
+      fixture.componentInstance.search.setValue('Supervisor');
+      expect(fixture.componentInstance.page()).toBe(0);
+      fixture.componentInstance.changePage(1);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      expect(fixture.componentInstance.page()).toBe(1);
+      if (!demo) {
+        expect(page).toHaveBeenLastCalledWith({
+          search: 'Supervisor',
+          limit: '25',
+          offset: '25',
+        });
+      }
+    },
+  );
+
+  it('não oferece paginação nem consulta a API ao supervisor', async () => {
     const page = vi.fn();
     TestBed.configureTestingModule({
       providers: [
@@ -69,7 +108,11 @@ describe('Paginação autorizada de supervisores', () => {
         { provide: ManagementDemoService, useValue: { supervisors: signal([]) } },
         {
           provide: DemoSessionService,
-          useValue: { active: signal(false), scenario: signal('padrao'), hasRole: () => false },
+          useValue: {
+            active: signal(false),
+            scenario: signal('padrao'),
+            hasRole: (...roles: string[]) => roles.includes('supervisor'),
+          },
         },
       ],
     });

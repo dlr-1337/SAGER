@@ -114,7 +114,7 @@ describe('Projeções e gravação de limpeza', () => {
       .get(id)
       .catch((error) => error);
     expect(error).toBeInstanceOf(ReportingApiError);
-    expect(reportingError(error)).toContain('Recarregue');
+    expect(reportingError(error)).toContain('Recarregar');
     expect(reportingError(error)).not.toContain('secret');
     expect(fetch).toHaveBeenCalledTimes(1);
   });

@@ -36,7 +36,7 @@ import { plainHealthText, trimmedLength } from './health.helpers';
     @if (error()) {
       <p class="health-alert" role="alert">{{ error() }}</p>
       <button type="button" class="btn-secondary" (click)="load()" [disabled]="loading()">
-        Carregar versão atual
+        Recarregar dados
       </button>
     }
     @if (success()) {
@@ -59,8 +59,8 @@ import { plainHealthText, trimmedLength } from './health.helpers';
             <dd>{{ record.createdAt | date: 'dd/MM/yyyy HH:mm' }}</dd>
           </div>
           <div>
-            <dt>Versão atual</dt>
-            <dd>{{ record.version }} · {{ record.updatedAt | date: 'dd/MM/yyyy HH:mm' }}</dd>
+            <dt>Atualizado em</dt>
+            <dd>{{ record.updatedAt | date: 'dd/MM/yyyy HH:mm' }}</dd>
           </div>
         </dl>
         <p class="health-note">{{ record.body }}</p>
@@ -82,7 +82,7 @@ import { plainHealthText, trimmedLength } from './health.helpers';
         @if (record.canCorrect && !own()) {
           <details class="health-disclosure">
             <summary>Corrigir registro</summary>
-            <p>A correção acrescenta uma nova versão e preserva o conteúdo anterior.</p>
+            <p>O texto anterior fica guardado no histórico.</p>
             <form
               sagerUnsaved
               [sagerSaving]="busy"
@@ -137,15 +137,14 @@ import { plainHealthText, trimmedLength } from './health.helpers';
         <h2 id="health-history-heading">Histórico preservado</h2>
         @for (revision of revisions(); track revision.id) {
           <article class="health-revision">
-            <h3>Versão {{ revision.version }}</h3>
-            <p class="health-meta">{{ revision.recordedAt | date: 'dd/MM/yyyy HH:mm' }}</p>
+            <h3>{{ revision.recordedAt | date: 'dd/MM/yyyy HH:mm' }}</h3>
             <p class="health-note">{{ revision.body }}</p>
             @if (revision.reason) {
               <p class="health-note"><strong>Justificativa:</strong> {{ revision.reason }}</p>
             }
           </article>
         } @empty {
-          <p>Nenhuma revisão disponível nesta consulta.</p>
+          <p>Nenhuma correção anterior.</p>
         }
         @if (historyCursor() !== null) {
           <button
@@ -162,8 +161,8 @@ import { plainHealthText, trimmedLength } from './health.helpers';
         <section class="panel health-section" aria-labelledby="health-share-heading">
           <h2 id="health-share-heading">Partilha entre profissionais</h2>
           <p>
-            Acesso explícito ao registro, histórico e futuras correções. Apenas profissionais
-            habilitados e vinculados podem receber.
+            Acesso explícito ao registro, histórico e futuras correções. Apenas profissionais com
+            acesso liberado e que atendem este residente podem receber.
           </p>
           <ul class="health-list">
             @for (share of record.shares; track share.id) {

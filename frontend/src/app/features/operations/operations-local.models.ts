@@ -96,8 +96,8 @@ export interface ExitHistory {
   version: number;
   recordedAt: string;
   effectiveAt: string | null;
-  actorId: string;
-  actorProfile: string;
+  actorId: string | null;
+  actorProfile: string | null;
   origin: string;
   justification: string | null;
   departureMode: string;

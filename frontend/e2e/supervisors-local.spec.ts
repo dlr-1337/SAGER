@@ -20,6 +20,8 @@ const principal = {
   supervisorId: null,
 };
 
+const password = 'Senha sintética 123!';
+
 async function mockSession(page: Page, profile: 'gestor' | 'supervisor' = 'gestor'): Promise<void> {
   await page.route('**/api/v1/auth/**', (route) => {
     const path = new URL(route.request().url()).pathname;
@@ -31,39 +33,52 @@ async function mockSession(page: Page, profile: 'gestor' | 'supervisor' = 'gesto
   });
 }
 
-for (const profile of ['gestor', 'supervisor'] as const) {
-  test(`${profile} percorre todas as páginas dos 28 supervisores`, async ({ page }) => {
-    await mockSession(page, profile);
-    const records: SupervisorRecord[] = Array.from({ length: 28 }, (_, index) => ({
-      id: `00000000-0000-0000-0000-${String(index + 101).padStart(12, '0')}`,
-      name: `Supervisor Sintético ${index + 1}`,
-      institutionalId: `TESTE-${index + 1}`,
-      email: `supervisor${index + 1}@example.invalid`,
-      version: 0,
-    }));
-    const offsets: number[] = [];
-    await page.route('**/api/v1/supervisores**', (route) => {
-      const params = new URL(route.request().url()).searchParams;
-      const offset = Number(params.get('offset') ?? 0);
-      offsets.push(offset);
-      return route.fulfill({
-        headers: { 'X-Total-Count': '28' },
-        json: records.slice(offset, offset + Number(params.get('limit') ?? 25)),
-      });
+test('gestor percorre todas as páginas dos 28 supervisores', async ({ page }) => {
+  await mockSession(page);
+  const records: SupervisorRecord[] = Array.from({ length: 28 }, (_, index) => ({
+    id: `00000000-0000-0000-0000-${String(index + 101).padStart(12, '0')}`,
+    name: `Supervisor Sintético ${index + 1}`,
+    institutionalId: `TESTE-${index + 1}`,
+    email: `supervisor${index + 1}@example.invalid`,
+    version: 0,
+  }));
+  const offsets: number[] = [];
+  await page.route('**/api/v1/supervisores**', (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    const offset = Number(params.get('offset') ?? 0);
+    offsets.push(offset);
+    return route.fulfill({
+      headers: { 'X-Total-Count': '28' },
+      json: records.slice(offset, offset + Number(params.get('limit') ?? 25)),
     });
-    await page.goto('/supervisores');
-    const names = page.locator('article.mg-row h3');
-    await expect(names).toHaveText(records.slice(0, 25).map((item) => item.name));
-    await expect(page.getByText('1–25 de 28', { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Próxima', exact: true }).click();
-    await expect(names).toHaveText(records.slice(25).map((item) => item.name));
-    await expect(page.getByText('26–28 de 28', { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Próxima', exact: true })).toBeDisabled();
-    await page.getByRole('button', { name: 'Anterior', exact: true }).click();
-    await expect(names).toHaveCount(25);
-    expect(offsets).toEqual([0, 25, 0]);
   });
-}
+  await page.goto('/supervisores');
+  const names = page.locator('article.mg-row h3');
+  await expect(names).toHaveText(records.slice(0, 25).map((item) => item.name));
+  await expect(page.getByText('1–25 de 28', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Próxima', exact: true }).click();
+  await expect(names).toHaveText(records.slice(25).map((item) => item.name));
+  await expect(page.getByText('26–28 de 28', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Próxima', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Anterior', exact: true }).click();
+  await expect(names).toHaveCount(25);
+  expect(offsets).toEqual([0, 25, 0]);
+});
+
+test('supervisor não vê o menu nem abre as telas de supervisores', async ({ page }) => {
+  await mockSession(page, 'supervisor');
+  let requests = 0;
+  await page.route('**/api/v1/supervisores**', (route) => {
+    requests++;
+    return route.fulfill({ status: 403 });
+  });
+  await page.goto('/supervisores');
+  await expect(page).toHaveURL(/\/acesso-negado$/);
+  await expect(page.getByRole('link', { name: 'Supervisores', exact: true })).toHaveCount(0);
+  await page.goto('/supervisores/novo');
+  await expect(page).toHaveURL(/\/acesso-negado$/);
+  expect(requests).toBe(0);
+});
 
 test('demonstração funciona sem backend e usa apenas registros fictícios', async ({ page }) => {
   await page.route('**/api/**', (route) => route.abort('failed'));
@@ -76,16 +91,18 @@ test('demonstração funciona sem backend e usa apenas registros fictícios', as
 
   await page.getByRole('link', { name: 'Cadastrar supervisor' }).click();
   await page.getByRole('textbox', { name: 'Nome completo *' }).fill('Supervisora Fictícia');
-  await page.getByRole('textbox', { name: 'Identificação institucional *' }).fill('DEMO-003');
   await page
-    .getByRole('textbox', { name: 'E-mail institucional *' })
-    .fill('ficticia@example.invalid');
+    .getByRole('textbox', { name: 'Matrícula ou SIAPE (usada para entrar) *' })
+    .fill('DEMO-003');
+  await page.getByRole('textbox', { name: 'E-mail *' }).fill('ficticia@example.invalid');
+  await page.getByLabel('Senha *', { exact: true }).fill(password);
+  await page.getByLabel('Confirmar senha *', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Salvar supervisor' }).click();
   await expect(page.getByRole('status')).toContainText('Supervisor salvo nesta demonstração.');
 });
 
-test('supervisor usa API e persiste criação e edição após recarga', async ({ page }) => {
-  await mockSession(page, 'supervisor');
+test('gestor usa API e persiste criação e edição após recarga', async ({ page }) => {
+  await mockSession(page);
   const records: SupervisorRecord[] = [];
   const writes: { method: string; csrf: string | undefined; body: Record<string, unknown> }[] = [];
   await page.route('**/api/v1/supervisores**', async (route) => {
@@ -103,7 +120,9 @@ test('supervisor usa API e persiste criação e edição após recarga', async (
     writes.push({ method: request.method(), csrf: request.headers()['x-csrf-token'], body });
     if (request.method() === 'POST') {
       const record = {
-        ...body,
+        name: body['name'],
+        institutionalId: body['institutionalId'],
+        email: body['email'],
         id: '00000000-0000-0000-0000-000000000010',
         version: 1,
       } as SupervisorRecord;
@@ -128,18 +147,23 @@ test('supervisor usa API e persiste criação e edição após recarga', async (
     accessibility.violations.filter((item) => ['critical', 'serious'].includes(item.impact ?? '')),
   ).toEqual([]);
   await page.getByRole('textbox', { name: 'Nome completo *' }).fill('Supervisora Exemplo');
-  await page.getByRole('textbox', { name: 'Identificação institucional *' }).fill('TESTE-001');
   await page
-    .getByRole('textbox', { name: 'E-mail institucional *' })
-    .fill('supervisora@example.invalid');
+    .getByRole('textbox', { name: 'Matrícula ou SIAPE (usada para entrar) *' })
+    .fill('TESTE-001');
+  await page.getByRole('textbox', { name: 'E-mail *' }).fill('supervisora@example.invalid');
+  await page.getByLabel('Senha *', { exact: true }).fill(password);
+  await page.getByLabel('Confirmar senha *', { exact: true }).fill('Outra senha 456!');
   await page.getByRole('button', { name: 'Salvar supervisor' }).click();
-  await expect(page.getByRole('status')).toContainText(
-    'Supervisor salvo no ambiente local de teste.',
-  );
+  await expect(page.getByRole('alert')).toContainText('Repita a mesma senha');
+  expect(writes).toEqual([]);
+  await page.getByLabel('Confirmar senha *', { exact: true }).fill(password);
+  await page.getByRole('button', { name: 'Salvar supervisor' }).click();
+  await expect(page.getByRole('status')).toContainText('Supervisor salvo.');
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Supervisora Exemplo' })).toBeVisible();
   await page.getByRole('link', { name: 'Editar supervisor' }).click();
   await page.getByRole('textbox', { name: 'Nome completo *' }).fill('Supervisora Atualizada');
+  await expect(page.getByLabel('Senha *', { exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Salvar supervisor' }).click();
   await expect(page.getByRole('heading', { name: 'Supervisora Atualizada' })).toBeVisible();
   expect(writes).toEqual([
@@ -150,6 +174,8 @@ test('supervisor usa API e persiste criação e edição após recarga', async (
         name: 'Supervisora Exemplo',
         institutionalId: 'TESTE-001',
         email: 'supervisora@example.invalid',
+        password,
+        passwordConfirmation: password,
       },
     },
     {
@@ -199,10 +225,14 @@ test('validação do servidor e versão obsoleta não exibem sucesso falso', asy
 
   await page.goto('/supervisores/novo');
   await page.getByRole('textbox', { name: 'Nome completo *' }).fill('Supervisora Nova');
-  await page.getByRole('textbox', { name: 'Identificação institucional *' }).fill('TESTE-012');
-  await page.getByRole('textbox', { name: 'E-mail institucional *' }).fill('nova@example.invalid');
+  await page
+    .getByRole('textbox', { name: 'Matrícula ou SIAPE (usada para entrar) *' })
+    .fill('TESTE-012');
+  await page.getByRole('textbox', { name: 'E-mail *' }).fill('nova@example.invalid');
+  await page.getByLabel('Senha *', { exact: true }).fill(password);
+  await page.getByLabel('Confirmar senha *', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Salvar supervisor' }).click();
-  await expect(page.getByRole('alert')).toContainText('Os dados foram recusados');
+  await expect(page.getByRole('alert')).toContainText('Confira os campos');
   await expect(page).toHaveURL(/\/supervisores\/novo$/);
   rejectCreate = false;
   await page.getByRole('button', { name: 'Salvar supervisor' }).click();
@@ -212,18 +242,20 @@ test('validação do servidor e versão obsoleta não exibem sucesso falso', asy
   await expect(page.getByRole('textbox', { name: 'Nome completo *' })).toHaveValue(
     'Supervisora Original',
   );
-  await page.getByRole('textbox', { name: 'Identificação institucional *' }).fill('DUPLICADO');
+  await page
+    .getByRole('textbox', { name: 'Matrícula ou SIAPE (usada para entrar) *' })
+    .fill('DUPLICADO');
   await page.getByRole('button', { name: 'Salvar supervisor' }).click();
   await expect(page.getByRole('alert')).toContainText('Já existe um cadastro');
-  await expect(page.getByRole('button', { name: 'Carregar versão atual do cadastro' })).toHaveCount(
-    0,
-  );
-  await page.getByRole('textbox', { name: 'Identificação institucional *' }).fill('TESTE-011');
+  await expect(page.getByRole('button', { name: 'Recarregar dados' })).toHaveCount(0);
+  await page
+    .getByRole('textbox', { name: 'Matrícula ou SIAPE (usada para entrar) *' })
+    .fill('TESTE-011');
   record = { ...record, name: 'Supervisora Alterada Externamente', version: 2 };
   await page.getByRole('textbox', { name: 'Nome completo *' }).fill('Edição Local');
   await page.getByRole('button', { name: 'Salvar supervisor' }).click();
-  await expect(page.getByRole('alert')).toContainText('alterado por outra sessão');
-  await page.getByRole('button', { name: 'Carregar versão atual do cadastro' }).click();
+  await expect(page.getByRole('alert')).toContainText('Outra pessoa alterou este registro');
+  await page.getByRole('button', { name: 'Recarregar dados' }).click();
   await expect(page.getByRole('textbox', { name: 'Nome completo *' })).toHaveValue(
     'Supervisora Alterada Externamente',
   );

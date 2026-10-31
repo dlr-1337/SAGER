@@ -38,7 +38,7 @@ import { ResidentApiService, ResidentRecord } from './resident-api.service';
             >progress_activity</span
           >
           <h1>Carregando quarto</h1>
-          <p>Consultando o cadastro local de teste.</p>
+          <p>Aguarde um momento.</p>
         </section>
       } @else if (loadError()) {
         <section class="mg-empty" role="alert">
@@ -79,7 +79,7 @@ import { ResidentApiService, ResidentRecord } from './resident-api.service';
         @if (saved()) {
           <p class="mg-success" role="status">
             <span class="material-symbols-rounded" aria-hidden="true">check_circle</span> Quarto
-            salvo no ambiente local de teste.
+            salvo.
           </p>
         }
         <section class="panel mg-panel" aria-labelledby="local-room-details-title">
@@ -158,7 +158,7 @@ import { ResidentApiService, ResidentRecord } from './resident-api.service';
                   </div>
                   <div class="mg-row-main">
                     <h3>{{ occupantName(allocation.residentId) }}</h3>
-                    <p>Alocado desde {{ allocationDate(allocation.startedAt) }}</p>
+                    <p>No quarto desde {{ allocationDate(allocation.startedAt) }}</p>
                   </div>
                   <a class="mg-row-link" [routerLink]="['/residentes', allocation.residentId]"
                     >Ver cadastro
@@ -172,15 +172,15 @@ import { ResidentApiService, ResidentRecord } from './resident-api.service';
           } @else {
             <div class="mg-empty mg-empty-inline" role="status">
               <h3>Nenhum morador vinculado</h3>
-              <p>Este quarto não tem alocações ativas.</p>
+              <p>Este quarto está sem moradores.</p>
             </div>
           }
         </section>
         <div class="mg-note">
           <span class="material-symbols-rounded" aria-hidden="true">info</span>
           <p>
-            Use somente registros fictícios no ambiente local de teste. A situação é manual e
-            independente da ocupação. Capacidade definida limita novas alocações.
+            A situação do quarto é escolhida por você. O quarto não recebe mais moradores do que a
+            capacidade.
           </p>
         </div>
       } @else if (isDemo() && room(); as item) {
@@ -264,24 +264,18 @@ import { ResidentApiService, ResidentRecord } from './resident-api.service';
           } @else {
             <div class="mg-empty mg-empty-inline">
               <h3>Nenhum morador vinculado</h3>
-              <p>A alocação de residentes será definida pela AE.</p>
+              <p>Este quarto está sem moradores.</p>
             </div>
           }
         </section>
         <div class="mg-note">
           <span class="material-symbols-rounded" aria-hidden="true">info</span>
-          <p>
-            Estes registros são demonstrativos. A alteração de moradores e as regras de
-            disponibilidade ainda precisam de definição institucional.
-          </p>
+          <p>Estes registros são demonstrativos.</p>
         </div>
       } @else {
         <section class="mg-empty" role="alert">
           <h1>Quarto não encontrado</h1>
-          <p>
-            O registro solicitado não está disponível
-            {{ isDemo() ? 'nesta demonstração' : 'no ambiente local de teste' }}.
-          </p>
+          <p>Não encontramos este quarto. Volte ao mapa e tente de novo.</p>
           <a class="btn mg-primary" routerLink="/quartos">Voltar ao mapa</a>
         </section>
       }

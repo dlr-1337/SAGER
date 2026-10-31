@@ -1,4 +1,7 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
+import { CleaningLocalApiService } from '../cleaning/cleaning-local-api.service';
+import { ResidentApiService } from '../management/resident-api.service';
+import { RoomApiService } from '../management/room-api.service';
 import {
   Guard,
   ReportingTransport,
@@ -18,8 +21,10 @@ import {
   ReportCatalog,
   ReportColumn,
   ReportExport,
+  ReportFilterOptions,
   ReportFilters,
   ReportInput,
+  ReportListItem,
   ReportMonthly,
   ReportRows,
   ReportSnapshot,
@@ -69,6 +74,7 @@ const filters: Guard<ReportFilters> = (value): value is ReportFilters =>
   civilDate(value['from']) &&
   civilDate(value['to']) &&
   ['accommodationId', 'roomId', 'residentId'].every((key) => nullableUuid(value[key])) &&
+  (value['unitId'] === undefined || nullableUuid(value['unitId'])) &&
   nullableString(value['status']);
 const catalog: Guard<ReportCatalog> = (value): value is ReportCatalog =>
   record(value) &&
@@ -142,11 +148,49 @@ const job: Guard<ReportExport> = (value): value is ReportExport =>
       integer(value['document']['size']) &&
       typeof value['document']['state'] === 'string')) &&
   (value['status'] !== 'READY' || value['document'] !== null);
+const list: Guard<ReportListItem[]> = (value): value is ReportListItem[] =>
+  Array.isArray(value) &&
+  value.every(
+    (item) =>
+      record(item) &&
+      uuid(item['id']) &&
+      code(item['catalogCode']) &&
+      filters(item['filters']) &&
+      integer(item['rowCount']) &&
+      instant(item['asOf']) &&
+      instant(item['expiresAt']) &&
+      Array.isArray(item['exports']) &&
+      item['exports'].every(job),
+  );
 @Injectable({ providedIn: 'root' })
 export class ReportsLocalApiService {
   private readonly transport = new ReportingTransport();
+  private readonly cleaningApi = inject(CleaningLocalApiService);
+  private readonly roomsApi = inject(RoomApiService);
+  private readonly residentsApi = inject(ResidentApiService);
   catalog(): Promise<ReportCatalog> {
     return this.transport.get('/relatorios/catalogo', catalog);
+  }
+  async currentDate(): Promise<string> {
+    return (await this.cleaningApi.policy()).currentDate;
+  }
+  // Optional filters: a failure here must not block generating the report.
+  async filterOptions(): Promise<ReportFilterOptions> {
+    const [housing, residents] = await Promise.allSettled([
+      this.roomsApi.map(),
+      this.residentsApi.list(),
+    ]);
+    return {
+      housing:
+        housing.status === 'fulfilled'
+          ? housing.value
+          : { accommodations: [], units: [], rooms: [] },
+      residents: residents.status === 'fulfilled' ? residents.value : [],
+      failed: housing.status === 'rejected' || residents.status === 'rejected',
+    };
+  }
+  list(): Promise<ReportListItem[]> {
+    return this.transport.get('/relatorios/consultas', list);
   }
   create(input: ReportInput & { idempotencyKey: string }): Promise<ReportSnapshot> {
     return this.transport.post('/relatorios/consultas', input, snapshot);

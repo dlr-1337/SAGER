@@ -1,5 +1,6 @@
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import { UnsavedFormDirective } from '../../shared/unsaved-form';
+import { trimmedLength } from '../../shared/field-rules';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -8,12 +9,16 @@ import { OperationsApiError, operationsError } from './operations-local-api.serv
 import {
   eligibilityBlocker,
   formatOperationsTime,
+  minutesAfter,
+  nextReturn,
+  periodHint,
   saoPauloInput,
   saoPauloInstant,
+  serverClock,
 } from './operations-local.utils';
 import { LongExitApiService } from './long-exit-api.service';
 import { LongExit, LongExitEligibility, LongExitInput } from './long-exit.models';
-import { guardianBlocker, longExitFormError } from './long-exit.utils';
+import { guardianBlocker, longExitFormError, longPeriodError } from './long-exit.utils';
 
 @Component({
   standalone: true,
@@ -27,13 +32,13 @@ import { guardianBlocker, longExitFormError } from './long-exit.utils';
           <a routerLink="/saidas" [queryParams]="{ tipo: 'longa' }" class="op-back"
             >← Saídas longas</a
           >
-          <h1>{{ editing ? 'Editar saída longa' : 'Solicitar saída longa' }}</h1>
-          <p>Informe o período e escolha o responsável que receberá o convite para assinatura.</p>
+          <h1>{{ editing ? 'Mudar saída longa' : 'Pedir saída longa' }}</h1>
+          <p>Diga quando você sai e quando volta, e escolha quem vai autorizar pelo WhatsApp.</p>
         </div>
       </header>
       @if (session.active()) {
         <section class="op-empty" role="status">
-          <h2>Área do ambiente local</h2>
+          <h2>Esta tela não faz parte da demonstração</h2>
           <p>Na demonstração, use as solicitações demonstrativas da lista de saídas.</p>
           <a class="btn op-primary" routerLink="/saidas">Abrir demonstração de saídas</a>
         </section>
@@ -44,37 +49,37 @@ import { guardianBlocker, longExitFormError } from './long-exit.utils';
         </section>
       } @else if (loading()) {
         <section class="op-state" role="status">
-          <h2>Carregando dados da solicitação</h2>
-          <p>Verificando o cadastro e os responsáveis disponíveis.</p>
+          <h2>Carregando seu pedido</h2>
+          <p>Aguarde um momento.</p>
         </section>
       } @else if (loadError()) {
         <section class="op-state" role="alert">
-          <h2>Não foi possível carregar a solicitação</h2>
+          <h2>Não foi possível carregar o pedido</h2>
           <p>{{ loadError() }}</p>
           <button class="btn op-secondary" type="button" (click)="load()">Tentar novamente</button>
         </section>
       } @else if (eligibility(); as resident) {
         @if (!resident.eligible || !eligibleGuardianCount()) {
           <section class="op-empty" role="alert">
-            <h2>Solicitação indisponível</h2>
+            <h2>Você não pode pedir esta saída agora</h2>
             <ul>
               @for (blocker of resident.blockers; track blocker) {
                 <li>{{ blockerLabel(blocker) }}</li>
               }
               @if (!eligibleGuardianCount()) {
                 <li>
-                  É necessário um responsável ativo, vinculado e com telefone válido no Brasil.
+                  Você precisa de um responsável com telefone válido no sistema. Fale com o
+                  supervisor.
                 </li>
               }
             </ul>
-            <p>Solicite a atualização do cadastro à equipe responsável pela residência.</p>
           </section>
         } @else if (editing && !original()?.capabilities?.canEdit) {
           <section class="op-empty" role="alert">
-            <h2>Edição indisponível</h2>
+            <h2>Não é possível mudar este pedido</h2>
             <p>
-              Somente uma solicitação própria aguardando análise pode ser alterada antes da partida
-              e dentro do prazo.
+              Você só pode mudar o pedido enquanto ele espera resposta, antes de sair e dentro do
+              prazo.
             </p>
           </section>
         } @else {
@@ -86,49 +91,43 @@ import { guardianBlocker, longExitFormError } from './long-exit.utils';
             (ngSubmit)="save()"
             novalidate
           >
-            <h2>Dados da saída longa</h2>
+            <h2>Dados da saída</h2>
             <p>
               {{ resident.residentName }} · Matrícula {{ resident.enrollment }} · Quarto
               {{ resident.roomNumber }}
             </p>
             <p class="op-help">
-              Saídas longas duram mais de 3 horas. Uma assinatura válida de um responsável elegível
-              é necessária antes da aprovação pelo supervisor.
+              Saída longa: mais de 3 horas. Seu responsável precisa autorizar antes de o supervisor
+              aprovar.
             </p>
             <div class="op-form-grid">
               <label class="field"
-                >Quando deseja sair?<select
+                >Quando você quer sair?<select
                   sagerSearchable
                   formControlName="departureMode"
                   (change)="departureChanged()"
                 >
-                  <option value="NOW">
-                    Agora, após assinatura, análise e liberação presencial
-                  </option>
-                  <option value="SCHEDULED">Agendar data e hora</option>
+                  <option value="NOW">Agora</option>
+                  <option value="SCHEDULED">Escolher data e hora</option>
                 </select></label
               ><label class="field"
-                >Responsável para o convite<select
-                  sagerSearchable
-                  formControlName="guardianId"
-                  required
-                >
-                  <option value="">Selecione um responsável</option>
+                >Quem vai autorizar?<select sagerSearchable formControlName="guardianId" required>
+                  <option value="">Escolha quem vai autorizar</option>
                   @for (guardian of resident.guardians; track guardian.id) {
                     <option [value]="guardian.id" [disabled]="!guardian.eligible">
                       {{ guardian.name }} · {{ guardian.relationship
-                      }}{{ guardian.eligible ? '' : ' · cadastro indisponível' }}
+                      }}{{ guardian.eligible ? '' : ' · não pode autorizar' }}
                     </option>
                   }
                 </select>
                 @if (form.controls.guardianId.touched && form.controls.guardianId.invalid) {
-                  <span class="op-field-error">Selecione um responsável elegível.</span>
+                  <span class="op-field-error">Escolha quem vai autorizar.</span>
                 }
               </label>
             </div>
             @if (hasUnavailableGuardians()) {
               <details class="guardian-check">
-                <summary>Responsáveis com cadastro indisponível</summary>
+                <summary>Quem não pode autorizar e por quê</summary>
                 <ul>
                   @for (guardian of resident.guardians; track guardian.id) {
                     @if (!guardian.eligible) {
@@ -143,6 +142,7 @@ import { guardianBlocker, longExitFormError } from './long-exit.utils';
                 </ul>
               </details>
             }
+            @let hint = periodHint();
             <div class="op-form-grid">
               @if (form.controls.departureMode.value === 'SCHEDULED') {
                 <label class="field"
@@ -150,33 +150,52 @@ import { guardianBlocker, longExitFormError } from './long-exit.utils';
                     type="datetime-local"
                     formControlName="departure"
                     required
+                    [attr.min]="departureMin()"
                     (change)="departureChanged()"
-                /></label>
+                  />
+                  @if (form.controls.departure.touched && !form.controls.departure.value) {
+                    <span class="op-field-error">Informe a data e hora de saída.</span>
+                  }
+                </label>
               }
               <label class="field"
-                >Retorno previsto<input
+                >Que horas você volta?<input
                   type="datetime-local"
                   formControlName="expectedReturn"
                   required
+                  [attr.min]="hint.returnMin"
+                  aria-describedby="long-exit-period-hint"
+                  (input)="returnNotice.set('')"
                 />
                 @if (form.controls.expectedReturn.touched && form.controls.expectedReturn.invalid) {
-                  <span class="op-field-error">Informe a data e hora de retorno.</span>
+                  <span class="op-field-error">Escolha a data e a hora da volta.</span>
+                }
+                @if (hint.error) {
+                  <span class="op-field-error">{{ hint.error }}</span>
                 }
               </label>
             </div>
-            <p class="op-help">
-              Horário de Brasília. Última consulta do servidor: {{ formatTime(resident.now) }}. Na
-              opção “Agora”, a saída solicitada usa o horário de envio registrado pelo servidor.
+            <p class="op-help" id="long-exit-period-hint">
+              @if (hint.duration) {
+                Duração: {{ hint.duration }} (mínimo: mais de 3 h).
+              } @else {
+                Duração mínima: mais de 3 h.
+              }
             </p>
+            <div role="status">
+              @if (returnNotice()) {
+                <p class="op-warning">{{ returnNotice() }}</p>
+              }
+            </div>
             <label class="field"
-              >Motivo da saída<textarea
+              >Por que você quer sair?<textarea
                 rows="3"
                 maxlength="2000"
                 formControlName="reason"
                 required
               ></textarea>
               @if (form.controls.reason.touched && form.controls.reason.invalid) {
-                <span class="op-field-error">Informe um motivo com 3 a 2.000 caracteres.</span>
+                <span class="op-field-error">Escreva o motivo da saída.</span>
               }</label
             ><label class="field"
               >Observações (opcional)<textarea
@@ -185,22 +204,15 @@ import { guardianBlocker, longExitFormError } from './long-exit.utils';
                 formControlName="notes"
               ></textarea>
             </label>
-            @if (!resident.providers.clicksignEnabled) {
-              <p class="op-warning">
-                O serviço de assinatura está indisponível neste ambiente. O pedido pode ser
-                registrado, mas sua aprovação depende de assinatura confirmada posteriormente pelo
-                servidor.
-              </p>
-            }
             @if (!resident.providers.whatsappEnabled) {
               <p class="op-warning">
-                O envio de convites pelo WhatsApp está indisponível neste ambiente.
+                O envio do pedido para seu responsável está fora do ar. Seu pedido fica salvo. Avise
+                a equipe da residência.
               </p>
             }
             @if (editing) {
               <p class="op-warning">
-                Salvar as alterações gera uma nova revisão do documento e invalida os convites e as
-                assinaturas da revisão anterior.
+                Se você mudar o pedido, seu responsável precisa autorizar de novo.
               </p>
             }
             @if (error()) {
@@ -208,20 +220,20 @@ import { guardianBlocker, longExitFormError } from './long-exit.utils';
             }
             @if (conflict()) {
               <button type="button" class="btn op-secondary" (click)="load()">
-                Recarregar solicitação
+                Recarregar dados
               </button>
-              <p class="op-help">Recarregar substitui os campos pelos dados atuais do servidor.</p>
+              <p class="op-help">Recarregar troca o que você digitou pelos dados salvos.</p>
             }
             <div class="op-actions">
               <a class="btn op-secondary" routerLink="/saidas" [queryParams]="{ tipo: 'longa' }"
                 >Cancelar</a
-              ><button class="btn op-primary" type="submit" [disabled]="saving() || conflict()">
+              ><button
+                class="btn op-primary"
+                type="submit"
+                [disabled]="saving() || conflict() === 'stale_version'"
+              >
                 {{
-                  saving()
-                    ? 'Salvando solicitação…'
-                    : editing
-                      ? 'Salvar alterações e gerar nova revisão'
-                      : 'Enviar solicitação de saída longa'
+                  saving() ? 'Enviando pedido…' : editing ? 'Salvar alterações' : 'Enviar pedido'
                 }}
               </button>
             </div>
@@ -267,8 +279,10 @@ export class LongExitFormComponent {
   readonly saving = signal(false);
   readonly loadError = signal('');
   readonly error = signal('');
-  readonly conflict = signal(false);
-  readonly formatTime = formatOperationsTime;
+  readonly conflict = signal<string | null>(null);
+  readonly returnNotice = signal('');
+  private clock: () => string = () => '';
+  private savedReturn = false;
   readonly blockerLabel = eligibilityBlocker;
   readonly guardianBlockerLabel = guardianBlocker;
   readonly form = new FormGroup({
@@ -278,7 +292,7 @@ export class LongExitFormComponent {
     expectedReturn: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     reason: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.required, Validators.minLength(3), Validators.maxLength(2000)],
+      validators: [trimmedLength(3, 2000)],
     }),
     notes: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(2000)] }),
   });
@@ -296,7 +310,8 @@ export class LongExitFormComponent {
     this.loading.set(true);
     this.loadError.set('');
     this.error.set('');
-    this.conflict.set(false);
+    this.conflict.set(null);
+    this.returnNotice.set('');
     try {
       const [eligibility, original] = await Promise.all([
         this.api.eligibility(),
@@ -304,16 +319,17 @@ export class LongExitFormComponent {
       ]);
       this.eligibility.set(eligibility);
       this.original.set(original);
-      const scheduledStart = new Date(
-        Math.ceil(Date.parse(eligibility.now) / 60_000) * 60_000,
-      ).toISOString();
+      this.clock = serverClock(eligibility.now);
+      this.savedReturn = !!original;
       this.form.reset({
         departureMode: original?.departureMode ?? 'NOW',
         guardianId: original?.guardianId ?? '',
-        departure: saoPauloInput(original?.requestedDepartureAt ?? scheduledStart),
+        departure:
+          original?.departureMode === 'SCHEDULED'
+            ? saoPauloInput(original.requestedDepartureAt)
+            : '',
         expectedReturn: saoPauloInput(
-          original?.expectedReturnAt ??
-            new Date(Date.parse(eligibility.now) + 4 * 3_600_000).toISOString(),
+          original?.expectedReturnAt ?? minutesAfter(eligibility.now, 240),
         ),
         reason: original?.reason ?? '',
         notes: original?.notes ?? '',
@@ -325,15 +341,47 @@ export class LongExitFormComponent {
     }
   }
   departureChanged(): void {
+    const control = this.form.controls.expectedReturn;
     this.error.set('');
-    const departure =
-      this.form.controls.departureMode.value === 'NOW'
-        ? this.eligibility()?.now
-        : saoPauloInstant(this.form.controls.departure.value);
-    if (departure)
-      this.form.controls.expectedReturn.setValue(
-        saoPauloInput(new Date(Date.parse(departure) + 4 * 3_600_000).toISOString()),
+    this.returnNotice.set('');
+    const next = nextReturn(
+      this.departure(),
+      saoPauloInstant(control.value),
+      this.returnEdited(),
+      240,
+      longPeriodError,
+    );
+    if (!next) return;
+    this.savedReturn = false;
+    control.reset(saoPauloInput(next.value));
+    if (next.adjusted)
+      this.returnNotice.set(
+        `Volta ajustada para ${formatOperationsTime(next.value)}, porque o horário anterior não dava.`,
       );
+  }
+  departureMin(): string {
+    return saoPauloInput(minutesAfter(this.clock(), 1));
+  }
+  periodHint() {
+    return periodHint(
+      this.departure(),
+      saoPauloInstant(this.form.controls.expectedReturn.value),
+      181,
+      null,
+      longPeriodError,
+    );
+  }
+  private departure(): string | null {
+    return this.form.controls.departureMode.value === 'NOW'
+      ? this.clock()
+      : saoPauloInstant(this.form.controls.departure.value);
+  }
+  private returnEdited(): boolean {
+    return this.savedReturn || this.form.controls.expectedReturn.dirty;
+  }
+  private refreshNowReturn(): void {
+    if (this.form.controls.departureMode.value === 'NOW' && !this.returnEdited())
+      this.form.controls.expectedReturn.setValue(saoPauloInput(minutesAfter(this.clock(), 240)));
   }
   async save(): Promise<void> {
     const eligibility = this.eligibility();
@@ -344,15 +392,19 @@ export class LongExitFormComponent {
       !eligibility?.eligible ||
       (this.editing && !original?.capabilities.canEdit) ||
       this.saving() ||
-      this.conflict()
+      this.conflict() === 'stale_version'
     )
       return;
     this.form.markAllAsTouched();
     this.error.set('');
+    this.conflict.set(null);
+    // Removing the field in "Agora" drops its required rule without revalidating the control.
+    this.form.controls.departure.updateValueAndValidity();
     if (this.form.invalid) {
       this.error.set('Revise os campos obrigatórios indicados.');
       return;
     }
+    this.refreshNowReturn();
     const value = this.form.getRawValue();
     const expectedReturnAt = saoPauloInstant(value.expectedReturn);
     const requestedDepartureAt =
@@ -369,7 +421,7 @@ export class LongExitFormComponent {
       notes: value.notes.trim() || null,
       ...(requestedDepartureAt ? { requestedDepartureAt } : {}),
     };
-    const invalid = longExitFormError(input, eligibility.now);
+    const invalid = longExitFormError(input, this.clock());
     if (invalid) {
       this.error.set(invalid);
       return;
@@ -379,15 +431,14 @@ export class LongExitFormComponent {
         (guardian) => guardian.id === input.guardianId && guardian.eligible,
       )
     ) {
-      this.error.set(
-        'O responsável escolhido não está elegível. Selecione outro cadastro disponível.',
-      );
+      this.error.set('Esta pessoa não pode autorizar. Escolha outra.');
       return;
     }
     this.saving.set(true);
     try {
       const fresh = await this.api.eligibility();
       this.eligibility.set(fresh);
+      this.clock = serverClock(fresh.now);
       if (
         !fresh.eligible ||
         !fresh.guardians.some((guardian) => guardian.id === input.guardianId && guardian.eligible)
@@ -397,6 +448,9 @@ export class LongExitFormComponent {
         );
         return;
       }
+      this.refreshNowReturn();
+      input.expectedReturnAt =
+        saoPauloInstant(this.form.controls.expectedReturn.value) ?? input.expectedReturnAt;
       const invalid = longExitFormError(input, fresh.now);
       if (invalid) {
         this.error.set(invalid);
@@ -408,7 +462,12 @@ export class LongExitFormComponent {
       await this.router.navigate(['/saidas/longas', exit.id], { queryParams: { saved: '1' } });
     } catch (error) {
       this.error.set(operationsError(error));
-      if (error instanceof OperationsApiError && error.status === 409) this.conflict.set(true);
+      if (
+        error instanceof OperationsApiError &&
+        error.status === 409 &&
+        error.code !== 'overlapping_exit'
+      )
+        this.conflict.set(error.code ?? 'conflict');
     } finally {
       this.saving.set(false);
     }

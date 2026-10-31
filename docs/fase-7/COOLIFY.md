@@ -53,12 +53,14 @@ manutenção têm limites adicionais. Consulte o
 [runbook do Coolify](../../infra/coolify/README.md) para as opções do painel,
 segurança do gateway e sequência de implantação.
 
-Três segredos distintos e estáveis, `db_owner_password`,
-`db_runtime_password` e `login_rate_secret`, ficam fora do checkout em
-`/srv/sager/homologacao/secrets`. Os diretórios têm modo `0700` e os arquivos
+Cinco segredos distintos e estáveis, `db_owner_password`,
+`db_runtime_password`, `login_rate_secret`, `waha_api_key` e
+`waha_webhook_hmac`, ficam fora do checkout em
+`/srv/sager/homologacao/secrets`. Os dois últimos existem mesmo com o WhatsApp
+desligado, porque o backend os monta. Os diretórios têm modo `0700` e os arquivos
 modo `0440`, grupo `10001`. Seus valores não pertencem a este documento, ao
-repositório ou ao painel do Coolify. Clicksign e WhatsApp permanecem
-desabilitados. A demonstração também está desabilitada em `production`.
+repositório ou ao painel do Coolify. O gateway de WhatsApp permanece
+desligado. A demonstração também está desabilitada em `production`.
 
 ## Verificação pública realizada
 
@@ -183,7 +185,7 @@ do alojamento. O logout continuou encerrando o acesso.
 O backup manual `/srv/sager/homologacao/backups/bootstrap.age` foi criado antes
 dessa reimplantação, com schema V19, sequência de auditoria 0 e nenhum documento.
 A criação levou 9,09 s e retomou o backend. O arquivo foi copiado por SSH para
-`C:/Users/otavi/.codex/sager-homologacao-recovery/bootstrap.age`; SHA256 igual
+`bootstrap.age`, na pasta privada de recuperação do operador; SHA256 igual
 na origem e no computador do operador:
 `d77dfb0d8d3f1b6cae9a598862fd905eb8ee75517601b1cab51e3a63edea5fe7`.
 
@@ -216,7 +218,7 @@ após recuperação. Não reutilizar volumes físicos da homologação.
 
 Depois da conferência de persistência, foi criado um segundo backup manual:
 `/srv/sager/homologacao/backups/homologacao.age`. A cópia local fica em
-`C:/Users/otavi/.codex/sager-homologacao-recovery/homologacao.age`. O SHA256 dos
+`homologacao.age`, na mesma pasta privada. O SHA256 dos
 dois arquivos coincidiu:
 `50573493d196ee6ed6e7e368ac5a81cbc1f17c7c78260d09bbf6f5f51f803d6c`.
 O arquivo criptografado contém **uma conta ativa de gestor, um alojamento

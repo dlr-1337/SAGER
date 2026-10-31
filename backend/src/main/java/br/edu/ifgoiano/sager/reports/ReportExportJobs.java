@@ -29,6 +29,11 @@ public class ReportExportJobs {
   audit.recordSystem(UUID.randomUUID(),AuditResource.REPORT_EXPORT,id,AuditAction.UPDATE,((Number)job.get("version")).longValue()+1,Set.of("status"));
   return new Work(id,lease,(String)job.get("format"),metadata,data);
  }
+ /** Names go only in the file: the snapshot and its hash keep the ids. */
+ @Transactional(readOnly=true)
+ public Map<String,Object> filterNames(Filters f){
+  return jdbc.queryForMap("SELECT (SELECT name FROM sager_accommodation WHERE id=?::uuid) accommodation,(SELECT name FROM sager_accommodation_unit WHERE id=?::uuid) unit,(SELECT code FROM sager_room WHERE id=?::uuid) room,(SELECT name FROM sager_resident WHERE id=?::uuid) resident",f.accommodationId(),f.unitId(),f.roomId(),f.residentId());
+ }
  @Transactional
  public boolean finish(Work work,StoredFile file){
   var rows=jdbc.queryForList("SELECT * FROM sager_report_export WHERE id=? FOR UPDATE",work.jobId());if(rows.isEmpty())return false;var r=rows.getFirst();

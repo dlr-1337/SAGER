@@ -1,4 +1,5 @@
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
+import { trimmedLength } from '../../shared/field-rules';
 import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { DisciplineCategory, WarningInput, WarningSeverity } from './communications-local.models';
@@ -16,11 +17,11 @@ export function warningForm() {
     }),
     description: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.required, Validators.minLength(3), Validators.maxLength(1800)],
+      validators: [trimmedLength(3, 1800)],
     }),
     justification: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.required, Validators.minLength(10), Validators.maxLength(1800)],
+      validators: [trimmedLength(10, 1800)],
     }),
     warningDate: new FormControl('', { nonNullable: true, validators: Validators.required }),
   });
@@ -70,10 +71,10 @@ export function warningInput(form: WarningForm): WarningInput {
         @if (form.controls.warningDate.touched && form.controls.warningDate.invalid) {
           <span class="field-error">Informe a data.</span>
         }
-        <span class="field-hint">Data civil de São Paulo; não pode ser futura.</span></label
+        <span class="field-hint">Não pode ser uma data futura.</span></label
       >
       <label class="field"
-        >Descrição da ocorrência<textarea
+        >O que aconteceu?<textarea
           rows="4"
           maxlength="1800"
           formControlName="description"

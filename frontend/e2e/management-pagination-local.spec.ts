@@ -4,7 +4,7 @@ for (const config of [
   {
     resource: 'supervisores',
     entity: 'supervisor',
-    search: 'Nome ou identificação institucional',
+    search: 'Nome, matrícula ou SIAPE',
     name: 'Nome completo *',
   },
   {
@@ -99,7 +99,7 @@ for (const config of [
     if (config.resource === 'responsaveis') {
       await page.getByRole('combobox', { name: 'Situação', exact: true }).selectOption('true');
       await page
-        .getByRole('combobox', { name: 'Residente vinculado', exact: true })
+        .getByRole('combobox', { name: 'Residente', exact: true })
         .selectOption(resident.id);
       await expect.poll(() => queries.at(-1)?.get('residentId')).toBe(resident.id);
     }

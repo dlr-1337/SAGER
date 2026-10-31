@@ -1,5 +1,24 @@
+import {
+  ERROR_CONFLICT,
+  ERROR_FORBIDDEN,
+  ERROR_GENERIC,
+  ERROR_SESSION,
+  readableError,
+} from '../../core/error-messages';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { UnsavedFormDirective } from '../../shared/unsaved-form';
+import { PasswordFieldComponent } from '../../shared/password-field.component';
+import { PASSWORD_HELP, PASSWORD_MISMATCH, passwordRules } from '../../shared/password-rules';
+import {
+  birthDateProblem,
+  civilToday,
+  fieldRule,
+  nameProblem,
+  normalizeEnrollment,
+  residentEmailProblem,
+  residentEnrollmentProblem,
+  trimmedLength,
+} from '../../shared/field-rules';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -8,16 +27,10 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import {
-  AbstractControl,
-  FormControl,
-  FormGroup,
-  ReactiveFormsModule,
-  Validators,
-} from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Course, CourseApiService } from './course-api.service';
-import { normalizeSearch } from '../../shared/search';
+import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { ManagementDemoService } from './management-demo.service';
 import {
@@ -27,30 +40,16 @@ import {
   ResidentRecord,
 } from './resident-api.service';
 
-function localToday(): string {
-  const now = new Date();
-  return [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, '0'),
-    String(now.getDate()).padStart(2, '0'),
-  ].join('-');
-}
-
-function validBirthDate(control: AbstractControl): { invalidDate: true } | null {
-  const value = String(control.value ?? '');
-  if (!value) return null;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value > localToday()) return { invalidDate: true };
-  const [year, month, day] = value.split('-').map(Number);
-  const date = new Date(year, month - 1, day);
-  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
-    ? null
-    : { invalidDate: true };
-}
-
 @Component({
   selector: 'app-resident-form',
   standalone: true,
-  imports: [UnsavedFormDirective, ReactiveFormsModule, RouterLink],
+  imports: [
+    SearchableSelectDirective,
+    UnsavedFormDirective,
+    ReactiveFormsModule,
+    RouterLink,
+    PasswordFieldComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page mg-page mg-narrow">
@@ -67,7 +66,7 @@ function validBirthDate(control: AbstractControl): { invalidDate: true } | null 
             >progress_activity</span
           >
           <h1>Carregando residente</h1>
-          <p>Consultando o cadastro local de teste.</p>
+          <p>Aguarde um momento.</p>
         </section>
       } @else if (loadError()) {
         <section class="mg-empty" role="alert">
@@ -83,10 +82,7 @@ function validBirthDate(control: AbstractControl): { invalidDate: true } | null 
       } @else if (editId && !resident()) {
         <section class="mg-empty" role="alert">
           <h1>Residente não encontrado</h1>
-          <p>
-            O cadastro solicitado não está disponível
-            {{ isDemo() ? 'nesta demonstração' : 'no ambiente local de teste' }}.
-          </p>
+          <p>Não encontramos este cadastro. Volte à lista e tente de novo.</p>
           <a class="btn mg-primary" routerLink="/residentes">Voltar aos residentes</a>
         </section>
       } @else {
@@ -97,7 +93,7 @@ function validBirthDate(control: AbstractControl): { invalidDate: true } | null 
               Residentes</a
             >
             <h1>{{ editId ? 'Editar residente' : 'Cadastrar residente' }}</h1>
-            <p>Preencha os dados de identificação e vínculo acadêmico.</p>
+            <p>Preencha os dados do residente.</p>
           </div>
         </header>
         <form
@@ -110,8 +106,10 @@ function validBirthDate(control: AbstractControl): { invalidDate: true } | null 
         >
           <h2>Dados do residente</h2>
           <p class="mg-muted">
-            Campos marcados com * são obrigatórios. Use somente dados fictícios
-            {{ isDemo() ? 'nesta demonstração' : 'no ambiente local de teste' }}.
+            Campos marcados com * são obrigatórios.
+            @if (isDemo()) {
+              Use somente dados fictícios nesta demonstração.
+            }
           </p>
           <div class="form-grid mg-form-grid">
             <label class="field mg-field mg-span-2"
@@ -121,14 +119,14 @@ function validBirthDate(control: AbstractControl): { invalidDate: true } | null 
                   form.controls.name.invalid && form.controls.name.touched ? 'true' : null
                 "
                 formControlName="name"
-                autocomplete="name"
+                autocomplete="off"
                 maxlength="200"
                 aria-describedby="resident-name-error"
               />
               @if (form.controls.name.invalid && form.controls.name.touched) {
-                <span class="mg-field-error" id="resident-name-error"
-                  >Informe o nome completo com 3 a 200 caracteres.</span
-                >
+                <span class="mg-field-error" id="resident-name-error">{{
+                  form.controls.name.errors?.['fieldRule']
+                }}</span>
               }
             </label>
             <label class="field mg-field"
@@ -145,9 +143,9 @@ function validBirthDate(control: AbstractControl): { invalidDate: true } | null 
                 aria-describedby="resident-enrollment-error"
               />
               @if (form.controls.enrollment.invalid && form.controls.enrollment.touched) {
-                <span class="mg-field-error" id="resident-enrollment-error"
-                  >Informe a matrícula vinculada ao residente, com até 64 caracteres.</span
-                >
+                <span class="mg-field-error" id="resident-enrollment-error">{{
+                  form.controls.enrollment.errors?.['fieldRule']
+                }}</span>
               }
             </label>
             <label class="field mg-field"
@@ -164,9 +162,7 @@ function validBirthDate(control: AbstractControl): { invalidDate: true } | null 
               />
               @if (form.controls.birthDate.invalid && form.controls.birthDate.touched) {
                 <span class="mg-field-error" id="resident-birth-error">{{
-                  form.controls.birthDate.hasError('required')
-                    ? 'Informe a data de nascimento.'
-                    : 'Informe uma data de nascimento válida e não futura.'
+                  form.controls.birthDate.errors?.['fieldRule']
                 }}</span>
               }
             </label>
@@ -175,7 +171,7 @@ function validBirthDate(control: AbstractControl): { invalidDate: true } | null 
               <input
                 type="email"
                 formControlName="institutionalEmail"
-                autocomplete="email"
+                autocomplete="off"
                 maxlength="320"
                 [attr.aria-invalid]="
                   form.controls.institutionalEmail.invalid &&
@@ -188,24 +184,23 @@ function validBirthDate(control: AbstractControl): { invalidDate: true } | null 
               @if (
                 form.controls.institutionalEmail.invalid && form.controls.institutionalEmail.touched
               ) {
-                <span class="mg-field-error" id="resident-email-error"
-                  >Informe um e-mail válido.</span
-                >
+                <span class="mg-field-error" id="resident-email-error">{{
+                  form.controls.institutionalEmail.errors?.['fieldRule']
+                }}</span>
               }
             </label>
             <div class="mg-field">
-              <label for="course-search">Buscar curso</label
-              ><input
-                id="course-search"
-                type="search"
-                data-filter-input
-                [value]="courseQuery()"
-                (input)="courseQuery.set($any($event.target).value)"
-                placeholder="Nome do curso"
-              />
-              <label for="resident-course">Curso <small>Opcional</small></label>
-              <select id="resident-course" formControlName="courseId">
-                <option value="">Sem curso informado</option>
+              <label for="resident-course">Curso *</label>
+              <select
+                sagerSearchable
+                id="resident-course"
+                formControlName="courseId"
+                [attr.aria-invalid]="
+                  form.controls.courseId.invalid && form.controls.courseId.touched ? 'true' : null
+                "
+                aria-describedby="resident-course-error"
+              >
+                <option value="">Selecione o curso</option>
                 @for (course of visibleCourses(); track course.id) {
                   <option
                     [value]="course.id"
@@ -215,6 +210,9 @@ function validBirthDate(control: AbstractControl): { invalidDate: true } | null 
                   </option>
                 }
               </select>
+              @if (form.controls.courseId.invalid && form.controls.courseId.touched) {
+                <span class="mg-field-error" id="resident-course-error">Escolha o curso.</span>
+              }
               @if (coursesError()) {
                 <p role="alert">{{ coursesError() }}</p>
                 <button type="button" class="btn mg-secondary" (click)="loadCourses()">
@@ -230,7 +228,18 @@ function validBirthDate(control: AbstractControl): { invalidDate: true } | null 
               </button>
               @if (addingCourse()) {
                 <label for="new-course">Nome do novo curso</label
-                ><input id="new-course" [formControl]="newCourse" maxlength="200" />
+                ><input
+                  id="new-course"
+                  [formControl]="newCourse"
+                  maxlength="200"
+                  [attr.aria-invalid]="newCourse.invalid && newCourse.touched ? 'true' : null"
+                  aria-describedby="new-course-error"
+                />
+                @if (newCourse.invalid && newCourse.touched) {
+                  <span class="mg-field-error" id="new-course-error"
+                    >Informe um nome de até 200 caracteres.</span
+                  >
+                }
                 <button
                   type="button"
                   class="btn"
@@ -242,47 +251,52 @@ function validBirthDate(control: AbstractControl): { invalidDate: true } | null 
               }
             </div>
             @if (!editId) {
-              <label class="mg-field"
-                >Senha escolhida pelo residente<input
-                  type="password"
-                  formControlName="password"
-                  [attr.aria-invalid]="
-                    form.controls.password.invalid && form.controls.password.touched
-                  "
-                  aria-describedby="resident-password-help"
-                  autocomplete="new-password"
-                  minlength="12"
-                  maxlength="72"
-                  required
-                /><small id="resident-password-help"
-                  >De 12 a 72 caracteres; no máximo 72 bytes.</small
-                >
+              <div class="mg-field">
+                <label for="resident-password">Senha escolhida pelo residente *</label>
+                <sager-password-field>
+                  <input
+                    id="resident-password"
+                    type="password"
+                    formControlName="password"
+                    [attr.aria-invalid]="
+                      form.controls.password.invalid && form.controls.password.touched
+                        ? 'true'
+                        : null
+                    "
+                    aria-describedby="resident-password-help resident-password-error"
+                    autocomplete="new-password"
+                    required
+                  />
+                </sager-password-field>
+                <small class="field-hint" id="resident-password-help">{{ passwordHelp }}</small>
                 @if (form.controls.password.invalid && form.controls.password.touched) {
-                  <span class="mg-field-error"
-                    >Informe uma senha com pelo menos 12 caracteres.</span
-                  >
+                  <span class="mg-field-error" id="resident-password-error">{{
+                    form.controls.password.errors?.['passwordRules']
+                  }}</span>
                 }
-              </label>
-              <label class="mg-field"
-                >Confirmar senha<input
-                  type="password"
-                  formControlName="passwordConfirmation"
-                  autocomplete="new-password"
-                  required
-              /></label>
+              </div>
+              <div class="mg-field">
+                <label for="resident-password-confirmation">Confirmar senha *</label>
+                <sager-password-field>
+                  <input
+                    id="resident-password-confirmation"
+                    type="password"
+                    formControlName="passwordConfirmation"
+                    autocomplete="new-password"
+                    required
+                  />
+                </sager-password-field>
+              </div>
             }
           </div>
           <div class="mg-note">
             <span class="material-symbols-rounded" aria-hidden="true">info</span>
             <p>
               @if (isDemo()) {
-                A alocação ou transferência entre quartos depende das regras da AE. Responsáveis
-                legais podem ser vinculados depois de salvar o residente. Dados médicos não são
-                exibidos neste protótipo.
+                Depois de salvar, você poderá adicionar responsáveis e escolher o quarto. Dados
+                médicos não são exibidos nesta demonstração.
               } @else {
-                A origem e validação definitiva da matrícula e as regras para dados sensíveis ainda
-                dependem de decisão institucional. Responsáveis e quartos podem ser vinculados após
-                salvar o residente.
+                Depois de salvar, você poderá adicionar responsáveis e escolher o quarto.
               }
             </p>
           </div>
@@ -291,7 +305,7 @@ function validBirthDate(control: AbstractControl): { invalidDate: true } | null 
           }
           @if (conflict()) {
             <button type="button" class="btn mg-secondary" (click)="reloadLatest()">
-              Carregar versão atual do cadastro
+              Recarregar dados
             </button>
           }
           <div class="action-row mg-actions">
@@ -313,17 +327,15 @@ export class ResidentFormComponent {
   private readonly service = inject(ManagementDemoService);
   private readonly coursesApi = inject(CourseApiService);
   readonly courses = signal<Course[]>([]);
-  readonly courseQuery = signal('');
   readonly coursesError = signal('');
   readonly addingCourse = signal(false);
   readonly courseSaving = signal(false);
-  readonly newCourse = new FormControl('', { nonNullable: true });
+  readonly newCourse = new FormControl('', {
+    nonNullable: true,
+    validators: [trimmedLength(1, 200)],
+  });
   readonly visibleCourses = computed(() =>
-    this.courses().filter(
-      (c) =>
-        c.id === this.form.controls.courseId.value ||
-        (c.active && normalizeSearch(c.name).includes(normalizeSearch(this.courseQuery()))),
-    ),
+    this.courses().filter((c) => c.id === this.form.controls.courseId.value || c.active),
   );
   async loadCourses(): Promise<void> {
     this.coursesError.set('');
@@ -337,6 +349,10 @@ export class ResidentFormComponent {
   }
   async createCourse(): Promise<void> {
     if (this.saving() || this.courseSaving()) return;
+    if (this.newCourse.invalid) {
+      this.newCourse.markAsTouched();
+      return;
+    }
     this.courseSaving.set(true);
     this.coursesError.set('');
     try {
@@ -348,10 +364,7 @@ export class ResidentFormComponent {
       this.newCourse.reset();
       this.addingCourse.set(false);
     } catch (error) {
-      if (!this.destroyRef.destroyed)
-        this.coursesError.set(
-          error instanceof Error ? error.message : 'Não foi possível cadastrar o curso.',
-        );
+      if (!this.destroyRef.destroyed) this.coursesError.set(readableError(error));
     } finally {
       if (!this.destroyRef.destroyed) this.courseSaving.set(false);
     }
@@ -379,24 +392,28 @@ export class ResidentFormComponent {
   readonly conflict = signal(false);
   readonly saving = signal(false);
   readonly pendingSave = computed(() => this.saving() || this.courseSaving());
-  readonly today = localToday();
+  readonly today = civilToday();
+  readonly passwordHelp = PASSWORD_HELP;
   readonly form = new FormGroup({
     name: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.required, Validators.minLength(3), Validators.maxLength(200)],
+      validators: [fieldRule(nameProblem, () => this.resident()?.name)],
     }),
     enrollment: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.required, Validators.maxLength(64)],
+      validators: [fieldRule(residentEnrollmentProblem, () => this.resident()?.enrollment)],
     }),
     birthDate: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.required, validBirthDate],
+      validators: [fieldRule(birthDateProblem, () => this.resident()?.birthDate)],
     }),
-    courseId: new FormControl('', { nonNullable: true }),
+    courseId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     institutionalEmail: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.email, Validators.maxLength(320)],
+      validators: [
+        fieldRule(residentEmailProblem, () => this.resident()?.institutionalEmail),
+        Validators.maxLength(320),
+      ],
     }),
     password: new FormControl('', { nonNullable: true }),
     passwordConfirmation: new FormControl('', { nonNullable: true }),
@@ -408,12 +425,11 @@ export class ResidentFormComponent {
     });
     void this.loadCourses();
     if (!this.editId) {
-      this.form.controls.password.setValidators([
-        Validators.required,
-        Validators.minLength(12),
-        Validators.maxLength(72),
-      ]);
+      this.form.controls.password.setValidators(passwordRules('enrollment', normalizeEnrollment));
       this.form.controls.passwordConfirmation.setValidators(Validators.required);
+      this.form.controls.enrollment.valueChanges
+        .pipe(takeUntilDestroyed())
+        .subscribe(() => this.form.controls.password.updateValueAndValidity());
     }
     if (this.isDemo()) {
       const existing = this.resident();
@@ -439,8 +455,8 @@ export class ResidentFormComponent {
       this.missing.set(error instanceof ResidentApiError && error.status === 404);
       this.loadError.set(
         this.missing()
-          ? 'O cadastro solicitado não está disponível no ambiente local de teste.'
-          : 'Confira a conexão com o backend local e tente novamente.',
+          ? 'Não encontramos este cadastro. Volte à lista e tente de novo.'
+          : ERROR_GENERIC,
       );
     } finally {
       if (!this.destroyRef.destroyed) this.loading.set(false);
@@ -466,20 +482,13 @@ export class ResidentFormComponent {
       },
       { emitEvent: false },
     );
-    if (this.form.invalid || this.form.controls.birthDate.value > this.today) {
+    const mismatch = !this.editId && fields.password !== fields.passwordConfirmation;
+    if (mismatch) this.error.set(PASSWORD_MISMATCH);
+    if (this.form.invalid) {
       this.form.markAllAsTouched();
-      if (this.form.controls.birthDate.value > this.today)
-        this.form.controls.birthDate.setErrors({ future: true });
       return;
     }
-    if (
-      !this.editId &&
-      (fields.password !== fields.passwordConfirmation ||
-        new TextEncoder().encode(fields.password).length > 72)
-    ) {
-      this.error.set('Repita a mesma senha, com 12 a 72 caracteres e até 72 bytes.');
-      return;
-    }
+    if (mismatch) return;
     if (this.isDemo()) {
       try {
         const saved = this.service.saveResident(
@@ -515,7 +524,7 @@ export class ResidentFormComponent {
       name,
       enrollment,
       birthDate,
-      courseId: courseId || null,
+      courseId,
       institutionalEmail: institutionalEmail || null,
       ...(!this.editId ? { password, passwordConfirmation } : {}),
     };
@@ -535,22 +544,18 @@ export class ResidentFormComponent {
         const stale = !!this.editId && error.code === 'stale_version';
         this.conflict.set(stale);
         this.error.set(
-          stale
-            ? 'Este cadastro foi alterado por outra sessão. Carregue a versão atual antes de salvar novamente.'
-            : 'Já existe um cadastro com esta matrícula. Confira os dados.',
+          stale ? ERROR_CONFLICT : 'Já existe um cadastro com esta matrícula. Confira os dados.',
         );
       } else if (error instanceof ResidentApiError && error.status === 400) {
         this.error.set('Os dados foram recusados. Confira os campos e tente novamente.');
       } else if (error instanceof ResidentApiError && error.status === 404) {
         this.error.set('O cadastro não existe mais. Volte à lista de residentes.');
       } else if (error instanceof ResidentApiError && error.status === 401) {
-        this.error.set('A sessão expirou. Entre novamente para salvar.');
+        this.error.set(ERROR_SESSION);
       } else if (error instanceof ResidentApiError && error.status === 403) {
-        this.error.set('Seu perfil não tem permissão para salvar este cadastro.');
+        this.error.set(ERROR_FORBIDDEN);
       } else {
-        this.error.set(
-          'Não foi possível salvar. Confira a conexão com o backend local e tente novamente.',
-        );
+        this.error.set(ERROR_GENERIC);
       }
     } finally {
       if (!this.destroyRef.destroyed) this.saving.set(false);
