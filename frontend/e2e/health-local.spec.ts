@@ -253,6 +253,7 @@ function fixtureData(empty = false) {
             sequence: 1,
             residentId,
             sourceAuthorAccountId: recipientId,
+            sourceAuthorName: 'Autora Sintética',
             recipientGrantId: authorGrantId,
             recipientAccountName: authorGrant.accountName,
             createdBy: authorId,
@@ -288,6 +289,8 @@ function fixtureData(empty = false) {
           json: pageOf(grants.filter((g) => g.accountId === url.searchParams.get('accountId'))),
         });
       if (path === '/api/v1/saude/vinculos') return route.fulfill({ json: pageOf(assignments) });
+      if (path === '/api/v1/saude/custodias/autores')
+        return route.fulfill({ json: [{ id: recipientId, name: 'Autora Sintética' }] });
       if (path === '/api/v1/saude/custodias') return route.fulfill({ json: pageOf(custodies) });
       if (path === '/api/v1/saude/residentes') return route.fulfill({ json: pageOf([resident]) });
       if (path.endsWith(`/residentes/${residentId}`)) return route.fulfill({ json: resident });
@@ -376,8 +379,7 @@ test('autor registra, corrige com histórico e partilha somente destinatário se
   await page.getByLabel('Justificativa da correção *').fill('Complemento sintético do atendimento');
   await page.getByRole('button', { name: 'Salvar correção', exact: true }).click();
   await expect(page.getByText('Correção registrada. O histórico foi preservado.')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Versão 1', exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Versão 0', exact: true })).toBeVisible();
+  await expect(page.locator('.health-revision')).toHaveCount(2);
   await page.getByRole('button', { name: 'Partilhar registro', exact: true }).click();
   await expect(page.getByText('Selecione ao menos um destinatário.')).toBeVisible();
   await page.getByRole('checkbox', { name: 'Enfermeira Sintética · Enfermagem' }).check();
@@ -411,7 +413,7 @@ test('destinatário consulta sem corrigir e perde o conteúdo após revogação 
   await author.getByRole('button', { name: 'Confirmar revogação', exact: true }).click();
   await expect(author.getByText('Partilha revogada.', { exact: true })).toBeVisible();
   await page.reload();
-  await expect(page.getByRole('alert')).toContainText('registro não está disponível');
+  await expect(page.getByRole('alert')).toContainText('Não encontramos este registro');
   await expect(page.getByText(initialNote.body, { exact: true })).toHaveCount(0);
   await author.close();
 });
@@ -449,18 +451,18 @@ for (const kind of ['habilitação', 'vínculo'] as const) {
     const data = fixtureData(true);
     await data.attach(page, 'admin');
     await page.goto('/saude/acessos');
-    await page.getByLabel('Conta a habilitar *').selectOption(authorId);
-    await page.getByText('Conferir e habilitar profissional', { exact: true }).click();
+    await page.getByLabel('Conta do profissional *').selectOption(authorId);
+    await page.getByText('Conferir e liberar profissional', { exact: true }).click();
     await page.getByLabel('Número do registro profissional *').fill('TESTE-2');
     await page.getByLabel('UF do registro *').fill('GO');
     await page
       .getByLabel('Justificativa da verificação *')
       .fill('Conferência sintética de documentos');
-    await page.getByRole('button', { name: 'Habilitar profissional', exact: true }).click();
-    await expect(page.getByText('Habilitação registrada.', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Liberar profissional', exact: true }).click();
+    await expect(page.getByText('Profissional liberado.', { exact: true })).toBeVisible();
     if (kind === 'vínculo') {
       await page.getByLabel('Residente *', { exact: true }).selectOption(residentId);
-      await page.getByLabel('Habilitação vigente *', { exact: true }).selectOption(authorGrantId);
+      await page.getByLabel('Profissional *', { exact: true }).selectOption(authorGrantId);
       await page.getByLabel('Justificativa do vínculo *').fill('Vínculo assistencial sintético');
       await page.getByRole('button', { name: 'Criar vínculo assistencial', exact: true }).click();
       await expect(
@@ -472,7 +474,7 @@ for (const kind of ['habilitação', 'vínculo'] as const) {
     await expect(page.getByRole('alertdialog')).toHaveCount(0);
     await page.getByRole('link', { name: 'Acessos de saúde', exact: true }).click();
     if (kind === 'habilitação') {
-      await page.getByText('Conferir e habilitar profissional', { exact: true }).click();
+      await page.getByText('Conferir e liberar profissional', { exact: true }).click();
       await page.getByLabel('Justificativa da verificação *').fill('Novo rascunho sintético');
     } else await page.getByLabel('Justificativa do vínculo *').fill('Novo rascunho sintético');
     await page.getByRole('link', { name: 'Residentes', exact: true }).click();
@@ -498,28 +500,29 @@ test('gestão habilita, vincula e autoriza custódia usando apenas metadados em 
   });
   await page.getByRole('button', { name: 'Buscar contas', exact: true }).click();
   await accountSearch;
-  await page.getByLabel('Conta a habilitar *').selectOption(authorId);
-  await page.getByText('Conferir e habilitar profissional', { exact: true }).click();
+  await page.getByLabel('Conta do profissional *').selectOption(authorId);
+  await page.getByText('Conferir e liberar profissional', { exact: true }).click();
   await page.getByLabel('Número do registro profissional *').fill('TESTE-2');
   await page.getByLabel('UF do registro *').fill('go');
   await page
     .getByLabel('Justificativa da verificação *')
     .fill('Conferência sintética de documentos');
-  await page.getByRole('button', { name: 'Habilitar profissional', exact: true }).click();
-  await expect(page.getByText('Habilitação registrada.', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Liberar profissional', exact: true }).click();
+  await expect(page.getByText('Profissional liberado.', { exact: true })).toBeVisible();
   expect(data.writes[0].body['registrationRegion']).toBe('GO');
   await page.getByLabel('Residente *', { exact: true }).selectOption(residentId);
-  await page.getByLabel('Habilitação vigente *', { exact: true }).selectOption(authorGrantId);
+  await page.getByLabel('Profissional *', { exact: true }).selectOption(authorGrantId);
   await page.getByLabel('Justificativa do vínculo *').fill('Vínculo assistencial sintético');
   await page.getByRole('button', { name: 'Criar vínculo assistencial', exact: true }).click();
   await expect(page.getByText('Vínculo assistencial registrado.', { exact: true })).toBeVisible();
-  await page.getByLabel('UUID da conta do autor desligado *').fill(recipientId);
-  await page.getByLabel('Habilitação do custodiante *').selectOption(authorGrantId);
+  await page.getByLabel('Autor das anotações *').selectOption(recipientId);
+  await page.getByLabel('Profissional que recebe os registros *').selectOption(authorGrantId);
   await page
     .getByLabel('Justificativa da custódia *')
     .fill('Continuidade sintética após desligamento');
   await page.getByRole('button', { name: 'Autorizar custódia', exact: true }).click();
   await expect(page.getByText('Custódia registrada.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Autor das anotações: Autora Sintética')).toBeVisible();
   await page.getByRole('button', { name: 'Encerrar vínculo', exact: true }).click();
   await expect(page.getByLabel('Justificativa do encerramento *')).toBeFocused();
   await page
@@ -538,6 +541,6 @@ test('gestão habilita, vincula e autoriza custódia usando apenas metadados em 
   await expect(page.getByText(initialNote.body, { exact: true })).toHaveCount(0);
   data.setFail(true);
   await page.reload();
-  await expect(page.getByRole('alert')).toContainText('Confira a conexão');
+  await expect(page.getByRole('alert')).toContainText('Verifique a internet');
   await expect(page.getByText(initialNote.body, { exact: true })).toHaveCount(0);
 });

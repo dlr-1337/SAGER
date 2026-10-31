@@ -32,9 +32,18 @@ async function mockSession(page: Page, profile: 'gestor' | 'supervisor' = 'gesto
   });
 }
 
+const availableCourse = {
+  id: '00000000-0000-0000-0000-000000000202',
+  name: 'Curso Disponível',
+  active: true,
+  version: 0,
+};
+
 function mockRegistry(initial: ResidentRecord[] = []) {
   const records = initial;
-  const courses: { id: string; name: string; active: boolean; version: number }[] = [];
+  const courses: { id: string; name: string; active: boolean; version: number }[] = [
+    availableCourse,
+  ];
   const writes: { method: string; body: Record<string, unknown> }[] = [];
   let failList = false;
   let failNextWrite = false;
@@ -109,6 +118,7 @@ function mockRegistry(initial: ResidentRecord[] = []) {
   return {
     attach,
     records,
+    courses,
     writes,
     setFailList: (value: boolean) => (failList = value),
     setFailNextWrite: () => (failNextWrite = true),
@@ -125,26 +135,36 @@ test('cadastro local cria, consulta, busca e edita após recarga, sem dados inve
   await expect(page.getByRole('heading', { name: 'Nenhum residente cadastrado' })).toBeVisible();
   await expect(page.getByText('Ana Luísa Ribeiro')).toHaveCount(0);
   await page.getByRole('link', { name: 'Cadastrar residente' }).click();
+  await expect(page.getByRole('main')).not.toContainText(/fictíc|backend|ambiente local/i);
   const accessibility = await new AxeBuilder({ page }).include('main').analyze();
   expect(
     accessibility.violations.filter((item) => ['critical', 'serious'].includes(item.impact ?? '')),
   ).toEqual([]);
   await page.getByRole('textbox', { name: 'Nome completo *' }).fill(' Estudante Sintético ');
-  await page.getByRole('textbox', { name: 'Matrícula *' }).fill(' TESTE-A1 ');
+  await page.getByRole('textbox', { name: 'Matrícula *' }).fill(' 20261TESTEA0001 ');
   await page.getByRole('button', { name: 'Salvar residente' }).click();
   await expect(page.getByText('Informe a data de nascimento.')).toBeVisible();
   expect(registry.writes).toHaveLength(0);
   await page.getByLabel('Data de nascimento *').fill('2009-05-14');
-  if (await page.getByLabel('Senha escolhida pelo residente').count()) {
-    await page.getByLabel('Senha escolhida pelo residente').fill('Senha teste 123!');
-    await page.getByLabel('Confirmar senha', { exact: true }).fill('Senha teste 123!');
+  if (await page.getByLabel('Senha escolhida pelo residente *', { exact: true }).count()) {
+    await page
+      .getByLabel('Senha escolhida pelo residente *', { exact: true })
+      .fill('Senha teste 123!');
+    await page.getByLabel('Confirmar senha *', { exact: true }).fill('Senha teste 123!');
   }
   await page.getByRole('button', { name: 'Salvar residente' }).click();
-  await expect(page.getByRole('heading', { name: 'Estudante Sintético' })).toBeVisible();
-  await expect(page.getByRole('status')).toContainText(
-    'Cadastro salvo no ambiente local de teste.',
+  await expect(page.getByText('Escolha o curso.')).toBeVisible();
+  expect(registry.writes).toHaveLength(0);
+  await page.getByRole('button', { name: 'Novo curso', exact: true }).click();
+  await page.getByLabel('Nome do novo curso').fill('Curso de Teste');
+  await page.getByRole('button', { name: 'Cadastrar e selecionar' }).click();
+  await expect(page.getByRole('combobox', { name: 'Curso *' })).toHaveValue(
+    '00000000-0000-0000-0000-000000000201',
   );
-  await expect(page.getByText('Não informado')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Salvar residente' }).click();
+  await expect(page.getByRole('heading', { name: 'Estudante Sintético' })).toBeVisible();
+  await expect(page.getByRole('status')).toContainText('Cadastro salvo.');
+  await expect(page.getByText('Não informado')).toHaveCount(1);
   await expect(
     page.getByText('A ausência da data de nascimento não indica maioridade'),
   ).toHaveCount(0);
@@ -154,25 +174,22 @@ test('cadastro local cria, consulta, busca e edita após recarga, sem dados inve
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Estudante Sintético' })).toBeVisible();
   await page.getByRole('link', { name: 'Editar cadastro' }).click();
-  await page.getByRole('button', { name: 'Novo curso', exact: true }).click();
-  await page.getByLabel('Nome do novo curso').fill('Curso de Teste');
-  await page.getByRole('button', { name: 'Cadastrar e selecionar' }).click();
-  await expect(page.getByRole('combobox', { name: 'Curso Opcional' })).toHaveValue(
+  await expect(page.getByRole('combobox', { name: 'Curso *' })).toHaveValue(
     '00000000-0000-0000-0000-000000000201',
   );
   await page.getByRole('button', { name: 'Salvar residente' }).click();
   await expect(page.getByText('Curso de Teste')).toBeVisible();
   await page.goto('/residentes');
-  await page.getByRole('searchbox', { name: 'Nome, matrícula ou e-mail' }).fill('teste-a1');
+  await page.getByRole('searchbox', { name: 'Nome, matrícula ou e-mail' }).fill('testea0001');
   await expect(page.getByRole('heading', { name: 'Estudante Sintético' })).toBeVisible();
   expect(registry.writes).toEqual([
     {
       method: 'POST',
       body: {
         name: 'Estudante Sintético',
-        enrollment: 'TESTE-A1',
+        enrollment: '20261TESTEA0001',
         birthDate: '2009-05-14',
-        courseId: null,
+        courseId: '00000000-0000-0000-0000-000000000201',
         institutionalEmail: null,
         password: 'Senha teste 123!',
         passwordConfirmation: 'Senha teste 123!',
@@ -182,7 +199,7 @@ test('cadastro local cria, consulta, busca e edita após recarga, sem dados inve
       method: 'PUT',
       body: {
         name: 'Estudante Sintético',
-        enrollment: 'TESTE-A1',
+        enrollment: '20261TESTEA0001',
         birthDate: '2009-05-14',
         courseId: '00000000-0000-0000-0000-000000000201',
         institutionalEmail: null,
@@ -235,7 +252,7 @@ test('aguarda o curso pendente e só salva o residente com seu vínculo após co
   expect(registry.writes).toHaveLength(0);
   await expect(page).toHaveURL(new RegExp(`/residentes/${id}/editar$`));
   release();
-  await expect(page.getByRole('combobox', { name: 'Curso Opcional' })).toHaveValue(course.id);
+  await expect(page.getByRole('combobox', { name: 'Curso *' })).toHaveValue(course.id);
   await expect(save).toBeEnabled();
   expect(registry.writes).toHaveLength(0);
   await save.click();
@@ -252,7 +269,8 @@ test('não inicia a criação do curso enquanto o residente está sendo salvo', 
       name: 'Pessoa Sintética',
       enrollment: 'TESTE-001',
       birthDate: '2009-05-14',
-      course: null,
+      course: availableCourse.name,
+      courseId: availableCourse.id,
       version: 0,
     },
   ]);
@@ -279,13 +297,16 @@ test('não inicia a criação do curso enquanto o residente está sendo salvo', 
   const create = page.getByRole('button', { name: 'Cadastrar e selecionar', exact: true });
   await expect(create).toBeDisabled();
   await create.dispatchEvent('click');
-  await expect(page.getByRole('combobox', { name: 'Curso Opcional' })).toHaveValue('');
+  await expect(page.getByRole('combobox', { name: 'Curso *' })).toHaveValue(availableCourse.id);
   expect(courseWrites).toBe(0);
   release();
   await expect(page.getByRole('heading', { name: 'Pessoa Sintética', exact: true })).toBeVisible();
   expect(courseWrites).toBe(0);
   expect(registry.writes).toHaveLength(1);
-  expect(registry.writes[0]).toMatchObject({ method: 'PUT', body: { courseId: null } });
+  expect(registry.writes[0]).toMatchObject({
+    method: 'PUT',
+    body: { courseId: availableCourse.id },
+  });
 });
 
 test('duplicidade, entrada inválida e conflito de duas abas não anunciam sucesso', async ({
@@ -297,7 +318,7 @@ test('duplicidade, entrada inválida e conflito de duas abas não anunciam suces
     {
       id,
       name: 'Estudante Original',
-      enrollment: 'TESTE-001',
+      enrollment: '20261TESTE00001',
       birthDate: null,
       course: null,
       version: 0,
@@ -306,13 +327,16 @@ test('duplicidade, entrada inválida e conflito de duas abas não anunciam suces
   await registry.attach(page);
   await page.goto('/residentes/novo');
   await page.getByRole('textbox', { name: 'Nome completo *' }).fill('Outra Pessoa');
-  await page.getByRole('textbox', { name: 'Matrícula *' }).fill('teste-001');
+  await page.getByRole('textbox', { name: 'Matrícula *' }).fill('20261teste00001');
   await page.getByLabel('Data de nascimento *').fill('2009-05-14');
-  await page.getByLabel('Senha escolhida pelo residente').fill('Senha teste 123!');
-  await page.getByLabel('Confirmar senha', { exact: true }).fill('Senha teste 123!');
+  await page.getByRole('combobox', { name: 'Curso *' }).selectOption(availableCourse.id);
+  await page
+    .getByLabel('Senha escolhida pelo residente *', { exact: true })
+    .fill('Senha teste 123!');
+  await page.getByLabel('Confirmar senha *', { exact: true }).fill('Senha teste 123!');
   registry.setFailNextWrite();
   await page.getByRole('button', { name: 'Salvar residente' }).click();
-  await expect(page.getByRole('alert')).toContainText('Os dados foram recusados');
+  await expect(page.getByRole('alert')).toContainText('Confira os campos');
   await page.getByRole('button', { name: 'Salvar residente' }).click();
   await expect(page.getByRole('alert')).toContainText('Já existe um cadastro');
   await expect(page).toHaveURL(/\/residentes\/novo$/);
@@ -330,18 +354,22 @@ test('duplicidade, entrada inválida e conflito de duas abas não anunciam suces
   );
   await other.getByRole('textbox', { name: 'Nome completo *' }).fill('Alteração da Outra Aba');
   await other.getByLabel('Data de nascimento *').fill('2009-05-14');
+  await other.getByRole('combobox', { name: 'Curso *' }).selectOption(availableCourse.id);
   await other.getByRole('button', { name: 'Salvar residente' }).click();
   await expect(other.getByRole('heading', { name: 'Alteração da Outra Aba' })).toBeVisible();
   await page.getByRole('textbox', { name: 'Nome completo *' }).fill('Alteração Desatualizada');
   await page.getByLabel('Data de nascimento *').fill('2009-05-14');
-  if (await page.getByLabel('Senha escolhida pelo residente').count()) {
-    await page.getByLabel('Senha escolhida pelo residente').fill('Senha teste 123!');
-    await page.getByLabel('Confirmar senha', { exact: true }).fill('Senha teste 123!');
+  await page.getByRole('combobox', { name: 'Curso *' }).selectOption(availableCourse.id);
+  if (await page.getByLabel('Senha escolhida pelo residente *', { exact: true }).count()) {
+    await page
+      .getByLabel('Senha escolhida pelo residente *', { exact: true })
+      .fill('Senha teste 123!');
+    await page.getByLabel('Confirmar senha *', { exact: true }).fill('Senha teste 123!');
   }
   await page.getByRole('button', { name: 'Salvar residente' }).click();
-  await expect(page.getByRole('alert')).toContainText('alterado por outra sessão');
+  await expect(page.getByRole('alert')).toContainText('Outra pessoa alterou este registro');
   await expect(page).toHaveURL(new RegExp(`/residentes/${id}/editar$`));
-  await page.getByRole('button', { name: 'Carregar versão atual do cadastro' }).click();
+  await page.getByRole('button', { name: 'Recarregar dados' }).click();
   await expect(page.getByRole('textbox', { name: 'Nome completo *' })).toHaveValue(
     'Alteração da Outra Aba',
   );
@@ -385,6 +413,7 @@ test('erro local não carrega demo, supervisor edita e demonstração funciona o
   await supervisor.getByRole('button', { name: 'Salvar residente' }).click();
   await expect(supervisor.getByText('Informe a data de nascimento.')).toBeVisible();
   await supervisor.getByLabel('Data de nascimento *').fill('2009-05-14');
+  await supervisor.getByRole('combobox', { name: 'Curso *' }).selectOption(availableCourse.id);
   await supervisor.getByRole('button', { name: 'Salvar residente' }).click();
   await expect(supervisor.getByRole('heading', { name: 'Estudante Sintético' })).toBeVisible();
   await supervisor.close();
@@ -445,7 +474,8 @@ for (const outcome of ['success', 'failure'] as const) {
       name: 'Pessoa Sintética',
       enrollment: 'TESTE-001',
       birthDate: '2009-05-14',
-      course: null,
+      course: availableCourse.name,
+      courseId: availableCourse.id,
       version: 0,
     };
     const registry = mockRegistry([record]);
@@ -480,7 +510,7 @@ for (const outcome of ['success', 'failure'] as const) {
       await expect(page).toHaveURL(new RegExp(`/residentes/${id}\\?saved=1$`));
       await expect(page.getByRole('status').filter({ hasText: 'Cadastro salvo' })).toBeVisible();
     } else {
-      await expect(page.getByRole('alert')).toContainText('Os dados foram recusados');
+      await expect(page.getByRole('alert')).toContainText('Confira os campos');
       await expect(page.getByRole('textbox', { name: 'Nome completo *' })).toHaveValue(record.name);
       await page.getByRole('link', { name: 'Cancelar', exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`/residentes/${id}$`));
@@ -503,10 +533,21 @@ test('buscar curso sem alterar o cadastro permite cancelar sem confirmação', a
       version: 0,
     },
   ]);
+  registry.courses.push(
+    ...Array.from({ length: 9 }, (_, index) => ({
+      id: `00000000-0000-0000-0000-00000000030${index}`,
+      name: `Curso Sintético ${index}`,
+      active: true,
+      version: 0,
+    })),
+  );
   await registry.attach(page);
   await page.goto(`/residentes/${id}/editar`);
   await expect(page.locator('form[sagerUnsaved]')).toHaveClass(/ng-pristine/);
-  await page.getByRole('searchbox', { name: 'Buscar curso', exact: true }).fill('Sintético');
+  await page.getByRole('combobox', { name: 'Curso *', exact: true }).click();
+  const search = page.getByRole('combobox', { name: 'Buscar em Curso *' });
+  await search.fill('Sintético');
+  await search.press('Escape');
   await page.getByRole('link', { name: 'Cancelar', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/residentes/${id}$`));
   await expect(page.getByRole('alertdialog')).toHaveCount(0);

@@ -123,7 +123,7 @@ async function mockRooms(context: BrowserContext, records: RoomRecord[]) {
 }
 
 async function fillNewRoom(page: Page, code = 'TESTE-Q01', number = '01'): Promise<void> {
-  await page.getByRole('textbox', { name: 'Código global *' }).fill(code);
+  await page.getByRole('textbox', { name: 'Código do quarto *' }).fill(code);
   await page.getByRole('textbox', { name: 'Número do quarto *' }).fill(number);
   await page.getByRole('combobox', { name: 'Alojamento *' }).selectOption(accommodationId);
   await page.getByRole('combobox', { name: 'Situação *' }).selectOption('Disponível');
@@ -192,15 +192,11 @@ test('cadastro local preserva 01, nulos, capacidade editável e mapa após recar
   await page.getByRole('combobox', { name: 'Alojamento *' }).selectOption(accommodationId);
   await page.getByRole('spinbutton', { name: 'Capacidade (opcional)' }).fill('1.5');
   await page.getByRole('button', { name: 'Salvar quarto' }).click();
-  await expect(
-    page.getByText('Informe um número inteiro positivo ou deixe em branco.'),
-  ).toBeVisible();
+  await expect(page.getByText('Informe um número de 1 a 20 ou deixe em branco.')).toBeVisible();
   expect(writes).toHaveLength(0);
   await page.getByRole('spinbutton', { name: 'Capacidade (opcional)' }).fill('');
   await page.getByRole('button', { name: 'Salvar quarto' }).click();
-  await expect(page.locator('.mg-success')).toContainText(
-    'Quarto salvo no ambiente local de teste.',
-  );
+  await expect(page.locator('.mg-success')).toContainText('Quarto salvo.');
   await expect(page.getByRole('heading', { name: 'Quarto 01' })).toBeVisible();
   await expect(page.getByText('Capacidade não definida', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Ana Luísa Ribeiro')).toHaveCount(0);
@@ -250,7 +246,7 @@ test('duplicidade e conflito em duas abas não apagam a edição nem anunciam su
   await fillNewRoom(page);
   await page.getByRole('button', { name: 'Salvar quarto' }).click();
   await expect(page.getByRole('alert')).toContainText('código global');
-  await page.getByRole('textbox', { name: 'Código global *' }).fill('TESTE-OUTRO');
+  await page.getByRole('textbox', { name: 'Código do quarto *' }).fill('TESTE-OUTRO');
   await page.getByRole('button', { name: 'Salvar quarto' }).click();
   await expect(page.getByRole('alert')).toContainText('mesma localização');
   await expect(page).toHaveURL(/\/quartos\/novo$/);
@@ -267,12 +263,12 @@ test('duplicidade e conflito em duas abas não apagam a edição nem anunciam su
   await expect(page.getByText('4 vagas', { exact: true })).toBeVisible();
   await secondPage.getByRole('spinbutton', { name: 'Capacidade (opcional)' }).fill('8');
   await secondPage.getByRole('button', { name: 'Salvar quarto' }).click();
-  await expect(secondPage.getByRole('alert')).toContainText('alterado por outra sessão');
+  await expect(secondPage.getByRole('alert')).toContainText('Outra pessoa alterou este registro');
   await expect(secondPage.getByRole('spinbutton', { name: 'Capacidade (opcional)' })).toHaveValue(
     '8',
   );
   await expect(secondPage).toHaveURL(/\/editar$/);
-  await secondPage.getByRole('button', { name: 'Carregar versão atual do quarto' }).click();
+  await secondPage.getByRole('button', { name: 'Recarregar dados' }).click();
   await expect(secondPage.getByRole('spinbutton', { name: 'Capacidade (opcional)' })).toHaveValue(
     '4',
   );
@@ -332,7 +328,7 @@ test('mapa e formulário locais são acessíveis no desktop e no celular, com te
       await expect(page.locator('main').last()).toBeVisible();
       if (path === '/quartos') await expect(page.locator('.mg-room-tile')).toHaveCount(2);
       else if (path === '/quartos/novo')
-        await expect(page.getByRole('textbox', { name: 'Código global *' })).toBeVisible();
+        await expect(page.getByRole('textbox', { name: 'Código do quarto *' })).toBeVisible();
       else await expect(page.getByRole('heading', { name: 'Quarto 01' })).toBeVisible();
       const result = await new AxeBuilder({ page })
         .include('main')

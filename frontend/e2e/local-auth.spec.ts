@@ -1,4 +1,34 @@
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
+
+test('login permite conferir a senha e volta a ocultá-la ao enviar', async ({ page }) => {
+  await page.route('**/api/v1/auth/**', (route) =>
+    route.request().url().endsWith('/csrf')
+      ? route.fulfill({ json: { headerName: 'X-CSRF-TOKEN', token: 'csrf-test' } })
+      : route.fulfill({ status: 401 }),
+  );
+  await page.goto('/acesso');
+  const password = page.getByLabel('Senha', { exact: true });
+  await password.fill('senha de teste');
+  await expect(password).toHaveAttribute('type', 'password');
+
+  await page.getByRole('button', { name: 'Mostrar senha' }).click();
+  await expect(password).toHaveAttribute('type', 'text');
+  await expect(password).toHaveValue('senha de teste');
+  const hide = page.getByRole('button', { name: 'Ocultar senha' });
+  const box = (await hide.boundingBox())!;
+  expect(box.width).toBeGreaterThanOrEqual(44);
+  expect(box.height).toBeGreaterThanOrEqual(44);
+  const audit = await new AxeBuilder({ page }).include('main').analyze();
+  expect(audit.violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))).toEqual(
+    [],
+  );
+
+  await page.getByRole('textbox', { name: 'Matrícula' }).fill('TESTE-LOGIN');
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click();
+  await expect(password).toHaveAttribute('type', 'password');
+  await expect(page.getByRole('button', { name: 'Mostrar senha' })).toBeVisible();
+});
 
 test('rota interna exige sessão ou entrada explícita na demonstração', async ({ page }) => {
   await page.route('**/api/v1/auth/me', (route) => route.abort('failed'));
@@ -114,7 +144,7 @@ test('login local restaura a sessão, respeita o perfil do servidor e permite sa
 
   await page.goto('/acesso');
   await page.getByRole('textbox', { name: 'Matrícula' }).fill('TESTE-LOGIN');
-  await page.getByLabel('Senha').fill('senha de teste');
+  await page.getByLabel('Senha', { exact: true }).fill('senha de teste');
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(page).toHaveURL(/\/inicio$/);
   await expect(page.getByRole('heading', { name: 'Atividades do SAGER' })).toBeVisible();
@@ -148,9 +178,9 @@ test('senha inválida mantém o usuário fora do sistema e não impede a demonst
 
   await page.goto('/acesso');
   await page.getByRole('textbox', { name: 'Matrícula' }).fill('TESTE-LOGIN');
-  await page.getByLabel('Senha').fill('senha incorreta');
+  await page.getByLabel('Senha', { exact: true }).fill('senha incorreta');
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('Matrícula ou senha inválidos');
+  await expect(page.getByRole('alert')).toContainText('Matrícula ou senha errada');
   await expect(page).toHaveURL(/\/acesso$/);
   await page.getByRole('link', { name: 'Explorar demonstração' }).click();
   await page.getByRole('button', { name: /Entrar como residente/i }).click();
@@ -183,9 +213,10 @@ for (const profile of ['residente', 'supervisor'] as const) {
     );
     await page.goto('/perfil');
     await expect(page.getByRole('heading', { name: 'Meu perfil' })).toBeVisible();
-    await expect(page.getByText(`Cadastro de ${profile} vinculado`, { exact: true })).toBeVisible();
-    await page.getByText('Referência do cadastro', { exact: true }).click();
-    await expect(page.locator('code')).toHaveText(recordId);
+    await expect(
+      page.getByText(`Sua conta está ligada ao seu cadastro de ${profile}.`),
+    ).toBeVisible();
+    await expect(page.locator('main')).not.toContainText(recordId);
     await expect(page.getByRole('link', { name: 'Trocar perfil' })).toHaveCount(0);
     active = false;
     await page.reload();

@@ -121,18 +121,27 @@ test('recuperação confere dados, exige confirmação e volta ao acesso sem aut
   await page.getByLabel('Matrícula', { exact: true }).fill('00123');
   await page.getByLabel('Nome completo', { exact: true }).fill('Pessoa Sintética');
   await page.getByLabel('Data de nascimento', { exact: true }).fill('2009-01-15');
-  await page.getByLabel('Nome completo do responsável ativo').fill('Responsável Sintética');
-  await page.getByLabel(/^Nova senha/).fill('Senha sintética 123!');
+  await page.getByLabel('Nome completo do seu responsável').fill('Responsável Sintética');
+  await page.getByLabel('Nova senha', { exact: true }).fill('Senha sintética 123!');
   await page.getByLabel('Confirmar nova senha', { exact: true }).fill('Senha diferente 123!');
-  await page.getByRole('button', { name: 'Redefinir senha' }).click();
+  await page.getByRole('button', { name: 'Trocar senha' }).click();
   await expect(page.getByRole('alert')).toContainText('mesma senha');
   expect(writes).toBe(0);
+  // O campo não corta o texto colado: a mensagem explica, sem citar bytes.
+  const long = 'Frase sintética '.repeat(7);
+  await page.getByLabel('Nova senha', { exact: true }).fill(long);
+  await page.getByRole('button', { name: 'Trocar senha' }).click();
+  await expect(page.getByRole('alert')).toContainText(
+    'Essa senha é longa demais. Use uma mais curta.',
+  );
+  await expect(page.getByLabel('Nova senha', { exact: true })).toHaveValue(long);
+  await page.getByLabel('Nova senha', { exact: true }).fill('Senha sintética 123!');
   await page.getByLabel('Confirmar nova senha', { exact: true }).fill('Senha sintética 123!');
-  await page.getByRole('button', { name: 'Redefinir senha' }).click();
-  await expect(page.getByRole('heading', { name: 'Senha redefinida' })).toBeVisible();
+  await page.getByRole('button', { name: 'Trocar senha' }).click();
+  await expect(page.getByRole('heading', { name: 'Senha trocada' })).toBeVisible();
   expect(writes).toBe(1);
   await expect(page).toHaveURL(/recuperar-senha$/);
-  await page.getByRole('link', { name: 'Voltar ao acesso' }).click();
+  await page.getByRole('link', { name: 'Entrar' }).click();
   await expect(page.getByRole('heading', { name: 'Entrar no SAGER' })).toBeVisible();
 });
 
@@ -151,9 +160,9 @@ test('recuperação informa o limite de tentativas e preserva os campos para cor
   await page.getByLabel('Matrícula', { exact: true }).fill('00123');
   await page.getByLabel('Nome completo', { exact: true }).fill('Pessoa Sintética');
   await page.getByLabel('Data de nascimento', { exact: true }).fill('2009-01-15');
-  await page.getByLabel(/^Nova senha/).fill('Senha sintética 123!');
+  await page.getByLabel('Nova senha', { exact: true }).fill('Senha sintética 123!');
   await page.getByLabel('Confirmar nova senha', { exact: true }).fill('Senha sintética 123!');
-  await page.getByRole('button', { name: 'Redefinir senha' }).click();
+  await page.getByRole('button', { name: 'Trocar senha' }).click();
   await expect(page.getByRole('alert')).toContainText('15 minutos');
   await expect(page.getByLabel('Matrícula', { exact: true })).toHaveValue('00123');
 });
@@ -202,7 +211,7 @@ for (const action of ['desativar', 'renomear'] as const) {
       await page.getByLabel('Nome do curso', { exact: true }).fill('Fora do filtro');
       await page.getByRole('button', { name: 'Salvar curso', exact: true }).click();
     }
-    await expect(page.getByText('25 curso(s) encontrado(s)', { exact: true })).toBeVisible();
+    await expect(page.getByText('25 cursos encontrados', { exact: true })).toBeVisible();
     await expect(page.getByText('Página 1', { exact: true })).toBeVisible();
     await expect(page.locator('.course-row')).toHaveCount(25);
     await expect(
