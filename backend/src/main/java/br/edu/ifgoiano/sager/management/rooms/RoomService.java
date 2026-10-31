@@ -10,6 +10,7 @@ import java.util.UUID;
 import br.edu.ifgoiano.sager.audit.AuditAction;
 import br.edu.ifgoiano.sager.audit.AuditResource;
 import br.edu.ifgoiano.sager.audit.AuditService;
+import br.edu.ifgoiano.sager.management.FieldRules;
 import br.edu.ifgoiano.sager.management.accommodations.AccommodationRepository;
 import org.springframework.context.annotation.Profile;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -56,6 +57,7 @@ public class RoomService {
     public RoomRecord create(String code, String number, UUID accommodationId, UUID unitId,
             String floor, Integer capacity, String situation) {
         CheckedInput checked = checked(code, number, accommodationId, unitId, floor, capacity, situation);
+        if (capacity != null && !FieldRules.validCapacity(capacity)) throw invalidCapacity();
         UUID id = UUID.randomUUID();
         try {
             repository.insert(id, checked.code(), checked.number(), accommodationId, unitId,
@@ -80,6 +82,9 @@ public class RoomService {
         if (current.version() != version) {
             throw new RoomApiException(HttpStatus.CONFLICT, "stale_version",
                     "O quarto foi alterado. Recarregue o registro antes de salvar.");
+        }
+        if (capacity != null && !capacity.equals(current.capacity()) && !FieldRules.validCapacity(capacity)) {
+            throw invalidCapacity();
         }
         int active = repository.activeCount(id);
         if (active > 0 && (capacity == null || capacity < active)) {
@@ -144,6 +149,10 @@ public class RoomService {
             throw invalidLocation();
         }
         return new CheckedInput(checkedCode, checkedNumber, checkedFloor, checkedSituation);
+    }
+
+    private RoomApiException invalidCapacity() {
+        return invalidInput("A capacidade deve ficar entre 1 e 20.");
     }
 
     private String required(String value, String field) {

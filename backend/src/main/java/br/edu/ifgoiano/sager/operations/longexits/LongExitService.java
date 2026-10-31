@@ -9,10 +9,12 @@ import br.edu.ifgoiano.sager.documents.PdfGenerationException;
 import br.edu.ifgoiano.sager.documents.PrivateFileException;
 import br.edu.ifgoiano.sager.documents.PrivateFileStore;
 import br.edu.ifgoiano.sager.documents.StoredFile;
+import br.edu.ifgoiano.sager.integrations.AuthorizationFileType;
 import br.edu.ifgoiano.sager.integrations.IntegrationRepository;
+import br.edu.ifgoiano.sager.integrations.IntegrationRepository.AuthorizationFile;
 import br.edu.ifgoiano.sager.integrations.IntegrationRepository.BindingData;
-import br.edu.ifgoiano.sager.integrations.SignatureProvider;
-import br.edu.ifgoiano.sager.integrations.WhatsAppProvider;
+import br.edu.ifgoiano.sager.integrations.WhatsAppGateway;
+import br.edu.ifgoiano.sager.management.guardians.BrazilianPhone;
 import br.edu.ifgoiano.sager.operations.AuthorizedExitLookup;
 import br.edu.ifgoiano.sager.operations.ExitOccupancyLookup;
 import br.edu.ifgoiano.sager.operations.OperationResidents;
@@ -48,6 +50,7 @@ import java.util.UUID;
 @Service
 @Profile({ "local", "production" })
 public class LongExitService {
+    private static final Duration DELIVERY_ALERT = Duration.ofMinutes(15);
     private static final Set<String> STATUSES =
             Set.of(
                     LongExit.PENDING,
@@ -69,8 +72,7 @@ public class LongExitService {
     private final LongExitPdfGenerator pdf;
     private final PrivateFileStore files;
     private final IntegrationRepository integrations;
-    private final SignatureProvider signature;
-    private final WhatsAppProvider whatsapp;
+    private final WhatsAppGateway whatsapp;
     private final JdbcTemplate jdbc;
     private final ObjectMapper json;
 
@@ -86,8 +88,7 @@ public class LongExitService {
             LongExitPdfGenerator pdf,
             PrivateFileStore files,
             IntegrationRepository integrations,
-            SignatureProvider signature,
-            WhatsAppProvider whatsapp,
+            WhatsAppGateway whatsapp,
             JdbcTemplate jdbc,
             ObjectMapper json) {
         this.exits = exits;
@@ -101,7 +102,6 @@ public class LongExitService {
         this.pdf = pdf;
         this.files = files;
         this.integrations = integrations;
-        this.signature = signature;
         this.whatsapp = whatsapp;
         this.jdbc = jdbc;
         this.json = json;
@@ -124,7 +124,7 @@ public class LongExitService {
                 r.now(),
                 r.zone(),
                 guardians.list(r.residentId()),
-                new Providers(signature.available(), whatsapp.available()));
+                new Providers(whatsapp.available()));
     }
 
     @Transactional(readOnly = true)
@@ -174,7 +174,7 @@ public class LongExitService {
         UUID id = UUID.randomUUID(), documentId = UUID.randomUUID();
         Row created = exits.insert(id, r, g, plan, documentId, now);
         document(created, r, g, 1, now);
-        binding(created, g, now);
+        binding(created, g, now, integrations.nextResidentSend(created.residentId(), now));
         record(
                 created,
                 "CREATE",
@@ -222,7 +222,7 @@ public class LongExitService {
         invalidate(current.id(), null, now);
         Row updated = changed(current, changes, now);
         document(updated, r, g, revision, now);
-        binding(updated, g, now);
+        binding(updated, g, now, integrations.nextResidentSend(updated.residentId(), now));
         Set<String> fields = new HashSet<>();
         fields.add("documentVersionId");
         if (!Objects.equals(current.guardianId(), updated.guardianId())) fields.add("guardianId");
@@ -261,7 +261,7 @@ public class LongExitService {
                             .filter(
                                     b ->
                                             "VALID".equals(b.status())
-                                                    && b.verifiedApi()
+                                                    && b.verifiedBy() != null
                                                     && b.revokedAt() == null
                                                     && b.verifiedAt() != null
                                                     && b.signedAt() != null
@@ -271,7 +271,7 @@ public class LongExitService {
                                     () ->
                                             conflict(
                                                     "signature_required",
-                                                    "A aprovação exige assinatura confirmada para"
+                                                    "A aprovação exige autorização conferida para"
                                                             + " esta revisão."));
             Guardian g = guardians.require(current.residentId(), valid.guardianId());
             if (g.version() != valid.guardianVersion()
@@ -280,10 +280,10 @@ public class LongExitService {
                     || !g.relationship().equals(valid.guardianRelationship()))
                 throw conflict(
                         "guardian_not_eligible",
-                        "O cadastro do responsável mudou. Solicite uma nova assinatura.");
+                        "O cadastro do responsável mudou. Solicite uma nova autorização.");
             DocumentRow doc = exits.document(current.documentVersionId());
             if (doc.signed() == null)
-                throw conflict("document_unavailable", "O arquivo assinado não está confirmado.");
+                throw conflict("document_unavailable", "O arquivo da autorização não está confirmado.");
             verify(doc.original());
             verify(doc.signed());
         }
@@ -416,14 +416,19 @@ public class LongExitService {
         Instant now = now();
         deadline(current, now);
         eligible(current.residentId(), now);
-        if (!signature.available() || !whatsapp.available())
+        if (!whatsapp.available())
             throw new LongExitApiException(
                     HttpStatus.SERVICE_UNAVAILABLE,
                     "provider_unavailable",
-                    "O reenvio exige provedores configurados.");
+                    "O reenvio exige o WhatsApp configurado.");
         if (integrations.current(current).stream()
                 .anyMatch(b -> "VALID".equals(b.status()) && integrations.guardianCurrent(b)))
-            throw conflict("signature_already_valid", "A revisão já possui assinatura válida.");
+            throw conflict("signature_already_valid", "A revisão já possui autorização conferida.");
+        // The resend revokes the current link: a file still waiting would become impossible to check.
+        if (integrations.authorizationFiles(id).stream().anyMatch(f -> waiting(f, current)))
+            throw conflict(
+                    "authorization_pending",
+                    "Confira ou recuse o arquivo recebido antes de reenviar o documento.");
         if (integrations.recentResends(id, now) >= 3)
             throw conflict("resend_limit", "O limite é de três reenvios em 24 horas.");
         Instant last = integrations.lastResend(id);
@@ -437,41 +442,8 @@ public class LongExitService {
         Row updated;
         Set<String> fields;
         DocumentRow previous = exits.document(current.documentVersionId());
-        if (!g.id().equals(current.guardianId())
-                || !g.name().equals(current.guardianName())
-                || !g.relationship().equals(current.guardianRelationship())
-                || previous.signed() != null) {
-            var old = json.readValue(previous.snapshot(), LongExitPdfGenerator.Snapshot.class);
-            updated =
-                    changed(
-                            current,
-                            Map.of(
-                                    "guardian_id",
-                                    g.id(),
-                                    "guardian_name",
-                                    g.name(),
-                                    "guardian_relationship",
-                                    g.relationship(),
-                                    "current_document_version_id",
-                                    UUID.randomUUID()),
-                            now);
-            var snapshot =
-                    new LongExitPdfGenerator.Snapshot(
-                            updated.documentVersionId(),
-                            updated.id(),
-                            previous.revision() + 1,
-                            old.residentName(),
-                            old.enrollment(),
-                            old.birthDate(),
-                            old.roomNumber(),
-                            old.accommodationName(),
-                            old.departure(),
-                            old.expectedReturn(),
-                            old.reason(),
-                            old.notes(),
-                            g.name(),
-                            g.relationship());
-            document(updated, snapshot, now);
+        if (needsNewRevision(current, g, previous)) {
+            updated = newRevision(current, g, previous, now);
             fields =
                     g.id().equals(current.guardianId())
                             ? Set.of("documentVersionId")
@@ -480,43 +452,188 @@ public class LongExitService {
             updated = changed(current, Map.of(), now);
             fields = Set.of();
         }
-        BindingData created = binding(updated, g, now);
+        BindingData created = binding(updated, g, now, now);
         integrations.resend(id, created.id(), a.id(), comment, now);
         record(updated, "RESEND", now, null, a, comment, AuditAction.UPDATE, fields);
         return view(updated, a);
     }
 
+    /** Records the human check of one received file; approving the request stays a separate act. */
     @Transactional
-    public LongExit reconcile(UUID id, long version) {
+    public LongExit confirmAuthorization(
+            UUID id, UUID fileId, long version, boolean confirmed, String justification) {
         LocalAccountPrincipal a = actors.supervisor();
-        Row current = locked(id, a);
-        version(current, version);
-        status(current, LongExit.PENDING);
+        if (!confirmed)
+            throw OpsInput.invalid("Declare ter conferido responsável, documento e revisão.");
+        Row current = lockedPending(id, version, a);
         Instant now = now();
-        deadline(current, now);
-        if (!signature.available())
+        eligible(current.residentId(), now);
+        AuthorizationFile file = candidate(current, fileId);
+        if (!file.documentVersionId().equals(current.documentVersionId()))
+            throw conflict("stale_document", "O arquivo pertence a outra revisão do documento.");
+        BindingData binding = integrations.binding(file.bindingId(), true).orElseThrow();
+        if (binding.revokedAt() != null)
+            throw conflict("stale_document", "O arquivo pertence a um envio já substituído.");
+        Guardian g = guardians.require(current.residentId(), binding.guardianId());
+        if (g.version() != binding.guardianVersion()
+                || !g.phone().equals(binding.guardianPhone())
+                || !g.name().equals(binding.guardianName())
+                || !g.relationship().equals(binding.guardianRelationship()))
+            throw conflict(
+                    "guardian_not_eligible",
+                    "O cadastro do responsável mudou. Solicite uma nova autorização.");
+        if (divergent(file) || justification != null) reason(justification);
+        verify(file.file());
+        if (!integrations.promote(file))
+            throw conflict("invalid_state", "Esta revisão já possui arquivo confirmado.");
+        integrations.decideAuthorizationFile(file, "ACCEPTED", a.id(), justification, now);
+        integrations.verify(binding, file, a.id(), now);
+        invalidate(id, binding.id(), now);
+        audit.record(
+                AuditResource.DOCUMENT_VERSION,
+                file.documentVersionId(),
+                AuditAction.UPDATE,
+                1,
+                Set.of("signedState", "signedHash", "signedMediaType"));
+        audit.record(
+                AuditResource.SIGNATURE_BINDING,
+                binding.id(),
+                AuditAction.UPDATE,
+                binding.version() + 1,
+                Set.of("status", "signedAt", "verifiedAt", "verifiedBy", "evidenceHash"));
+        audit.record(
+                AuditResource.AUTHORIZATION_FILE,
+                file.id(),
+                AuditAction.UPDATE,
+                file.version() + 1,
+                justification == null
+                        ? Set.of("state", "decidedBy", "decidedAt")
+                        : Set.of("state", "decidedBy", "decidedAt", "decisionReason"));
+        Row updated = changed(current, Map.of(), now);
+        record(
+                updated,
+                "AUTHORIZATION_CONFIRMED",
+                now,
+                file.receivedAt(),
+                a,
+                justification,
+                AuditAction.UPDATE,
+                Set.of());
+        return view(updated, a);
+    }
+
+    @Transactional
+    public LongExit refuseAuthorization(UUID id, UUID fileId, long version, String comment) {
+        LocalAccountPrincipal a = actors.supervisor();
+        reason(comment);
+        Row current = lockedPending(id, version, a);
+        Instant now = now();
+        AuthorizationFile file = candidate(current, fileId);
+        integrations.decideAuthorizationFile(file, "REFUSED", a.id(), comment, now);
+        audit.record(
+                AuditResource.AUTHORIZATION_FILE,
+                file.id(),
+                AuditAction.UPDATE,
+                file.version() + 1,
+                Set.of("state", "decidedBy", "decidedAt", "decisionReason"));
+        Row updated = changed(current, Map.of(), now);
+        record(
+                updated,
+                "AUTHORIZATION_REFUSED",
+                now,
+                null,
+                a,
+                comment,
+                AuditAction.UPDATE,
+                Set.of());
+        return view(updated, a);
+    }
+
+    /** Works with the gateway on or off: the operation never depends only on WhatsApp. */
+    @Transactional
+    public LongExit attachAuthorization(UUID id, long version, byte[] bytes) {
+        LocalAccountPrincipal a = actors.supervisor();
+        Row locked = lockedPending(id, version, a);
+        Instant now = now();
+        eligible(locked.residentId(), now);
+        String type = AuthorizationFileType.detect(bytes);
+        if (type == null) throw OpsInput.invalid("Anexe uma imagem ou um PDF.");
+        Row current = withCurrentGuardian(locked, a, now);
+        BindingData binding = openBinding(current, now);
+        StoredFile file;
+        try {
+            file = files.storeImmutable(UUID.randomUUID(), new ByteArrayInputStream(bytes));
+        } catch (PrivateFileException error) {
             throw new LongExitApiException(
                     HttpStatus.SERVICE_UNAVAILABLE,
-                    "provider_unavailable",
-                    "O provedor de assinatura está indisponível.");
-        BindingData b =
-                integrations.current(current).stream()
-                        .filter(
-                                x ->
-                                        x.revokedAt() == null
-                                                && x.providerDocumentId() != null
-                                                && "DONE".equals(x.stage()))
-                        .findFirst()
-                        .orElseThrow(
-                                () ->
-                                        conflict(
-                                                "invalid_state",
-                                                "A assinatura ainda não está disponível para"
-                                                        + " conferência."));
-        enqueue(b.id(), "RECONCILE", "RECONCILE:" + b.id() + ":" + UUID.randomUUID(), now);
-        Row updated = changed(current, Map.of(), now);
-        record(updated, "RECONCILE_REQUEST", now, null, a, null, AuditAction.UPDATE, Set.of());
-        return view(updated, a);
+                    "document_unavailable",
+                    "Não foi possível armazenar o arquivo privado.");
+        }
+        return linked(current, a, binding, null, "MANUAL", file, type, null, now, now);
+    }
+
+    @Transactional
+    public LongExit linkAuthorization(UUID id, long version, UUID messageId) {
+        LocalAccountPrincipal a = actors.supervisor();
+        Row locked = lockedPending(id, version, a);
+        Instant now = now();
+        eligible(locked.residentId(), now);
+        var message = integrations.storedMessage(messageId).orElseThrow(OpsInput::notFound);
+        Row current = withCurrentGuardian(locked, a, now);
+        BindingData binding = openBinding(current, now);
+        // A resend keeps the revision, so an answer to its first send still refers to this document.
+        if (message.receivedAt().isBefore(integrations.current(current).getLast().createdAt()))
+            throw conflict("stale_document", "O arquivo é anterior a este documento.");
+        return linked(
+                current,
+                a,
+                binding,
+                message.id(),
+                "WHATSAPP",
+                message.file(),
+                message.mediaType(),
+                message.senderPhone(),
+                message.receivedAt(),
+                now);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReceivedFile> unlinkedFiles(UUID id) {
+        LocalAccountPrincipal a = actors.supervisor();
+        Row exit = visible(id, a);
+        return integrations.unlinkedMessages(exit.createdAt()).stream()
+                .map(
+                        m ->
+                                new ReceivedFile(
+                                        m.id(),
+                                        m.senderPhone(),
+                                        BrazilianPhone.same(
+                                                m.senderPhone(),
+                                                guardianPhone(exit)),
+                                        m.mediaState(),
+                                        m.mediaFailureCode(),
+                                        m.mediaType(),
+                                        m.file() == null ? 0 : m.file().size(),
+                                        m.receivedAt()))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Download authorizationFile(UUID id, UUID fileId) {
+        LocalAccountPrincipal a = actors.supervisor();
+        Row exit = visible(id, a);
+        AuthorizationFile file =
+                integrations
+                        .authorizationFile(fileId, false)
+                        .filter(f -> f.exitId().equals(exit.id()))
+                        .orElseThrow(OpsInput::notFound);
+        return new Download(
+                verify(file.file()),
+                "autorizacao-recebida-"
+                        + file.id()
+                        + "."
+                        + AuthorizationFileType.extension(file.mediaType()),
+                file.mediaType());
     }
 
     @Transactional(readOnly = true)
@@ -526,6 +643,7 @@ public class LongExitService {
         if (!doc.exitId().equals(exit.id())) throw OpsInput.notFound();
         StoredFile file = signed ? doc.signed() : doc.original();
         if (file == null) throw OpsInput.notFound();
+        String type = signed && doc.signedMediaType() != null ? doc.signedMediaType() : "application/pdf";
         return new Download(
                 verify(file),
                 "autorizacao-"
@@ -533,31 +651,22 @@ public class LongExitService {
                         + "-r"
                         + doc.revision()
                         + (signed ? "-assinado" : "")
-                        + ".pdf");
+                        + "."
+                        + AuthorizationFileType.extension(type),
+                type);
     }
 
     private void document(Row exit, Eligibility r, Guardian g, int revision, Instant now) {
-        String accommodation =
-                jdbc.queryForObject(
-                        "SELECT name FROM sager_accommodation WHERE id=?",
-                        String.class,
-                        r.accommodationId());
         var snapshot =
                 new LongExitPdfGenerator.Snapshot(
                         exit.documentVersionId(),
                         exit.id(),
                         revision,
                         r.residentName(),
-                        r.enrollment(),
-                        r.birthDate(),
-                        r.roomNumber(),
-                        accommodation,
                         exit.requestedDepartureAt(),
                         exit.expectedReturnAt(),
                         exit.reason(),
-                        exit.notes(),
-                        g.name(),
-                        g.relationship());
+                        g.name());
         document(exit, snapshot, now);
     }
 
@@ -591,19 +700,20 @@ public class LongExitService {
                 Set.of("exitId", "revisionNumber", "originalState", "originalHash"));
     }
 
-    private BindingData binding(Row exit, Guardian g, Instant now) {
-        Instant expiry = now.plusSeconds(86400);
-        if (exit.deadline() != null && exit.deadline().isBefore(expiry)) expiry = exit.deadline();
-        BindingData b =
-                integrations.create(
-                        exit, g, now, expiry, signature.environment(), signature.available());
+    private BindingData binding(Row exit, Guardian g, Instant now, Instant sendAt) {
+        BindingData b = anchor(exit, g, now, whatsapp.available());
+        if (whatsapp.available()) enqueue(b.id(), "WHATSAPP", "WHATSAPP:" + b.id(), now, sendAt);
+        return b;
+    }
+
+    private BindingData anchor(Row exit, Guardian g, Instant now, boolean sending) {
+        BindingData b = integrations.create(exit, g, now, sending);
         audit.record(
                 AuditResource.SIGNATURE_BINDING,
                 b.id(),
                 AuditAction.CREATE,
                 0,
                 Set.of("exitId", "documentVersionId", "guardianId", "status", "expiresAt"));
-        if (signature.available()) enqueue(b.id(), "PROVISION", "PROVISION:" + b.id(), now);
         return b;
     }
 
@@ -617,13 +727,11 @@ public class LongExitService {
                     AuditAction.END,
                     b.version(),
                     Set.of("status", "revokedAt"));
-            if (b.envelopeId() != null && signature.available())
-                enqueue(id, "CANCEL", "CANCEL:" + id, now);
         }
     }
 
-    private void enqueue(UUID bindingId, String type, String key, Instant now) {
-        UUID id = integrations.enqueue(bindingId, type, key, now);
+    private void enqueue(UUID bindingId, String type, String key, Instant now, Instant sendAt) {
+        UUID id = integrations.enqueue(bindingId, type, key, now, sendAt);
         if (id != null)
             audit.record(
                     AuditResource.INTEGRATION_TASK,
@@ -631,6 +739,161 @@ public class LongExitService {
                     AuditAction.CREATE,
                     0,
                     Set.of("bindingId", "type", "state", "nextAttemptAt"));
+    }
+
+    private Row lockedPending(UUID id, long version, LocalAccountPrincipal a) {
+        Row current = locked(id, a);
+        version(current, version);
+        status(current, LongExit.PENDING);
+        deadline(current, now());
+        return current;
+    }
+
+    private AuthorizationFile candidate(Row exit, UUID fileId) {
+        AuthorizationFile file =
+                integrations
+                        .authorizationFile(fileId, true)
+                        .filter(f -> f.exitId().equals(exit.id()))
+                        .orElseThrow(OpsInput::notFound);
+        if (!"CANDIDATE".equals(file.state()))
+            throw conflict("invalid_state", "O arquivo já foi conferido ou recusado.");
+        return file;
+    }
+
+    private static boolean waiting(AuthorizationFile file, Row exit) {
+        return "CANDIDATE".equals(file.state())
+                && file.documentVersionId().equals(exit.documentVersionId());
+    }
+
+    private boolean needsNewRevision(Row exit, Guardian g, DocumentRow document) {
+        return !g.id().equals(exit.guardianId())
+                || !g.name().equals(exit.guardianName())
+                || !g.relationship().equals(exit.guardianRelationship())
+                || document.signed() != null;
+    }
+
+    private Row newRevision(Row exit, Guardian g, DocumentRow previous, Instant now) {
+        var old = json.readValue(previous.snapshot(), LongExitPdfGenerator.Snapshot.class);
+        Row updated =
+                changed(
+                        exit,
+                        Map.of(
+                                "guardian_id",
+                                g.id(),
+                                "guardian_name",
+                                g.name(),
+                                "guardian_relationship",
+                                g.relationship(),
+                                "current_document_version_id",
+                                UUID.randomUUID()),
+                        now);
+        var snapshot =
+                new LongExitPdfGenerator.Snapshot(
+                        updated.documentVersionId(),
+                        updated.id(),
+                        previous.revision() + 1,
+                        old.residentName(),
+                        old.departure(),
+                        old.expectedReturn(),
+                        old.reason(),
+                        g.name());
+        document(updated, snapshot, now);
+        return updated;
+    }
+
+    /**
+     * With the gateway off only this path can follow a corrected guardian record, since a resend
+     * needs WhatsApp. An already checked file holds the old revision, so it needs a new one.
+     */
+    private Row withCurrentGuardian(Row exit, LocalAccountPrincipal a, Instant now) {
+        List<BindingData> open =
+                integrations.current(exit).stream().filter(b -> b.revokedAt() == null).toList();
+        if (open.isEmpty() || open.stream().anyMatch(integrations::guardianCurrent)) return exit;
+        Guardian g = guardians.require(exit.residentId(), exit.guardianId());
+        invalidate(exit.id(), null, now);
+        DocumentRow document = exits.document(exit.documentVersionId());
+        if (!needsNewRevision(exit, g, document)) return exit;
+        Row updated = newRevision(exit, g, document, now);
+        record(
+                updated,
+                "GUARDIAN_CHANGED",
+                now,
+                null,
+                a,
+                null,
+                AuditAction.UPDATE,
+                Set.of("documentVersionId"));
+        return updated;
+    }
+
+    /** Requests from before V23 may need a new anchor, which must not message the guardian. */
+    private BindingData openBinding(Row exit, Instant now) {
+        List<BindingData> bindings = integrations.current(exit);
+        if (bindings.stream().anyMatch(b -> "VALID".equals(b.status()) && b.revokedAt() == null))
+            throw conflict("signature_already_valid", "A revisão já possui autorização conferida.");
+        return bindings.stream()
+                .filter(b -> b.revokedAt() == null)
+                .findFirst()
+                .orElseGet(
+                        () ->
+                                anchor(
+                                        exit,
+                                        guardians.require(exit.residentId(), exit.guardianId()),
+                                        now,
+                                        false));
+    }
+
+    private LongExit linked(
+            Row current,
+            LocalAccountPrincipal a,
+            BindingData binding,
+            UUID messageId,
+            String origin,
+            StoredFile file,
+            String type,
+            String sender,
+            Instant receivedAt,
+            Instant now) {
+        UUID created =
+                integrations.insertAuthorizationFile(
+                        binding, messageId, origin, file, type, sender, receivedAt, now);
+        if (created == null) throw conflict("already_linked", "O arquivo já está vinculado.");
+        audit.record(
+                AuditResource.AUTHORIZATION_FILE,
+                created,
+                AuditAction.CREATE,
+                0,
+                Set.of(
+                        "exitId",
+                        "documentVersionId",
+                        "bindingId",
+                        "origin",
+                        "state",
+                        "fileHash",
+                        "mediaType"));
+        Row updated = changed(current, Map.of(), now);
+        record(
+                updated,
+                "AUTHORIZATION_LINKED",
+                now,
+                receivedAt,
+                a,
+                null,
+                AuditAction.UPDATE,
+                Set.of());
+        return view(updated, a);
+    }
+
+    private static boolean divergent(AuthorizationFile file) {
+        return "WHATSAPP".equals(file.origin())
+                && !BrazilianPhone.same(file.senderPhone(), file.guardianPhone());
+    }
+
+    private String guardianPhone(Row exit) {
+        return integrations.current(exit).stream()
+                .map(BindingData::guardianPhone)
+                .findFirst()
+                .orElse(null);
     }
 
     private byte[] verify(StoredFile file) {
@@ -778,7 +1041,7 @@ public class LongExitService {
                 pending = LongExit.PENDING.equals(e.status()),
                 approved = LongExit.APPROVED.equals(e.status());
         DocumentRow doc = exits.document(e.documentVersionId());
-        List<LongExit.Binding> bindings = integrations.views(e.id(), whatsapp.available(), now);
+        List<LongExit.Binding> bindings = integrations.views(e.id(), whatsapp.available(), now, sup);
         List<LongExit.Binding> current =
                 bindings.stream().filter(b -> b.documentVersionId().equals(doc.id())).toList();
         LongExit.Binding b =
@@ -794,6 +1057,7 @@ public class LongExitService {
         if (remaining == 0)
             available = integrations.oldestRecentResend(e.id(), now).plusSeconds(86400);
         boolean valid = "VALID".equals(signatureStatus) && doc.signed() != null;
+        List<AuthorizationFile> files = sup ? integrations.authorizationFiles(e.id()) : List.of();
         var caps =
                 new LongExit.Capabilities(
                         !sup && pending && live,
@@ -806,20 +1070,11 @@ public class LongExitService {
                                 && pending
                                 && live
                                 && !valid
-                                && signature.available()
                                 && whatsapp.available()
+                                && files.stream().noneMatch(f -> waiting(f, e))
                                 && remaining > 0
                                 && (available == null || !now.isBefore(available)),
-                        sup
-                                && pending
-                                && live
-                                && signature.available()
-                                && integrations.current(e).stream()
-                                        .anyMatch(
-                                                x ->
-                                                        x.revokedAt() == null
-                                                                && x.providerDocumentId() != null
-                                                                && "DONE".equals(x.stage())),
+                        sup && pending && live && !valid,
                         true,
                         doc.signed() != null);
         List<LongExit.History> history = exits.history(e.id());
@@ -878,7 +1133,36 @@ public class LongExitService {
                 remaining,
                 caps,
                 bindings,
+                files.stream().map(this::fileView).toList(),
+                whatsapp.available(),
+                sup
+                        && pending
+                        && !valid
+                        && whatsapp.available()
+                        && b != null
+                        && b.revokedAt() == null
+                        && !Set.of("DELIVERED", "READ").contains(messageStatus)
+                        && !now.isBefore(b.createdAt().plus(DELIVERY_ALERT)),
                 history);
+    }
+
+    private LongExit.AuthorizationFile fileView(AuthorizationFile f) {
+        return new LongExit.AuthorizationFile(
+                f.id(),
+                f.documentVersionId(),
+                f.bindingId(),
+                f.origin(),
+                f.state(),
+                f.mediaType(),
+                f.file().size(),
+                f.file().sha256(),
+                f.senderPhone(),
+                divergent(f),
+                f.receivedAt(),
+                f.decidedBy(),
+                integrations.accountName(f.decidedBy()),
+                f.decidedAt(),
+                f.decisionReason());
     }
 
     private Instant now() {
@@ -903,9 +1187,19 @@ public class LongExitService {
 
     public record PhysicalTime(String timeMode, Instant occurredAt, String justification) {}
 
-    public record Download(byte[] bytes, String filename) {}
+    public record Download(byte[] bytes, String filename, String mediaType) {}
 
-    public record Providers(boolean clicksignEnabled, boolean whatsappEnabled) {}
+    public record ReceivedFile(
+            UUID messageId,
+            String senderPhone,
+            boolean fromGuardian,
+            String mediaState,
+            String failureCode,
+            String mediaType,
+            long size,
+            Instant receivedAt) {}
+
+    public record Providers(boolean whatsappEnabled) {}
 
     public record LongEligibility(
             UUID residentId,

@@ -4,7 +4,6 @@ import br.edu.ifgoiano.sager.audit.AuditAction;
 import br.edu.ifgoiano.sager.audit.AuditResource;
 import br.edu.ifgoiano.sager.audit.AuditService;
 import br.edu.ifgoiano.sager.integrations.IntegrationRepository;
-import br.edu.ifgoiano.sager.integrations.SignatureProvider;
 import br.edu.ifgoiano.sager.operations.OperationResidents;
 
 import org.springframework.context.annotation.Profile;
@@ -25,7 +24,6 @@ public class LongExitExpiryService {
     private final IntegrationRepository integrations;
     private final OperationResidents residents;
     private final AuditService audit;
-    private final SignatureProvider signatures;
     private final Clock clock;
 
     public LongExitExpiryService(
@@ -33,13 +31,11 @@ public class LongExitExpiryService {
             IntegrationRepository integrations,
             OperationResidents residents,
             AuditService audit,
-            SignatureProvider signatures,
             Clock clock) {
         this.exits = exits;
         this.integrations = integrations;
         this.residents = residents;
         this.audit = audit;
-        this.signatures = signatures;
         this.clock = clock;
     }
 
@@ -80,18 +76,6 @@ public class LongExitExpiryService {
                         AuditAction.END,
                         binding.version(),
                         Set.of("status", "revokedAt"));
-                if (binding.envelopeId() != null && signatures.available()) {
-                    UUID task =
-                            integrations.enqueue(bindingId, "CANCEL", "CANCEL:" + bindingId, now);
-                    if (task != null)
-                        audit.recordSystem(
-                                correlation,
-                                AuditResource.INTEGRATION_TASK,
-                                task,
-                                AuditAction.CREATE,
-                                0,
-                                Set.of("bindingId", "type", "state", "nextAttemptAt"));
-                }
             }
             changed++;
         }

@@ -29,9 +29,11 @@ public final class HealthModels {
             UUID professionalGrantId, UUID accountId, String accountName, Profession profession,
             Instant startedAt, Instant endedAt, UUID createdBy, String reason, long version) {}
 
-    public record Custody(UUID id, long sequence, UUID residentId, UUID sourceAuthorAccountId,
+    public record Custody(UUID id, long sequence, UUID residentId, UUID sourceAuthorAccountId, String sourceAuthorName,
             UUID recipientGrantId, String recipientAccountName, UUID createdBy, Instant createdAt,
             String reason, Instant endedAt, long version) {}
+
+    public record AuthorChoice(UUID id, String name) {}
 
     public record AccountChoice(UUID id, String name, String email, String profile, String matricula) {}
 

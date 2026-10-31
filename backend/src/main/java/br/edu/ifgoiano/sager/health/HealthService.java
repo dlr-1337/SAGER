@@ -108,6 +108,11 @@ public class HealthService {
         return repository.custodies(residentId, limit, cursor);
     }
 
+    public List<AuthorChoice> noteAuthors(UUID residentId) {
+        administrator();
+        return repository.noteAuthors(residentId);
+    }
+
     public Custody createCustody(UUID residentId, UUID sourceAccountId, UUID recipientGrantId, String reason) {
         Actor administrator = administrator();
         repository.lockAccountEpisode(sourceAccountId);
@@ -117,7 +122,7 @@ public class HealthService {
         Grant sourceGrant = source.active() ? repository.currentGrant(sourceAccountId).orElse(null) : null;
         if (sourceGrant != null && repository.assignment(residentId, sourceGrant.id(), false).isPresent())
             throw new HealthApiException(HttpStatus.CONFLICT, "author_still_assigned",
-                    "O autor ainda possui habilitação e vínculo assistencial vigentes.");
+                    "O autor ainda atende este residente. Encerre o acesso dele antes de passar os registros.");
         Assignment assignment = repository.assignment(residentId, recipient.id(), false)
                 .orElseThrow(HealthService::missing);
         List<Category> categories = repository.sourceCategories(residentId, sourceAccountId);

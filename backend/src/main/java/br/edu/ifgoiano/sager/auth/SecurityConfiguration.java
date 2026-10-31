@@ -73,10 +73,7 @@ public class SecurityConfiguration {
         http.authorizeHttpRequests(requests -> requests
                         .requestMatchers("/api/v1/auth/csrf", "/api/v1/auth/recover", "/api/v1/auth/login", "/error")
                         .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/assinaturas/acesso", "/api/v1/assinaturas/documento",
-                                "/api/v1/webhooks/whatsapp")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/webhooks/clicksign", "/api/v1/webhooks/whatsapp")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/integracoes/whatsapp/webhook")
                         .permitAll()
                         .requestMatchers("/api/v1/auth/me", "/api/v1/auth/logout")
                         .authenticated()
@@ -102,6 +99,8 @@ public class SecurityConfiguration {
                         .hasRole("RESIDENTE")
                         .requestMatchers("/api/v1/chamadas", "/api/v1/chamadas/**")
                         .hasRole("SUPERVISOR")
+                        .requestMatchers("/api/v1/conversas", "/api/v1/conversas/**")
+                        .hasRole("SUPERVISOR")
                         .requestMatchers("/api/v1/saidas-curtas", "/api/v1/saidas-curtas/**")
                         .hasAnyRole("SUPERVISOR", "RESIDENTE")
                         .requestMatchers("/api/v1/saidas-longas", "/api/v1/saidas-longas/**")
@@ -115,7 +114,7 @@ public class SecurityConfiguration {
                         .requestMatchers("/api/v1/cursos", "/api/v1/cursos/**")
                         .hasAnyRole("GESTOR", "SUPERVISOR")
                         .requestMatchers("/api/v1/supervisores", "/api/v1/supervisores/**")
-                        .hasAnyRole("GESTOR", "SUPERVISOR")
+                        .hasRole("GESTOR")
                         .requestMatchers(HttpMethod.GET, "/api/v1/alojamentos", "/api/v1/alojamentos/**")
                         .hasAnyRole("GESTOR", "SUPERVISOR")
                         .requestMatchers(HttpMethod.POST, "/api/v1/alojamentos", "/api/v1/alojamentos/**")
@@ -176,9 +175,9 @@ public class SecurityConfiguration {
                                     csrf ? "Proteção da sessão inválida. Recarregue a página e tente novamente."
                                             : ApiErrors.message(403));
                         }))
-                .csrf(csrf -> csrf.ignoringRequestMatchers(request -> "POST".equals(request.getMethod())
-                        && ("/api/v1/webhooks/clicksign".equals(request.getServletPath())
-                            || "/api/v1/webhooks/whatsapp".equals(request.getServletPath()))))
+                .csrf(csrf -> csrf.csrfTokenRequestHandler(new HeaderOnlyCsrfTokenHandler())
+                        .ignoringRequestMatchers(request -> "POST".equals(request.getMethod())
+                        && "/api/v1/integracoes/whatsapp/webhook".equals(request.getServletPath())))
                 .httpBasic(AbstractHttpConfigurer::disable);
         return http.build();
     }

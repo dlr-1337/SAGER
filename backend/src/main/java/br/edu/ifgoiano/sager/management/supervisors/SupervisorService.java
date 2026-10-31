@@ -11,8 +11,10 @@ import java.util.regex.Pattern;
 import br.edu.ifgoiano.sager.audit.AuditAction;
 import br.edu.ifgoiano.sager.audit.AuditResource;
 import br.edu.ifgoiano.sager.audit.AuditService;
+import br.edu.ifgoiano.sager.management.FieldRules;
 import org.springframework.context.annotation.Profile;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,13 +48,26 @@ public class SupervisorService {
     }
 
     @Transactional
-    public Supervisor create(String name, String institutionalId, String email) {
-        String checkedName = required(name, "name", 200);
-        String checkedId = required(institutionalId, "institutionalId", 64);
+    public Supervisor create(String name, String institutionalId, String email, String password,
+            String passwordConfirmation) {
+        String checkedName = checkedName(required(name, "name", 200), null);
+        String checkedId = checkedId(required(institutionalId, "institutionalId", 64), null);
         String checkedEmail = validEmail(email);
+        if (password == null || !password.equals(passwordConfirmation)) {
+            throw badRequest("As senhas devem coincidir.");
+        }
         UUID id = UUID.randomUUID();
         try {
             repository.insert(id, checkedName, checkedId, checkedEmail);
+            // O e-mail é único na conta e não no supervisor: repeti-lo daria um conflito falso.
+            accounts.create(checkedId, null, checkedName, "supervisor", password.toCharArray());
+            accounts.linkSupervisor(checkedId, id);
+        } catch (IllegalArgumentException error) {
+            if (error.getCause() instanceof DuplicateKeyException) {
+                throw new SupervisorApiException(HttpStatus.CONFLICT, "duplicate_enrollment",
+                        "Matrícula já utilizada por uma conta.");
+            }
+            throw badRequest(error.getMessage());
         } catch (DataIntegrityViolationException error) {
             throw duplicateId();
         }
@@ -64,13 +79,15 @@ public class SupervisorService {
     @Transactional
     public Supervisor update(UUID id, String name, String institutionalId, String email,
             Long version) {
-        String checkedName = required(name, "name", 200);
-        String checkedId = required(institutionalId, "institutionalId", 64);
+        String typedName = required(name, "name", 200);
+        String typedId = required(institutionalId, "institutionalId", 64);
         String checkedEmail = validEmail(email);
         if (version == null || version < 0 || version == Long.MAX_VALUE) {
             throw badRequest("version deve ser um inteiro não negativo válido.");
         }
         Supervisor current = get(id);
+        String checkedName = checkedName(typedName, current);
+        String checkedId = checkedId(typedId, current);
         accounts.lockSupervisorAccount(id);
         if (current.version() != version) {
             throw new SupervisorApiException(HttpStatus.CONFLICT, "stale_version",
@@ -107,6 +124,19 @@ public class SupervisorService {
         return new Supervisor(id, checkedName, checkedId, checkedEmail, version + 1);
     }
 
+    private String checkedName(String typed, Supervisor current) {
+        if (current != null && typed.equals(current.name())) return typed;
+        String normalized = FieldRules.normalizeName(typed);
+        if (!FieldRules.validName(normalized)) throw badRequest("Digite o nome completo, como no documento.");
+        return normalized;
+    }
+
+    private String checkedId(String typed, Supervisor current) {
+        if (current != null && typed.equals(current.institutionalId())) return typed;
+        if (!FieldRules.validSupervisorId(typed)) throw badRequest("Use de 4 a 20 letras, números ou hífen.");
+        return typed;
+    }
+
     private String validEmail(String value) {
         String checked = required(value, "email", 320).toLowerCase(Locale.ROOT);
         if (!EMAIL.matcher(checked).matches()) {
@@ -132,6 +162,6 @@ public class SupervisorService {
 
     private SupervisorApiException duplicateId() {
         return new SupervisorApiException(HttpStatus.CONFLICT, "duplicate_institutional_id",
-                "Identificação institucional já cadastrada.");
+                "Matrícula ou SIAPE já cadastrada.");
     }
 }

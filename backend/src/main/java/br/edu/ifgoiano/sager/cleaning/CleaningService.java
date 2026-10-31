@@ -67,9 +67,9 @@ public class CleaningService {
  }
  private void reconcile(UUID id){for(UUID resident:jdbc.query("SELECT resident_id FROM sager_cleaning_participant WHERE assessment_id=? ORDER BY resident_id",(rs,n)->rs.getObject(1,UUID.class),id))for(var sink:sinks)sink.reconcile("CLEANING_ASSESSMENT",id,resident);}
  @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
- public Page<Assessment> list(UUID room,UUID resident,LocalDate from,LocalDate to,int size,Long cursor){
+ public Page<Assessment> list(UUID accommodation,UUID unit,UUID room,UUID resident,LocalDate from,LocalDate to,int size,Long cursor){
   actor.administrative();limit(size,cursor);checkRange(from,to);
-  var rows=jdbc.queryForList("SELECT a.id,a.sequence FROM sager_cleaning_assessment a WHERE (?::uuid IS NULL OR room_id=?) AND (?::uuid IS NULL OR EXISTS(SELECT 1 FROM sager_cleaning_participant p WHERE p.assessment_id=a.id AND p.resident_id=?)) AND (?::date IS NULL OR assessment_date>=?) AND (?::date IS NULL OR assessment_date<=?) AND (?::bigint IS NULL OR sequence<?) ORDER BY sequence DESC LIMIT ?",room,room,resident,resident,from,from,to,to,cursor,cursor,size+1);
+  var rows=jdbc.queryForList("SELECT a.id,a.sequence FROM sager_cleaning_assessment a WHERE (?::uuid IS NULL OR a.accommodation_id=?) AND (?::uuid IS NULL OR a.room_id IN (SELECT id FROM sager_room WHERE unit_id=?)) AND (?::uuid IS NULL OR room_id=?) AND (?::uuid IS NULL OR EXISTS(SELECT 1 FROM sager_cleaning_participant p WHERE p.assessment_id=a.id AND p.resident_id=?)) AND (?::date IS NULL OR assessment_date>=?) AND (?::date IS NULL OR assessment_date<=?) AND (?::bigint IS NULL OR sequence<?) ORDER BY sequence DESC LIMIT ?",accommodation,accommodation,unit,unit,room,room,resident,resident,from,from,to,to,cursor,cursor,size+1);
   boolean more=rows.size()>size;var selected=more?rows.subList(0,size):rows;
   return new Page<>(selected.stream().map(r->assessment((UUID)r.get("id"),false)).toList(),more?((Number)selected.getLast().get("sequence")).longValue():null);
  }

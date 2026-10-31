@@ -1,5 +1,7 @@
 package br.edu.ifgoiano.sager.auth;
 
+import br.edu.ifgoiano.sager.management.FieldRules;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -19,6 +21,12 @@ public class LocalAccountRepository {
 
     public Optional<LocalAccount> findByEnrollment(String enrollment) {
         return query("WHERE lower(enrollment) = lower(?)", enrollment).stream().findFirst();
+    }
+
+    /** Registration stores the enrollment without punctuation; older accounts may still have it. */
+    public Optional<LocalAccount> findForLogin(String typed) {
+        Optional<LocalAccount> exact = findByEnrollment(typed);
+        return exact.isPresent() ? exact : findByEnrollment(FieldRules.normalizeEnrollment(typed));
     }
 
     public Optional<LocalAccount> findForUpdate(String reference) {

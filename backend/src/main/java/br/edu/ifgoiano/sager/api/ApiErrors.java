@@ -69,7 +69,7 @@ public class ApiErrors {
             case 405 -> "Método não disponível para este recurso.";
             case 406 -> "Formato de resposta não disponível.";
             case 415 -> "Formato de envio não disponível. Use JSON.";
-            default -> "Não foi possível concluir a operação. Informe a referência da requisição ao suporte.";
+            default -> "Não foi possível concluir a operação. Tente de novo em instantes. Se continuar, procure o suporte.";
         };
     }
 }

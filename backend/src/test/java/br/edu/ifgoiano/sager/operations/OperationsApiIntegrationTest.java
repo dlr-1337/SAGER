@@ -256,6 +256,52 @@ class OperationsApiIntegrationTest {
     }
 
     @Test
+    void exitListFiltersByRoomAndAccommodationAllocatedAtRequestedDeparture() throws Exception {
+        String exitId;
+        try (HttpClient student = logged("student")) {
+            exitId = createExit(student, "NOW", 0, 3600).path("id").asText();
+        }
+        UUID laterAccommodation = UUID.randomUUID();
+        UUID laterRoom = UUID.randomUUID();
+        jdbc.update("INSERT INTO sager_accommodation(id, code, name) VALUES (?, 'OPS-B', 'Sintético B')",
+                laterAccommodation);
+        jdbc.update("INSERT INTO sager_room(id, code, number, accommodation_id, capacity, situation)"
+                + " VALUES (?, 'OPS-B-1', '1', ?, 30, 'Disponível')", laterRoom, laterAccommodation);
+        OffsetDateTime moved = OffsetDateTime.ofInstant(START.plusSeconds(3600), ZoneOffset.UTC);
+        jdbc.update("UPDATE sager_room_allocation SET ended_at = ?, end_reason = 'END' WHERE resident_id = ?",
+                moved, resident);
+        jdbc.update("INSERT INTO sager_room_allocation(id, resident_id, room_id, started_at) VALUES (?, ?, ?, ?)",
+                UUID.randomUUID(), resident, laterRoom, moved);
+        UUID unit = UUID.randomUUID();
+        UUID laterUnit = UUID.randomUUID();
+        jdbc.update("INSERT INTO sager_accommodation_unit(id, accommodation_id, code, name) VALUES (?, ?, 'BL-A', 'Bloco A')",
+                unit, accommodation);
+        jdbc.update("INSERT INTO sager_accommodation_unit(id, accommodation_id, code, name) VALUES (?, ?, 'BL-A', 'Bloco A')",
+                laterUnit, laterAccommodation);
+        jdbc.update("UPDATE sager_room SET unit_id = ? WHERE id = ?", unit, room);
+        jdbc.update("UPDATE sager_room SET unit_id = ? WHERE id = ?", laterUnit, laterRoom);
+        try (HttpClient supervisor = logged("supervisor")) {
+            assertThat(read(supervisor, EXITS + "?roomId=" + room).get(0).path("id").asText()).isEqualTo(exitId);
+            assertThat(read(supervisor, EXITS + "?roomId=" + laterRoom).size()).isZero();
+            assertThat(read(supervisor, EXITS + "?accommodationId=" + accommodation).size()).isEqualTo(1);
+            assertThat(read(supervisor, EXITS + "?accommodationId=" + laterAccommodation).size()).isZero();
+            assertThat(read(supervisor, EXITS + "?unitId=" + unit).get(0).path("id").asText()).isEqualTo(exitId);
+            assertThat(get(supervisor, EXITS + "?unitId=" + unit + "&limit=25").headers().firstValue("X-Total-Count"))
+                    .contains("1");
+            assertThat(get(supervisor, EXITS + "?unitId=" + laterUnit + "&limit=25").headers().firstValue("X-Total-Count"))
+                    .contains("0");
+            assertThat(get(supervisor, EXITS + "?unitId=invalido").statusCode()).isEqualTo(400);
+            assertThat(get(supervisor, EXITS + "?roomId=invalido").statusCode()).isEqualTo(400);
+        }
+        UUID neighbor = resident("OPS-B", LocalDate.of(2009, 1, 1), true);
+        account("neighbor", "residente");
+        provisioning.linkResident("neighbor@example.invalid", neighbor);
+        try (HttpClient other = logged("neighbor")) {
+            assertThat(read(other, EXITS + "?roomId=" + room).size()).isZero();
+        }
+    }
+
+    @Test
     void shortExitDerivesOwnerUsesServerNowAndEnforcesThreeHours() throws Exception {
         try (HttpClient student = logged("student")) {
             assertThat(read(student, EXITS + "/elegibilidade").path("eligible").asBoolean()).isTrue();
@@ -430,7 +476,9 @@ class OperationsApiIntegrationTest {
             String exit = createExit(student, "NOW", 0, 7200).path("id").asText();
             approve(supervisor, exit);
             clock.set(START);
-            String call = open(supervisor).path("id").asText();
+            JsonNode opened = open(supervisor);
+            assertThat(opened.path("records").get(0).path("mark").isNull()).isTrue();
+            String call = opened.path("id").asText();
             assertError(put(supervisor, CALLS + "/" + call + "/registros/" + resident,
                     Map.of("version", 0, "mark", "AUSENCIA_JUSTIFICADA")), 409, "authorized_exit_required");
             assertThat(post(supervisor, EXITS + "/" + exit + "/partida", Map.of("version", 1,
@@ -444,6 +492,125 @@ class OperationsApiIntegrationTest {
             clock.set(START.plusSeconds(7201));
             JsonNode preserved = read(supervisor, CALLS + "/" + call).path("records").get(0);
             assertThat(preserved.path("authorizedExitId").asText()).isEqualTo(exit);
+        }
+    }
+
+    @Test
+    void residentOutOnShortExitIsJustifiedBySystemAtOpeningAndClosesWithoutOccurrence() throws Exception {
+        try (HttpClient student = logged("student"); HttpClient supervisor = logged("supervisor")) {
+            String exit = departedExit(student, supervisor);
+            JsonNode opened = open(supervisor);
+            assertThat(opened.path("version").asLong()).isZero();
+            assertThat(opened.path("summary").path("justified").asInt()).isEqualTo(1);
+            assertThat(opened.path("summary").path("unmarked").asInt()).isZero();
+            JsonNode mark = opened.path("records").get(0);
+            assertThat(mark.path("mark").asText()).isEqualTo("AUSENCIA_JUSTIFICADA");
+            assertThat(mark.path("authorizedExitId").asText()).isEqualTo(exit);
+            assertThat(mark.path("authorizedExitType").asText()).isEqualTo("SHORT");
+            assertThat(mark.path("version").asLong()).isEqualTo(1);
+            UUID actor = jdbc.queryForObject("SELECT id FROM sager_local_account WHERE email=?",
+                    UUID.class, "supervisor@example.invalid");
+            JsonNode history = mark.path("history");
+            assertThat(history.size()).isEqualTo(1);
+            assertThat(history.get(0).path("actorProfile").asText()).isEqualTo("sistema");
+            assertThat(history.get(0).path("actorId").asText()).isEqualTo(actor.toString());
+            assertThat(history.get(0).path("version").asLong()).isEqualTo(1);
+            assertThat(history.get(0).path("callVersion").asLong()).isZero();
+            assertThat(jdbc.queryForObject("SELECT changed_fields::text FROM sager_audit_event"
+                    + " WHERE resource = 'NIGHT_CALL_MARK' AND action = 'UPDATE' AND resource_id = ? AND actor_id = ?",
+                    String.class, UUID.fromString(mark.path("id").asText()), actor))
+                    .contains("mark", "authorizedExitId", "authorizedExitType");
+            assertThat(post(supervisor, CALLS + "/" + opened.path("id").asText() + "/fechamento",
+                    Map.of("version", 0)).statusCode()).isEqualTo(200);
+            assertThat(count("sager_occurrence")).isZero();
+        }
+    }
+
+    @Test
+    void retroactiveReturnBeforeOpeningBlocksClosingUntilTheMarkIsCorrected() throws Exception {
+        try (HttpClient student = logged("student"); HttpClient supervisor = logged("supervisor")) {
+            String exit = departedExit(student, supervisor);
+            JsonNode opened = open(supervisor);
+            String call = opened.path("id").asText();
+            assertThat(opened.path("records").get(0).path("mark").asText()).isEqualTo("AUSENCIA_JUSTIFICADA");
+            clock.set(START.plusSeconds(600));
+            assertThat(post(supervisor, EXITS + "/" + exit + "/retorno", Map.of("version", 2,
+                    "timeMode", "RETROACTIVE", "occurredAt", START.minusSeconds(60).toString(),
+                    "justification", "Retorno lançado depois da chamada")).statusCode()).isEqualTo(200);
+            assertError(post(supervisor, CALLS + "/" + call + "/fechamento", Map.of("version", 0)),
+                    409, "authorized_exit_outdated");
+            assertThat(put(supervisor, CALLS + "/" + call + "/registros/" + resident,
+                    Map.of("version", 0, "mark", "PRESENTE")).statusCode()).isEqualTo(200);
+            assertThat(post(supervisor, CALLS + "/" + call + "/fechamento", Map.of("version", 1)).statusCode())
+                    .isEqualTo(200);
+        }
+    }
+
+    @Test
+    void returnBeforeOpeningAndDepartureAfterOpeningStayPending() throws Exception {
+        try (HttpClient student = logged("student"); HttpClient supervisor = logged("supervisor")) {
+            String returned = departedExit(student, supervisor);
+            clock.set(START.minusSeconds(60));
+            assertThat(post(supervisor, EXITS + "/" + returned + "/retorno",
+                    Map.of("version", 2, "timeMode", "NOW")).statusCode()).isEqualTo(200);
+            String late = createExit(student, "NOW", 0, 3600).path("id").asText();
+            approve(supervisor, late);
+            clock.set(START);
+            JsonNode opened = open(supervisor);
+            JsonNode mark = opened.path("records").get(0);
+            assertThat(mark.path("mark").isNull()).isTrue();
+            assertThat(mark.path("authorizedExits").size()).isZero();
+            assertThat(mark.path("history").size()).isZero();
+            clock.set(START.plusSeconds(60));
+            assertThat(post(supervisor, EXITS + "/" + late + "/partida",
+                    Map.of("version", 1, "timeMode", "NOW")).statusCode()).isEqualTo(200);
+            assertError(put(supervisor, CALLS + "/" + opened.path("id").asText() + "/registros/" + resident,
+                    Map.of("version", 0, "mark", "AUSENCIA_JUSTIFICADA")), 409, "authorized_exit_required");
+        }
+    }
+
+    @Test
+    void moreThanOneValidExitStaysPendingUntilSupervisorChooses() throws Exception {
+        try (HttpClient student = logged("student"); HttpClient supervisor = logged("supervisor")) {
+            String exit = departedExit(student, supervisor);
+            longExits.resident = resident;
+            longExits.reference = new AuthorizedExitLookup.Reference(UUID.randomUUID(), "LONG");
+            JsonNode opened = open(supervisor);
+            JsonNode mark = opened.path("records").get(0);
+            assertThat(mark.path("mark").isNull()).isTrue();
+            assertThat(mark.path("authorizedExits").size()).isEqualTo(2);
+            String path = CALLS + "/" + opened.path("id").asText() + "/registros/" + resident;
+            assertError(put(supervisor, path, Map.of("version", 0, "mark", "AUSENCIA_JUSTIFICADA")),
+                    409, "authorized_exit_required");
+            JsonNode chosen = json.readTree(put(supervisor, path, Map.of("version", 0, "mark", "AUSENCIA_JUSTIFICADA",
+                    "authorizedExitId", UUID.fromString(exit), "authorizedExitType", "SHORT")).body());
+            JsonNode history = chosen.path("records").get(0).path("history");
+            assertThat(history.size()).isEqualTo(1);
+            assertThat(history.get(0).path("actorProfile").asText()).isEqualTo("supervisor");
+        }
+    }
+
+    @Test
+    void supervisorCorrectsAutomaticMarkWhileOpenAndAfterClosing() throws Exception {
+        try (HttpClient student = logged("student"); HttpClient supervisor = logged("supervisor")) {
+            departedExit(student, supervisor);
+            String call = open(supervisor).path("id").asText();
+            String path = CALLS + "/" + call + "/registros/" + resident;
+            JsonNode present = json.readTree(put(supervisor, path, Map.of("version", 0, "mark", "PRESENTE")).body());
+            JsonNode mark = present.path("records").get(0);
+            assertThat(mark.path("mark").asText()).isEqualTo("PRESENTE");
+            assertThat(mark.path("authorizedExitId").isNull()).isTrue();
+            assertThat(mark.path("history").size()).isEqualTo(2);
+            assertThat(mark.path("history").get(0).path("actorProfile").asText()).isEqualTo("sistema");
+            assertThat(mark.path("history").get(1).path("actorProfile").asText()).isEqualTo("supervisor");
+            assertThat(put(supervisor, path, Map.of("version", 1, "mark", "AUSENCIA_JUSTIFICADA")).statusCode())
+                    .isEqualTo(200);
+            assertThat(post(supervisor, CALLS + "/" + call + "/fechamento", Map.of("version", 2)).statusCode())
+                    .isEqualTo(200);
+            assertThat(count("sager_occurrence")).isZero();
+            assertThat(post(supervisor, CALLS + "/" + call + "/correcoes/" + resident, Map.of("version", 3,
+                    "mark", "AUSENTE", "justification", "Conferência presencial posterior")).statusCode()).isEqualTo(200);
+            assertThat(count("sager_occurrence")).isEqualTo(1);
         }
     }
 
@@ -520,7 +687,9 @@ class OperationsApiIntegrationTest {
         try (HttpClient supervisor = logged("supervisor")) {
             longExits.resident = resident;
             longExits.reference = new AuthorizedExitLookup.Reference(UUID.randomUUID(), "LONG");
-            String id = open(supervisor).path("id").asText();
+            JsonNode opened = open(supervisor);
+            assertThat(opened.path("records").get(0).path("mark").asText()).isEqualTo("AUSENCIA_JUSTIFICADA");
+            String id = opened.path("id").asText();
             assertThat(put(supervisor, CALLS + "/" + id + "/registros/" + resident,
                     Map.of("version", 0, "mark", "AUSENCIA_JUSTIFICADA",
                             "authorizedExitId", longExits.reference.id(), "authorizedExitType", "LONG"))
@@ -603,15 +772,15 @@ class OperationsApiIntegrationTest {
             assertThat(post(supervisor, EXITS + "/" + exit + "/partida",
                     Map.of("version", 1, "timeMode", "NOW")).statusCode()).isEqualTo(200);
             clock.set(START);
-            String call = open(supervisor).path("id").asText();
-            assertThat(put(supervisor, CALLS + "/" + call + "/registros/" + resident,
-                    Map.of("version", 0, "mark", "AUSENCIA_JUSTIFICADA")).statusCode()).isEqualTo(200);
-            assertThat(post(supervisor, CALLS + "/" + call + "/fechamento", Map.of("version", 1))
+            JsonNode opened = open(supervisor);
+            assertThat(opened.path("records").get(0).path("authorizedExitId").asText()).isEqualTo(exit);
+            String call = opened.path("id").asText();
+            assertThat(post(supervisor, CALLS + "/" + call + "/fechamento", Map.of("version", 0))
                     .statusCode()).isEqualTo(200);
             assertThat(post(supervisor, EXITS + "/" + exit + "/retorno",
                     Map.of("version", 2, "timeMode", "NOW")).statusCode()).isEqualTo(200);
             assertError(post(supervisor, CALLS + "/" + call + "/correcoes/" + resident,
-                    Map.of("version", 2, "mark", "AUSENCIA_JUSTIFICADA",
+                    Map.of("version", 1, "mark", "AUSENCIA_JUSTIFICADA",
                             "justification", "Revisão da autorização no instante")),
                     409, "authorized_exit_required");
         }
@@ -626,7 +795,9 @@ class OperationsApiIntegrationTest {
             assertThat(post(supervisor, EXITS + "/" + exit + "/partida",
                     Map.of("version", 1, "timeMode", "NOW")).statusCode()).isEqualTo(200);
             clock.set(START);
-            String call = open(supervisor).path("id").asText();
+            JsonNode opened = open(supervisor);
+            assertThat(opened.path("records").get(0).path("mark").isNull()).isTrue();
+            String call = opened.path("id").asText();
             assertError(put(supervisor, CALLS + "/" + call + "/registros/" + resident,
                     Map.of("version", 0, "mark", "AUSENCIA_JUSTIFICADA",
                             "authorizedExitId", UUID.fromString(exit), "authorizedExitType", "SHORT")),
@@ -819,6 +990,17 @@ class OperationsApiIntegrationTest {
     private void approve(HttpClient client, String id) throws Exception {
         assertThat(post(client, EXITS + "/" + id + "/decisao", Map.of("version", 0, "decision", "APPROVE"))
                 .statusCode()).isEqualTo(200);
+    }
+
+    /** Registers a real departure one hour before the call and leaves the clock at START. */
+    private String departedExit(HttpClient student, HttpClient supervisor) throws Exception {
+        clock.set(START.minusSeconds(3600));
+        String exit = createExit(student, "NOW", 0, 7200).path("id").asText();
+        approve(supervisor, exit);
+        assertThat(post(supervisor, EXITS + "/" + exit + "/partida",
+                Map.of("version", 1, "timeMode", "NOW")).statusCode()).isEqualTo(200);
+        clock.set(START);
+        return exit;
     }
 
     private void expire() throws Exception {

@@ -95,6 +95,9 @@ class LongExitApiIntegrationTest {
         clock.value = START;
         for (String table :
                 List.of(
+                        "sager_night_call_mark_history",
+                        "sager_night_call_mark",
+                        "sager_night_call",
                         "sager_webhook_inbox",
                         "sager_integration_task",
                         "sager_whatsapp_attempt",
@@ -109,6 +112,7 @@ class LongExitApiIntegrationTest {
                         "sager_guardian",
                         "sager_room_allocation",
                         "sager_room",
+                        "sager_accommodation_unit",
                         "sager_accommodation",
                         "sager_resident")) {
             if (Boolean.TRUE.equals(
@@ -184,6 +188,66 @@ class LongExitApiIntegrationTest {
     }
 
     @Test
+    void listFiltersByRoomAndAccommodationAllocatedAtRequestedDeparture() throws Exception {
+        String exitId;
+        try (HttpClient student = login("residente")) {
+            exitId = created(post(student, ROOT, plan(4 * 3600))).path("id").asText();
+        }
+        UUID accommodation =
+                jdbc.queryForObject("SELECT accommodation_id FROM sager_room WHERE id=?", UUID.class, room);
+        UUID laterAccommodation = UUID.randomUUID();
+        UUID laterRoom = UUID.randomUUID();
+        jdbc.update(
+                "INSERT INTO sager_accommodation(id,code,name) VALUES (?,'F4-B','Alojamento B')",
+                laterAccommodation);
+        jdbc.update(
+                "INSERT INTO sager_room(id,code,number,accommodation_id,capacity,situation) VALUES"
+                        + " (?,'F4-B-1','1',?,20,'Disponível')",
+                laterRoom,
+                laterAccommodation);
+        OffsetDateTime moved = OffsetDateTime.ofInstant(START.plusSeconds(3600), ZoneOffset.UTC);
+        jdbc.update(
+                "UPDATE sager_room_allocation SET ended_at=?,end_reason='END' WHERE resident_id=?",
+                moved,
+                resident);
+        jdbc.update(
+                "INSERT INTO sager_room_allocation(id,resident_id,room_id,started_at) VALUES (?,?,?,?)",
+                UUID.randomUUID(),
+                resident,
+                laterRoom,
+                moved);
+        UUID unit = UUID.randomUUID();
+        UUID laterUnit = UUID.randomUUID();
+        jdbc.update(
+                "INSERT INTO sager_accommodation_unit(id,accommodation_id,code,name) VALUES"
+                        + " (?,?,'BL-A','Bloco A')",
+                unit,
+                accommodation);
+        jdbc.update(
+                "INSERT INTO sager_accommodation_unit(id,accommodation_id,code,name) VALUES"
+                        + " (?,?,'BL-A','Bloco A')",
+                laterUnit,
+                laterAccommodation);
+        jdbc.update("UPDATE sager_room SET unit_id=? WHERE id=?", unit, room);
+        jdbc.update("UPDATE sager_room SET unit_id=? WHERE id=?", laterUnit, laterRoom);
+        try (HttpClient supervisor = login("supervisor")) {
+            assertThat(read(supervisor, ROOT + "?roomId=" + room).get(0).path("id").asText())
+                    .isEqualTo(exitId);
+            assertThat(read(supervisor, ROOT + "?roomId=" + laterRoom).size()).isZero();
+            assertThat(read(supervisor, ROOT + "?accommodationId=" + accommodation).size()).isEqualTo(1);
+            assertThat(read(supervisor, ROOT + "?accommodationId=" + laterAccommodation).size())
+                    .isZero();
+            assertThat(read(supervisor, ROOT + "?unitId=" + unit).get(0).path("id").asText())
+                    .isEqualTo(exitId);
+            assertThat(read(supervisor, ROOT + "?unitId=" + laterUnit).size()).isZero();
+        }
+        try (HttpClient student = login("residente")) {
+            assertThat(read(student, ROOT + "?roomId=" + room).size()).isEqualTo(1);
+            assertThat(read(student, ROOT + "?roomId=" + laterRoom).size()).isZero();
+        }
+    }
+
+    @Test
     void createsPrivateRevisionWithDisabledProvidersAndNoFabricatedSignature() throws Exception {
         try (HttpClient student = login("residente")) {
             JsonNode exit = created(post(student, ROOT, plan(4 * 3600)));
@@ -191,6 +255,9 @@ class LongExitApiIntegrationTest {
             assertThat(exit.path("signatureStatus").asText()).isEqualTo("UNAVAILABLE");
             assertThat(exit.path("messageStatus").asText()).isEqualTo("UNAVAILABLE");
             assertThat(exit.path("requestedDepartureAt").asText()).isEqualTo(START.toString());
+            assertThat(exit.path("whatsappAvailable").asBoolean()).isFalse();
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_integration_task", Integer.class))
+                    .isZero();
             assertThat(exit.path("currentDocument").path("revisionNumber").asInt()).isEqualTo(1);
             assertThat(exit.path("currentDocument").path("originalState").asText())
                     .isEqualTo("STORED");
@@ -339,6 +406,131 @@ class LongExitApiIntegrationTest {
     }
 
     @Test
+    void manualAttachmentWorksWithTheGatewayOffAndPassesTheSameConference() throws Exception {
+        byte[] photo = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 1, 2, 3, 4};
+        try (HttpClient student = login("residente");
+                HttpClient manager = login("gestor");
+                HttpClient supervisor = login("supervisor")) {
+            JsonNode exit = created(post(student, ROOT, plan(4 * 3600)));
+            String id = exit.path("id").asText();
+            long version = exit.path("version").asLong();
+            assertThat(attach(manager, id, version, photo).statusCode()).isEqualTo(403);
+            assertThat(attach(student, id, version, photo).statusCode()).isEqualTo(403);
+            error(
+                    attach(supervisor, id, version, "MZ-executavel".getBytes(StandardCharsets.US_ASCII)),
+                    400,
+                    "invalid_input");
+            HttpResponse<String> large = attach(supervisor, id, version, new byte[10 * 1024 * 1024 + 1]);
+            error(large, 413, "file_too_large");
+            HttpResponse<String> attached = attach(supervisor, id, version, photo);
+            assertThat(attached.statusCode()).describedAs(attached.body()).isEqualTo(200);
+            JsonNode body = json.readTree(attached.body());
+            JsonNode file = body.path("authorizationFiles").get(0);
+            assertThat(file.path("origin").asText()).isEqualTo("MANUAL");
+            assertThat(file.path("state").asText()).isEqualTo("CANDIDATE");
+            assertThat(file.path("senderDivergent").asBoolean()).isFalse();
+            assertThat(file.path("senderPhone").isNull()).isTrue();
+            assertThat(body.path("capabilities").path("canApprove").asBoolean()).isFalse();
+            JsonNode confirmed =
+                    json.readTree(
+                            post(
+                                            supervisor,
+                                            ROOT + "/" + id + "/autorizacao/arquivos/"
+                                                    + file.path("id").asText() + "/conferencia",
+                                            Map.of(
+                                                    "version",
+                                                    body.path("version").asLong(),
+                                                    "confirmed",
+                                                    true))
+                                    .body());
+            assertThat(confirmed.path("signatureStatus").asText()).isEqualTo("VALID");
+            assertThat(confirmed.path("capabilities").path("canApprove").asBoolean()).isTrue();
+            assertThat(confirmed.path("bindings").get(0).path("verifiedBy").asText()).isNotBlank();
+            assertThat(
+                            post(
+                                            supervisor,
+                                            ROOT + "/" + id + "/decisao",
+                                            Map.of(
+                                                    "version",
+                                                    confirmed.path("version").asLong(),
+                                                    "decision",
+                                                    "APPROVE",
+                                                    "documentVersionId",
+                                                    confirmed
+                                                            .path("currentDocument")
+                                                            .path("documentVersionId")
+                                                            .asText()))
+                                    .statusCode())
+                    .isEqualTo(200);
+        }
+    }
+
+    @Test
+    void residentOutOnLongExitIsJustifiedBySystemWhenTheNightCallOpens() throws Exception {
+        clock.value = START.minusSeconds(3600);
+        byte[] photo = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 1, 2, 3, 4};
+        try (HttpClient student = login("residente");
+                HttpClient supervisor = login("supervisor")) {
+            JsonNode exit = created(post(student, ROOT, plan(4 * 3600)));
+            String id = exit.path("id").asText();
+            JsonNode attached =
+                    readResponse(attach(supervisor, id, exit.path("version").asLong(), photo), 200);
+            JsonNode confirmed =
+                    readResponse(
+                            post(
+                                    supervisor,
+                                    ROOT + "/" + id + "/autorizacao/arquivos/"
+                                            + attached.path("authorizationFiles").get(0).path("id").asText()
+                                            + "/conferencia",
+                                    Map.of(
+                                            "version",
+                                            attached.path("version").asLong(),
+                                            "confirmed",
+                                            true)),
+                            200);
+            JsonNode approved =
+                    readResponse(
+                            post(
+                                    supervisor,
+                                    ROOT + "/" + id + "/decisao",
+                                    Map.of(
+                                            "version",
+                                            confirmed.path("version").asLong(),
+                                            "decision",
+                                            "APPROVE",
+                                            "documentVersionId",
+                                            confirmed
+                                                    .path("currentDocument")
+                                                    .path("documentVersionId")
+                                                    .asText())),
+                            200);
+            readResponse(
+                    post(
+                            supervisor,
+                            ROOT + "/" + id + "/partida",
+                            Map.of("version", approved.path("version").asLong(), "timeMode", "NOW")),
+                    200);
+            clock.value = START;
+            JsonNode mark =
+                    created(
+                                    post(
+                                            supervisor,
+                                            "/api/v1/chamadas",
+                                            Map.of(
+                                                    "accommodationId",
+                                                    jdbc.queryForObject(
+                                                            "SELECT id FROM sager_accommodation",
+                                                            UUID.class))))
+                            .path("records")
+                            .get(0);
+            assertThat(mark.path("mark").asText()).isEqualTo("AUSENCIA_JUSTIFICADA");
+            assertThat(mark.path("authorizedExitId").asText()).isEqualTo(id);
+            assertThat(mark.path("authorizedExitType").asText()).isEqualTo("LONG");
+            assertThat(mark.path("history").get(0).path("actorProfile").asText()).isEqualTo("sistema");
+        }
+    }
+
+    @Test
     void unsupportedDocumentCharactersReturnValidationErrorWithoutPartialDatabaseRows()
             throws Exception {
         try (HttpClient student = login("residente")) {
@@ -459,7 +651,15 @@ FROM sager_document_version WHERE exit_id=?
                             () ->
                                     jdbc.update(
                                             "UPDATE sager_signature_binding SET"
-                                                + " status='VALID',stage='DONE',verified_api=true,signed_at=expires_at,verified_at=expires_at,evidence_hash=repeat('a',64)"))
+                                                + " status='VALID',stage='DONE',verified_by=gen_random_uuid(),signed_at=expires_at,verified_at=expires_at,evidence_hash=repeat('a',64)"))
+                    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+            assertThatThrownBy(
+                            () ->
+                                    jdbc.update(
+                                            "UPDATE sager_signature_binding SET status='VALID',stage='DONE',"
+                                                    + "signed_at=created_at,verified_at=created_at,"
+                                                    + "evidence_hash=repeat('a',64)"))
+                    .as("sem verified_by não há autorização conferida")
                     .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
             assertThat(
                             jdbc.queryForObject(
@@ -609,6 +809,26 @@ FROM sager_document_version WHERE exit_id=?
 
     HttpResponse<String> post(HttpClient c, String p, Map<String, ?> b) throws Exception {
         return send(c, p, b, "POST");
+    }
+
+    HttpResponse<String> attach(HttpClient c, String id, long version, byte[] file) throws Exception {
+        String boundary = "sager-sintetico";
+        var body = new java.io.ByteArrayOutputStream();
+        body.writeBytes(
+                ("--" + boundary + "\r\nContent-Disposition: form-data; name=\"version\"\r\n\r\n" + version
+                                + "\r\n--" + boundary
+                                + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"anexo.bin\"\r\n"
+                                + "Content-Type: application/octet-stream\r\n\r\n")
+                        .getBytes(StandardCharsets.US_ASCII));
+        body.writeBytes(file);
+        body.writeBytes(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.US_ASCII));
+        return c.send(
+                HttpRequest.newBuilder(uri(ROOT + "/" + id + "/autorizacao/arquivos"))
+                        .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                        .header("X-CSRF-TOKEN", csrf(c))
+                        .POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray()))
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
     }
 
     HttpResponse<String> put(HttpClient c, String p, Map<String, ?> b) throws Exception {

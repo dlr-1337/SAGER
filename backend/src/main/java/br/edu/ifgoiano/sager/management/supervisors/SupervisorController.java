@@ -41,7 +41,9 @@ public class SupervisorController {
     @PostMapping
     public ResponseEntity<Supervisor> create(@RequestBody CreateSupervisorRequest request) {
         Supervisor created = service.create(text(request.name(), "name"),
-                text(request.institutionalId(), "institutionalId"), text(request.email(), "email"));
+                text(request.institutionalId(), "institutionalId"), text(request.email(), "email"),
+                text(request.password(), "senha"),
+                text(request.passwordConfirmation(), "confirmação de senha"));
         return ResponseEntity.created(URI.create("/api/v1/supervisores/" + created.id()))
                 .cacheControl(CacheControl.noStore()).body(created);
     }
@@ -76,7 +78,8 @@ public class SupervisorController {
         return new SupervisorApiException(HttpStatus.BAD_REQUEST, "invalid_input", message);
     }
 
-    public record CreateSupervisorRequest(JsonNode name, JsonNode institutionalId, JsonNode email) {
+    public record CreateSupervisorRequest(JsonNode name, JsonNode institutionalId, JsonNode email,
+            JsonNode password, JsonNode passwordConfirmation) {
     }
 
     public record UpdateSupervisorRequest(JsonNode name, JsonNode institutionalId, JsonNode email,

@@ -125,6 +125,45 @@ class OperationsMigrationIntegrationTest {
                 .isEqualTo("EM_ANDAMENTO");
     }
 
+    @Test
+    void markHistoryAcceptsSystemActorOnlyForJustifiedAbsenceAtCallVersionZero() {
+        String schema = "ops_mark_history_actor";
+        migrate(schema, null);
+        JdbcTemplate jdbc = jdbc(schema);
+        UUID resident = resident(jdbc);
+        UUID accommodation = UUID.randomUUID();
+        UUID call = UUID.randomUUID();
+        UUID mark = UUID.randomUUID();
+        jdbc.update("INSERT INTO sager_accommodation(id, code, name) VALUES (?, 'OPS', 'Sintético')", accommodation);
+        jdbc.update("INSERT INTO sager_night_call(id, accommodation_id, accommodation_name, reference_date,"
+                + " opened_at, opened_by) VALUES (?, ?, 'Sintético', DATE '2026-09-30', NOW(), ?)",
+                call, accommodation, UUID.randomUUID());
+        jdbc.update("INSERT INTO sager_night_call_mark(id, call_id, resident_id, resident_name, enrollment,"
+                + " birth_date, room_id, room_number) VALUES (?, ?, ?, 'Estudante Sintético', 'OPS-MIGRATION',"
+                + " DATE '2009-01-01', ?, '1')", mark, call, resident, UUID.randomUUID());
+        insertMarkHistory(jdbc, mark, "sistema", "AUSENCIA_JUSTIFICADA", 0);
+        insertMarkHistory(jdbc, mark, "supervisor", "AUSENCIA_JUSTIFICADA", 1);
+        insertMarkHistory(jdbc, mark, "supervisor", "PRESENTE", 1);
+        assertRejectedMarkHistory(jdbc, mark, "sistema", "PRESENTE", 0);
+        assertRejectedMarkHistory(jdbc, mark, "sistema", "AUSENTE", 0);
+        assertRejectedMarkHistory(jdbc, mark, "sistema", "AUSENCIA_JUSTIFICADA", 1);
+        assertRejectedMarkHistory(jdbc, mark, "supervisor", "AUSENCIA_JUSTIFICADA", 0);
+        assertRejectedMarkHistory(jdbc, mark, "gestor", "PRESENTE", 1);
+    }
+
+    private void assertRejectedMarkHistory(JdbcTemplate jdbc, UUID mark, String profile, String value, long callVersion) {
+        assertThatThrownBy(() -> insertMarkHistory(jdbc, mark, profile, value, callVersion))
+                .satisfies(error -> assertThat(sqlState(error)).isEqualTo("23514"));
+    }
+
+    private void insertMarkHistory(JdbcTemplate jdbc, UUID mark, String profile, String value, long callVersion) {
+        boolean justified = "AUSENCIA_JUSTIFICADA".equals(value);
+        jdbc.update("INSERT INTO sager_night_call_mark_history(id, mark_id, mark, authorized_exit_id,"
+                + " authorized_exit_type, recorded_at, actor_id, actor_profile, resulting_version, call_version)"
+                + " VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, 1, ?)", UUID.randomUUID(), mark, value,
+                justified ? UUID.randomUUID() : null, justified ? "SHORT" : null, UUID.randomUUID(), profile, callVersion);
+    }
+
     private String check(JdbcTemplate jdbc, String name) {
         return jdbc.queryForObject("SELECT pg_get_expr(conbin, conrelid) FROM pg_constraint"
                 + " WHERE conrelid = 'sager_audit_event'::regclass AND conname = ?", String.class, name);

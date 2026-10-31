@@ -11,7 +11,7 @@ import tools.jackson.databind.JsonNode;
 public class CleaningController {
  private final CleaningService service;public CleaningController(CleaningService service){this.service=service;}
  @GetMapping("/limpeza/politica") public ResponseEntity<Policy> policy(){return ok(service.policy());}
- @GetMapping("/limpeza/avaliacoes") public ResponseEntity<Page<Assessment>> list(@RequestParam(required=false)UUID roomId,@RequestParam(required=false)UUID residentId,@RequestParam(required=false)LocalDate from,@RequestParam(required=false)LocalDate to,@RequestParam(defaultValue="20")int limit,@RequestParam(required=false)Long beforeSequence){return ok(service.list(roomId,residentId,from,to,limit,beforeSequence));}
+ @GetMapping("/limpeza/avaliacoes") public ResponseEntity<Page<Assessment>> list(@RequestParam(required=false)UUID accommodationId,@RequestParam(required=false)UUID unitId,@RequestParam(required=false)UUID roomId,@RequestParam(required=false)UUID residentId,@RequestParam(required=false)LocalDate from,@RequestParam(required=false)LocalDate to,@RequestParam(defaultValue="20")int limit,@RequestParam(required=false)Long beforeSequence){return ok(service.list(accommodationId,unitId,roomId,residentId,from,to,limit,beforeSequence));}
  @GetMapping("/limpeza/avaliacoes/{id}") public ResponseEntity<Assessment> detail(@PathVariable UUID id){return ok(service.get(id));}
  @PostMapping("/limpeza/avaliacoes") public ResponseEntity<Assessment> create(@RequestBody JsonNode body){return ok(service.create(body));}
  @PostMapping("/limpeza/avaliacoes/{id}/corrigir") public ResponseEntity<Assessment> correct(@PathVariable UUID id,@RequestBody JsonNode body){return ok(service.correct(id,body));}

@@ -6,6 +6,7 @@ import java.util.List;
 
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.Operation;
+import io.swagger.v3.oas.models.media.BooleanSchema;
 import io.swagger.v3.oas.models.media.Content;
 import io.swagger.v3.oas.models.media.IntegerSchema;
 import io.swagger.v3.oas.models.media.MediaType;
@@ -56,11 +57,19 @@ public class LongExitOpenApiConfiguration {
             body(api, base + "/{id}/reenvio", false, "LongExitResendRequest",
                     new ObjectSchema().addProperty("version", version()).addProperty("guardianId", uuid(true))
                             .addProperty("comment", text(10, false)).required(List.of("version", "comment")));
-            body(api, base + "/{id}/reconciliacao", false, "LongExitReconcileRequest",
-                    new ObjectSchema().addProperty("version", version()).required(List.of("version")));
-            api.getComponents().addSecuritySchemes("signatureCapability", new SecurityScheme()
-                    .type(SecurityScheme.Type.HTTP).scheme("bearer").bearerFormat("opaque 32-byte capability")
-                    .description("Convite opaco de 43 caracteres, somente em memória; nunca cookie ou query string."));
+            body(api, base + "/{id}/autorizacao/arquivos/{fileId}/conferencia", false,
+                    "LongExitAuthorizationConfirmRequest",
+                    new ObjectSchema().addProperty("version", version())
+                            .addProperty("confirmed", new BooleanSchema())
+                            .addProperty("justification", text(1, true))
+                            .required(List.of("version", "confirmed")));
+            body(api, base + "/{id}/autorizacao/arquivos/{fileId}/recusa", false,
+                    "LongExitAuthorizationRefuseRequest",
+                    new ObjectSchema().addProperty("version", version())
+                            .addProperty("comment", text(10, false)).required(List.of("version", "comment")));
+            body(api, base + "/{id}/autorizacao/vinculos", false, "LongExitAuthorizationLinkRequest",
+                    new ObjectSchema().addProperty("version", version()).addProperty("messageId", uuid(false))
+                            .required(List.of("version", "messageId")));
             api.getPaths().forEach((path, item) -> {
                 if (path.startsWith(base)) {
                     item.readOperations().forEach(operation -> operation.setDescription(
@@ -68,39 +77,31 @@ public class LongExitOpenApiConfiguration {
                             + "America/Sao_Paulo para datas civis. Residente consulta/solicita a própria saída. "
                             + "Supervisor decide e confirma movimentos físicos. NOW omite a hora enviada; "
                             + "SCHEDULED exige requestedDepartureAt. APPROVE exige documentVersionId atual, "
-                            + "PDF íntegro e assinatura VALID conferida pelo servidor. REJECT, cancelamento, "
-                            + "reenvio, horário retroativo e atraso exigem motivo correspondente de 10 caracteres. "
-                            + "Reenvio revoga o convite anterior; callback do widget não valida assinatura."));
+                            + "arquivos íntegros e autorização conferida por supervisor. REJECT, cancelamento, "
+                            + "reenvio, recusa de arquivo, horário retroativo e atraso exigem motivo correspondente "
+                            + "de 10 caracteres. Reenvio revoga o envio anterior; entrega, leitura ou recebimento de "
+                            + "mensagem nunca conferem autorização."));
                 }
-                if (path.startsWith("/api/v1/assinaturas/")) {
-                    item.readOperations().forEach(operation -> operation.setSecurity(
-                            List.of(new SecurityRequirement().addList("signatureCapability"))));
-                }
-                if (path.startsWith(base) || path.startsWith("/api/v1/assinaturas/")) {
+                if (path.startsWith(base)) {
                     item.readOperations().forEach(operation -> operation.getResponses().addApiResponse("503",
                             new ApiResponse().description("Documento ou integração indisponível.")
                                     .content(new Content().addMediaType("application/json", new MediaType()
                                             .schema(new Schema<>().$ref("#/components/schemas/ApiError"))))));
                 }
                 if (path.contains("/documentos/") && path.startsWith(base)
-                        || path.equals("/api/v1/assinaturas/documento")) {
+                        || path.startsWith(base) && path.endsWith("/autorizacao/arquivos/{fileId}")) {
                     item.getGet().getResponses().addApiResponse("200", new ApiResponse()
-                            .description("PDF privado íntegro; resposta sem cache.")
-                            .content(new Content().addMediaType("application/pdf", new MediaType()
+                            .description("Arquivo privado íntegro, como recebido; resposta sem cache.")
+                            .content(new Content().addMediaType("application/octet-stream", new MediaType()
                                     .schema(new StringSchema().format("binary")))));
                 }
-                if (path.equals("/api/v1/webhooks/whatsapp") && item.getGet() != null) {
-                    item.getGet().setSecurity(List.of());
-                }
-                if (path.startsWith("/api/v1/webhooks/") && item.getPost() != null) {
-                    String scheme = path.endsWith("clicksign") ? "clicksignHmac" : "metaHmac";
-                    String header = path.endsWith("clicksign") ? "Content-Hmac" : "X-Hub-Signature-256";
-                    api.getComponents().addSecuritySchemes(scheme, new SecurityScheme()
-                            .type(SecurityScheme.Type.APIKEY).in(SecurityScheme.In.HEADER).name(header)
-                            .description("HMAC-SHA256 dos bytes brutos; segredo exclusivo do provedor."));
-                    item.getPost().setSecurity(List.of(new SecurityRequirement().addList(scheme)));
+                if (path.equals("/api/v1/integracoes/whatsapp/webhook")) {
+                    api.getComponents().addSecuritySchemes("gatewayHmac", new SecurityScheme()
+                            .type(SecurityScheme.Type.APIKEY).in(SecurityScheme.In.HEADER).name("X-Webhook-Hmac")
+                            .description("HMAC-SHA512 dos bytes brutos; segredo exclusivo do gateway."));
+                    item.getPost().setSecurity(List.of(new SecurityRequirement().addList("gatewayHmac")));
                     item.getPost().setDescription("Webhook autenticado por HMAC, sem cookie e sem CSRF. "
-                            + "Persiste inbox e deduplica; entrega não equivale a assinatura validada.");
+                            + "Persiste metadados e deduplica; mensagem recebida não equivale a autorização conferida.");
                 }
             });
         };
