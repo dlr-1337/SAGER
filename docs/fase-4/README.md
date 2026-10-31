@@ -1,5 +1,7 @@
 # Saídas longas, documentos e integrações
 
+> **Nota de substituição (2026-10-31).** Este texto descreve a entrega de 30/09/2026. O convite por link, os adaptadores Clicksign e Meta, suas propriedades, as rotas `/api/v1/webhooks/*` e `/reconciliacao` foram retirados. O fluxo vigente está no [contrato](CONTRATO.md) e a configuração em [`docs/whatsapp/OPERACAO.md`](../whatsapp/OPERACAO.md).
+
 Implementação técnica de E06/E07 na modalidade longa e E09, com regras locais
 delegadas registradas no [contrato](CONTRATO.md). O [QA](QA.md) distingue testes
 com doubles, prova local persistida e homologação externa pendente.

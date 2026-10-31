@@ -185,7 +185,8 @@ mesclagem; nenhuma aprovação anterior substitui a conferência do commit final
 ## Limites do aceite
 
 Não foram executados treinamento com usuários reais, piloto mensal de disponibilidade,
-MTBF/MTTR, carga na VPS definitiva ou aceite AE/TI. Clicksign/WhatsApp não foram
-homologados com credenciais institucionais. O [roteiro](HOMOLOGACAO.md) registra o
+MTBF/MTTR, carga na VPS definitiva ou aceite AE/TI. O gateway de WhatsApp não foi
+testado com número real. As medições acima são anteriores a ele; com o gateway ligado, a
+mesma VPS precisa de 2 vCPU e 4 GB mais swap ([operação](../whatsapp/OPERACAO.md)). O [roteiro](HOMOLOGACAO.md) registra o
 método e os responsáveis para essas verificações externas. Nenhuma rotina agendada
 foi criada nesta entrega.

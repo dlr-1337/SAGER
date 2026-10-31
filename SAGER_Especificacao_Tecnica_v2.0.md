@@ -59,7 +59,7 @@ A estrutura inicial não inclui microserviços, Kubernetes, Kafka, RabbitMQ, Red
 
 ## 1.3 O que permanece fora da decisão técnica
 
-A AE define escalas de avaliação, fórmula do ranking, critérios de reincidência, gravidades e regras de cancelamento e início de saída. A paridade operacional de gestor e supervisor e a suficiência de uma assinatura válida já foram decididas para a fase atual; a identidade do responsável e o sigilo médico ainda exigem governança. A TI valida o login próprio antes de implantação real e informa acessos e infraestrutura. A instituição autoriza tratamento de dados, serviços de terceiros e custos. A arquitetura não pode substituir essas decisões por valores arbitrários.
+A AE define escalas de avaliação, fórmula do ranking, critérios de reincidência, gravidades e regras de cancelamento e início de saída. A paridade operacional de gestor e supervisor e a suficiência de uma autorização conferida já foram decididas para a fase atual; a identidade do responsável e o sigilo médico ainda exigem governança. A TI valida o login próprio antes de implantação real e informa acessos e infraestrutura. A instituição autoriza tratamento de dados, serviços de terceiros e custos. A arquitetura não pode substituir essas decisões por valores arbitrários.
 
 **Resultado esperado da preparação:** equipe consegue construir um fluxo vertical de login próprio do SAGER, autorização por perfil, cadastro, gravação no PostgreSQL e teste automatizado antes de iniciar todos os módulos em paralelo.
 
@@ -84,8 +84,8 @@ A AE define escalas de avaliação, fórmula do ranking, critérios de reincidê
 | Autenticação [U/T]       | Spring Security                                             | Login próprio por e-mail/senha na fase atual; SUAP/Google podem ser integrados no futuro. [T10–T12] |
 | Sessão [T]               | Spring Session JDBC                                         | Sessões no PostgreSQL; cookie protegido e CSRF na integração com Angular. [T13–T14]                 |
 | Documentação de API [T]  | springdoc-openapi 3.x + Swagger UI                          | Versão compatível com Spring Boot 4; exposta somente em ambiente autorizado. [T15]                  |
-| Mensagens [T]            | Meta WhatsApp Cloud API                                     | Integração HTTP oficial pelo backend, conforme obrigação da SRS.                                    |
-| Assinatura [T/A]         | Clicksign API 3.0, modelo de envelopes                      | Referência técnica condicionada à aprovação institucional e acesso ao serviço. [T16–T17]            |
+| Mensagens [T]            | Gateway WAHA com motor GOWS, auto-hospedado                 | Integração HTTP pelo backend, não oficial, sujeita a aceite institucional. Ver seção 8.             |
+| Autorização [T/A]        | Conferência humana, sem provedor externo de assinatura      | Arquivo recebido pelo WhatsApp ou anexado, conferido por servidor. Ver seção 8.                     |
 | Documentos [T]           | Apache PDFBox 3 + Apache POI                                | PDF e XLSX gerados em Java. [T18–T19]                                                               |
 | Gráficos [T]             | Chart.js 4                                                  | Integração direta em componente Angular; alternativa textual e tabela de dados. [T20]               |
 | Processamento [T]        | Agendador Spring + tarefas no PostgreSQL                    | Persistência, retentativa e recuperação sem servidor de fila separado. [T21]                        |
@@ -117,8 +117,8 @@ Navegador no computador ou celular
        /api/v1/*         -> aplicação Spring Boot
 
 Spring Boot -> PostgreSQL: domínio, sessão, auditoria e tarefas
-Spring Boot -> volume privado: PDFs, assinaturas e exportações
-Spring Boot -> HTTPS: WhatsApp e assinatura; identidade externa só se integrada futuramente
+Spring Boot -> volume privado: PDFs, arquivos de autorização e exportações
+Spring Boot -> proxy interno -> gateway WhatsApp; identidade externa só se integrada futuramente
 ```
 
 O login próprio usa `/api/v1/auth/login`, já coberto pela rota da API. Qualquer rota de provedor externo será incluída somente se SUAP ou Google forem integrados futuramente.
@@ -234,7 +234,7 @@ Os caminhos da tabela são relativos ao prefixo /api/v1; as rotas de autenticaç
 | Relatórios            | GET /relatorios/{tipo}; POST /exportacoes; GET /exportacoes/{id}; GET /exportacoes/{id}/arquivo         |
 | Documentos            | GET /documentos/{id}/arquivo; acesso conforme vínculo e permissão                                       |
 | Termos                | GET/POST /residentes/{id}/termos; ações de ciência/assinatura conforme RN10 homologada                  |
-| Integrações           | POST /webhooks/whatsapp; POST /webhooks/assinatura; verificação adicional exigida pelo provedor         |
+| Integrações           | POST /api/v1/integracoes/whatsapp/webhook, autenticado por HMAC                                         |
 
 Não criar endpoints de início físico de saída, cancelamento ou alteração retroativa sem resolver D05–D08. Cadastro/publicação de avisos também depende de D18. O catálogo não concede um CRUD irrestrito a informações médicas ou registros históricos.
 
@@ -264,9 +264,9 @@ Logout é uma operação protegida que invalida a sessão no servidor. Não guar
 
 ## 6.3 Permissões
 
-**[T]** Spring Security controla o acesso ao endpoint e o serviço verifica vínculo, papel e registro. Um residente acessa seus próprios dados, solicitações e comunicações. Um responsável legal recebe acesso ao documento pertinente no serviço de assinatura, não ao painel completo do SAGER.
+**[T]** Spring Security controla o acesso ao endpoint e o serviço verifica vínculo, papel e registro. Um residente acessa seus próprios dados, solicitações e comunicações. Um responsável legal recebe o documento pelo WhatsApp e não tem acesso ao SAGER.
 
-**[U]** O supervisor tem autoridade operacional máxima e recebe as permissões do gestor nos recursos de gestão integrados: supervisores, residentes, responsáveis, alojamentos, quartos e alocações. O gestor pode cadastrar residentes manualmente; esta decisão não amplia seu acesso aos fluxos operacionais de supervisor. Dados médicos podem ser compartilhados entre profissionais autorizados para finalidade assistencial, sob sigilo profissional; gestor ou supervisor, isoladamente, não recebe esse acesso. Testar acesso horizontal, trocando IDs de residentes e documentos, além de acesso vertical entre papéis.
+**[U]** O supervisor tem autoridade operacional máxima e recebe as permissões do gestor nos recursos de gestão integrados: residentes, responsáveis, alojamentos, quartos e alocações. Desde 31/10/2026, só o gestor gerencia supervisores. O gestor pode cadastrar residentes manualmente; esta decisão não amplia seu acesso aos fluxos operacionais de supervisor. Dados médicos podem ser compartilhados entre profissionais autorizados para finalidade assistencial, sob sigilo profissional; gestor ou supervisor, isoladamente, não recebe esse acesso. Testar acesso horizontal, trocando IDs de residentes e documentos, além de acesso vertical entre papéis.
 
 ## 6.4 Desenvolvimento sem credenciais reais
 
@@ -296,14 +296,14 @@ A lista detalha a modelagem proposta; não inventa campos obrigatórios de cadas
 | ------------ | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Acesso       | usuario, usuario_perfil, credencial_local; identidade_externa futura | E-mail único, hash de senha, usuário ativo e perfis atribuídos explicitamente.                                                                                               |
 | Equipe       | supervisor                                                           | Vínculo ao usuário e às ações registradas.                                                                                                                                   |
-| Residentes   | residente, dado_medico_residente                                     | Matrícula/vínculo, nascimento obrigatório em novos cadastros e edições, curso opcional na API local; legado sem nascimento legível. Dados médicos separados e profissionais. |
+| Residentes   | residente, dado_medico_residente                                     | Matrícula/vínculo, nascimento e curso (desde 31/10/2026) obrigatórios em novos cadastros e edições; legado sem esses dados legível. Dados médicos separados e profissionais. |
 | Responsáveis | responsavel_legal, residente_responsavel                             | Vínculo ativo, telefone e autorização; seleção do destinatário conforme D15.                                                                                                 |
 | Residência   | bloco, piso, quarto, vinculacao_quarto                               | Identificação e situação; capacidade/movimentação conforme D19, com paridade operacional gestor/supervisor.                                                                  |
 | Chamada      | chamada_noturna, participacao_chamada                                | Unicidade por chamada/residente, data de referência e registro tardio.                                                                                                       |
 | Saídas       | solicitacao_saida, evento_saida                                      | Tipo CURTA/LONGA, período, motivo, estado atual e histórico de decisões.                                                                                                     |
 | Retorno      | retorno_curto                                                        | Um retorno por solicitação, supervisor, horário real e observação do atraso.                                                                                                 |
 | Documentos   | documento, documento_versao                                          | Arquivo privado, tamanho, hash, tipo, versão do termo e vínculo ao objeto.                                                                                                   |
-| Assinatura   | processo_assinatura, evidencia_assinatura                            | Provedor/envelope/documento, versão local e responsável correto.                                                                                                             |
+| Autorização  | vínculo da revisão, arquivo de autorização                           | Revisão do documento, responsável correto, arquivo e conferência por servidor.                                                                                                             |
 | Mensagens    | envio_whatsapp, tentativa_envio                                      | Destinatário pré-cadastrado, identificação externa e tentativas auditáveis.                                                                                                  |
 | Ocorrências  | ocorrencia, ocorrencia_residente                                     | Origem e residentes impactados; sem sanção automática.                                                                                                                       |
 | Notificações | notificacao_analise, evento_notificacao                              | Origem, regra aplicada, estados e decisões humanas.                                                                                                                          |
@@ -332,51 +332,55 @@ A regra de chamada única por dia/bloco e os limites de alocação em quarto dep
 
 **[T]** Armazenar PDFs e arquivos assinados em volume privado persistente, separado do volume do banco e fora da raiz pública do Nginx. O banco guarda metadados e referências, não arquivos base64 em cada registro. Downloads passam pelo backend, com vínculo/permissão, nome seguro e Cache-Control adequado a conteúdo privado.
 
-Cada versão de documento tem chave opaca, tamanho, hash SHA-256 e estado de armazenamento. Gravar em arquivo temporário, validar, mover para destino final e confirmar metadados; falhas intermediárias devem poder ser reconciliadas. Uma assinatura só libera aprovação quando o arquivo assinado e suas evidências estiverem confirmados como armazenados.
+Cada versão de documento tem chave opaca, tamanho, hash SHA-256 e estado de armazenamento. Gravar em arquivo temporário, validar, mover para destino final e confirmar metadados; falhas intermediárias devem poder ser reconciliadas. Uma autorização só libera aprovação depois de conferida por servidor, com o arquivo recebido confirmado como armazenado.
 
-Manter versões imutáveis. O PDF assinado pode ter hash diferente do PDF original; a correspondência deve usar IDs do provedor, versão e evidências, não exigir igualdade dos dois hashes. Não recomprimir ou reescrever o arquivo assinado após recebimento.
+Manter versões imutáveis. O arquivo devolvido pode ter hash diferente do PDF original; a correspondência usa a revisão do documento e a conferência por servidor, não a igualdade dos dois hashes. Não recomprimir ou reescrever o arquivo recebido.
 
 **[P]** Limite inicial de 10 MiB para documentos recebidos, configurável após validar amostras reais. Validar tipo efetivo, tamanho e nome; não confiar apenas na extensão. A inclusão de upload de termo pronto depende do procedimento RN10. Volume local é a escolha inicial; uma interface ArquivoStorage permite migração posterior para armazenamento institucional sem refazer o domínio.
 
 <!-- pagebreak -->
 
-# 8. Saída longa, WhatsApp e assinatura
+# 8. Saída longa, WhatsApp e autorização
 
-## 8.1 Fornecedores e fronteiras
+> **Nota de substituição (2026-10-31).** Esta seção substitui o desenho anterior, com Meta WhatsApp Cloud API e Clicksign API 3.0, que fica no histórico do Git. Por decisão do dono do produto, não há provedor externo de assinatura. O contrato detalhado está em [`docs/fase-4/CONTRATO.md`](docs/fase-4/CONTRATO.md), e a operação em [`docs/whatsapp/OPERACAO.md`](docs/whatsapp/OPERACAO.md). A pesquisa do gateway está em [`docs/whatsapp/PESQUISA.md`](docs/whatsapp/PESQUISA.md).
 
-**[T]** Meta WhatsApp Cloud API para envio oficial e Clicksign API 3.0 como integração de assinatura de referência, por adaptadores separados. A Clicksign dispõe de envelopes e webhooks; os contratos devem usar a versão 3.0 escolhida, sem copiar endpoints legados de versões anteriores. [T16–T17]
+## 8.1 Gateway e fronteiras
 
-**[A]** Antes de ativar a integração, a instituição deve aprovar provedor, método de autenticação do responsável, modalidade de assinatura, modelos, expiração e custos. A SRS também diz não depender de licenças comerciais externas: essa restrição precisa ser conciliada com os serviços obrigatórios. O núcleo não exigirá uma biblioteca paga, mas isso não torna WhatsApp e assinatura gratuitos. Se a instituição já tiver outro serviço aprovado, substituir apenas o adaptador de assinatura.
+**[T]** Gateway WhatsApp auto-hospedado: WAHA com motor GOWS, imagem fixada por digest, atrás de uma única interface no backend. Identificadores, HMAC, endereço de mídia, estados de entrega e LID não chegam ao domínio. Desligado por padrão; ligado sem endereço, chave de API ou segredo de webhook, o backend recusa a inicialização.
 
-**[T]** Manter o envio do WhatsApp sob responsabilidade do SAGER. Não ativar notificações automáticas adicionais do provedor de assinatura sem necessidade, para evitar duplicidade de mensagens e destinatários divergentes.
+**[T]** O gateway fica na mesma VPS, mas sem rede em comum com o backend. O proxy interno `whatsapp-gateway-proxy` deixa passar, do gateway para o backend, só o POST do webhook; do backend para o gateway, a API, com limite de 16 MiB. A falha ou a parada do gateway não pode derrubar o SAGER: limites de memória e CPU, subida opcional e não fatal, sessão fora do backup e arquivos do gateway apagados em 24 horas.
+
+**[A]** Antes de ativar, a instituição precisa aprovar o uso de integração não oficial, que viola os termos do WhatsApp e pode levar a banimento do número e a veto da organização. Também precisa definir o nível mínimo de assinatura para este ato, a base legal e a retenção. Se o nível exigido for avançado, a foto deixa de bastar como único meio.
 
 ## 8.2 Fluxo de processamento
 
-Ao confirmar a saída longa, o backend valida residente, responsável e período; grava solicitação, versão de dados e tarefa de preparação na mesma transação. A resposta informa que a solicitação foi registrada e que a integração está pendente. Não informa que a mensagem foi entregue sem confirmação.
+Ao criar ou editar a saída longa, o backend valida residente, responsável e período; grava solicitação, revisão, PDF privado, vínculo da revisão e tarefa de envio na mesma transação. O PDF traz nome do residente, nome do responsável, período, motivo, termo, campo de assinatura, data, código curto e revisão, sem nascimento, matrícula ou quarto. Com o gateway desligado, o vínculo fica indisponível e nenhuma tarefa é criada.
 
-A tarefa gera o PDF, registra o documento, prepara envelope/documento/signatário e requisitos de autenticação no provedor e obtém o acesso individual de assinatura. O backend registra os identificadores externos para retomar um passo interrompido, sem criar novo envelope a cada tentativa.
+O worker envia o PDF fora de transação, com lease e até cinco tentativas. Falha ambígua vira `UNCERTAIN`, sem reenvio cego. "Enviado" só conta com confirmação do dispositivo. Sem ela em 15 minutos, a tela avisa e orienta o uso de outro canal. Registro de envio, entrega ou leitura não permite aprovar a saída.
 
-O adaptador de WhatsApp envia o modelo aprovado ao número pré-cadastrado. A mensagem usa o mínimo de dados necessário; conteúdo médico não é enviado. Registro de envio, entrega ou leitura não permite aprovar a saída. Esses requisitos vêm da SRS, RN03–RNF-WA05, pp. 50 e 54–55.
+O arquivo devolvido é gravado como candidato, fora dos campos do documento assinado, e é vinculado nesta ordem: resposta citando o documento, único pedido aberto para o telefone, escolha manual do supervisor. Com mais de um pedido aberto para o mesmo telefone, nada é vinculado automaticamente.
 
-O webhook de assinatura é autenticado e registrado. A tarefa consulta o estado pela API autenticada do provedor, confirma o signatário e a versão corretos, obtém documento assinado/evidências e confirma seu armazenamento. Somente então registra “Assinada” e “Aguardando aprovação”. A aprovação continua sendo ação do supervisor no modal.
+A conferência é ato de supervisor e grava quem conferiu, o horário de recebimento e o hash. Só o arquivo aceito é promovido a arquivo da revisão. Depois, a decisão de aprovar verifica de novo revisão, responsável e integridade dos arquivos.
 
 ## 8.3 Validação do retorno externo
 
-**[T]** Validar a autenticidade do webhook sobre o corpo original, antes de interpretar o JSON. A documentação de assinatura descreve HMAC; os detalhes de cabeçalho e configuração devem ser os da versão/conta adotada e verificados no teste de integração, pois páginas legadas usam formatos diferentes. Não aceitar somente um parâmetro status=assinado enviado por um cliente. [T16–T17]
+**[T]** Validar HMAC SHA-512 sobre o corpo original, em comparação de tempo constante, antes de interpretar o JSON; falha responde 401 e nada é gravado. Evento inválido fica marcado com o motivo e não trava os seguintes. A deduplicação usa chave por provedor, sessão e id curto da mensagem. O corpo do webhook traz só metadados. O worker baixa a mídia com a base configurada e aceita só o caminho `/api/files/`, de modo que a chave nunca vá a outro host. O tipo vem dos bytes, e o limite é de 10 MiB; arquivo recusado fica visível, nunca é descartado em silêncio.
 
-Verificar também: ambiente correto, provedor correto, envelope/documento esperado, versão vigente e se o signatário é um responsável ativo, autorizado e vinculado ao residente. **[U] Uma assinatura válida desse conjunto basta**; não exigir assinatura simultânea de todos os responsáveis. A prova de identidade, vínculo, autorização e telefone segue D15 e os requisitos da integração. Persistir o evento para processamento idempotente. Após persistência durável, responder o recebimento conforme contrato do provedor; falha ao gravar não deve ser reconhecida como sucesso.
+O remetente é identificado pelo telefone canônico, com LID resolvido pelo gateway e tratamento do nono dígito. Nome exibido no WhatsApp nunca identifica ninguém. **[U] Uma autorização conferida de qualquer responsável ativo, autorizado e vinculado basta**. Remetente divergente exige justificativa na conferência. A prova de identidade, vínculo e telefone segue D15.
 
-A consulta autenticada à API confirma o estado; não substitui a verificação do webhook. Payload desconhecido, ambiente trocado ou evento de documento não vinculado deve ser rejeitado ou isolado para análise, nunca aplicado a uma solicitação por aproximação de nome/telefone.
+Uma reconciliação periódica consulta mensagens recentes dos telefones com autorização pendente e grava só o que falta. Conversa livre não é reconciliada.
 
 ## 8.4 Edição, falhas e contingência
 
-Ao editar conteúdo relevante de saída longa pendente, criar nova versão e desativar a associação de assinatura antiga. Solicitar cancelamento/invalidação do processo anterior ao provedor quando suportado e manter o histórico. Mesmo que o provedor demore, o servidor bloqueia qualquer callback da versão anterior para fins da solicitação alterada.
+Ao editar conteúdo de saída longa pendente, criar nova revisão, invalidar a autorização anterior e enviar o novo documento. Arquivo de revisão antiga responde `stale_document` na conferência.
 
-Falha no envio mantém o status funcional correspondente. Falha de download/armazenamento deixa assinatura em processamento/erro técnico e aprovação bloqueada. Não mapear todo problema de assinatura para “Falha no envio”: estado de solicitação, estado de assinatura e estado de mensagem são dimensões distintas.
+Falha de envio mantém o status funcional correspondente. Falha de download ou armazenamento fica visível, com a aprovação bloqueada. Estado de solicitação, de autorização e de mensagem são dimensões distintas. Recusar um arquivo não rejeita o pedido.
 
-Expirar um link não equivale, por si só, a cancelar automaticamente a solicitação de saída. Recusa de assinatura também não pode ser convertida em rejeição do supervisor sem regra homologada. O painel permite providência, contato alternativo autorizado e reenvio conforme SRS, sem dispensar a assinatura obrigatória.
+Com o gateway desligado ou fora do ar, o histórico continua legível e o supervisor anexa o arquivo recebido por outro meio, que passa pela mesma conferência. Anexar nunca envia mensagem ao responsável; o reenvio é a ação explícita para isso.
 
-**Limite desta revisão:** a documentação pública de Meta Cloud API não pôde ser aberta com sucesso na consulta. A obrigação da integração e os comportamentos descritos acima estão fundamentados na SRS; a versão Graph API, payload do template e verificação dos webhooks Meta devem ser conferidos na documentação acessível à conta antes da implementação. Não foram inventados endpoints versionados ou preços da Meta.
+## 8.5 Conversas
+
+**[T]** Rotas `/api/v1/conversas/**`, só para supervisor: lista, histórico por cursor, envio com `Idempotency-Key`, mídia, vínculo manual a uma saída aberta, sessão e QR. A interface consulta periodicamente, com pausa em aba oculta e após 30 minutos sem interação. A auditoria registra envio, início de conversa, vínculo, início de sessão e leitura do QR, sem conteúdo.
 
 <!-- pagebreak -->
 
@@ -420,7 +424,7 @@ A aprovação longa deve bloquear/revalidar a solicitação e a versão de docum
 
 Apache POI gera XLSX. Para exportações maiores, usar escrita em fluxo e controlar arquivos temporários; liberar recursos ao concluir ou falhar. Células vindas de texto do usuário devem ser gravadas como texto, não convertidas em fórmulas. A exportação contém todos os resultados filtrados autorizados, não somente a página visível. [T19]
 
-Modelos devem identificar tipo de documento, período/filtros e data da geração. Documentos assinados são armazenados exatamente como recebidos, sem regeneração local. Gerar um PDF ou desenhar uma assinatura não satisfaz a exigência de assinatura eletrônica do responsável.
+Modelos devem identificar tipo de documento, período/filtros e data da geração. Autorizações devolvidas são armazenadas exatamente como recebidas, sem regeneração local. Gerar um PDF não substitui a autorização do responsável conferida por servidor.
 
 ## 10.2 Consultas e processamento
 
@@ -446,7 +450,7 @@ Não calcular no navegador uma “nota de comportamento” que a AE não definiu
 
 Usar HTTPS, cabeçalhos de segurança, política de conteúdo compatível com Angular e restrição de enquadramento da aplicação. Não renderizar HTML livre de avisos/observações sem sanitização. Limitar requisições em autenticação, reenvio e endpoints externos sem impor limites que bloqueiem o fluxo legítimo da chamada.
 
-Webhooks são exceções específicas à proteção CSRF, porque usam autenticação do provedor; não desabilitar CSRF globalmente. Dados sensíveis, tokens, cookies, credenciais e links individuais de assinatura não aparecem nos logs. Não disponibilizar arquivos privados por URL estática do Nginx.
+Webhooks são exceções específicas à proteção CSRF, porque usam autenticação do gateway; não desabilitar CSRF globalmente. Dados sensíveis, tokens, cookies e credenciais não aparecem nos logs. Não disponibilizar arquivos privados por URL estática do Nginx.
 
 ## 11.2 Auditoria de negócio
 
@@ -454,7 +458,7 @@ Webhooks são exceções específicas à proteção CSRF, porque usam autentica�
 
 A trilha de auditoria é permanente por decisão do solicitante em 30/09/2026; a implementação dessa retenção ainda está pendente. Não deve ser editável pela interface nem por operações comuns do usuário de aplicação. Restringir UPDATE/DELETE no armazenamento de auditoria quando a modelagem permitir. Isso dificulta alterações indevidas, mas não torna o histórico inviolável contra um administrador de banco/servidor. A permanência da trilha não estende indefinidamente a retenção do conteúdo médico completo, documentos ou backups. Backup, permissões e governança seguem necessários.
 
-Aviso lido, ciência explícita, assinatura e decisão de aprovação são eventos distintos. O uso do botão “Marcar como Ciente” não supre a assinatura da saída longa.
+Aviso lido, ciência explícita, autorização conferida e decisão de aprovação são eventos distintos. O uso do botão “Marcar como Ciente” não supre a autorização da saída longa.
 
 ## 11.3 Segredos e dados armazenados
 
@@ -520,7 +524,7 @@ Usar Actuator com endpoints restritos e estado de saúde sem detalhes sensíveis
 
 Frontend com Vitest e utilitários de teste do Angular; a configuração atual do Angular CLI usa Vitest. Playwright executa jornadas completas de login, modais, abas, filtros e saídas, em navegador real. Acessibilidade exige verificações de foco/teclado e leitura, não apenas teste de renderização. [T03, T26]
 
-Integrações externas começam com adaptadores simulados e passam por sandbox/ambiente de homologação real. Simulação não comprova identidade do signatário nem assinatura operacional. O login próprio também exige validação separada antes de implantação. Testar falhas, repetição, ordem invertida de webhooks e reinício no meio de cada etapa.
+Integrações externas começam com adaptadores simulados e passam por sandbox/ambiente de homologação real. Simulação não comprova a identidade de quem respondeu nem a entrega real. O login próprio também exige validação separada antes de implantação. Testar falhas, repetição, ordem invertida de webhooks e reinício no meio de cada etapa.
 
 ## 13.2 Critérios AT01–AT18
 
@@ -549,7 +553,7 @@ Estes critérios complementam AC01–AC72 do PRD; não renumeram nem substituem 
 
 ## 13.3 Falhas que impedem a liberação
 
-Impedem a liberação: aprovação longa sem assinatura/documento correto; exposição de dados de terceiros; sanção automática; perda ou duplicidade de retorno; autenticação de demonstração ativa; segredo exposto; migração sem teste; ausência de backup recuperável. Falhas em requisitos não funcionais devem ser registradas com evidência e submetidas à instituição, não ocultadas pela escolha de um percentil diferente.
+Impedem a liberação: aprovação longa sem autorização conferida na revisão atual do documento; exposição de dados de terceiros; sanção automática; perda ou duplicidade de retorno; autenticação de demonstração ativa; segredo exposto; migração sem teste; ausência de backup recuperável. Falhas em requisitos não funcionais devem ser registradas com evidência e submetidas à instituição, não ocultadas pela escolha de um percentil diferente.
 
 <!-- pagebreak -->
 
@@ -585,18 +589,18 @@ A sequência abaixo cobre o produto completo. Não fixa prazo nem reduz requisit
 
 | Etapa                   | Trabalho principal                                                                                                                           | Critério de saída                                                                  |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| 0. Preparação           | Congelar stack; validar login próprio para implantação; validar API de assinatura e Meta; resolver pendências que bloqueiam o próximo módulo | Login SAGER de prova; contrato de versões; dependências e regras com responsáveis. |
+| 0. Preparação           | Congelar stack; validar login próprio para implantação; validar aceite do gateway WhatsApp; resolver pendências que bloqueiam o próximo módulo | Login SAGER de prova; contrato de versões; dependências e regras com responsáveis. |
 | 1. Fundação             | Angular/Material, Spring Boot, banco/Flyway, sessões, perfis, auditoria, pipeline                                                            | Fluxo vertical de cadastro protegido com banco real e testes.                      |
 | 2. Residência           | Residentes, responsáveis, supervisores, quartos e mapa                                                                                       | Cadastros homologados, vínculos/permissões e mapa coerente.                        |
 | 3. Operação curta       | Chamada, solicitação curta, decisão, linha do tempo e retorno                                                                                | Limite de 3 horas, modais, atraso e concorrência validados.                        |
-| 4. Saída longa          | Documento, adaptadores, tarefa persistente, WhatsApp, assinatura e recuperação                                                               | Jornada externa real e falhas homologadas, sem aprovação indevida.                 |
+| 4. Saída longa          | Documento, tarefa persistente, WhatsApp, autorização conferida e recuperação                                                               | Jornada externa real e falhas homologadas, sem aprovação indevida.                 |
 | 5. Acompanhamento       | Notificações, advertência manual, avisos, ciência e termos                                                                                   | Revisão humana preservada e procedimento RN10 aprovado.                            |
 | 6. Limpeza e relatórios | Avaliação, ranking, feedback, filtros, gráficos e exportações                                                                                | Fórmulas aprovadas; consistência entre dados, tela e arquivos.                     |
 | 7. Operação assistida   | Ajuda, testes de carga, backup/restore, segurança, treinamento e piloto                                                                      | AC01–AC72 e AT01–AT18 verificados; pendências bloqueantes encerradas.              |
 
 **[T]** Desenvolver primeiro um fluxo pequeno de ponta a ponta e reutilizar o padrão. Evitar construir todas as telas com dados fictícios para só depois iniciar o backend. Contratos e exemplos de erro devem ser acordados quando cada funcionalidade começa.
 
-**[A]** Integração com SUAP/Google não é bloqueio da fase atual. O login próprio requer validação antes de implantação real. Ausência de contratação da assinatura não impede desenvolver cadastros e regras independentes, mas impede declarar homologada a integração real ou liberar o fluxo de saída longa em produção.
+**[A]** Integração com SUAP/Google não é bloqueio da fase atual. O login próprio requer validação antes de implantação real. Não há provedor de assinatura a contratar. Sem homologar o gateway de WhatsApp com número real, a integração não pode ser declarada homologada, e o fluxo de saída longa não é liberado em produção.
 
 <!-- pagebreak -->
 
@@ -615,7 +619,7 @@ A sequência abaixo cobre o produto completo. Não fixa prazo nem reduz requisit
 | DT07 | PDFBox, POI e Chart.js                            | Geração Java de arquivos e gráficos no navegador, sem serviço PDF externo obrigatório.                          |
 | DT08 | Documentos privados em volume local               | Implantação inicial simples; metadados/versionamento e backup coerente.                                         |
 | DT09 | Docker Compose + Nginx                            | Três serviços permanentes e frontend estático.                                                                  |
-| DT10 | Adaptador Clicksign de referência                 | Contrato de assinatura definido tecnicamente, ativação condicionada à instituição.                              |
+| DT10 | Sem provedor de assinatura (substituído em 2026-10-31) | Autorização conferida por servidor; ativação condicionada à instituição. Ver seção 8.                      |
 | DT11 | Testes por camada e jornadas E2E                  | Verificar regras sensíveis e regressões nas integrações.                                                        |
 | DT12 | Auditoria/transações/controle de versão           | Preservar decisões e impedir efeitos duplicados ou sobre estado desatualizado.                                  |
 
@@ -626,8 +630,8 @@ Estas decisões deixam de ser “stack a escolher”. Se forem alteradas, regist
 | Dependência                                                   | Encaminhamento                                                                                                                              |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | Segurança e ciclo do login próprio                            | TI; D01/D21 do PRD. Validar provisionamento, recuperação, proteção contra abuso e implantação; SUAP/Google apenas em etapa futura.          |
-| Assinatura, prova de identidade, fornecedor e custos          | Instituição/AE/TI; D16/D25. Validar acesso à API e evidências antes de produção.                                                            |
-| Cadastro, janelas, início de saída, cancelamento e correções  | AE; D02–D09, D15 e D19. Nascimento obrigatório em novo/edição e curso opcional na API local; não restringir cadastro a 16–17 anos.          |
+| Validade da autorização, prova de identidade e número         | Instituição/AE/TI; D15/D16/D25. O sistema não atesta validade; homologar o gateway antes de produção.                                                            |
+| Cadastro, janelas, início de saída, cancelamento e correções  | AE; D02–D09, D15 e D19. Nascimento e curso (desde 31/10/2026) obrigatórios em novo/edição; não restringir cadastro a 16–17 anos.          |
 | Fórmulas de limpeza, comportamento, alertas e reincidência    | AE; D10–D14. Não preencher com números de exemplo.                                                                                          |
 | Avisos, exportações e acesso a dados médicos                  | AE/TI; D01, D18 e D20. Acesso médico restrito a profissionais autorizados, mesmo com paridade operacional gestor/supervisor.                |
 | Retenção, descarte, destino de backup e recuperação aceitável | Instituição/TI; D22/D23. Trilha de auditoria permanente decidida, implementação pendente; demais dados e backups exigem políticas próprias. |
@@ -681,6 +685,6 @@ As páginas abaixo foram consultadas para verificar suporte, compatibilidade e r
 | T31 | Spring Framework — REST Clients                  | https://docs.spring.io/spring-framework/reference/integration/rest-clients.html                 |
 | T32 | Angular — Signals                                | https://angular.dev/guide/signals                                                               |
 
-**WhatsApp:** integração exigida pela SRS e mantida nesta arquitetura. A abertura da documentação pública da Meta falhou nesta revisão; não foram verificadas versão Graph API, tarifas ou payloads específicos. Esses pontos devem ser conferidos na conta/documentação oficial durante a etapa 0.
+**WhatsApp:** integração exigida pela SRS e mantida nesta arquitetura, agora por gateway não oficial. Nada foi testado com número real; o teste de aceite está em `docs/whatsapp/OPERACAO.md`.
 
-**Assinatura e licenciamento:** a referência Clicksign não comprova a adequação do método ao processo da AE nem resolve a restrição de custos/licenças da SRS. A aprovação institucional é condição de ativação. As bibliotecas e imagens efetivamente fixadas precisam de inventário de licenças, incluindo dependências transitivas e ferramentas de desenvolvimento.
+**Assinatura e licenciamento:** a conferência por servidor não comprova a adequação do método ao processo da AE. As referências T16 e T17 ficam só como registro do desenho substituído em 2026-10-31. A aprovação institucional é condição de ativação. As bibliotecas e imagens efetivamente fixadas precisam de inventário de licenças, incluindo dependências transitivas e ferramentas de desenvolvimento.

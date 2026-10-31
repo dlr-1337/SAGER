@@ -4,7 +4,7 @@ O [roteiro](../ROADMAP_IMPLEMENTACAO.md) cobre residentes, responsáveis legais,
 supervisores e quartos. As cinco fatias locais estão implementadas e
 [verificadas](QA.md): supervisores; alojamentos, unidades e quartos; residentes;
 responsáveis; e alocação com histórico. Os testes usam contas e dados sintéticos.
-Os cadastros funcionais não provisionam contas de acesso. Há auditoria de suas
+Até 30/10/2026, os cadastros funcionais não provisionavam contas de acesso; desde 31/10/2026, criar residente ou supervisor cria a conta vinculada na mesma transação. Há auditoria de suas
 alterações pela V11 e vínculo explícito, feito pelo operador, entre contas e
 cadastros pela V12. A sexta fatia implementa a [área de saúde](SAUDE_CONTRATO.md)
 em recurso separado: habilitação e vínculo vigentes, notas privadas com partilha
@@ -26,11 +26,11 @@ executadas; as respostas não são aceite formal da AE/TI.
 
 ## Primeira fatia: supervisores
 
-- Gestor e supervisor locais cadastram, consultam e editam supervisores; o servidor valida campos,
+- Desde 31/10/2026, só o gestor cadastra, consulta e edita supervisores; o servidor valida campos,
   mantém um ID estável e rejeita alterações com versão desatualizada.
 - O cadastro fica no PostgreSQL. A demonstração pública mantém seus registros
   fictícios em memória, separada da API.
-- As rotas de gestão exigem sessão local, perfil de gestor ou supervisor e CSRF nas alterações.
+- As rotas de supervisores exigem sessão local, perfil de gestor e CSRF nas alterações.
   Fora do perfil `local`, o backend continua fechado.
 - A identificação institucional, o e-mail e o nome são dados **sintéticos** para
   desenvolvimento. A migração V4 exige identificação única sem diferenciar
@@ -43,7 +43,7 @@ e `PUT /api/v1/supervisores/{id}` para editar. O JSON expõe `id`, `name`,
 `institutionalId`, `email` e `version`; o `PUT` exige a versão conhecida. Criação
 retorna `201`; dados inválidos, ID inexistente, duplicidade e versão obsoleta
 retornam respectivamente `400`, `404`, `409` e `409`. Todas as rotas exigem
-perfil `gestor` ou `supervisor`; as mutações também exigem CSRF.
+perfil `gestor`; as mutações também exigem CSRF.
 
 ## Segunda fatia: alojamentos, unidades e quartos
 
@@ -134,7 +134,7 @@ também pode consultar, cadastrar e editar. A integração com SUAP está adiada
 porque não há autorização. A matrícula identifica o registro do estudante, mas
 não é obtida do login. Comprovação dos campos, responsável pela conferência e
 ciclo do cadastro continuam por detalhar na [D02](../fase-0/DECISOES.md).
-O cadastro local não provisiona conta de acesso ao SAGER.
+Desde 31/10/2026, o cadastro cria a conta de login vinculada, com a senha informada, na mesma transação.
 
 O contrato oferece `GET/POST /api/v1/residentes` e
 `GET/PUT /api/v1/residentes/{id}`. Cada resposta inclui `id` (UUID), `name`,
@@ -168,7 +168,7 @@ Nascimento legado ausente não comprova maioridade para fluxos futuros.
 
 **Estado: implementada, com aceite técnico local.**
 
-Gestor e supervisor locais cadastram e editam nome, vínculo declarado, telefone opcional e
+Gestor e supervisor locais cadastram e editam nome, vínculo declarado, telefone e
 estado ativo de responsáveis associados a residentes persistidos. Cada registro
 tem UUID e versão próprios; um residente pode ter vários responsáveis, sem um
 limite ou uma ordem presumidos. A migração V8 cria os registros e a chave
@@ -177,8 +177,8 @@ comprova guarda, autorização para saída ou validade de assinatura.
 
 O contrato oferece `GET/POST /api/v1/responsaveis` e
 `GET/PUT /api/v1/responsaveis/{id}`. O JSON expõe `id`, `residentId`, `name`,
-`relationship`, `phone`, `active` e `version`. Telefone pode ser `null`; não há
-regra provisória de validade para WhatsApp. A edição exige a versão consultada.
+`relationship`, `phone`, `active` e `version`. Desde 31/10/2026, telefone é
+obrigatório em novo cadastro e em valor alterado; registro antigo pode ter `null` e continua passando na edição. A edição exige a versão consultada.
 Entrada inválida retorna `400/invalid_input`, residente ausente no vínculo
 retorna `422/invalid_reference`, responsável ausente retorna `404/not_found` e
 versão obsoleta retorna `409/stale_version`. Gestor e supervisor locais podem
@@ -193,6 +193,11 @@ sem exigir ambos. Comprovação do vínculo e da identidade, seleção do destin
 tratamento de divergências e serviço/modalidade de assinatura continuam por
 detalhar na [D15](../fase-0/DECISOES.md) e na D16. Nenhum envio ou
 decisão de saída longa é ativado por esta fatia.
+
+**Decisão de 31/10/2026, que substitui a definição acima:** a aprovação de saída longa
+exige autorização conferida por servidor, de qualquer responsável vinculado, na revisão
+atual do documento. Não há provedor de assinatura, e o SAGER não promete a validade da
+autorização.
 
 ## Quinta fatia: alocação local e histórico de quartos
 

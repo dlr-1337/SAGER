@@ -71,6 +71,7 @@ Sem acesso à nota existente: 404; sem capacidade assistencial: 403.
 | `POST /saude/vinculos` | `{residentId,professionalGrantId,reason}` |
 | `POST /saude/vinculos/{id}/encerramento` | `{version,reason}` |
 | `GET /saude/custodias?residentId&limit&beforeSequence` | Administração; episódios |
+| `GET /saude/custodias/autores?residentId` | Administração; contas que já escreveram notas do residente, só id e nome |
 | `POST /saude/custodias` | `{residentId,sourceAuthorAccountId,recipientGrantId,reason}` |
 | `POST /saude/custodias/{id}/encerramento` | `{version,reason}` |
 | `GET /saude/residentes?q&limit&afterId` | Somente residentes assistidos; cabeçalho mínimo e UUID crescente |

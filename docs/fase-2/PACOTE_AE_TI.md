@@ -19,9 +19,9 @@ identidade institucional ou autorizar uso de dados reais.
 
 | Decisão | Escolha de projeto registrada                                                                                                                                                                  |
 | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D01     | Supervisor é a autoridade máxima na gestão; pode consultar, cadastrar, editar e movimentar os recursos existentes, com as mesmas operações do gestor.                                          |
-| D02     | Cadastro manual pelo gestor; supervisor também pode cadastrar. Nome, matrícula e nascimento obrigatórios nas novas gravações; SUAP adiado por falta de autorização.                            |
-| D15     | Na saída longa, basta uma assinatura válida de qualquer responsável cadastrado e vinculado ao residente; não são exigidos ambos.                                                               |
+| D01     | Supervisor é a autoridade máxima na gestão; pode consultar, cadastrar, editar e movimentar os recursos existentes, com as mesmas operações do gestor. Desde 31/10/2026, só o gestor gerencia supervisores. |
+| D02     | Cadastro manual pelo gestor; supervisor também pode cadastrar. Nome, matrícula, nascimento e curso obrigatórios nas novas gravações; SUAP adiado por falta de autorização.                     |
+| D15     | Na saída longa, basta uma autorização conferida de qualquer responsável vinculado ao residente; não são exigidos ambos. Desde 31/10/2026, sem provedor e sem prometer validade.                                                               |
 | D19     | Pela orientação de usar o documento com maior capacidade, as capacidades detalhadas do ZIP/planilha prevalecem em Residência 4 e Laticínio; PDF complementa inventário ausente no ZIP parcial. |
 | D21     | Login próprio do SAGER; integrações com SUAP ou Google adiadas.                                                                                                                                |
 | D22     | Compartilhamento entre profissionais de saúde permitido; registros de auditoria guardados permanentemente.                                                                                     |
@@ -55,6 +55,10 @@ permissão para todas as operações de gestão existentes. O gestor conserva
 essas operações. A resposta substitui a restrição anterior de escrita somente
 pelo gestor, inclusive para o cadastro funcional de supervisores.
 
+**Escolha de 31/10/2026, que substitui a anterior só neste ponto:** somente o gestor
+lista, consulta, cadastra e edita supervisores. A paridade continua nos demais
+cadastros, e a homologação institucional segue pendente.
+
 Em 26/09/2026, o solicitante informou que os servidores da GAE, inclusive
 profissionais de saúde, poderão consultar dados não sensíveis. Essa orientação
 ainda precisa de uma matriz institucional por recurso, operação e vínculo.
@@ -64,7 +68,7 @@ Ela não estabelece acesso médico pelo perfil de gestor ou supervisor.
 
 | Recurso ou operação                   | Gestor local                                     | Supervisor local                                 | Residente local                 |
 | ------------------------------------- | ------------------------------------------------ | ------------------------------------------------ | ------------------------------- |
-| Cadastro funcional de supervisores    | Consulta, cadastro e edição                      | Consulta, cadastro e edição                      | Sem acesso à API                |
+| Cadastro funcional de supervisores    | Consulta, cadastro e edição                      | Sem acesso à API desde 31/10/2026                | Sem acesso à API                |
 | Residentes e responsáveis             | Consulta, cadastro e edição                      | Consulta, cadastro e edição                      | Sem acesso à API                |
 | Alojamentos, unidades, quartos e mapa | Consulta, cadastro e edição                      | Consulta, cadastro e edição                      | Sem acesso à API                |
 | Vínculos e histórico de alocação      | Consulta, alocação, transferência e encerramento | Consulta, alocação, transferência e encerramento | Sem acesso à API                |
@@ -73,7 +77,8 @@ Ela não estabelece acesso médico pelo perfil de gestor ou supervisor.
 As APIs exigem sessão; alterações exigem CSRF e controle de versão quando
 aplicável. Fora do perfil `local`, as rotas permanecem fechadas. O domínio do
 e-mail não concede perfil. O operador cria contas locais pela CLI com perfil
-explícito; cadastrar um supervisor ou residente não cria conta de acesso.
+explícito; cadastrar um residente ou supervisor exige senha e cria a conta vinculada
+na mesma transação.
 
 **Detalhes ainda necessários para uso institucional:**
 
@@ -93,11 +98,10 @@ o aceite formal continua sem evidência. **Encaminhamento proposto:** AE/TI.
 
 **Escolha de 30/09/2026 e contrato atualizado:** digitação manual pelo gestor,
 também permitida ao supervisor; UUID estável; nome, matrícula e nascimento
-obrigatórios nas novas gravações e edições; curso opcional. A integração com
-SUAP está adiada porque não há autorização. Matrícula é texto, com
-espaços das pontas removidos, inclusive espaços Unicode, e unicidade sem
-diferenciar maiúsculas/minúsculas. Não há formato universal inferido dos exemplos
-de 16/17 posições. Nascimento deve ser válido e não futuro. O contrato anterior
+obrigatórios nas novas gravações e edições; curso obrigatório desde 31/10/2026. A
+integração com SUAP está adiada porque não há autorização. Valor novo ou alterado segue
+[`CADASTRO_IFGOIANO.md`](../fase-0/CADASTRO_IFGOIANO.md), que também lista o que a AE/TI
+precisa confirmar. A unicidade não diferencia maiúsculas/minúsculas. O contrato anterior
 permitia ausência: os registros legados são preservados sem inventar datas,
 mas sua edição exige nascimento. Ausência legada mantém a idade desconhecida
 e não comprova maioridade. A matrícula é
@@ -127,9 +131,14 @@ cadastrado e vinculado ao residente é suficiente para saída longa; não são
 exigidas assinaturas de ambos. O destinatário não é escolhido automaticamente
 por essa regra. Serviço, modalidade e comprovação da assinatura dependem de D16/D17.
 
+**Decisão de 31/10/2026, que substitui a escolha acima:** a aprovação de saída longa
+exige autorização conferida por servidor, de qualquer responsável vinculado, na revisão
+atual do documento. Não há provedor de assinatura, e o SAGER não promete a validade da
+autorização.
+
 **Cadastro local:** um residente pode ter vários responsáveis;
-cada registro tem UUID, nome, vínculo declarado, telefone opcional, estado ativo
-obrigatório e versão. Não há prioridade de contato nem quantidade máxima
+cada registro tem UUID, nome, vínculo declarado, telefone (desde 31/10/2026, obrigatório
+em novo cadastro e em valor alterado), estado ativo obrigatório e versão. Não há prioridade de contato nem quantidade máxima
 presumida. O cadastro ativo não comprova guarda, identidade, autorização para
 saída ou validade de assinatura. O solicitante esclareceu que as configurações
 podem incluir detentor da guarda, ambos os pais, somente a mãe, somente o pai

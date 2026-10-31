@@ -9,7 +9,7 @@ Na máquina local são necessários Docker, Compose e Bash. Node, npm, JDK, Mave
 ./sager account create --matricula=TESTE-GESTOR --name='Gestor de Teste' --profile=gestor
 ```
 
-Informe e confirme a senha no terminal oculto (12–72 caracteres, até 72 bytes). Não há conta nem senha padrão. Os perfis disponíveis são gestor, supervisor, residente e saude. O e-mail do operador é metadado opcional (`--email=...`). Cadastre residentes pela interface para criar automaticamente o vínculo com sua conta.
+Informe e confirme a senha no terminal oculto (pelo menos 8 caracteres; senhas fáceis demais e a própria matrícula são recusadas). Não há conta nem senha padrão. Os perfis disponíveis são gestor, supervisor, residente e saude. O e-mail do operador é metadado opcional (`--email=...`). Cadastre residentes pela interface para criar automaticamente o vínculo com sua conta.
 
 Acesse http://127.0.0.1:4200/acesso. A primeira compilação pode levar alguns minutos. Use `./sager down` para parar sem apagar volumes e `./sager up` para reconstruir/iniciar. Após alterações de Java ou Angular, repita `up`. `./sager account help` lista os comandos. Para redefinir uma conta operacional:
 

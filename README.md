@@ -25,12 +25,12 @@ O detalhamento de cada entrega, seus contratos e limites está no [roteiro de im
 
 | Perfil | Papel no sistema |
 | --- | --- |
-| Gestor | Gestão e consultas permitidas pelo contrato de cada módulo. |
-| Supervisor | Gestão e operações de residência, incluindo atividades específicas como chamada. |
+| Gestor | Gestão, inclusive de supervisores, e consultas permitidas pelo contrato de cada módulo. |
+| Supervisor | Gestão, exceto de supervisores, e operações de residência, incluindo atividades específicas como chamada. |
 | Residente | Solicitações e consultas próprias associadas ao vínculo da conta. |
 | Saúde | Entrada na conta; acesso ao conteúdo exige também habilitação profissional e vínculo assistencial. |
 
-O cadastro assistido de residente cria sua conta vinculada na mesma transação, com matrícula e senha escolhida no cadastro. O operador provisiona as demais contas e seus vínculos. Não há cadastro público de contas. A recuperação do residente confere nome, nascimento e nome de um responsável ativo quando houver; a recuperação dos demais perfis é administrativa.
+O cadastro de residente ou de supervisor cria a conta vinculada na mesma transação, com a matrícula ou SIAPE e a senha informadas no cadastro. O operador provisiona as demais contas e seus vínculos. Não há cadastro público de contas. A recuperação do residente confere nome, nascimento e nome de um responsável ativo quando houver; a recuperação dos demais perfis é administrativa.
 
 Ter um perfil de gestão não concede acesso automático ao conteúdo de saúde. As permissões efetivas são verificadas pela API; os controles de navegação do Angular não substituem essa verificação.
 
@@ -42,10 +42,10 @@ flowchart LR
     F -->|API e sessão| B[Spring Boot]
     B --> P[(PostgreSQL)]
     B --> A[Autorização e auditoria]
-    B -. Configuração e homologação .-> I[Clicksign / WhatsApp]
+    B -. Configuração e aceite institucional .-> I[Gateway WhatsApp]
 ```
 
-Stack documentada: **Angular 22, Spring Boot 4.1, Java 21 e PostgreSQL 17**. O frontend se organiza por domínios, incluindo gestão, operações, comunicações, saúde, limpeza, relatórios, assinatura e portal.
+Stack documentada: **Angular 22, Spring Boot 4.1, Java 21 e PostgreSQL 17**. O frontend se organiza por domínios, incluindo gestão, operações, comunicações, saúde, limpeza, relatórios e portal.
 
 | Caminho | Conteúdo |
 | --- | --- |
@@ -104,7 +104,7 @@ O [guia de CI](docs/CI.md) explica a validação automatizada. Os resultados por
 
 A produção exige configuração própria, HTTPS, segredos externos, contas provisionadas e preparação de migrações e recuperação. O seletor de demonstração fica desabilitado nesse ambiente.
 
-**Clicksign e WhatsApp dependem de credenciais, configuração e homologação externa. Google e SUAP foram adiados.** Esses itens não devem ser anunciados como integrações operacionais apenas porque existem telas ou contratos planejados.
+**O WhatsApp usa um gateway auto-hospedado e não oficial, desligado por padrão, que depende de número dedicado, configuração e aceite institucional ([operação](docs/whatsapp/OPERACAO.md)). Não há provedor externo de assinatura. Google e SUAP foram adiados.** Esses itens não devem ser anunciados como integrações operacionais apenas porque existem telas ou contratos planejados.
 
 As regras implementadas e os testes técnicos não substituem o aceite institucional nem a medição de capacidade na VPS definitiva. Registros de desenvolvimento, capturas e ensaios devem usar dados sintéticos, especialmente nos módulos de residentes e saúde.
 
