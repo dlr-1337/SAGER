@@ -20,7 +20,12 @@ const accessGuard: CanActivateFn = async (route) => {
 const managementRoutes: Routes = MANAGEMENT_ROUTES.map((route) => ({
   ...route,
   canActivate: [accessGuard],
-  data: { ...route.data, roles: ['gestor', 'supervisor'] satisfies Role[] },
+  data: {
+    ...route.data,
+    roles: route.path?.startsWith('supervisores')
+      ? (['gestor'] satisfies Role[])
+      : (['gestor', 'supervisor'] satisfies Role[]),
+  },
 }));
 
 const healthGuard: CanActivateFn = async (route) => {
@@ -205,7 +210,8 @@ const appRoutes: Routes = [
     path: 'relatorios',
     canActivate: [accessGuard],
     data: { roles: ['gestor', 'supervisor'] satisfies Role[] },
-    loadComponent: () => import('./features/reports/reports.pages').then((m) => m.ReportsPage),
+    loadComponent: () =>
+      import('./features/reports/reports-local.pages').then((m) => m.ReportsLocalPage),
   },
   {
     path: 'relatorios/individual/:id',
@@ -223,17 +229,6 @@ const appRoutes: Routes = [
     path: 'ajuda',
     data: { public: true },
     loadComponent: () => import('./features/portal/portal.pages').then((m) => m.HelpPage),
-  },
-  {
-    path: 'assinatura/acesso',
-    data: { public: true },
-    loadComponent: () =>
-      import('./features/signature/signature-access.page').then((m) => m.SignatureAccessPage),
-  },
-  {
-    path: 'assinatura/:token',
-    data: { public: true },
-    loadComponent: () => import('./features/signature/signature.page').then((m) => m.SignaturePage),
   },
   {
     path: 'acesso-negado',

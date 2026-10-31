@@ -50,7 +50,7 @@ export function criteriaInput(form: CriteriaForm): CleaningCriteria {
         @if (form.controls[key].touched && form.controls[key].invalid) {
           <span class="field-error">Informe uma nota de 0 a 10.</span>
         }
-        <span class="field-hint">De 0 a 10, em passos de 0,1 · peso 25%.</span></label
+        <span class="field-hint">Nota de 0 a 10.</span></label
       >
     }
   </div>`,

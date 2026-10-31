@@ -88,7 +88,6 @@
 .indicator-table {
   width: 100%;
   margin: 20px 0;
-  table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
   border: 1px solid var(--line);
@@ -99,7 +98,7 @@
 .indicator-table th,
 .indicator-table td {
   padding: 12px 10px;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
   font-size: var(--text-meta);
 }
 .indicator-table td {
@@ -113,7 +112,14 @@
   font-weight: 700;
   margin-bottom: 12px;
 }
+.op-panel h3 {
+  margin-top: 24px;
+}
 @media (max-width: 540px) {
+  .indicator-table {
+    display: block;
+    overflow-x: auto;
+  }
   .cleaning-criteria {
     grid-template-columns: 1fr;
   }

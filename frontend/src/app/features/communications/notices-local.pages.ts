@@ -1,8 +1,9 @@
 import { CommunicationFiltersComponent } from './communication-filters.component';
 import { UnsavedFormDirective } from '../../shared/unsaved-form';
+import { trimmedLength } from '../../shared/field-rules';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
@@ -25,11 +26,11 @@ function noticeForm() {
   return new FormGroup({
     title: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.required, Validators.minLength(3), Validators.maxLength(200)],
+      validators: [trimmedLength(3, 200)],
     }),
     body: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.required, Validators.minLength(3), Validators.maxLength(4000)],
+      validators: [trimmedLength(3, 4000)],
     }),
   });
 }
@@ -58,7 +59,7 @@ const statusLabels = { RASCUNHO: 'Rascunho', PUBLICADO: 'Publicado', RETIRADO: '
         <div>
           <a class="op-back" routerLink="/inicio">← Início</a>
           <h1>Avisos aos residentes</h1>
-          <p>Prepare, revise e publique avisos para cadastros selecionados.</p>
+          <p>Escreva e publique avisos para os residentes que você escolher.</p>
         </div>
         @if (!session.active() && session.hasRole('supervisor')) {
           <a class="btn" routerLink="/comunicacoes/avisos/novo">Preparar aviso</a>
@@ -83,7 +84,11 @@ const statusLabels = { RASCUNHO: 'Rascunho', PUBLICADO: 'Publicado', RETIRADO: '
                 <div class="op-row-main">
                   <h3>{{ notice.title }}</h3>
                   <p>
-                    {{ notice.residentIds.length }} destinatário(s) · versão {{ notice.version }}
+                    {{
+                      notice.residentIds.length === 1
+                        ? '1 residente'
+                        : notice.residentIds.length + ' residentes'
+                    }}
                   </p>
                   @if (notice.publishedAt) {
                     <p>Publicado em {{ formatTime(notice.publishedAt) }}</p>
@@ -91,7 +96,7 @@ const statusLabels = { RASCUNHO: 'Rascunho', PUBLICADO: 'Publicado', RETIRADO: '
                 </div>
                 <span class="op-status">{{ labels[notice.status] }}</span
                 ><a class="op-row-link" [routerLink]="['/comunicacoes/avisos', notice.id]"
-                  >Consultar aviso<span class="material-symbols-outlined" aria-hidden="true"
+                  >Ver aviso<span class="material-symbols-outlined" aria-hidden="true"
                     >arrow_forward</span
                   ></a
                 >
@@ -99,7 +104,7 @@ const statusLabels = { RASCUNHO: 'Rascunho', PUBLICADO: 'Publicado', RETIRADO: '
             } @empty {
               <div class="op-empty" role="status">
                 <h3>Nenhum aviso registrado</h3>
-                <p>Prepare um aviso e selecione os residentes que receberão a publicação.</p>
+                <p>Escreva um aviso e escolha quem vai receber.</p>
               </div>
             }
           </div>
@@ -194,7 +199,7 @@ export class NoticesManagementLocalPage {
         <div>
           <a class="op-back" routerLink="/comunicacoes/avisos">← Avisos</a>
           <h1>Preparar aviso</h1>
-          <p>Salve um rascunho e confira o conteúdo antes da publicação.</p>
+          <p>Salve um rascunho e confira o texto antes de publicar.</p>
         </div>
       </header>
       <sager-communications-state
@@ -215,12 +220,19 @@ export class NoticesManagementLocalPage {
         >
           <h2>Conteúdo do aviso</h2>
           <label class="field"
-            >Título<input type="text" maxlength="200" formControlName="title" /></label
-          ><label class="field"
+            >Título<input type="text" maxlength="200" formControlName="title" />
+            @if (form.controls.title.touched && form.controls.title.invalid) {
+              <span class="field-error">Escreva um título de 3 a 200 caracteres.</span>
+            }
+          </label>
+          <label class="field"
             >Mensagem<textarea rows="6" maxlength="4000" formControlName="body"></textarea>
+            @if (form.controls.body.touched && form.controls.body.invalid) {
+              <span class="field-error">Escreva uma mensagem de 3 a 4.000 caracteres.</span>
+            }
           </label>
           <fieldset class="comm-recipient-fieldset">
-            <legend>Destinatários por cadastro</legend>
+            <legend>Quem vai receber</legend>
             <label class="field"
               >Buscar residente<input
                 type="search"
@@ -244,11 +256,16 @@ export class NoticesManagementLocalPage {
                 <p>Nenhum residente encontrado.</p>
               }
             </div>
-            <p>{{ selected().length }} residente(s) selecionado(s)</p>
+            <p>
+              {{
+                selected().length === 1
+                  ? '1 residente escolhido'
+                  : selected().length + ' residentes escolhidos'
+              }}
+            </p>
           </fieldset>
           <p class="comm-help">
-            Os destinatários ficam vinculados pelos identificadores dos cadastros. Após publicar,
-            uma revisão preserva estes destinatários.
+            Depois de publicar, você pode corrigir o texto, mas não mudar quem recebe.
           </p>
           @if (error()) {
             <p class="comm-error" role="alert">{{ error() }}</p>
@@ -256,12 +273,10 @@ export class NoticesManagementLocalPage {
           <div class="comm-actions">
             <a class="btn-secondary" routerLink="/comunicacoes/avisos">Cancelar</a
             ><button class="btn" type="submit" [disabled]="busy() || conflict()">
-              Revisar e salvar rascunho
+              Salvar rascunho
             </button>
             @if (conflict()) {
-              <button class="btn-secondary" type="button" (click)="load()">
-                Recarregar formulário
-              </button>
+              <button class="btn-secondary" type="button" (click)="load()">Recarregar dados</button>
             }
           </div>
         </form>
@@ -352,7 +367,7 @@ export class NoticeFormLocalPage {
               { label: 'Título', value: input.title },
               { label: 'Mensagem', value: input.body },
               {
-                label: 'Destinatários',
+                label: 'Quem vai receber',
                 value: this.residents()
                   .filter((item) => input.residentIds.includes(item.id))
                   .map((item) => `${item.name} · ${item.enrollment}`)
@@ -402,9 +417,9 @@ export class NoticeFormLocalPage {
       <header class="op-heading">
         <div>
           <a class="op-back" routerLink="/comunicacoes/avisos">← Avisos</a>
-          <h1>Consultar aviso</h1>
+          <h1>Aviso</h1>
           @if (item(); as notice) {
-            <p>Versão {{ notice.version }} · {{ labels[notice.status] }}</p>
+            <p>{{ labels[notice.status] }}</p>
           }
         </div>
       </header>
@@ -422,7 +437,7 @@ export class NoticeFormLocalPage {
         <section class="panel op-panel">
           <h2>{{ notice.title }}</h2>
           <p class="comm-message">{{ notice.body }}</p>
-          <h3>Destinatários vinculados</h3>
+          <h3>Quem recebe</h3>
           <ul>
             @for (id of notice.residentIds; track id) {
               <li>{{ residentLabel(id) }}</li>
@@ -457,7 +472,7 @@ export class NoticeFormLocalPage {
                 [disabled]="busy() || conflict()"
                 (click)="edit.set(!edit())"
               >
-                {{ edit() ? 'Fechar revisão do conteúdo' : 'Preparar nova versão' }}</button
+                {{ edit() ? 'Fechar correção' : 'Corrigir aviso' }}</button
               ><button
                 class="btn-secondary"
                 type="button"
@@ -477,21 +492,25 @@ export class NoticeFormLocalPage {
               (ngSubmit)="revise()"
               novalidate
             >
-              <h3>Nova versão do conteúdo</h3>
+              <h3>Corrigir aviso</h3>
               <p class="comm-help">
-                Destinatários preservados. A versão anterior e sua leitura e ciência continuam no
-                histórico; a nova versão terá evidências próprias.
+                As mesmas pessoas recebem o aviso corrigido e precisam ler de novo. O registro do
+                texto anterior fica guardado.
               </p>
               <label class="field"
-                >Título<input type="text" maxlength="200" formControlName="title" /></label
-              ><label class="field"
-                >Mensagem<textarea
-                  rows="6"
-                  maxlength="4000"
-                  formControlName="body"
-                ></textarea></label
-              ><button class="btn" type="submit" [disabled]="busy() || conflict()">
-                Revisar e publicar nova versão
+                >Título<input type="text" maxlength="200" formControlName="title" />
+                @if (form.controls.title.touched && form.controls.title.invalid) {
+                  <span class="field-error">Escreva um título de 3 a 200 caracteres.</span>
+                }
+              </label>
+              <label class="field"
+                >Mensagem<textarea rows="6" maxlength="4000" formControlName="body"></textarea>
+                @if (form.controls.body.touched && form.controls.body.invalid) {
+                  <span class="field-error">Escreva uma mensagem de 3 a 4.000 caracteres.</span>
+                }
+              </label>
+              <button class="btn" type="submit" [disabled]="busy() || conflict()">
+                Publicar correção
               </button>
             </form>
           }
@@ -503,7 +522,7 @@ export class NoticeFormLocalPage {
           }
           <div class="comm-actions">
             <button class="btn-secondary" type="button" [disabled]="busy()" (click)="load()">
-              {{ conflict() ? 'Recarregar aviso' : 'Atualizar dados' }}
+              {{ conflict() ? 'Recarregar dados' : 'Atualizar dados' }}
             </button>
           </div>
         </section>
@@ -594,14 +613,11 @@ export class NoticeDetailLocalPage {
     if (!(await this.fresh(item))) return;
     this.review(
       {
-        title: 'Revisar nova versão do aviso',
-        action: 'Publicar nova versão',
+        title: 'Conferir correção do aviso',
+        action: 'Publicar correção',
         warning:
-          'Os destinatários permanecem vinculados. A versão anterior conserva sua leitura e ciência.',
-        lines: [
-          ...this.summary({ ...item, ...input }),
-          { label: 'Versão atual', value: String(item.version) },
-        ],
+          'As mesmas pessoas recebem o aviso corrigido. O registro do texto anterior fica guardado.',
+        lines: this.summary({ ...item, ...input }),
       },
       () =>
         this.mutate(async () => {
@@ -613,7 +629,7 @@ export class NoticeDetailLocalPage {
             }),
           );
           this.edit.set(false);
-        }, 'Nova versão publicada. O conteúdo e as evidências anteriores foram preservados.'),
+        }, 'Correção publicada.'),
       trigger,
     );
   }
@@ -641,7 +657,7 @@ export class NoticeDetailLocalPage {
       { label: 'Título', value: item.title },
       { label: 'Mensagem', value: item.body },
       {
-        label: 'Destinatários',
+        label: 'Quem vai receber',
         value: item.residentIds.map((id) => this.residentLabel(id)).join('\n'),
       },
     ];

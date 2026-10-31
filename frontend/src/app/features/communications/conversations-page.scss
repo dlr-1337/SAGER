@@ -1,0 +1,106 @@
+.conv-page-header .page-header {
+  margin-bottom: var(--space-4);
+}
+.conv-shell {
+  display: grid;
+  grid-template-columns: minmax(250px, 350px) minmax(0, 1fr);
+  height: clamp(520px, calc(100dvh - 292px), 900px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+// Conversa
+.conv-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+.conv-pane router-outlet {
+  display: none;
+}
+sager-conversation-thread {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.conv-pane-empty {
+  flex: 1;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  padding: var(--space-6);
+  color: var(--muted);
+  text-align: center;
+}
+.conv-pane-empty .material-symbols-rounded {
+  margin-bottom: var(--space-2);
+  color: var(--green-800);
+  font-size: 44px;
+}
+.conv-pane-empty h2 {
+  margin-bottom: var(--space-1);
+  color: var(--ink);
+}
+.conv-pane-empty p {
+  margin: 0;
+}
+@media (max-width: 800px) {
+  .conv-shell {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+  }
+  .conv-list {
+    border-right: 0;
+  }
+  .conv-rows {
+    overflow: visible;
+  }
+  .conv-page:not(.conv-has-thread) .conv-pane,
+  .conv-has-thread .conv-list,
+  .conv-has-thread .conv-page-header p,
+  .conv-has-thread .conv-page-header .heading-actions {
+    display: none;
+  }
+  // A tela da conversa troca o cabeçalho da página pelo da conversa, mas segue com h1 para leitores.
+  .conv-has-thread .conv-page-header .page-header {
+    margin: 0;
+  }
+  .conv-has-thread .conv-page-header h1 {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  // A conversa ocupa a altura visível, com o campo de texto sempre à vista.
+  .conv-has-thread {
+    display: flex;
+    flex-direction: column;
+    height: calc(100dvh - 72px);
+  }
+  .conv-has-thread .conv-shell {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 420px;
+  }
+  .conv-health {
+    padding: 6px 10px;
+    font-size: var(--text-meta);
+  }
+}
+
+@media (max-width: 480px) {
+  .conv-page-header p {
+    display: none;
+  }
+  .conv-page-header .page-header {
+    margin-bottom: var(--space-3);
+  }
+}

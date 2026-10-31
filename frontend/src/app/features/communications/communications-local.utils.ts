@@ -29,7 +29,7 @@ export const notificationLabels: Record<NotificationStatus, string> = {
 };
 export const archiveLabels: Record<ArchiveReason, string> = {
   ORIGEM_RETIFICADA: 'Origem retificada',
-  SEM_EVIDENCIA: 'Sem evidência suficiente',
+  SEM_EVIDENCIA: 'Sem registro suficiente',
   NAO_PROCEDE: 'Ocorrência não procede',
   OUTRO: 'Outro motivo',
 };
@@ -44,17 +44,17 @@ export const sourceLabels: Record<string, string> = {
 export const eventLabels: Record<string, string> = {
   VISUALIZAR: 'Visualização registrada',
   ANALISAR: 'Análise iniciada',
-  REVISAR_ORIGEM: 'Evidência atual confirmada',
+  REVISAR_ORIGEM: 'Registro atual confirmado',
   ARQUIVAR: 'Notificação arquivada',
-  CONVERTER: 'Advertência emitida após decisão humana',
+  CONVERTER: 'Advertência criada',
 };
 export const communicationLabels = {
   AVISO: 'Aviso',
   ADVERTENCIA: 'Advertência',
-  TERMO: 'Termo de reincidência',
+  TERMO: 'Termo de compromisso',
 };
 export const communicationStateLabels = {
-  PUBLICADO: 'Vigente',
+  PUBLICADO: 'Valendo',
   SUPERADO: 'Versão anterior',
   RETIRADO: 'Retirado',
   ANULADO: 'Anulado',
@@ -106,7 +106,7 @@ export function recurrenceSelectionError(
 ): string {
   const selected = candidate.warnings.filter((warning) => warningIds.includes(warning.id));
   if (!candidate.candidate || candidate.category === 'OUTRA')
-    return 'Não há candidato elegível para esta categoria.';
+    return 'Ainda não há advertências suficientes nesta categoria.';
   if (
     new Set(warningIds).size !== warningIds.length ||
     selected.length !== warningIds.length ||
@@ -121,7 +121,7 @@ export function recurrenceSelectionError(
         warning.category !== candidate.category,
     )
   )
-    return 'A base contém advertência anulada ou com origem pendente de revisão.';
+    return 'Há advertência anulada ou ainda em conferência. Tire-a da seleção.';
   if (
     new Set(selected.map((warning) => warning.occurrenceId)).size !== selected.length ||
     selected.some((warning) => !warning.occurrenceId)
@@ -131,13 +131,13 @@ export function recurrenceSelectionError(
 }
 export function evidenceRows(evidence: EvidenceValue): { label: string; value: string }[] {
   if (!evidence || typeof evidence !== 'object' || Array.isArray(evidence))
-    return [{ label: 'Evidência', value: String(evidence ?? 'Não informada') }];
+    return [{ label: 'Registro', value: String(evidence ?? 'Não informado') }];
   const labels: Record<string, string> = {
     mark: 'Marcação',
     callStatus: 'Situação da chamada',
     referenceDate: 'Data da chamada',
     expectedReturnAt: 'Retorno previsto',
-    actualReturnAt: 'Retorno presencial',
+    actualReturnAt: 'Voltou em',
     status: 'Situação da origem',
     manualDecision: 'Decisão manual',
     score: 'Nota de limpeza',

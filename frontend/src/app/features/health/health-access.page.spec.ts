@@ -21,6 +21,7 @@ describe('Estado dos formulários após gravar acessos de saúde', () => {
       grants: vi.fn().mockResolvedValue(empty),
       assignments: vi.fn().mockResolvedValue(empty),
       custodies: vi.fn().mockResolvedValue(empty),
+      noteAuthors: vi.fn().mockResolvedValue([]),
       createGrant: vi.fn().mockResolvedValue({}),
       createAssignment: vi.fn().mockResolvedValue({}),
     };

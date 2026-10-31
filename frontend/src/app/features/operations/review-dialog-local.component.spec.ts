@@ -85,7 +85,7 @@ describe('Revisão das operações locais', () => {
     component.time.setValue('2026-09-30T13:00');
     component.confirm();
     expect(close).not.toHaveBeenCalled();
-    expect(component.error()).toContain('posterior');
+    expect(component.error()).toContain('depois da saída');
     component.time.setValue('2026-09-30T17:01');
     component.confirm();
     expect(close).not.toHaveBeenCalled();

@@ -41,7 +41,7 @@ export class UnsavedForms {
       this.dialogs.open({
         title: saving ? 'Salvamento em andamento' : 'Descartar alterações?',
         summary: saving
-          ? 'Aguarde a resposta do servidor antes de sair. A mudança pode já estar sendo gravada.'
+          ? 'Aguarde terminar de salvar antes de sair.'
           : 'As alterações deste formulário ainda não foram salvas.',
         confirmLabel: saving ? 'Aguardar' : 'Descartar e sair',
         cancelLabel: 'Continuar preenchendo',

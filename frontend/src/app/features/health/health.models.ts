@@ -53,11 +53,17 @@ export interface CareAssignment {
   version: number;
 }
 
+export interface HealthAuthor {
+  id: string;
+  name: string;
+}
+
 export interface HealthCustody {
   id: string;
   sequence: number;
   residentId: string;
   sourceAuthorAccountId: string;
+  sourceAuthorName: string;
   recipientGrantId: string;
   recipientAccountName: string;
   createdBy: string;

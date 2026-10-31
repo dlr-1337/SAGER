@@ -8,7 +8,7 @@ import { FilterState } from '../../core/filter-state';
   standalone: true,
   imports: [ReactiveFormsModule],
   template: ` <section class="panel op-panel">
-    <h2>Filtrar registros</h2>
+    <h2>Filtrar</h2>
     <form class="op-filters" [formGroup]="form" (ngSubmit)="apply()">
       <label class="field"
         >{{ mode() === 'notices' || mode() === 'own' ? 'Título' : 'Nome ou matrícula'
@@ -49,10 +49,10 @@ import { FilterState } from '../../core/filter-state';
       }
       @if (mode() === 'own') {
         <label class="field"
-          >Ciência<select formControlName="acknowledged">
-            <option value="">Todas</option>
-            <option value="true">Registrada</option>
-            <option value="false">Pendente</option>
+          >Marcou "Estou ciente"?<select formControlName="acknowledged">
+            <option value="">Todos</option>
+            <option value="true">Sim</option>
+            <option value="false">Ainda não</option>
           </select></label
         >
       }
@@ -111,7 +111,7 @@ export class CommunicationFiltersComponent implements OnInit {
         : [
             ['PUBLICADO', 'Publicado'],
             ['RETIRADO', 'Retirado'],
-            ['SUPERADO', 'Superado'],
+            ['SUPERADO', 'Versão anterior'],
             ['ANULADO', 'Anulado'],
           ];
   }
@@ -140,7 +140,7 @@ export class CommunicationFiltersComponent implements OnInit {
       status: 'Situação',
       category: 'Categoria',
       severity: 'Gravidade',
-      acknowledged: 'Ciência',
+      acknowledged: 'Marcou "Estou ciente"',
     };
     this.active.set(
       Object.entries(input)
@@ -148,7 +148,7 @@ export class CommunicationFiltersComponent implements OnInit {
         .map(([key, value]) => ({
           key,
           label: labels[key],
-          value: key === 'acknowledged' ? (value === 'true' ? 'Registrada' : 'Pendente') : value,
+          value: key === 'acknowledged' ? (value === 'true' ? 'Sim' : 'Ainda não') : value,
         })),
     );
     this.changed.emit(Object.fromEntries(Object.entries(input).filter(([, v]) => !!v)));

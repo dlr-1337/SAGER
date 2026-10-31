@@ -89,7 +89,6 @@ const navByRole: Record<Role, NavItem[]> = {
     ...supervisorItems,
     guardianItem,
     { label: 'Cursos', path: '/cursos', icon: 'school' },
-    supervisorItem,
     roomItem,
     { label: 'Chamada noturna', path: '/chamada', icon: 'bedtime' },
     { label: 'Limpeza', path: '/limpeza', icon: 'cleaning_services' },
@@ -146,8 +145,9 @@ export class App implements OnDestroy {
     const communicationItems: NavItem[] =
       role === 'supervisor'
         ? [
+            { label: 'Conversas', path: '/conversas', icon: 'forum' },
             { label: 'Advertências', path: '/advertencias', icon: 'assignment' },
-            { label: 'Avisos institucionais', path: '/comunicacoes/avisos', icon: 'campaign' },
+            { label: 'Avisos', path: '/comunicacoes/avisos', icon: 'campaign' },
           ]
         : [];
     const cleaningItems: NavItem[] =
@@ -189,6 +189,7 @@ export class App implements OnDestroy {
   private previousBodyOverflow: string | null = null;
   private previousHtmlOverflow: string | null = null;
   private focusContentAfterNavigation = false;
+  private currentPath = this.document.location.pathname;
 
   constructor() {
     this.isMobile.set(this.breakpointObserver.isMatched('(max-width: 800px)'));
@@ -207,6 +208,11 @@ export class App implements OnDestroy {
       .subscribe(() => {
         this.updatePageVisibility();
         if (this.menuOpen()) this.closeMenu(false);
+        const path = this.router.url.split('?')[0];
+        // Voltar e avançar ficam com a restauração do navegador. Instantâneo porque o html é smooth.
+        if (path !== this.currentPath && this.router.currentNavigation()?.trigger !== 'popstate')
+          this.document.defaultView?.scrollTo({ top: 0, behavior: 'instant' });
+        this.currentPath = path;
         if (this.focusContentAfterNavigation) {
           this.focusContentAfterNavigation = false;
           setTimeout(() => this.document.getElementById('conteudo-principal')?.focus(), 0);
@@ -247,7 +253,7 @@ export class App implements OnDestroy {
       try {
         await this.auth.logout();
       } catch {
-        this.exitError.set('Não foi possível encerrar a sessão local. Tente novamente.');
+        this.exitError.set('Não foi possível sair. Verifique a internet e tente de novo.');
         return;
       }
     }
@@ -325,6 +331,6 @@ export class App implements OnDestroy {
     }
     const path = this.router.url.split('?')[0];
     this.healthAccessPage.set(path === '/saude/acessos');
-    this.publicPage.set(isPublic || /^\/(acesso|demonstracao|ajuda|assinatura)(\/|$)/.test(path));
+    this.publicPage.set(isPublic || /^\/(acesso|demonstracao|ajuda)(\/|$)/.test(path));
   }
 }

@@ -7,6 +7,16 @@ export function ageFromBirthDate(value: string, now = new Date()): number {
     : age;
 }
 
+// Demonstração apenas; a regra das contas reais fica em ResidentService.formatName.
+export function formatResidentName(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(
+      /(^|[\s\-'’])(\p{L})/gu,
+      (_, boundary: string, letter: string) => boundary + letter.toUpperCase(),
+    );
+}
+
 export function formattedDate(value: string): string {
   const [year, month, day] = value.split('-');
   return year && month && day ? `${day}/${month}/${year}` : value;

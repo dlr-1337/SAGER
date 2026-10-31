@@ -1,46 +1,209 @@
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
-import { ChangeDetectionStrategy, Component, OnDestroy, inject, signal } from '@angular/core';
-import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { MatDialog } from '@angular/material/dialog';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
-import { DemoSessionService } from '../../core/demo-session.service';
 import {
-  CommunicationReviewDialogComponent,
-  CommunicationReviewResult,
-  CommunicationsStateComponent,
-} from '../communications/communications-local.shared';
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  Injector,
+  OnDestroy,
+  afterNextRender,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+  untracked,
+  viewChild,
+} from '@angular/core';
+import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { DemoSessionService } from '../../core/demo-session.service';
+import { CommunicationsStateComponent } from '../communications/communications-local.shared';
 import {
   CommunicationIntent,
   formatCivilDate,
   formatCommunicationTime,
 } from '../communications/communications-local.utils';
-import { CleaningLocalApiService } from '../cleaning/cleaning-local-api.service';
 import { decimal } from '../cleaning/cleaning-local.utils';
 import { MonthlyIndicatorsComponent } from '../cleaning/monthly-indicators.component';
 import { ReportingApiError, reportingError } from '../cleaning/reporting-local.transport';
-import { AccommodationApiService } from '../management/accommodation-api.service';
-import { RoomApiService } from '../management/room-api.service';
-import { ResidentApiService, ResidentRecord } from '../management/resident-api.service';
-import { Accommodation, RoomRecord } from '../management/housing.models';
+import {
+  AccommodationUnit,
+  HousingMap,
+  roomsIn,
+  unitOptionLabel,
+  unitsIn,
+} from '../management/housing.models';
+import { ResidentRecord } from '../management/resident-api.service';
+import { reportsApi } from './reports-demo-api.service';
 import { ReportsLocalApiService } from './reports-local-api.service';
 import {
   ReportCatalog,
   ReportCode,
   ReportExport,
   ReportFormat,
+  ReportListItem,
   ReportRow,
   ReportSnapshot,
 } from './reports-local.models';
 import {
   ReportDownloads,
-  exportStatusLabels,
+  ReportListPolling,
+  ReportPeriodPreset,
   normalizedReportInput,
   periodError,
+  periodPreset,
   reportCell,
+  reportDescriptions,
+  reportFileName,
+  reportInProgress,
   reportLabels,
   reportStatusLabels,
 } from './reports-local.utils';
+
+const FORMATS: ReportFormat[] = ['PDF', 'XLSX'];
+const FORMAT_LABELS: Record<ReportFormat, string> = { PDF: 'PDF', XLSX: 'planilha Excel' };
+
+@Component({
+  standalone: true,
+  selector: 'sager-report-card',
+  imports: [RouterLink],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `<article class="report-card">
+    <h3 #heading [id]="'relatorio-' + item().id" tabindex="-1">
+      {{ labels[item().catalogCode] }}
+    </h3>
+    <p class="report-card-meta">
+      {{ civil(item().filters.from) }} a {{ civil(item().filters.to) }} · {{ item().rowCount }}
+      {{ item().rowCount === 1 ? 'registro' : 'registros' }}
+      @if (filtered()) {
+        · com filtros
+      }
+    </p>
+    <p class="report-card-status" role="status">{{ statusText() }}</p>
+    @if (slow()) {
+      <p class="comm-warning">
+        Está demorando mais que o normal. Pode sair; ele continuará nesta lista.
+      </p>
+    }
+    <div class="report-card-actions">
+      @for (job of readyJobs(); track job.id) {
+        <button class="btn" type="button" [disabled]="busy()" (click)="download(job)">
+          <span class="material-symbols-outlined" aria-hidden="true">download</span>Baixar
+          {{ formatLabels[job.format] }}
+        </button>
+      }
+      @if (canRetry()) {
+        <button class="btn" type="button" [disabled]="busy()" (click)="retry()">
+          Tentar de novo
+        </button>
+      }
+      @if (linkToDetail()) {
+        <a class="btn-secondary" [routerLink]="['/relatorios/consultas', item().id]">
+          Ver na tela
+        </a>
+      }
+    </div>
+    @if (actionError()) {
+      <p class="comm-error" role="alert">{{ actionError() }}</p>
+    }
+    <div aria-live="polite">
+      @if (downloaded()) {
+        <p class="report-card-note">{{ downloaded() }}</p>
+      }
+    </div>
+  </article>`,
+  styleUrl: './reports-local.scss',
+})
+export class ReportCardComponent implements OnDestroy {
+  readonly item = input.required<ReportListItem>();
+  readonly slow = input(false);
+  readonly linkToDetail = input(true);
+  readonly changed = output<void>();
+  private readonly session = inject(DemoSessionService);
+  private readonly api = reportsApi();
+  private readonly files = inject(ReportsLocalApiService);
+  private readonly downloads = new ReportDownloads();
+  private readonly heading = viewChild.required<ElementRef<HTMLElement>>('heading');
+  readonly labels = reportLabels;
+  readonly formatLabels = FORMAT_LABELS;
+  readonly civil = formatCivilDate;
+  readonly busy = signal(false);
+  readonly actionError = signal('');
+  readonly downloaded = signal('');
+  readonly filtered = computed(() => {
+    const { accommodationId, unitId, roomId, residentId, status } = this.item().filters;
+    return !!(accommodationId || unitId || roomId || residentId || status);
+  });
+  readonly readyJobs = computed(() =>
+    FORMATS.flatMap((format) =>
+      this.item().exports.filter((job) => job.format === format && job.status === 'READY'),
+    ),
+  );
+  private readonly pendingFormats = computed(() =>
+    FORMATS.filter((format) => {
+      const job = this.item().exports.find((candidate) => candidate.format === format);
+      return !job || job.status === 'FAILED';
+    }),
+  );
+  private readonly expired = computed(() =>
+    this.item().exports.some((job) => job.status === 'EXPIRED'),
+  );
+  readonly canRetry = computed(
+    () => !reportInProgress(this.item()) && !this.expired() && this.pendingFormats().length > 0,
+  );
+  readonly statusText = computed(() => {
+    if (reportInProgress(this.item())) return 'Montando os arquivos. Pode levar alguns segundos.';
+    if (this.expired()) return 'Este relatório expirou. Gere de novo.';
+    return this.pendingFormats().length ? 'Não deu certo montar o arquivo.' : 'Pronto para baixar.';
+  });
+  async download(job: ReportExport): Promise<void> {
+    if (this.busy()) return;
+    this.actionError.set('');
+    if (this.session.active()) {
+      this.downloaded.set('Na demonstração nenhum arquivo é baixado.');
+      return;
+    }
+    this.busy.set(true);
+    this.downloaded.set('');
+    try {
+      const blob = await this.files.download(job.id, job.format);
+      this.downloads.download(blob, reportFileName(this.item(), job.format));
+      this.downloaded.set(`O download de ${FORMAT_LABELS[job.format]} começou.`);
+    } catch (error) {
+      this.actionError.set(reportingError(error));
+    } finally {
+      this.busy.set(false);
+    }
+  }
+  async retry(): Promise<void> {
+    if (this.busy()) return;
+    this.busy.set(true);
+    this.actionError.set('');
+    try {
+      for (const format of this.pendingFormats())
+        await this.api.requestExport(this.item().id, format);
+    } catch (error) {
+      this.actionError.set(reportingError(error));
+    } finally {
+      this.busy.set(false);
+      this.changed.emit();
+      // The retry button is about to disappear; keep keyboard users on this report.
+      this.heading().nativeElement.focus();
+    }
+  }
+  ngOnDestroy(): void {
+    this.downloads.destroy();
+  }
+}
+
+const PERIODS: { value: ReportPeriodPreset | 'datas'; label: string }[] = [
+  { value: 'este-mes', label: 'Este mês' },
+  { value: 'mes-passado', label: 'Mês passado' },
+  { value: 'ultimos-7-dias', label: 'Últimos 7 dias' },
+  { value: 'datas', label: 'Escolher datas' },
+];
+type FilterKey = 'accommodationId' | 'unitId' | 'roomId' | 'residentId' | 'status';
 
 @Component({
   standalone: true,
@@ -50,6 +213,7 @@ import {
     RouterLink,
     ReactiveFormsModule,
     CommunicationsStateComponent,
+    ReportCardComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `<main class="page op-page comm-page">
@@ -57,271 +221,407 @@ import {
       <div>
         <a class="op-back" routerLink="/inicio">← Início</a>
         <h1>Relatórios</h1>
-        <p>
-          Combine filtros para preparar uma consulta dos registros autorizados. PDF e Excel usam o
-          mesmo recorte preservado.
-        </p>
+        <p>Escolha o que quer ver e o período. Depois, clique em “Gerar relatório”.</p>
       </div>
     </header>
     <sager-communications-state
       [blocked]="!allowed()"
       [loading]="loading()"
       [error]="error()"
-      (retry)="load()"
+      (retry)="retry()"
     />
     @if (allowed() && !loading() && !error() && catalog(); as rules) {
-      <section class="panel op-panel">
-        <h2>Selecionar relatório e período</h2>
-        <p class="comm-help">
-          Até {{ rules.maxPeriodDays }} dias e {{ rules.maxRows.toLocaleString('pt-BR') }} linhas.
-          Se a seleção exceder esse limite, combine filtros para reduzir o recorte.
-        </p>
-        <form [formGroup]="form" (ngSubmit)="review()" novalidate>
-          <div class="comm-form-grid">
-            <label class="field"
-              >Tipo de relatório<select
-                sagerSearchable
-                formControlName="catalogCode"
-                (change)="form.controls.status.setValue('')"
+      <section class="panel op-panel" aria-label="Gerar relatório">
+        <form [formGroup]="form" (ngSubmit)="generate()" novalidate>
+          <fieldset class="report-step">
+            <legend>1. O que você quer ver?</legend>
+            <div class="report-types">
+              @for (item of rules.items; track item.code) {
+                <label class="report-option report-type">
+                  <input
+                    type="radio"
+                    formControlName="catalogCode"
+                    [value]="item.code"
+                    (change)="form.controls.status.setValue('')"
+                  />
+                  <span>
+                    <strong>{{ labels[item.code] }}</strong>
+                    <small>{{ descriptions[item.code] }}</small>
+                  </span>
+                </label>
+              }
+            </div>
+          </fieldset>
+          <fieldset class="report-step">
+            <legend>2. De qual período?</legend>
+            <div class="report-periods">
+              @for (period of periods; track period.value) {
+                <label class="report-option">
+                  <input
+                    type="radio"
+                    formControlName="period"
+                    [value]="period.value"
+                    (change)="applyPeriod()"
+                  />
+                  <span>{{ period.label }}</span>
+                </label>
+              }
+            </div>
+            @if (form.controls.period.value === 'datas') {
+              <div class="comm-form-grid report-dates">
+                <label class="field"
+                  >Data inicial<input type="date" formControlName="from"
+                /></label>
+                <label class="field">Data final<input type="date" formControlName="to" /></label>
+              </div>
+            } @else {
+              <p class="report-range">
+                De {{ civil(form.controls.from.value) }} a {{ civil(form.controls.to.value) }}
+              </p>
+            }
+          </fieldset>
+          <details class="report-filters">
+            <summary>Filtrar por alojamento, bloco, quarto ou residente (opcional)</summary>
+            @if (filtersFailed()) {
+              <p class="comm-warning" role="status">
+                Não foi possível carregar todas as opções de filtro. Você ainda pode gerar o
+                relatório.
+              </p>
+              <button class="btn-secondary" type="button" (click)="loadFilters()">
+                Carregar filtros de novo
+              </button>
+            }
+            <div class="comm-form-grid report-filter-grid">
+              <label class="field"
+                >Alojamento<select
+                  sagerSearchable
+                  formControlName="accommodationId"
+                  (change)="form.patchValue({ unitId: '', roomId: '' })"
+                >
+                  <option value="">Todos os alojamentos</option>
+                  @for (item of housing().accommodations; track item.id) {
+                    <option [value]="item.id">{{ item.code }} · {{ item.name }}</option>
+                  }
+                </select></label
+              ><label class="field"
+                >Casa ou bloco<select
+                  sagerSearchable
+                  formControlName="unitId"
+                  (change)="form.controls.roomId.setValue('')"
+                >
+                  <option value="">Todas as casas e blocos</option>
+                  @for (item of visibleUnits(); track item.id) {
+                    <option [value]="item.id">{{ unitLabel(item) }}</option>
+                  }
+                </select></label
+              ><label class="field"
+                >Quarto<select sagerSearchable formControlName="roomId">
+                  <option value="">Todos os quartos</option>
+                  @for (item of visibleRooms(); track item.id) {
+                    <option [value]="item.id">{{ item.code }}</option>
+                  }
+                </select></label
+              ><label class="field"
+                >Residente<select sagerSearchable formControlName="residentId">
+                  <option value="">Todos os residentes</option>
+                  @for (item of residents(); track item.id) {
+                    <option [value]="item.id">{{ item.name }} · {{ item.enrollment }}</option>
+                  }
+                </select></label
+              ><label class="field"
+                >Situação<select sagerSearchable formControlName="status">
+                  <option value="">Todas as situações</option>
+                  @for (status of statuses(); track status) {
+                    <option [value]="status">{{ statusLabels[status] || status }}</option>
+                  }
+                </select></label
               >
-                @for (item of rules.items; track item.code) {
-                  <option [value]="item.code">{{ item.title }}</option>
-                }
-              </select></label
-            ><label class="field">Data inicial<input type="date" formControlName="from" /></label
-            ><label class="field">Data final<input type="date" formControlName="to" /></label
-            ><label class="field"
-              >Alojamento<select
-                sagerSearchable
-                formControlName="accommodationId"
-                (change)="form.controls.roomId.setValue('')"
-              >
-                <option value="">Todos os alojamentos</option>
-                @for (item of accommodations(); track item.id) {
-                  <option [value]="item.id">{{ item.code }} · {{ item.name }}</option>
-                }
-              </select></label
-            ><label class="field"
-              >Quarto<select sagerSearchable formControlName="roomId">
-                <option value="">Todos os quartos</option>
-                @for (item of visibleRooms(); track item.id) {
-                  <option [value]="item.id">{{ item.code }}</option>
-                }
-              </select></label
-            ><label class="field"
-              >Residente<select sagerSearchable formControlName="residentId">
-                <option value="">Todos os residentes</option>
-                @for (item of residents(); track item.id) {
-                  <option [value]="item.id">{{ item.name }} · {{ item.enrollment }}</option>
-                }
-              </select></label
-            ><label class="field"
-              >Situação<select sagerSearchable formControlName="status">
-                <option value="">Todas as situações</option>
-                @for (status of statuses(); track status) {
-                  <option [value]="status">{{ statusLabels[status] || status }}</option>
-                }
-              </select></label
-            >
-          </div>
+            </div>
+          </details>
+          @if (activeFilters().length) {
+            <div class="report-active" role="group" aria-label="Filtros ativos">
+              <strong>Filtros ativos:</strong>
+              @for (filter of activeFilters(); track filter.key) {
+                <button
+                  class="report-chip"
+                  type="button"
+                  [attr.aria-label]="'Remover filtro ' + filter.label"
+                  (click)="removeFilter(filter.key)"
+                >
+                  {{ filter.label }}
+                  <span class="material-symbols-outlined" aria-hidden="true">close</span>
+                </button>
+              }
+              <button class="btn-secondary" type="button" (click)="clearFilters()">
+                Limpar filtros
+              </button>
+            </div>
+          }
           @if (actionError()) {
             <p class="comm-error" role="alert">{{ actionError() }}</p>
           }
-          @if (conflict()) {
-            <button class="btn-secondary" type="button" (click)="load()">Recarregar filtros</button>
-          }
+          <div aria-live="polite">
+            @if (notice()) {
+              <p class="comm-warning">{{ notice() }}</p>
+            }
+          </div>
           <div class="comm-actions">
-            <button class="btn" type="submit" [disabled]="busy() || conflict()">
-              {{ busy() ? 'Preparando consulta…' : 'Revisar consulta' }}</button
-            ><a routerLink="/relatorios/individual">Consultar indicadores individuais</a>
+            <button class="btn report-generate" type="submit" [disabled]="busy()">
+              {{ busy() ? 'Buscando registros…' : 'Gerar relatório' }}
+            </button>
           </div>
         </form>
       </section>
+      <section class="op-section report-list" aria-labelledby="relatorios-gerados">
+        <h2 id="relatorios-gerados">Relatórios gerados</h2>
+        <p class="comm-help">Ficam aqui por {{ rules.expiresAfterHours }} horas.</p>
+        @if (list.error()) {
+          <p class="comm-error" role="alert">{{ list.error() }}</p>
+          <button class="btn-secondary" type="button" (click)="list.refresh()">
+            Carregar a lista de novo
+          </button>
+        }
+        @for (item of list.items(); track item.id) {
+          <sager-report-card
+            [item]="item"
+            [slow]="list.slow().has(item.id)"
+            (changed)="list.refresh()"
+          />
+        } @empty {
+          @if (!list.error()) {
+            <p>Nenhum relatório gerado ainda.</p>
+          }
+        }
+      </section>
+      <nav class="comm-links" aria-label="Outros relatórios">
+        <a
+          class="btn-secondary"
+          [routerLink]="session.active() ? '/relatorios/individual/ana' : '/relatorios/individual'"
+          >Ver a evolução de um residente</a
+        >
+      </nav>
     }
   </main>`,
   styleUrl: './reports-local.scss',
 })
-export class ReportsLocalPage {
+export class ReportsLocalPage implements OnDestroy {
   readonly session = inject(DemoSessionService);
-  private readonly api = inject(ReportsLocalApiService);
-  private readonly cleaningApi = inject(CleaningLocalApiService);
-  private readonly accommodationsApi = inject(AccommodationApiService);
-  private readonly roomsApi = inject(RoomApiService);
-  private readonly residentsApi = inject(ResidentApiService);
-  private readonly dialog = inject(MatDialog);
-  private readonly router = inject(Router);
+  private readonly api = reportsApi();
+  private readonly injector = inject(Injector);
   readonly form = new FormGroup({
     catalogCode: new FormControl<ReportCode>('PRESENCA', { nonNullable: true }),
+    period: new FormControl<ReportPeriodPreset | 'datas'>('este-mes', { nonNullable: true }),
     from: new FormControl('', { nonNullable: true }),
     to: new FormControl('', { nonNullable: true }),
     accommodationId: new FormControl('', { nonNullable: true }),
+    unitId: new FormControl('', { nonNullable: true }),
     roomId: new FormControl('', { nonNullable: true }),
     residentId: new FormControl('', { nonNullable: true }),
     status: new FormControl('', { nonNullable: true }),
   });
+  readonly list = new ReportListPolling(() => this.api.list());
   readonly catalog = signal<ReportCatalog | null>(null);
-  readonly accommodations = signal<Accommodation[]>([]);
-  readonly rooms = signal<RoomRecord[]>([]);
+  readonly housing = signal<HousingMap>({ accommodations: [], units: [], rooms: [] });
   readonly residents = signal<ResidentRecord[]>([]);
+  readonly filtersFailed = signal(false);
   readonly loading = signal(false);
   readonly busy = signal(false);
   readonly error = signal('');
   readonly actionError = signal('');
-  readonly conflict = signal(false);
+  readonly notice = signal('');
+  readonly labels = reportLabels;
+  readonly descriptions = reportDescriptions;
   readonly statusLabels = reportStatusLabels;
+  readonly periods = PERIODS;
+  readonly civil = formatCivilDate;
+  private today = '';
+  private generation = 0;
   private readonly intent = new CommunicationIntent();
   constructor() {
-    void this.load();
+    // Reloads when the demonstration scenario changes; the real mode runs this only once.
+    effect(() => {
+      this.session.scenario();
+      untracked(() => void this.load());
+    });
+    this.form.valueChanges.subscribe(() => this.notice.set(''));
   }
   allowed(): boolean {
-    return !this.session.active() && this.session.hasRole('gestor', 'supervisor');
+    return this.session.hasRole('gestor', 'supervisor');
   }
-  visibleRooms(): RoomRecord[] {
-    const selected = this.form.controls.accommodationId.value;
-    return this.rooms().filter((room) => !selected || room.accommodationId === selected);
+  visibleUnits() {
+    return unitsIn(this.housing(), this.form.controls.accommodationId.value);
+  }
+  visibleRooms() {
+    const { accommodationId, unitId } = this.form.getRawValue();
+    return roomsIn(this.housing(), accommodationId, unitId);
+  }
+  unitLabel(unit: AccommodationUnit): string {
+    return unitOptionLabel(unit, this.housing(), this.form.controls.accommodationId.value);
   }
   statuses(): string[] {
-    const rules = this.catalog();
-    return this.form.controls.catalogCode.value === 'CONSOLIDADO'
-      ? [...new Set(rules?.items.flatMap((item) => item.statuses) ?? [])]
-      : (rules?.items.find((item) => item.code === this.form.controls.catalogCode.value)
-          ?.statuses ?? []);
+    const items = this.catalog()?.items ?? [];
+    const code = this.form.controls.catalogCode.value;
+    return code === 'CONSOLIDADO'
+      ? [...new Set(items.flatMap((item) => item.statuses))]
+      : (items.find((item) => item.code === code)?.statuses ?? []);
+  }
+  activeFilters(): { key: FilterKey; label: string }[] {
+    const value = this.form.getRawValue();
+    const { accommodations, units, rooms } = this.housing();
+    const filters: { key: FilterKey; label: string | undefined }[] = [
+      {
+        key: 'accommodationId',
+        label: accommodations.find((item) => item.id === value.accommodationId)?.name,
+      },
+      { key: 'unitId', label: units.find((item) => item.id === value.unitId)?.name },
+      {
+        key: 'roomId',
+        label: rooms.find((item) => item.id === value.roomId)?.code,
+      },
+      {
+        key: 'residentId',
+        label: this.residents().find((item) => item.id === value.residentId)?.name,
+      },
+      {
+        key: 'status',
+        label: value.status ? (this.statusLabels[value.status] ?? value.status) : undefined,
+      },
+    ];
+    return filters.filter((item): item is { key: FilterKey; label: string } => !!item.label);
+  }
+  removeFilter(key: FilterKey): void {
+    this.form.controls[key].setValue('');
+    if (key === 'accommodationId') this.form.patchValue({ unitId: '', roomId: '' });
+    if (key === 'unitId') this.form.controls.roomId.setValue('');
+  }
+  clearFilters(): void {
+    this.form.patchValue({
+      accommodationId: '',
+      unitId: '',
+      roomId: '',
+      residentId: '',
+      status: '',
+    });
+  }
+  applyPeriod(): void {
+    const period = this.form.controls.period.value;
+    if (period !== 'datas') this.form.patchValue(periodPreset(period, this.today));
+  }
+  retry(): void {
+    if (this.session.active() && this.session.scenario() !== 'padrao')
+      this.session.setScenario('padrao');
+    else void this.load();
   }
   async load(): Promise<void> {
     if (!this.allowed()) return;
+    const generation = ++this.generation;
     this.loading.set(true);
     this.error.set('');
     this.actionError.set('');
-    this.conflict.set(false);
     try {
-      const [catalog, policy, accommodations, rooms, residents] = await Promise.all([
-        this.api.catalog(),
-        this.cleaningApi.policy(),
-        this.accommodationsApi.list(),
-        this.roomsApi.list(),
-        this.residentsApi.list(),
-      ]);
+      const [catalog, today] = await Promise.all([this.api.catalog(), this.api.currentDate()]);
+      if (generation !== this.generation) return;
       this.catalog.set(catalog);
-      this.accommodations.set(accommodations);
-      this.rooms.set(rooms);
-      this.residents.set(residents);
-      if (!this.form.controls.to.value)
-        this.form.patchValue({
-          from: policy.currentDate.slice(0, 8) + '01',
-          to: policy.currentDate,
-        });
+      this.today = today;
+      this.applyPeriod();
+      void this.loadFilters();
+      void this.list.refresh();
+      this.loading.set(false);
     } catch (error) {
+      if (generation !== this.generation) return;
       this.error.set(reportingError(error));
-    } finally {
       this.loading.set(false);
     }
   }
-  async review(): Promise<void> {
-    if (!this.allowed() || this.busy() || this.conflict()) return;
+  async loadFilters(): Promise<void> {
+    const options = await this.api.filterOptions();
+    this.housing.set(options.housing);
+    this.residents.set(options.residents);
+    this.filtersFailed.set(options.failed);
+  }
+  private invalidSelection(rules: ReportCatalog): string {
     const value = this.form.getRawValue();
-    const rules = this.catalog();
-    if (!rules) return;
-    const invalid =
+    return (
       periodError(value.from, value.to, rules.maxPeriodDays) ||
       (!rules.items.some((item) => item.code === value.catalogCode)
-        ? 'Selecione um relatório do catálogo.'
+        ? 'Escolha um tipo de relatório.'
         : '') ||
       ((value.accommodationId &&
-        !this.accommodations().some((item) => item.id === value.accommodationId)) ||
+        !this.housing().accommodations.some((item) => item.id === value.accommodationId)) ||
+      (value.unitId && !this.visibleUnits().some((item) => item.id === value.unitId)) ||
       (value.roomId && !this.visibleRooms().some((item) => item.id === value.roomId)) ||
       (value.residentId && !this.residents().some((item) => item.id === value.residentId))
-        ? 'Selecione alojamento, quarto e residente cadastrados com filtros compatíveis.'
+        ? 'Confira os filtros: alojamento, bloco e quarto precisam combinar.'
         : '') ||
       (value.status && !this.statuses().includes(value.status)
-        ? 'Selecione uma situação pertinente ao relatório.'
-        : '');
-    if (invalid) {
-      this.actionError.set(invalid);
-      return;
-    }
+        ? 'Escolha uma situação deste tipo de relatório.'
+        : '')
+    );
+  }
+  async generate(): Promise<void> {
+    const rules = this.catalog();
+    if (!rules || !this.allowed() || this.busy()) return;
+    const invalid = this.invalidSelection(rules);
+    this.notice.set('');
+    this.actionError.set(invalid);
+    if (invalid) return;
     const trigger = document.activeElement as HTMLElement | null;
-    const { catalogCode, ...filters } = value;
+    const { catalogCode, period: _period, ...filters } = this.form.getRawValue();
     const input = normalizedReportInput(catalogCode, filters);
     this.busy.set(true);
-    this.actionError.set('');
+    let created = '';
     try {
-      const result = await firstValueFrom(
-        this.dialog
-          .open<CommunicationReviewDialogComponent, unknown, CommunicationReviewResult>(
-            CommunicationReviewDialogComponent,
-            {
-              width: '620px',
-              maxWidth: 'calc(100vw - 24px)',
-              autoFocus: 'first-tabbable',
-              restoreFocus: true,
-              data: {
-                title: 'Revisar consulta de relatório',
-                action: 'Preparar consulta',
-                lines: [
-                  {
-                    label: 'Relatório',
-                    value: rules.items.find((item) => item.code === catalogCode)?.title ?? '',
-                  },
-                  {
-                    label: 'Período inclusivo',
-                    value: formatCivilDate(filters.from) + ' a ' + formatCivilDate(filters.to),
-                  },
-                  {
-                    label: 'Alojamento',
-                    value:
-                      this.accommodations().find((item) => item.id === filters.accommodationId)
-                        ?.name ?? 'Todos',
-                  },
-                  {
-                    label: 'Quarto',
-                    value: this.rooms().find((item) => item.id === filters.roomId)?.code ?? 'Todos',
-                  },
-                  {
-                    label: 'Residente',
-                    value:
-                      this.residents().find((item) => item.id === filters.residentId)?.name ??
-                      'Todos',
-                  },
-                  {
-                    label: 'Situação',
-                    value: reportStatusLabels[filters.status] ?? (filters.status || 'Todas'),
-                  },
-                ],
-                warning:
-                  'A consulta preservará estes filtros, as linhas, os totais e as colunas por 24 horas. Mudanças posteriores exigem uma nova consulta.',
-              },
-            },
-          )
-          .afterClosed(),
-      );
-      if (!result) {
-        setTimeout(() => trigger?.isConnected && trigger.focus(), 0);
+      const snapshot = await this.api.create({ ...input, idempotencyKey: this.intent.for(input) });
+      // The screen no longer navigates away, so the next click must be a new report.
+      this.intent.reset();
+      if (!snapshot.rowCount) {
+        this.notice.set('Não encontramos registros nesse período. Tente outro período.');
         return;
       }
-      const snapshot = await this.api.create({ ...input, idempotencyKey: this.intent.for(input) });
-      await this.router.navigate(['/relatorios/consultas', snapshot.id]);
+      // A failed request leaves the report in the list with "Tentar de novo".
+      await Promise.allSettled(FORMATS.map((f) => this.api.requestExport(snapshot.id, f)));
+      await this.list.refresh();
+      created = snapshot.id;
     } catch (error) {
-      if (error instanceof ReportingApiError && error.status === 409) this.conflict.set(true);
+      if (error instanceof ReportingApiError && error.status === 409) this.intent.reset();
       this.actionError.set(reportingError(error));
     } finally {
       this.busy.set(false);
+      afterNextRender(
+        {
+          read: () =>
+            (created ? document.getElementById('relatorio-' + created) : trigger)?.focus(),
+        },
+        { injector: this.injector },
+      );
     }
+  }
+  ngOnDestroy(): void {
+    this.generation++;
+    this.list.stop();
   }
 }
 
 @Component({
   standalone: true,
   selector: 'sager-report-snapshot-local',
-  imports: [RouterLink, CommunicationsStateComponent, MonthlyIndicatorsComponent],
+  imports: [
+    RouterLink,
+    CommunicationsStateComponent,
+    MonthlyIndicatorsComponent,
+    ReportCardComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `<main class="page op-page comm-page">
     <header class="op-heading">
       <div>
         <a class="op-back" routerLink="/relatorios">← Relatórios</a>
-        <h1>Consulta de {{ snapshot() ? labels[snapshot()!.catalogCode] : 'relatório' }}</h1>
-        <p>Resultados e exportações pertencem ao mesmo recorte preservado.</p>
+        <h1>{{ snapshot() ? labels[snapshot()!.catalogCode] : 'Relatório' }}</h1>
+        @if (snapshot(); as result) {
+          <p>{{ civil(result.filters.from) }} a {{ civil(result.filters.to) }}</p>
+        }
       </div>
-      <a class="btn-secondary" routerLink="/relatorios">Preparar nova consulta</a>
+      <a class="btn-secondary" routerLink="/relatorios">Gerar outro relatório</a>
     </header>
     <sager-communications-state
       [blocked]="!allowed()"
@@ -330,15 +630,28 @@ export class ReportsLocalPage {
       (retry)="load()"
     />
     @if (allowed() && !loading() && !error() && snapshot(); as result) {
-      <section class="panel op-panel">
-        <h2>Recorte da consulta</h2>
+      <section class="op-section">
+        <h2>Baixar arquivos</h2>
+        @if (card(); as item) {
+          <sager-report-card
+            [item]="item"
+            [slow]="list.slow().has(item.id)"
+            [linkToDetail]="false"
+            (changed)="list.refresh()"
+          />
+        }
+        @if (list.error()) {
+          <p class="comm-error" role="alert">{{ list.error() }}</p>
+          <button class="btn-secondary" type="button" (click)="list.refresh()">
+            Carregar os arquivos de novo
+          </button>
+        }
+      </section>
+      <section class="panel op-panel op-section">
+        <h2>Resumo do período</h2>
         <dl class="comm-definition">
           <div>
-            <dt>Período inclusivo</dt>
-            <dd>{{ civil(result.filters.from) }} a {{ civil(result.filters.to) }}</dd>
-          </div>
-          <div>
-            <dt>Preparada em</dt>
+            <dt>Gerado em</dt>
             <dd>{{ formatTime(result.asOf) }}</dd>
           </div>
           <div>
@@ -346,12 +659,8 @@ export class ReportsLocalPage {
             <dd>{{ formatTime(result.expiresAt) }}</dd>
           </div>
           <div>
-            <dt>Total preservado</dt>
-            <dd>{{ result.rowCount }} linhas</dd>
-          </div>
-          <div>
-            <dt>Catálogo</dt>
-            <dd>{{ labels[result.catalogCode] }} · versão {{ result.catalogVersion }}</dd>
+            <dt>Total de registros</dt>
+            <dd>{{ result.rowCount }}</dd>
           </div>
           @if (result.filters.status) {
             <div>
@@ -359,52 +668,24 @@ export class ReportsLocalPage {
               <dd>{{ statusLabels[result.filters.status] || result.filters.status }}</dd>
             </div>
           }
-        </dl>
-        <details class="report-integrity">
-          <summary>Conferir identificação e integridade da consulta</summary>
-          <dl class="comm-definition">
-            <div>
-              <dt>Identificador</dt>
-              <dd>{{ result.id }}</dd>
-            </div>
-            <div>
-              <dt>SHA-256 do recorte</dt>
-              <dd>{{ result.contentHash }}</dd>
-            </div>
-            @for (filter of filterIdentities(); track filter.label) {
-              <div>
-                <dt>{{ filter.label }}</dt>
-                <dd>{{ filter.value }}</dd>
-              </div>
-            }
-          </dl>
-        </details>
-        <p class="comm-help">
-          Linhas paginadas, resumo, séries mensais, PDF e Excel usam os mesmos filtros. Uma nova
-          consulta é necessária para refletir alterações posteriores.
-        </p>
-      </section>
-      <section class="panel op-panel op-section">
-        <h2>Resumo do período</h2>
-        <dl class="comm-definition">
           <div>
-            <dt>Média de limpeza das avaliações distintas</dt>
+            <dt>Nota média de limpeza</dt>
             <dd>{{ decimal(result.summary.cleaningMean) }}</dd>
           </div>
           <div>
-            <dt>Ausências sem justificativa em chamadas fechadas</dt>
+            <dt>Faltas sem justificativa</dt>
             <dd>{{ result.summary.unjustifiedAbsences }}</dd>
           </div>
           <div>
-            <dt>Retornos físicos confirmados com atraso</dt>
+            <dt>Voltaram atrasados</dt>
             <dd>{{ result.summary.confirmedLateReturns }}</dd>
           </div>
           <div>
-            <dt>Advertências vigentes no recorte</dt>
+            <dt>Advertências ativas</dt>
             <dd>{{ result.summary.activeWarnings }}</dd>
           </div>
         </dl>
-        <h3>Contagens por tipo de registro</h3>
+        <h3>Registros por tipo</h3>
         <dl class="comm-definition">
           @for (count of counts(result.summary.countsByType); track count.key) {
             <div>
@@ -413,12 +694,12 @@ export class ReportsLocalPage {
             </div>
           } @empty {
             <div>
-              <dt>Sem registros no recorte</dt>
+              <dt>Sem registros</dt>
               <dd>0</dd>
             </div>
           }
         </dl>
-        <h3>Contagens por situação</h3>
+        <h3>Registros por situação</h3>
         <dl class="comm-definition">
           @for (count of counts(result.summary.countsByStatus); track count.key) {
             <div>
@@ -429,13 +710,13 @@ export class ReportsLocalPage {
         </dl>
       </section>
       <section class="panel op-panel op-section">
-        <h2>Resultados da consulta</h2>
-        <p aria-live="polite">{{ rows().length }} de {{ result.rowCount }} linhas consultadas.</p>
+        <h2>Registros</h2>
+        <p aria-live="polite">{{ rows().length }} de {{ result.rowCount }} registros na tela.</p>
         @if (rows().length) {
           <div class="report-desktop-table">
             <table>
               <caption>
-                Linhas do recorte preservado
+                Registros do relatório
               </caption>
               <thead>
                 <tr>
@@ -455,12 +736,12 @@ export class ReportsLocalPage {
               </tbody>
             </table>
           </div>
-          <div class="report-local-mobile" aria-label="Linhas do recorte preservado">
+          <div class="report-local-mobile" role="group" aria-label="Registros do relatório">
             @for (row of rows(); track $index) {
               <details>
                 <summary>
                   <strong>{{ labels[row.type] || row.type }} · {{ civil(row.date) }}</strong
-                  ><span>{{ row.residentName || row.roomCode || 'Registro institucional' }}</span
+                  ><span>{{ row.residentName || row.roomCode || 'Registro' }}</span
                   ><span>{{ statusLabels[row.status] || row.status }}</span>
                 </summary>
                 <dl class="comm-definition">
@@ -475,12 +756,12 @@ export class ReportsLocalPage {
             }
           </div>
         } @else {
-          <p>Nenhum registro neste período e nestes filtros.</p>
+          <p>Não encontramos registros nesse período.</p>
         }
         @if (nextOffset() !== null) {
           <div class="comm-actions">
             <button class="btn-secondary" type="button" [disabled]="moreLoading()" (click)="more()">
-              Carregar mais linhas
+              Carregar mais registros
             </button>
           </div>
         }
@@ -489,79 +770,8 @@ export class ReportsLocalPage {
         }
       </section>
       <section class="panel op-panel op-section">
-        <h2>Séries mensais do recorte</h2>
+        <h2>Mês a mês</h2>
         <sager-monthly-indicators [items]="result.monthly" />
-      </section>
-      <section class="panel op-panel op-section">
-        <h2>Exportar o mesmo recorte</h2>
-        <p class="comm-help">
-          A preparação ocorre em fila. Use “Consultar preparação” para conferir o estado. O download
-          só aparece quando um arquivo real estiver disponível.
-        </p>
-        @for (format of formats; track format) {
-          <article class="report-export">
-            <h3>{{ format === 'PDF' ? 'Documento PDF' : 'Planilha Excel' }}</h3>
-            @if (job(format); as exportJob) {
-              <p role="status">{{ exportLabels[exportJob.status] }}</p>
-              <p>
-                Solicitada em {{ formatTime(exportJob.createdAt) }} · expira em
-                {{ formatTime(exportJob.expiresAt) }}
-              </p>
-              @if (exportJob.status === 'READY' && exportJob.document; as document) {
-                <p>{{ document.size.toLocaleString('pt-BR') }} bytes · arquivo privado</p>
-                <details>
-                  <summary>Conferir integridade do arquivo</summary>
-                  <p class="report-hash">SHA-256: {{ document.sha256 }}</p>
-                </details>
-                <div class="comm-actions">
-                  <button
-                    class="btn"
-                    type="button"
-                    [disabled]="busy() || conflict()"
-                    (click)="download(exportJob)"
-                  >
-                    Baixar {{ format === 'PDF' ? 'PDF' : 'Excel' }}
-                  </button>
-                </div>
-              } @else if (exportJob.status === 'PENDING' || exportJob.status === 'PROCESSING') {
-                <button
-                  class="btn-secondary"
-                  type="button"
-                  [disabled]="busy() || conflict()"
-                  (click)="refreshExport(exportJob)"
-                >
-                  Consultar preparação de {{ format === 'PDF' ? 'PDF' : 'Excel' }}
-                </button>
-              } @else {
-                <p class="comm-warning">
-                  {{
-                    exportJob.status === 'EXPIRED'
-                      ? 'O arquivo expirou. Prepare uma nova consulta.'
-                      : 'A preparação não concluiu. A fila mantém o registro da falha.'
-                  }}
-                </p>
-              }
-            } @else {
-              <button
-                class="btn-secondary"
-                type="button"
-                [disabled]="busy() || conflict()"
-                (click)="requestExport(format)"
-              >
-                Preparar {{ format === 'PDF' ? 'PDF' : 'Excel' }}
-              </button>
-            }
-          </article>
-        }
-        @if (actionError()) {
-          <p class="comm-error" role="alert">{{ actionError() }}</p>
-        }
-        @if (conflict()) {
-          <button class="btn-secondary" type="button" (click)="load()">Recarregar consulta</button>
-        }
-        @if (downloaded()) {
-          <p role="status">{{ downloaded() }}</p>
-        }
       </section>
     }
   </main>`,
@@ -569,27 +779,20 @@ export class ReportsLocalPage {
 })
 export class ReportSnapshotLocalPage implements OnDestroy {
   readonly session = inject(DemoSessionService);
-  private readonly api = inject(ReportsLocalApiService);
+  private readonly api = reportsApi();
   private readonly route = inject(ActivatedRoute);
-  private readonly dialog = inject(MatDialog);
   private readonly id = this.route.snapshot.paramMap.get('id') ?? '';
-  private readonly downloads = new ReportDownloads();
+  readonly list = new ReportListPolling(() => this.api.list());
+  readonly card = computed(() => this.list.items().find((item) => item.id === this.id));
   readonly snapshot = signal<ReportSnapshot | null>(null);
   readonly rows = signal<ReportRow[]>([]);
   readonly nextOffset = signal<number | null>(null);
-  readonly jobs = signal<Partial<Record<ReportFormat, ReportExport>>>({});
   readonly loading = signal(false);
   readonly moreLoading = signal(false);
-  readonly busy = signal(false);
   readonly error = signal('');
   readonly rowsError = signal('');
-  readonly actionError = signal('');
-  readonly conflict = signal(false);
-  readonly downloaded = signal('');
-  readonly formats: ReportFormat[] = ['PDF', 'XLSX'];
   readonly labels: Record<string, string> = reportLabels;
   readonly statusLabels = reportStatusLabels;
-  readonly exportLabels = exportStatusLabels;
   readonly civil = formatCivilDate;
   readonly formatTime = formatCommunicationTime;
   readonly decimal = decimal;
@@ -599,7 +802,7 @@ export class ReportSnapshotLocalPage implements OnDestroy {
     void this.load();
   }
   allowed(): boolean {
-    return !this.session.active() && this.session.hasRole('gestor', 'supervisor');
+    return this.session.hasRole('gestor', 'supervisor');
   }
   visibleColumns() {
     return this.snapshot()?.columns.filter((column) => column.type !== 'UUID') ?? [];
@@ -607,38 +810,23 @@ export class ReportSnapshotLocalPage implements OnDestroy {
   counts(value: Record<string, number>) {
     return Object.entries(value).map(([key, value]) => ({ key, value }));
   }
-  filterIdentities() {
-    const filters = this.snapshot()?.filters;
-    return filters
-      ? [
-          { label: 'Alojamento selecionado', value: filters.accommodationId },
-          { label: 'Quarto selecionado', value: filters.roomId },
-          { label: 'Residente selecionado', value: filters.residentId },
-        ].filter((value): value is { label: string; value: string } => !!value.value)
-      : [];
-  }
-  job(format: ReportFormat): ReportExport | undefined {
-    return this.jobs()[format];
-  }
   async load(): Promise<void> {
     if (!this.allowed()) return;
     const generation = ++this.generation;
     this.loading.set(true);
     this.error.set('');
     this.rowsError.set('');
-    this.actionError.set('');
-    this.conflict.set(false);
     this.snapshot.set(null);
     this.rows.set([]);
-    this.jobs.set({});
     try {
       const [snapshot, page] = await Promise.all([this.api.get(this.id), this.api.rows(this.id)]);
       if (snapshot.rowCount !== page.total)
-        throw new Error('A consulta não confirmou o total preservado.');
+        throw new Error('A consulta não confirmou o total de registros.');
       if (generation === this.generation) {
         this.snapshot.set(snapshot);
         this.rows.set(page.items);
         this.nextOffset.set(page.nextOffset);
+        void this.list.refresh();
       }
     } catch (error) {
       if (generation === this.generation) this.error.set(reportingError(error));
@@ -654,7 +842,7 @@ export class ReportSnapshotLocalPage implements OnDestroy {
     this.rowsError.set('');
     try {
       const page = await this.api.rows(this.id, offset);
-      if (page.total !== this.snapshot()?.rowCount) throw new Error('O total preservado mudou.');
+      if (page.total !== this.snapshot()?.rowCount) throw new Error('O total de registros mudou.');
       if (generation === this.generation) {
         this.rows.update((rows) => [...rows, ...page.items]);
         this.nextOffset.set(page.nextOffset);
@@ -665,109 +853,8 @@ export class ReportSnapshotLocalPage implements OnDestroy {
       this.moreLoading.set(false);
     }
   }
-  private checkedJob(job: ReportExport, expected?: ReportExport): void {
-    if (
-      job.snapshotId !== this.id ||
-      (expected && (job.id !== expected.id || job.format !== expected.format))
-    )
-      throw new Error('A exportação não pertence a esta consulta.');
-    this.jobs.update((jobs) => ({ ...jobs, [job.format]: job }));
-  }
-  async requestExport(format: ReportFormat): Promise<void> {
-    const snapshot = this.snapshot();
-    if (!snapshot || !this.allowed() || this.busy() || this.conflict()) return;
-    const trigger = document.activeElement as HTMLElement | null;
-    this.busy.set(true);
-    this.actionError.set('');
-    try {
-      const fresh = await this.api.get(this.id);
-      if (
-        fresh.contentHash !== snapshot.contentHash ||
-        fresh.catalogCode !== snapshot.catalogCode
-      ) {
-        this.conflict.set(true);
-        return;
-      }
-      const result = await firstValueFrom(
-        this.dialog
-          .open<CommunicationReviewDialogComponent, unknown, CommunicationReviewResult>(
-            CommunicationReviewDialogComponent,
-            {
-              width: '620px',
-              maxWidth: 'calc(100vw - 24px)',
-              autoFocus: 'first-tabbable',
-              restoreFocus: true,
-              data: {
-                title: 'Revisar exportação',
-                action: 'Solicitar preparação',
-                lines: [
-                  { label: 'Formato', value: format === 'PDF' ? 'PDF' : 'Excel' },
-                  { label: 'Relatório', value: this.labels[snapshot.catalogCode] },
-                  {
-                    label: 'Período',
-                    value:
-                      this.civil(snapshot.filters.from) + ' a ' + this.civil(snapshot.filters.to),
-                  },
-                  { label: 'Total preservado', value: snapshot.rowCount + ' linhas' },
-                ],
-                warning:
-                  'O arquivo será preparado com este recorte. Solicitar novamente o mesmo formato retorna a mesma preparação.',
-              },
-            },
-          )
-          .afterClosed(),
-      );
-      if (!result) {
-        setTimeout(() => trigger?.isConnected && trigger.focus(), 0);
-        return;
-      }
-      this.checkedJob(await this.api.requestExport(this.id, format));
-    } catch (error) {
-      this.actionFailure(error);
-    } finally {
-      this.busy.set(false);
-    }
-  }
-  async refreshExport(job: ReportExport): Promise<void> {
-    if (!this.allowed() || this.busy() || this.conflict()) return;
-    this.busy.set(true);
-    this.actionError.set('');
-    try {
-      this.checkedJob(await this.api.getExport(job.id), job);
-    } catch (error) {
-      this.actionFailure(error);
-    } finally {
-      this.busy.set(false);
-    }
-  }
-  async download(job: ReportExport): Promise<void> {
-    if (!this.allowed() || this.busy() || this.conflict() || job.status !== 'READY') return;
-    this.busy.set(true);
-    this.actionError.set('');
-    this.downloaded.set('');
-    try {
-      const fresh = await this.api.getExport(job.id);
-      this.checkedJob(fresh, job);
-      if (fresh.status !== 'READY') return;
-      const blob = await this.api.download(job.id, job.format);
-      this.downloads.download(blob, job.id, job.format);
-      this.downloaded.set(
-        'Download de ' +
-          (job.format === 'PDF' ? 'PDF' : 'Excel') +
-          ' iniciado com o arquivo preparado para esta consulta.',
-      );
-    } catch (error) {
-      this.actionFailure(error);
-    } finally {
-      this.busy.set(false);
-    }
-  }
-  private actionFailure(error: unknown): void {
-    if (error instanceof ReportingApiError && error.status === 409) this.conflict.set(true);
-    this.actionError.set(reportingError(error));
-  }
   ngOnDestroy(): void {
     this.generation++;
-    this.downloads.destroy();
+    this.list.stop();
   }
 }

@@ -51,10 +51,10 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
         <div>
           <a class="op-back" routerLink="/notificacoes">← Notificações</a>
           <h1>Advertências</h1>
-          <p>Registros emitidos após decisão humana, com conteúdo e histórico preservados.</p>
+          <p>Advertências dadas pelo supervisor. O histórico fica guardado.</p>
         </div>
         @if (session.hasRole('supervisor') && !session.active()) {
-          <a class="btn" routerLink="/advertencias/nova">Registrar advertência manual</a>
+          <a class="btn" routerLink="/advertencias/nova">Nova advertência</a>
         }
       </header>
       @if (!session.active() && session.hasRole('supervisor')) {
@@ -69,7 +69,7 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
       />
       @if (!session.active() && session.hasRole('supervisor') && !loading() && !error()) {
         <section class="panel op-panel">
-          <h2>Consultar por residente</h2>
+          <h2>Buscar por residente</h2>
           <form class="op-filters" (submit)="$event.preventDefault(); load()">
             <label class="field"
               >Residente<select sagerSearchable [formControl]="residentId">
@@ -109,11 +109,11 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
                     </p>
                     <p>{{ item.description }}</p>
                     @if (item.requiresReview) {
-                      <p>Origem pendente de revisão · fora da base de reincidência</p>
+                      <p>Origem em conferência · não conta para reincidência</p>
                     }
                   </div>
                   <span class="op-status">{{
-                    item.status === 'VIGENTE' ? 'Vigente' : 'Anulada'
+                    item.status === 'VIGENTE' ? 'Valendo' : 'Anulada'
                   }}</span
                   ><a class="op-row-link" [routerLink]="['/advertencias', item.id]"
                     >Ver advertência<span class="material-symbols-outlined" aria-hidden="true"
@@ -238,8 +238,8 @@ export class WarningsLocalPage {
       <header class="op-heading">
         <div>
           <a class="op-back" routerLink="/advertencias">← Advertências</a>
-          <h1>Registrar advertência manual</h1>
-          <p>Documente o fato e a decisão humana antes de emitir a comunicação.</p>
+          <h1>Nova advertência</h1>
+          <p>Conte o que aconteceu e o que você decidiu.</p>
         </div>
       </header>
       <sager-communications-state
@@ -266,8 +266,7 @@ export class WarningsLocalPage {
           >
             <h2>Dados da advertência</h2>
             <p class="comm-help">
-              Se o fato já tem uma notificação interna, use sua análise e conversão para preservar a
-              mesma origem.
+              Se já existe uma notificação sobre este fato, crie a advertência por ela.
             </p>
             <label class="field"
               >Residente<select sagerSearchable [formControl]="residentId">
@@ -286,14 +285,12 @@ export class WarningsLocalPage {
               <p class="comm-error" role="alert">{{ error() }}</p>
             }
             @if (conflict()) {
-              <button class="btn-secondary" type="button" (click)="load()">
-                Recarregar formulário
-              </button>
+              <button class="btn-secondary" type="button" (click)="load()">Recarregar dados</button>
             }
             <div class="comm-actions">
               <a class="btn-secondary" routerLink="/advertencias">Cancelar</a
               ><button class="btn" type="submit" [disabled]="busy() || conflict()">
-                {{ busy() ? 'Processando…' : 'Revisar e emitir advertência' }}
+                {{ busy() ? 'Processando…' : 'Conferir e dar advertência' }}
               </button>
             </div>
           </form>
@@ -449,7 +446,7 @@ export class WarningFormLocalPage {
           }
         </div>
         @if (item(); as warning) {
-          <span class="op-status">{{ warning.status === 'VIGENTE' ? 'Vigente' : 'Anulada' }}</span>
+          <span class="op-status">{{ warning.status === 'VIGENTE' ? 'Valendo' : 'Anulada' }}</span>
         }
       </header>
       <sager-communications-state
@@ -465,8 +462,8 @@ export class WarningFormLocalPage {
       ) {
         @if (warning.requiresReview) {
           <p class="comm-warning" role="alert">
-            A origem está invalidada ou pendente de revisão. Esta advertência permanece no histórico
-            e não conta para possível reincidência enquanto a revisão estiver pendente.
+            A origem está em conferência. Esta advertência continua no histórico, mas não conta para
+            reincidência por enquanto.
           </p>
         }
         <div class="comm-grid">
@@ -509,10 +506,7 @@ export class WarningFormLocalPage {
                   </div>
                 }
               </dl>
-              <p class="comm-help">
-                O conteúdo emitido, a autoria e a ciência anterior permanecem preservados. Anulação
-                é uma nova decisão humana.
-              </p>
+              <p class="comm-help">Mesmo anulada, a advertência continua guardada no histórico.</p>
             </section>
             @if (occurrence(); as origin) {
               <sager-local-evidence [occurrence]="origin" />
@@ -526,7 +520,7 @@ export class WarningFormLocalPage {
               >
               @if (warning.notificationId) {
                 <a [routerLink]="['/notificacoes', warning.notificationId]"
-                  >Consultar análise da notificação</a
+                  >Ver análise da notificação</a
                 >
               }
             </div>
@@ -548,7 +542,7 @@ export class WarningFormLocalPage {
             }
             <div class="comm-actions">
               <button class="btn-secondary" type="button" [disabled]="busy()" (click)="load()">
-                {{ conflict() ? 'Recarregar advertência' : 'Atualizar dados' }}
+                {{ conflict() ? 'Recarregar dados' : 'Atualizar dados' }}
               </button>
             </div>
           </section>
@@ -634,7 +628,7 @@ export class WarningDetailLocalPage {
     this.error.set('');
     try {
       this.item.set(await this.api.annulWarning(item.id, item.version, reason));
-      this.success.set('Advertência anulada por decisão humana. O histórico foi preservado.');
+      this.success.set('Advertência anulada. O histórico continua guardado.');
     } catch (error) {
       this.error.set(communicationsError(error));
       if (error instanceof CommunicationsApiError && error.status === 409) this.conflict.set(true);

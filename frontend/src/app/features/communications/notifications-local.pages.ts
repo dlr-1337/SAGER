@@ -55,8 +55,8 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
       <header class="op-heading">
         <div>
           <a class="op-back" routerLink="/inicio">← Início</a>
-          <h1>Notificações internas</h1>
-          <p>Revise as ocorrências antes de qualquer decisão disciplinar.</p>
+          <h1>Notificações</h1>
+          <p>Veja o que aconteceu antes de decidir.</p>
         </div>
       </header>
       <nav class="comm-links" aria-label="Disciplina e comunicações">
@@ -104,11 +104,11 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
           </form>
         </section>
         <section class="op-section">
-          <h2>Itens para revisão</h2>
+          <h2>Notificações</h2>
           @if (!items().length) {
             <div class="op-empty" role="status">
               <h3>Nenhuma notificação encontrada</h3>
-              <p>Quando uma origem válida gerar ocorrência, ela aparecerá aqui para análise.</p>
+              <p>Quando acontecer algo para analisar, vai aparecer aqui.</p>
             </div>
           } @else {
             <div class="op-list">
@@ -118,7 +118,7 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
                     <h3>{{ item.residentName }}</h3>
                     <p>{{ categories[item.category] }} · {{ formatTime(item.createdAt) }}</p>
                     @if (item.requiresReview) {
-                      <p>Origem corrigida · revisão humana pendente</p>
+                      <p>Origem corrigida · falta conferir</p>
                     }
                   </div>
                   <div class="op-row-side">
@@ -128,7 +128,7 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
                     }
                   </div>
                   <a class="op-row-link" [routerLink]="['/notificacoes', item.id]"
-                    >Abrir análise<span class="material-symbols-outlined" aria-hidden="true"
+                    >Ver notificação<span class="material-symbols-outlined" aria-hidden="true"
                       >arrow_forward</span
                     ></a
                   >
@@ -285,14 +285,13 @@ export class NotificationsLocalPage {
         as notification
       ) {
         <p class="comm-help">
-          Análise humana necessária. Confira a evidência, o contexto e a justificativa antes de
-          decidir. Regra aplicada: {{ categories[notification.category] }} · versão
-          {{ notification.policyVersion }}.
+          Confira o que aconteceu antes de decidir. Regra aplicada:
+          {{ categories[notification.category] }}.
         </p>
         @if (notification.requiresReview) {
           <p class="comm-warning" role="alert">
-            A origem foi corrigida. Revise a evidência atual antes de converter. Uma advertência já
-            emitida permanece no histórico e não é anulada automaticamente.
+            A origem foi corrigida. Confira o registro atual antes de criar a advertência. Uma
+            advertência já criada continua no histórico.
           </p>
         }
         <div class="comm-grid">
@@ -309,16 +308,12 @@ export class NotificationsLocalPage {
                     ><time [attr.datetime]="event.recordedAt">{{
                       formatTime(event.recordedAt)
                     }}</time>
-                    <p>
-                      Revisão da evidência {{ event.occurrenceVersion }} · versão do registro
-                      {{ event.resultingVersion }}
-                    </p>
                     @if (event.reason) {
                       <p>{{ event.reason }}</p>
                     }
                   </li>
                 } @empty {
-                  <li>Nenhuma ação registrada. A consulta não muda a situação.</li>
+                  <li>Nenhuma ação registrada.</li>
                 }
               </ol>
             </section>
@@ -366,7 +361,7 @@ export class NotificationsLocalPage {
                   [disabled]="busy() || conflict()"
                   (click)="analyze(true)"
                 >
-                  Confirmar evidência atual
+                  Confirmar registro atual
                 </button>
               </div>
             }
@@ -379,11 +374,7 @@ export class NotificationsLocalPage {
                 "
                 (click)="showWarning.set(!showWarning())"
               >
-                {{
-                  showWarning()
-                    ? 'Fechar formulário da advertência'
-                    : 'Converter após análise humana'
-                }}
+                {{ showWarning() ? 'Fechar advertência' : 'Criar advertência' }}
               </button>
             }
             @if (showWarning() && !terminal(notification)) {
@@ -395,7 +386,7 @@ export class NotificationsLocalPage {
                 (ngSubmit)="convert()"
                 novalidate
               >
-                <h3>Advertência vinculada à ocorrência</h3>
+                <h3>Dados da advertência</h3>
                 <sager-warning-fields
                   [form]="form"
                   [maxDate]="context()?.currentDate || ''"
@@ -407,16 +398,14 @@ export class NotificationsLocalPage {
                     busy() || conflict() || notification.requiresReview || !notification.valid
                   "
                 >
-                  Revisar conversão em advertência
+                  Conferir advertência
                 </button>
               </form>
             }
             @if (notification.status === 'CONVERTIDA') {
-              <p>
-                A decisão de conversão permanece preservada. Consulte a advertência e seu histórico.
-              </p>
+              <p>Esta notificação virou advertência.</p>
               <a routerLink="/advertencias" [queryParams]="{ residente: notification.residentId }"
-                >Consultar advertências do residente</a
+                >Ver advertências do residente</a
               >
             }
             @if (notification.status === 'ARQUIVADA') {
@@ -433,7 +422,7 @@ export class NotificationsLocalPage {
             }
             <div class="comm-actions">
               <button class="btn-secondary" type="button" [disabled]="busy()" (click)="load()">
-                {{ conflict() ? 'Recarregar notificação' : 'Atualizar dados' }}
+                {{ conflict() ? 'Recarregar dados' : 'Atualizar dados' }}
               </button>
             </div>
           </section>
@@ -501,7 +490,7 @@ export class NotificationDetailLocalPage {
       if (item.occurrenceVersion !== occurrence.version || item.valid !== occurrence.valid) {
         this.conflict.set(true);
         this.error.set(
-          'A origem mudou durante a consulta. Recarregue os dados para revisar uma única evidência atual.',
+          'Outra pessoa alterou esta notificação. Clique em Recarregar, confira e tente de novo.',
         );
       }
     } catch (error) {
@@ -526,12 +515,12 @@ export class NotificationDetailLocalPage {
       if (!item.requiresReview || !item.valid) return;
       this.review(
         {
-          title: 'Revisar evidência corrigida',
-          action: 'Confirmar evidência atual',
+          title: 'Conferir registro corrigido',
+          action: 'Confirmar registro atual',
           lines: this.summary(item),
           requireReason: true,
-          confirmation: 'Conferi a revisão atual e a evidência continua válida para análise.',
-          warning: 'Esta ação revisa a origem. Uma advertência emitida permanece histórica.',
+          confirmation: 'Conferi o registro atual e ele continua válido.',
+          warning: 'Uma advertência já criada continua no histórico.',
         },
         (result) =>
           this.mutate(async () => {
@@ -542,27 +531,27 @@ export class NotificationDetailLocalPage {
                 reason: result.reason,
               }),
             );
-          }, 'Revisão humana da evidência registrada.'),
+          }, 'Conferência registrada.'),
       );
     } else if (!this.terminal(item))
       void this.mutate(async () => {
         this.item.set(
           await this.api.notificationAction(item.id, 'analisar', { version: item.version }),
         );
-      }, 'Análise iniciada. Nenhuma advertência foi emitida.');
+      }, 'Análise iniciada.');
   }
   archive(): void {
     const item = this.item();
     if (!item || this.terminal(item) || this.busy() || this.conflict()) return;
     this.review(
       {
-        title: 'Revisar arquivamento',
+        title: 'Conferir antes de arquivar',
         action: 'Confirmar arquivamento',
         lines: this.summary(item),
         requireReason: true,
         archive: true,
         warning:
-          'Arquivar preserva a evidência e a decisão. O item não será reaberto automaticamente.',
+          'O registro e a decisão ficam guardados. Esta notificação não abre de novo sozinha.',
       },
       (result) =>
         this.mutate(async () => {
@@ -620,17 +609,17 @@ export class NotificationDetailLocalPage {
       }
       this.review(
         {
-          title: 'Revisar conversão em advertência',
-          action: 'Confirmar emissão da advertência',
+          title: 'Conferir advertência',
+          action: 'Criar advertência',
           lines: [
             ...this.summary(item),
             { label: 'Descrição', value: input.description },
             { label: 'Data', value: formatCivilDate(input.warningDate) },
-            { label: 'Gravidade humana', value: severityLabels[input.severity] },
+            { label: 'Gravidade', value: severityLabels[input.severity] },
             { label: 'Justificativa', value: input.justification },
           ],
           warning:
-            'A emissão publica uma advertência para este residente. O conteúdo será imutável; eventual anulação exigirá outra decisão motivada.',
+            'O residente vai receber esta advertência. Depois, o texto não pode ser mudado. Para anular, é preciso outra decisão com motivo.',
         },
         () =>
           this.mutate(async () => {
@@ -642,7 +631,7 @@ export class NotificationDetailLocalPage {
             this.busy.set(false);
             this.form.markAsPristine();
             await this.router.navigate(['/advertencias', warning.id]);
-          }, 'Advertência emitida.'),
+          }, 'Advertência criada.'),
         trigger,
       );
     } catch (error) {
@@ -655,7 +644,6 @@ export class NotificationDetailLocalPage {
     return [
       { label: 'Residente', value: item.residentName },
       { label: 'Categoria', value: categoryLabels[item.category] },
-      { label: 'Revisão da evidência', value: String(item.occurrenceVersion) },
       { label: 'Situação', value: notificationLabels[item.status] },
     ];
   }

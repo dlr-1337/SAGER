@@ -22,7 +22,7 @@ import { HealthNoteSummary, categoryLabels, professionLabels } from './health.mo
               <h3>{{ categories[note.category] }}</h3>
               <p>{{ note.authorName }} · {{ professions[note.authorProfession] }}</p>
               <p class="health-meta">
-                {{ note.updatedAt | date: 'dd/MM/yyyy HH:mm' }} · Versão {{ note.version }}
+                {{ note.updatedAt | date: 'dd/MM/yyyy HH:mm' }}
               </p>
               @if (note.custodyAccess && !own()) {
                 <p class="health-meta">Acesso por custódia</p>

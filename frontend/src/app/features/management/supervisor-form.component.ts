@@ -1,4 +1,20 @@
+import {
+  ERROR_CONFLICT,
+  ERROR_FORBIDDEN,
+  ERROR_GENERIC,
+  ERROR_INVALID,
+  ERROR_SESSION,
+} from '../../core/error-messages';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { UnsavedFormDirective } from '../../shared/unsaved-form';
+import { PasswordFieldComponent } from '../../shared/password-field.component';
+import { PASSWORD_HELP, PASSWORD_MISMATCH, passwordRules } from '../../shared/password-rules';
+import {
+  fieldRule,
+  nameProblem,
+  SUPERVISOR_EMAIL,
+  supervisorIdProblem,
+} from '../../shared/field-rules';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -10,14 +26,14 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
 @Component({
   selector: 'app-supervisor-form',
   standalone: true,
-  imports: [UnsavedFormDirective, ReactiveFormsModule, RouterLink],
+  imports: [UnsavedFormDirective, ReactiveFormsModule, RouterLink, PasswordFieldComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page mg-page mg-narrow">
       @if (!canEdit()) {
         <section class="mg-empty" role="alert">
           <h1>Acesso restrito</h1>
-          <p>A gestão de supervisores está disponível para gestor e supervisor.</p>
+          <p>A gestão de supervisores está disponível só para o gestor.</p>
           <a class="btn mg-primary" routerLink="/inicio">Voltar ao início</a>
         </section>
       } @else if (loading()) {
@@ -26,7 +42,7 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
             >progress_activity</span
           >
           <h1>Carregando supervisor</h1>
-          <p>Consultando o cadastro local de teste.</p>
+          <p>Aguarde um momento.</p>
         </section>
       } @else if (loadError()) {
         <section class="mg-empty" role="alert">
@@ -42,10 +58,7 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
       } @else if (editId && !supervisor()) {
         <section class="mg-empty" role="alert">
           <h1>Supervisor não encontrado</h1>
-          <p>
-            O cadastro solicitado não está disponível
-            {{ isDemo() ? 'nesta demonstração' : 'no ambiente local de teste' }}.
-          </p>
+          <p>Não encontramos este cadastro. Volte à lista e tente de novo.</p>
           <a class="btn mg-primary" routerLink="/supervisores">Voltar à equipe</a>
         </section>
       } @else {
@@ -56,7 +69,7 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
               Supervisores</a
             >
             <h1>{{ editId ? 'Editar supervisor' : 'Cadastrar supervisor' }}</h1>
-            <p>Informe os dados funcionais usados na gestão da residência.</p>
+            <p>Preencha os dados do supervisor.</p>
           </div>
         </header>
         <form
@@ -67,10 +80,12 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
           (ngSubmit)="save()"
           novalidate
         >
-          <h2>Dados funcionais</h2>
+          <h2>Dados do supervisor</h2>
           <p class="mg-muted">
-            Campos marcados com * são obrigatórios. Use somente dados fictícios
-            {{ isDemo() ? 'nesta demonstração' : 'no ambiente local de teste' }}.
+            Campos marcados com * são obrigatórios.
+            @if (isDemo()) {
+              Use somente dados fictícios nesta demonstração.
+            }
           </p>
           <div class="form-grid mg-form-grid">
             <label class="field mg-field mg-span-2"
@@ -79,18 +94,18 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
                   form.controls.name.invalid && form.controls.name.touched ? 'true' : null
                 "
                 formControlName="name"
-                autocomplete="name"
+                autocomplete="off"
                 maxlength="200"
                 aria-describedby="supervisor-name-error"
               />
               @if (form.controls.name.invalid && form.controls.name.touched) {
-                <span class="mg-field-error" id="supervisor-name-error"
-                  >Informe um nome de 3 a 200 caracteres.</span
-                >
+                <span class="mg-field-error" id="supervisor-name-error">{{
+                  form.controls.name.errors?.['fieldRule']
+                }}</span>
               }
             </label>
             <label class="field mg-field"
-              >Identificação institucional *<input
+              >Matrícula ou SIAPE (usada para entrar) *<input
                 [attr.aria-invalid]="
                   form.controls.institutionalId.invalid && form.controls.institutionalId.touched
                     ? 'true'
@@ -102,34 +117,82 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
                 aria-describedby="supervisor-id-error"
               />
               @if (form.controls.institutionalId.invalid && form.controls.institutionalId.touched) {
-                <span class="mg-field-error" id="supervisor-id-error"
-                  >Informe a identificação institucional com até 64 caracteres.</span
-                >
+                <span class="mg-field-error" id="supervisor-id-error">{{
+                  form.controls.institutionalId.errors?.['fieldRule']
+                }}</span>
               }
             </label>
             <label class="field mg-field"
-              >E-mail institucional *<input
+              >E-mail *<input
                 [attr.aria-invalid]="
                   form.controls.email.invalid && form.controls.email.touched ? 'true' : null
                 "
                 type="email"
                 formControlName="email"
-                autocomplete="email"
+                autocomplete="off"
                 maxlength="320"
-                aria-describedby="supervisor-email-error"
+                aria-describedby="supervisor-email-hint supervisor-email-error"
               />
+              <small class="field-hint" id="supervisor-email-hint"
+                >Se tiver, use o institucional, que termina em &#64;ifgoiano.edu.br.</small
+              >
               @if (form.controls.email.invalid && form.controls.email.touched) {
                 <span class="mg-field-error" id="supervisor-email-error"
                   >Informe um e-mail válido com até 320 caracteres.</span
                 >
               }
             </label>
+            @if (!editId) {
+              <div class="mg-field">
+                <label for="supervisor-password">Senha *</label>
+                <sager-password-field>
+                  <input
+                    id="supervisor-password"
+                    type="password"
+                    formControlName="password"
+                    [attr.aria-invalid]="
+                      form.controls.password.invalid && form.controls.password.touched
+                        ? 'true'
+                        : null
+                    "
+                    aria-describedby="supervisor-password-help supervisor-password-error"
+                    autocomplete="new-password"
+                    required
+                  />
+                </sager-password-field>
+                <small class="field-hint" id="supervisor-password-help">{{ passwordHelp }}</small>
+                @if (form.controls.password.invalid && form.controls.password.touched) {
+                  <span class="mg-field-error" id="supervisor-password-error">{{
+                    form.controls.password.errors?.['passwordRules']
+                  }}</span>
+                }
+              </div>
+              <div class="mg-field">
+                <label for="supervisor-password-confirmation">Confirmar senha *</label>
+                <sager-password-field>
+                  <input
+                    id="supervisor-password-confirmation"
+                    type="password"
+                    formControlName="passwordConfirmation"
+                    autocomplete="new-password"
+                    required
+                  />
+                </sager-password-field>
+              </div>
+            }
           </div>
           <div class="mg-note">
             <span class="material-symbols-rounded" aria-hidden="true">info</span>
             <p>
-              Este cadastro não concede acesso ao sistema e não cria senha. As credenciais locais de
-              teste são geridas separadamente.
+              @if (editId) {
+                Esta tela não muda a senha. Se trocar a matrícula ou SIAPE, a pessoa passa a entrar
+                com o novo número.
+              } @else if (isDemo()) {
+                Fora da demonstração, a pessoa entra com a matrícula ou SIAPE e a senha informadas
+                aqui. Nesta demonstração, a senha não é guardada.
+              } @else {
+                A pessoa entra no sistema com a matrícula ou SIAPE e a senha informadas aqui.
+              }
             </p>
           </div>
           @if (error()) {
@@ -137,7 +200,7 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
           }
           @if (conflict()) {
             <button type="button" class="btn mg-secondary" (click)="reloadLatest()">
-              Carregar versão atual do cadastro
+              Recarregar dados
             </button>
           }
           <div class="action-row mg-actions">
@@ -160,7 +223,7 @@ export class SupervisorFormComponent {
   private readonly router = inject(Router);
   readonly editId = this.route.snapshot.paramMap.get('id');
   readonly isDemo = this.session.active;
-  readonly canEdit = computed(() => this.session.hasRole('gestor', 'supervisor'));
+  readonly canEdit = computed(() => this.session.hasRole('gestor'));
   readonly localSupervisor = signal<Supervisor | null>(null);
   readonly supervisor = computed(() =>
     this.isDemo()
@@ -175,22 +238,37 @@ export class SupervisorFormComponent {
   readonly error = signal('');
   readonly conflict = signal(false);
   readonly saving = signal(false);
+  readonly passwordHelp = PASSWORD_HELP;
   readonly form = new FormGroup({
     name: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.required, Validators.minLength(3), Validators.maxLength(200)],
+      validators: [fieldRule(nameProblem, () => this.supervisor()?.name)],
     }),
     institutionalId: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.required, Validators.maxLength(64)],
+      validators: [fieldRule(supervisorIdProblem, () => this.supervisor()?.institutionalId)],
     }),
     email: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.required, Validators.email, Validators.maxLength(320)],
+      validators: [
+        Validators.required,
+        Validators.email,
+        Validators.pattern(SUPERVISOR_EMAIL),
+        Validators.maxLength(320),
+      ],
     }),
+    password: new FormControl('', { nonNullable: true }),
+    passwordConfirmation: new FormControl('', { nonNullable: true }),
   });
 
   constructor() {
+    if (!this.editId) {
+      this.form.controls.password.setValidators(passwordRules('institutionalId'));
+      this.form.controls.passwordConfirmation.setValidators(Validators.required);
+      this.form.controls.institutionalId.valueChanges
+        .pipe(takeUntilDestroyed())
+        .subscribe(() => this.form.controls.password.updateValueAndValidity());
+    }
     if (this.isDemo()) {
       const existing = this.supervisor();
       if (existing) this.setFields(existing);
@@ -213,8 +291,8 @@ export class SupervisorFormComponent {
       this.missing.set(error instanceof SupervisorApiError && error.status === 404);
       this.loadError.set(
         this.missing()
-          ? 'O cadastro solicitado não está disponível no ambiente local de teste.'
-          : 'Confira a conexão com o backend local e tente novamente.',
+          ? 'Não encontramos este cadastro. Volte à lista e tente de novo.'
+          : ERROR_GENERIC,
       );
     } finally {
       this.loading.set(false);
@@ -237,10 +315,14 @@ export class SupervisorFormComponent {
       email: this.form.controls.email.value.trim().toLowerCase(),
     };
     this.form.patchValue(input, { emitEvent: false });
+    const { password, passwordConfirmation } = this.form.getRawValue();
+    const mismatch = !this.editId && password !== passwordConfirmation;
+    if (mismatch) this.error.set(PASSWORD_MISMATCH);
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
+    if (mismatch) return;
     if (this.isDemo()) {
       try {
         const saved = this.demo.saveSupervisor(input, this.editId ?? undefined);
@@ -257,7 +339,7 @@ export class SupervisorFormComponent {
     try {
       const existing = this.localSupervisor();
       const saved = await this.api.save(
-        input,
+        this.editId ? input : { ...input, password, passwordConfirmation },
         this.editId && existing ? { id: existing.id, version: existing.version } : undefined,
       );
       this.saving.set(false);
@@ -269,19 +351,17 @@ export class SupervisorFormComponent {
         this.conflict.set(!!stale);
         this.error.set(
           stale
-            ? 'Este cadastro foi alterado por outra sessão. Carregue a versão atual antes de salvar novamente.'
-            : 'Já existe um cadastro com esta identificação institucional. Confira os dados.',
+            ? ERROR_CONFLICT
+            : 'Já existe um cadastro ou uma conta com esta matrícula ou SIAPE. Confira os dados.',
         );
       } else if (error instanceof SupervisorApiError && error.status === 400) {
-        this.error.set('Os dados foram recusados. Confira os campos e tente novamente.');
+        this.error.set(ERROR_INVALID);
       } else if (error instanceof SupervisorApiError && error.status === 401) {
-        this.error.set('A sessão expirou. Entre novamente para salvar.');
+        this.error.set(ERROR_SESSION);
       } else if (error instanceof SupervisorApiError && error.status === 403) {
-        this.error.set('Seu perfil não tem permissão para salvar este cadastro.');
+        this.error.set(ERROR_FORBIDDEN);
       } else {
-        this.error.set(
-          'Não foi possível salvar. Confira a conexão com o backend local e tente novamente.',
-        );
+        this.error.set(ERROR_GENERIC);
       }
     } finally {
       this.saving.set(false);
@@ -289,7 +369,7 @@ export class SupervisorFormComponent {
   }
 
   private setFields(item: Supervisor): void {
-    this.form.setValue({
+    this.form.patchValue({
       name: item.name,
       institutionalId: item.institutionalId,
       email: item.email,

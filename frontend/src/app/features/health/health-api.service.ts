@@ -1,3 +1,10 @@
+import {
+  ERROR_CONFLICT,
+  ERROR_GENERIC,
+  ERROR_INVALID,
+  ERROR_NOT_FOUND,
+  ERROR_SESSION,
+} from '../../core/error-messages';
 import { Injectable } from '@angular/core';
 import { Observable, defer } from 'rxjs';
 import {
@@ -5,6 +12,7 @@ import {
   HealthAccount,
   HealthCapabilities,
   HealthCategory,
+  HealthAuthor,
   HealthCustody,
   HealthExport,
   HealthNote,
@@ -74,12 +82,15 @@ const assignment: Guard<CareAssignment> = (v): v is CareAssignment =>
   nullable(v['endedAt']) &&
   numbered(v) &&
   Number.isSafeInteger(v['sequence']);
+const authors: Guard<HealthAuthor[]> = (v): v is HealthAuthor[] =>
+  Array.isArray(v) && v.every((item) => object(item) && strings(item, ['id', 'name']));
 const custody: Guard<HealthCustody> = (v): v is HealthCustody =>
   object(v) &&
   strings(v, [
     'id',
     'residentId',
     'sourceAuthorAccountId',
+    'sourceAuthorName',
     'recipientGrantId',
     'recipientAccountName',
     'createdBy',
@@ -165,22 +176,17 @@ export class ApiError extends Error {
 }
 
 export function healthErrorMessage(error: unknown): string {
-  let message = 'Não foi possível concluir. Confira a conexão e tente novamente.';
   if (error instanceof ApiError) {
-    if (error.status === 401) message = 'Sua sessão terminou. Entre novamente para continuar.';
-    else if (error.status === 403)
-      message =
-        error.code === 'csrf_invalid'
-          ? 'A proteção da sessão expirou. Recarregue a página e tente novamente.'
-          : 'Seu acesso não está disponível. Confira a habilitação e o vínculo com a gestão.';
-    else if (error.status === 404) message = 'Este registro não está disponível para sua conta.';
-    else if (error.status === 409)
-      message = 'O registro mudou. Carregue a versão atual antes de tentar novamente.';
-    else if (error.status === 400 || error.status === 422)
-      message = 'Os dados foram recusados. Confira os campos e os vínculos selecionados.';
-    if (error.requestId) message += ` Referência: ${error.requestId}.`;
+    if (error.status === 401) return ERROR_SESSION;
+    if (error.status === 403)
+      return error.code === 'csrf_invalid'
+        ? 'Esta página ficou aberta por muito tempo. Recarregue a página e tente de novo.'
+        : 'Sua conta não pode ver isto. Fale com o gestor.';
+    if (error.status === 404) return ERROR_NOT_FOUND;
+    if (error.status === 409) return ERROR_CONFLICT;
+    if (error.status === 400 || error.status === 422) return ERROR_INVALID;
   }
-  return message;
+  return ERROR_GENERIC;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -217,6 +223,9 @@ export class HealthApiService {
   }
   custodies(residentId: string, beforeSequence?: string | number | null) {
     return this.read(this.url('custodias', { residentId, beforeSequence }), page(custody));
+  }
+  noteAuthors(residentId: string) {
+    return this.read(this.url('custodias/autores', { residentId }), authors);
   }
   createCustody(input: {
     residentId: string;

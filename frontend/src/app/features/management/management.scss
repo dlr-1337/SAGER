@@ -136,7 +136,7 @@
   gap: 6px;
   min-width: min(100%, 180px);
   color: var(--ink);
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 700;
 }
 .mg-field :is(input, select) {
@@ -167,7 +167,7 @@
 }
 .mg-field-error {
   color: var(--danger);
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 600;
   line-height: 1.35;
 }
@@ -222,11 +222,11 @@
   border-left: 1px solid var(--line);
 }
 .mg-row-detail strong {
-  font-size: 0.97rem;
+  font-size: 1rem;
 }
 .mg-row-detail span:not(.mg-status, .material-symbols-rounded) {
   color: var(--muted);
-  font-size: 0.94rem;
+  font-size: 1rem;
   line-height: 1.35;
 }
 .mg-row-link {
@@ -311,7 +311,7 @@
 }
 .mg-muted {
   color: var(--muted);
-  font-size: 0.95rem;
+  font-size: 1rem;
 }
 .mg-form-grid {
   display: grid;
@@ -377,6 +377,11 @@
 .mg-tabs {
   margin-bottom: 24px;
 }
+// Da altura da tela: com a aba visível, um painel curto não corta a rolagem da página.
+.mg-tab-panel {
+  min-height: 100dvh;
+  overflow-anchor: none;
+}
 .mg-details {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -389,7 +394,7 @@
 }
 .mg-details dt {
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 1rem;
   margin-bottom: 5px;
 }
 .mg-details dd {
@@ -469,8 +474,9 @@
   cursor: pointer;
 }
 .mg-check input {
-  width: 20px;
-  height: 20px;
+  flex: none;
+  width: 28px;
+  height: 28px;
   accent-color: var(--green-900);
 }
 .mg-timeline {
@@ -551,7 +557,7 @@
 }
 .mg-room-group h3 span {
   color: var(--muted);
-  font-size: 0.94rem;
+  font-size: 1rem;
   font-weight: 500;
 }
 .mg-room-grid {
@@ -611,7 +617,7 @@
 }
 .mg-room-meta {
   color: var(--muted);
-  font-size: 0.91rem;
+  font-size: 1rem;
   line-height: 1.4;
 }
 

@@ -1,21 +1,4 @@
 @use '../../shared/comm-base';
-.report-integrity {
-  margin-top: 20px;
-}
-.report-integrity summary,
-.report-export summary {
-  cursor: pointer;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  color: var(--green-800);
-  font-weight: 600;
-}
-.report-integrity dd,
-.report-hash {
-  overflow-wrap: anywhere;
-  font-variant-numeric: tabular-nums;
-}
 .report-desktop-table {
   max-width: 100%;
   overflow-x: auto;
@@ -25,7 +8,7 @@
 }
 .report-desktop-table th,
 .report-desktop-table td {
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
   font-size: var(--text-meta);
 }
 .report-desktop-table caption {
@@ -35,16 +18,6 @@
 }
 .report-local-mobile {
   display: none;
-}
-.report-export {
-  padding: 20px 0;
-  border-bottom: 1px solid var(--line);
-}
-.report-export:last-of-type {
-  border-bottom: 0;
-}
-.report-export h3 {
-  margin: 0 0 12px;
 }
 @media (max-width: 680px) {
   .report-desktop-table {
@@ -71,5 +44,163 @@
   }
   .report-local-mobile .comm-definition {
     margin-top: 16px;
+  }
+}
+.report-step {
+  border: 0;
+  margin: 0 0 28px;
+  padding: 0;
+  min-width: 0;
+}
+.report-step legend {
+  padding: 0;
+  margin-bottom: 12px;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+.report-types {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: 12px;
+}
+.report-periods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.report-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 12px 16px;
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius-card);
+  background: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+.report-option:has(input:checked) {
+  border-color: var(--green-900);
+  box-shadow: inset 0 0 0 1px var(--green-900);
+  background: var(--green-50);
+}
+.report-option input {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  accent-color: var(--green-900);
+}
+.report-type {
+  align-items: flex-start;
+}
+.report-type strong,
+.report-type small {
+  display: block;
+}
+.report-type small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: var(--text-meta);
+  font-weight: 400;
+  line-height: 1.4;
+}
+.report-range {
+  margin: 12px 0 0;
+  font-weight: 600;
+}
+.report-dates {
+  margin-top: 16px;
+}
+.report-filters {
+  margin-bottom: 16px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.report-filters summary {
+  display: flex;
+  align-items: center;
+  min-height: 56px;
+  color: var(--green-800);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.report-filters summary::before {
+  content: '▸';
+  margin-right: 8px;
+  font-size: 1.25rem;
+}
+.report-filters[open] summary::before {
+  content: '▾';
+}
+.report-filter-grid {
+  padding: 8px 0 20px;
+}
+.report-active {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0;
+}
+.report-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 4px 12px;
+  border: 1px solid var(--field-border);
+  border-radius: 999px;
+  background: var(--green-50);
+  color: var(--green-950);
+  font: inherit;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.report-chip .material-symbols-outlined {
+  font-size: 18px;
+}
+.report-generate {
+  min-width: min(100%, 280px);
+  min-height: 56px;
+  font-size: 1.125rem;
+}
+.report-card {
+  margin-top: 16px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+.report-card h3 {
+  margin: 0 0 4px;
+}
+.report-card-meta {
+  margin: 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.report-card-status {
+  margin: 12px 0 0;
+  font-weight: 600;
+}
+.report-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+.report-card-note {
+  margin: 12px 0 0;
+}
+@media (max-width: 540px) {
+  .report-card-actions > *,
+  .report-generate,
+  .report-periods > * {
+    width: 100%;
   }
 }

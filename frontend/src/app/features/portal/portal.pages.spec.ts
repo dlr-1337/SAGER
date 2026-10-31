@@ -107,8 +107,8 @@ describe('ProfilePage', () => {
     });
     const fixture = TestBed.createComponent(ProfilePage);
     await fixture.whenStable();
-    expect(fixture.nativeElement.textContent).toContain('Acesso assistencial');
-    expect(fixture.nativeElement.textContent).not.toContain('Conta sem cadastro vinculado');
+    expect(fixture.nativeElement.textContent).toContain('Área de saúde');
+    expect(fixture.nativeElement.textContent).not.toContain('ainda não está ligada a um cadastro');
   });
   it('apresenta o vínculo explícito da conta residente e informa quando ele está ausente', async () => {
     TestBed.configureTestingModule({ providers: [provideRouter([])] });
@@ -127,12 +127,12 @@ describe('ProfilePage', () => {
     auth.principal.set(linked);
     const fixture = TestBed.createComponent(ProfilePage);
     await fixture.whenStable();
-    expect(fixture.nativeElement.textContent).toContain('Cadastro de residente vinculado');
-    expect(fixture.nativeElement.textContent).toContain(linked.residenteId);
+    expect(fixture.nativeElement.textContent).toContain('ligada ao seu cadastro de residente');
+    expect(fixture.nativeElement.textContent).not.toContain(linked.residenteId);
     const unlinked = { ...linked, residenteId: null };
     auth.principal.set(unlinked);
     await fixture.whenStable();
-    expect(fixture.nativeElement.textContent).toContain('Conta sem cadastro vinculado');
+    expect(fixture.nativeElement.textContent).toContain('ainda não está ligada a um cadastro');
     expect(fixture.nativeElement.textContent).not.toContain(linked.residenteId);
   });
 });
@@ -160,7 +160,7 @@ describe('HelpPage', () => {
     expect(page.querySelector('a[href="/saidas"]')).not.toBeNull();
     expect(page.querySelector('a[href="/chamada"]')).toBeNull();
     expect(page.querySelector('a[href="/relatorios"]')).toBeNull();
-    expect(page.textContent).toContain('operador autorizado');
+    expect(page.textContent).toContain('Alguém da equipe');
     auth.principal.set({ ...auth.principal()!, perfis: ['supervisor'] });
     await fixture.whenStable();
     expect(page.querySelector('a[href="/chamada"]')).not.toBeNull();

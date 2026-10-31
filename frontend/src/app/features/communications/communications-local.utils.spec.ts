@@ -76,7 +76,7 @@ describe('Decisões disciplinares no ambiente local', () => {
         { ...candidate, warnings: [warnings[0], { ...warnings[1], category: 'LIMPEZA' }] },
         ids,
       ),
-    ).toContain('base');
+    ).toContain('anulada');
   });
   it('exclui advertência anulada, revisão pendente, ausência de origem e categoria não homologada', () => {
     const ids = warnings.map((item) => item.id);
@@ -91,7 +91,7 @@ describe('Decisões disciplinares no ambiente local', () => {
         ),
       ).not.toBe('');
     expect(recurrenceSelectionError({ ...candidate, category: 'OUTRA' }, ids)).toContain(
-      'elegível',
+      'advertências suficientes',
     );
   });
 });

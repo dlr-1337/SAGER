@@ -22,14 +22,14 @@ import { archiveLabels } from './communications-local.utils';
   template: `
     @if (demo) {
       <section class="op-empty" role="status">
-        <h2>Área do ambiente local</h2>
+        <h2>Esta tela não faz parte da demonstração</h2>
         <p>Use os registros demonstrativos ao navegar pela demonstração.</p>
         <a class="btn-secondary" routerLink="/inicio">Voltar ao início</a>
       </section>
     } @else if (blocked) {
       <section class="op-empty" role="alert">
         <h2>Acesso restrito</h2>
-        <p>Seu perfil não opera este recurso.</p>
+        <p>Sua conta não pode usar esta tela.</p>
       </section>
     } @else if (loading) {
       <section class="op-state" role="status">
@@ -76,7 +76,7 @@ export interface CommunicationReviewResult {
     <mat-dialog-content
       [attr.tabindex]="hasFields() ? null : 0"
       [attr.role]="hasFields() ? null : 'region'"
-      [attr.aria-label]="hasFields() ? null : 'Detalhes da revisão'"
+      [attr.aria-label]="hasFields() ? null : 'Detalhes'"
     >
       @if (data.warning) {
         <p class="comm-warning" role="alert">{{ data.warning }}</p>
@@ -114,9 +114,7 @@ export interface CommunicationReviewResult {
       @if (error()) {
         <p class="comm-error" role="alert">{{ error() }}</p>
       }
-      <p class="comm-help">
-        Confira o conteúdo antes de confirmar. Cancelar fecha esta revisão sem gravar.
-      </p>
+      <p class="comm-help">Confira antes de confirmar. Cancelar fecha sem salvar.</p>
     </mat-dialog-content>
     <mat-dialog-actions align="end"
       ><button

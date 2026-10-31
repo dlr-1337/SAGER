@@ -33,15 +33,19 @@ import { ExitsLocalComponent } from './exits-local.component';
               {{
                 session.hasRole('residente')
                   ? 'Acompanhe suas solicitações e veja o que falta em cada etapa.'
-                  : 'Analise solicitações, assinaturas e retornos em um só lugar.'
+                  : 'Analise solicitações, autorizações e retornos em um só lugar.'
               }}
             </p>
           </div>
           @if (session.hasRole('residente')) {
-            <a class="btn op-primary" routerLink="/saidas/nova"
-              ><span class="material-symbols-outlined" aria-hidden="true">add</span> Solicitar
-              saída</a
-            >
+            <div class="exit-requests">
+              <a class="btn op-primary" routerLink="/saidas/nova"
+                >Pedir saída curta (até 3 horas)</a
+              >
+              <a class="btn op-primary" routerLink="/saidas/nova" [queryParams]="{ tipo: 'longa' }"
+                >Pedir saída longa (mais de 3 horas)</a
+              >
+            </div>
           }
         </header>
         <p class="op-demo-label">Registros sintéticos para demonstração</p>
@@ -52,38 +56,40 @@ import { ExitsLocalComponent } from './exits-local.component';
           </p>
         } @else {
           <p class="op-help">
-            Saídas longas aguardam documento assinado antes da aprovação. Mensagem enviada ou lida
-            ainda não é assinatura.
+            Saídas longas aguardam autorização conferida antes da aprovação. Mensagem enviada ou
+            lida ainda não é autorização.
           </p>
         }
-        <section class="panel op-panel" aria-labelledby="exit-filter-title">
-          <h2 id="exit-filter-title">Buscar solicitações</h2>
-          <form class="op-filters" [formGroup]="filters">
-            <label class="field"
-              >Nome, matrícula ou quarto<input
-                formControlName="query"
-                type="search"
-                placeholder="Digite para buscar"
-            /></label>
-            <label class="field"
-              >Tipo<select sagerSearchable formControlName="kind">
-                <option value="">Todas</option>
-                <option value="Curta">Curta</option>
-                <option value="Longa">Longa</option>
-              </select></label
-            >
-            <label class="field"
-              >Situação<select sagerSearchable formControlName="status">
-                <option value="">Todas</option>
-                <option value="pendente">Pendentes</option>
-                <option value="concluida">Concluídas</option>
-              </select></label
-            >
-          </form>
-        </section>
+        @if (!session.hasRole('residente')) {
+          <section class="panel op-panel" aria-labelledby="exit-filter-title">
+            <h2 id="exit-filter-title">Buscar pedidos</h2>
+            <form class="op-filters" [formGroup]="filters">
+              <label class="field"
+                >Nome, matrícula ou quarto<input
+                  formControlName="query"
+                  type="search"
+                  placeholder="Digite para buscar"
+              /></label>
+              <label class="field"
+                >Tipo<select sagerSearchable formControlName="kind">
+                  <option value="">Todas</option>
+                  <option value="Curta">Curta</option>
+                  <option value="Longa">Longa</option>
+                </select></label
+              >
+              <label class="field"
+                >Situação<select sagerSearchable formControlName="status">
+                  <option value="">Todas</option>
+                  <option value="pendente">Pendentes</option>
+                  <option value="concluida">Concluídas</option>
+                </select></label
+              >
+            </form>
+          </section>
+        }
         <section class="op-section" aria-labelledby="exit-results-title">
           <div class="op-section-heading">
-            <h2 id="exit-results-title">Solicitações</h2>
+            <h2 id="exit-results-title">Pedidos</h2>
             <p aria-live="polite">{{ filtered().length }} registro(s)</p>
           </div>
           @if (session.scenario() === 'carregando') {
@@ -123,12 +129,12 @@ import { ExitsLocalComponent } from './exits-local.component';
                     <span
                       class="op-status"
                       [class.op-status-warn]="
-                        item.status === 'Falha no envio' || item.status === 'Aguardando assinatura'
+                        item.status === 'Falha no envio' || item.status === 'Aguardando autorização'
                       "
                       >{{ item.status }}</span
                     >
                     @if (item.kind === 'Longa' && !item.signed) {
-                      <small>Assinatura pendente</small>
+                      <small>Autorização pendente</small>
                     }
                   </div>
                   <a class="op-row-link" [routerLink]="['/saidas', item.id]"
@@ -182,14 +188,17 @@ export class ExitsComponent {
       if (kind && item.kind !== kind) return false;
       if (
         status === 'pendente' &&
-        !['Aguardando análise', 'Aguardando assinatura', 'Falha no envio', 'Em andamento'].includes(
-          item.status,
-        )
+        ![
+          'Aguardando análise',
+          'Aguardando autorização',
+          'Falha no envio',
+          'Em andamento',
+        ].includes(item.status)
       )
         return false;
       if (
         status === 'concluida' &&
-        ['Aguardando análise', 'Aguardando assinatura', 'Falha no envio', 'Em andamento'].includes(
+        ['Aguardando análise', 'Aguardando autorização', 'Falha no envio', 'Em andamento'].includes(
           item.status,
         )
       )

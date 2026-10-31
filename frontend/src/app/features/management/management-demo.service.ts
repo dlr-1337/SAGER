@@ -11,6 +11,20 @@ import {
   Supervisor,
   SupervisorInput,
 } from './management.models';
+import { formatResidentName } from './management.utils';
+import {
+  birthDateProblem,
+  changedProblem,
+  nameProblem,
+  normalizeEnrollment,
+  normalizeName,
+  phoneDigits,
+  phoneProblem,
+  relationshipProblem,
+  residentEmailProblem,
+  residentEnrollmentProblem,
+  supervisorIdProblem,
+} from '../../shared/field-rules';
 
 interface ManagementState {
   residents: Resident[];
@@ -24,7 +38,7 @@ const INITIAL_STATE: ManagementState = {
     {
       id: 'r-ana',
       name: 'Ana Luísa Ribeiro',
-      enrollment: '20241001',
+      enrollment: '2024100000001001',
       birthDate: '2009-06-14',
       course: 'Agropecuária',
       roomId: 'q-102',
@@ -34,7 +48,7 @@ const INITIAL_STATE: ManagementState = {
     {
       id: 'r-bruno',
       name: 'Pedro Henrique Silva',
-      enrollment: '20241002',
+      enrollment: '2024100000001002',
       birthDate: '2008-12-03',
       course: 'Informática',
       roomId: 'q-104',
@@ -44,7 +58,7 @@ const INITIAL_STATE: ManagementState = {
     {
       id: 'r-camila',
       name: 'Beatriz Costa',
-      enrollment: '20241003',
+      enrollment: '2024100000001003',
       birthDate: '2007-08-22',
       course: 'Alimentos',
       roomId: 'q-201',
@@ -54,7 +68,7 @@ const INITIAL_STATE: ManagementState = {
     {
       id: 'r-davi',
       name: 'Lucas Almeida',
-      enrollment: '20241004',
+      enrollment: '2024100000001004',
       birthDate: '2010-02-08',
       course: 'Agropecuária',
       roomId: 'q-203',
@@ -263,19 +277,34 @@ export class ManagementDemoService {
   }
 
   saveResident(input: ResidentInput, id?: string): Resident {
-    const enrollment = input.enrollment.trim().toUpperCase();
+    const existing = id ? this.resident(id) : undefined;
+    if (id && !existing) throw new Error('Residente não encontrado.');
+    const typedEnrollment = input.enrollment.trim();
+    const problem =
+      changedProblem(nameProblem, input.name.trim(), existing?.name) ??
+      changedProblem(residentEnrollmentProblem, typedEnrollment, existing?.enrollment) ??
+      changedProblem(birthDateProblem, input.birthDate, existing?.birthDate) ??
+      changedProblem(
+        residentEmailProblem,
+        input.institutionalEmail?.trim() ?? '',
+        existing?.institutionalEmail,
+      ) ??
+      (input.course.trim() ? null : 'Escolha o curso.');
+    if (problem) throw new Error(problem);
+    const enrollment =
+      typedEnrollment === existing?.enrollment
+        ? typedEnrollment
+        : normalizeEnrollment(typedEnrollment);
     if (
       this.residents().some(
-        (item) => item.enrollment.toUpperCase() === enrollment && item.id !== id,
+        (item) => item.enrollment.toUpperCase() === enrollment.toUpperCase() && item.id !== id,
       )
     ) {
       throw new Error('Esta matrícula já está cadastrada na demonstração.');
     }
-    const existing = id ? this.resident(id) : undefined;
-    if (id && !existing) throw new Error('Residente não encontrado.');
     const resident: Resident = {
       id: existing?.id ?? newId(),
-      name: input.name.trim(),
+      name: formatResidentName(normalizeName(input.name)),
       enrollment,
       birthDate: input.birthDate,
       course: input.course.trim(),
@@ -294,12 +323,18 @@ export class ManagementDemoService {
       ? this.guardians().find((item) => item.id === id && item.residentId === residentId)
       : undefined;
     if (id && !existing) throw new Error('Responsável não encontrado.');
+    const typedName = input.name.trim();
+    const problem =
+      changedProblem(nameProblem, typedName, existing?.name) ??
+      changedProblem(relationshipProblem, input.relationship.trim(), existing?.relationship) ??
+      changedProblem(phoneProblem, phoneDigits(input.phone), existing?.phone);
+    if (problem) throw new Error(problem);
     const guardian: LegalGuardian = {
       id: existing?.id ?? newId(),
       residentId,
-      name: input.name.trim(),
+      name: typedName === existing?.name ? typedName : normalizeName(typedName),
       relationship: input.relationship.trim(),
-      phone: input.phone.replace(/\D/g, ''),
+      phone: phoneDigits(input.phone),
       active: input.active,
       authorized: input.authorized,
       version: (existing?.version ?? 0) + 1,
@@ -309,19 +344,25 @@ export class ManagementDemoService {
   }
 
   saveSupervisor(input: SupervisorInput, id?: string): Supervisor {
-    const institutionalId = input.institutionalId.trim().toUpperCase();
+    const existing = id ? this.supervisor(id) : undefined;
+    if (id && !existing) throw new Error('Supervisor não encontrado.');
+    const typedName = input.name.trim();
+    const typedId = input.institutionalId.trim();
+    const problem =
+      changedProblem(nameProblem, typedName, existing?.name) ??
+      changedProblem(supervisorIdProblem, typedId, existing?.institutionalId);
+    if (problem) throw new Error(problem);
+    const institutionalId = typedId.toUpperCase();
     if (
       this.supervisors().some(
         (item) => item.institutionalId.toUpperCase() === institutionalId && item.id !== id,
       )
     ) {
-      throw new Error('Esta identificação institucional já está cadastrada.');
+      throw new Error('Esta matrícula ou SIAPE já está cadastrada.');
     }
-    const existing = id ? this.supervisor(id) : undefined;
-    if (id && !existing) throw new Error('Supervisor não encontrado.');
     const supervisor: Supervisor = {
       id: existing?.id ?? newId(),
-      name: input.name.trim(),
+      name: typedName === existing?.name ? typedName : normalizeName(typedName),
       institutionalId,
       email: input.email.trim().toLowerCase(),
       version: (existing?.version ?? 0) + 1,

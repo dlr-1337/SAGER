@@ -1,3 +1,10 @@
+import {
+  ERROR_FORBIDDEN,
+  ERROR_GENERIC,
+  ERROR_NOT_FOUND,
+  ERROR_SESSION,
+  readableError,
+} from '../../core/error-messages';
 import { readArrayPage } from '../../core/list-page';
 import { Injectable } from '@angular/core';
 import {
@@ -17,7 +24,7 @@ export class OperationsApiError extends Error {
     readonly code?: string,
     message?: string,
   ) {
-    super(message ?? 'Não foi possível acessar os registros. Tente novamente.');
+    super(message ?? ERROR_GENERIC);
   }
 }
 const record = (value: unknown): value is Record<string, unknown> =>
@@ -119,7 +126,8 @@ function isExit(value: unknown): value is ShortExit {
     value['history'].every(
       (event) =>
         record(event) &&
-        strings(event, ['id', 'event', 'actorProfile', 'status']) &&
+        strings(event, ['id', 'event', 'status']) &&
+        (event['actorProfile'] === null || typeof event['actorProfile'] === 'string') &&
         version(event['version']) &&
         instant(event['recordedAt']),
     )
@@ -264,13 +272,11 @@ export class OperationsLocalApiService {
     return query.size ? '?' + query.toString() : '';
   }
   private checked<T>(value: unknown, guard: (value: unknown) => value is T): T {
-    if (!guard(value))
-      throw new Error('O servidor retornou dados inválidos. Recarregue os registros.');
+    if (!guard(value)) throw new Error(ERROR_GENERIC);
     return value;
   }
   private list<T>(value: unknown, guard: (value: unknown) => value is T): T[] {
-    if (!Array.isArray(value) || !value.every(guard))
-      throw new Error('O servidor retornou uma lista inválida. Tente novamente.');
+    if (!Array.isArray(value) || !value.every(guard)) throw new Error(ERROR_GENERIC);
     return value;
   }
   private async request(url: string, method = 'GET', input?: unknown): Promise<unknown> {
@@ -278,7 +284,7 @@ export class OperationsLocalApiService {
     if (method !== 'GET') {
       const token = await this.request('/api/v1/auth/csrf');
       if (!record(token) || !strings(token, ['headerName', 'token']))
-        throw new Error('Não foi possível obter a proteção da sessão.');
+        throw new Error(ERROR_GENERIC);
       headers[String(token['headerName'])] = String(token['token']);
       headers['Content-Type'] = 'application/json';
     }
@@ -306,13 +312,13 @@ export class OperationsLocalApiService {
   }
 }
 export function operationsError(error: unknown): string {
+  if (error instanceof OperationsApiError && error.code === 'overlapping_exit')
+    return 'Você já tem outro pedido nesse horário. Mude os horários e envie de novo.';
   if (error instanceof OperationsApiError && error.status === 409)
-    return 'O registro mudou ou seu prazo terminou. Recarregue os dados e revise a situação antes de tentar novamente.';
-  if (error instanceof OperationsApiError && [401, 403].includes(error.status))
-    return 'Sua sessão não tem permissão para esta ação. Volte ao início ou entre novamente.';
-  if (error instanceof OperationsApiError && error.status === 404)
-    return 'O registro não foi encontrado ou não está disponível para sua sessão.';
-  return error instanceof Error
-    ? error.message
-    : 'Não foi possível concluir a ação. Tente novamente.';
+    return 'Outra pessoa alterou este registro ou o prazo terminou. Clique em Recarregar, confira e tente de novo.';
+  if (error instanceof OperationsApiError && error.status === 401) return ERROR_SESSION;
+  if (error instanceof OperationsApiError && error.status === 403) return ERROR_FORBIDDEN;
+  if (error instanceof OperationsApiError && error.status === 404) return ERROR_NOT_FOUND;
+  if (error instanceof OperationsApiError && error.status >= 500) return ERROR_GENERIC;
+  return readableError(error);
 }

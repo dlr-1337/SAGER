@@ -1,3 +1,4 @@
+import { ERROR_GENERIC } from '../../core/error-messages';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
@@ -18,7 +19,7 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
             >progress_activity</span
           >
           <h1>Carregando supervisor</h1>
-          <p>Consultando o cadastro local de teste.</p>
+          <p>Aguarde um momento.</p>
         </section>
       } @else if (loadError()) {
         <section class="mg-empty" role="alert">
@@ -49,26 +50,22 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
         @if (saved()) {
           <p class="mg-success" role="status">
             <span class="material-symbols-rounded" aria-hidden="true">check_circle</span>
-            {{
-              isDemo()
-                ? 'Supervisor salvo nesta demonstração.'
-                : 'Supervisor salvo no ambiente local de teste.'
-            }}
+            {{ isDemo() ? 'Supervisor salvo nesta demonstração.' : 'Supervisor salvo.' }}
           </p>
         }
         <section class="panel mg-panel" aria-labelledby="supervisor-data-title">
-          <h2 id="supervisor-data-title">Dados funcionais</h2>
+          <h2 id="supervisor-data-title">Dados do supervisor</h2>
           <dl class="mg-details">
             <div>
               <dt>Nome completo</dt>
               <dd>{{ item.name }}</dd>
             </div>
             <div>
-              <dt>Identificação institucional</dt>
+              <dt>Matrícula ou SIAPE</dt>
               <dd>{{ item.institutionalId }}</dd>
             </div>
             <div>
-              <dt>E-mail institucional</dt>
+              <dt>E-mail</dt>
               <dd>{{ item.email }}</dd>
             </div>
             <div>
@@ -77,23 +74,16 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
             </div>
           </dl>
         </section>
-        <div class="mg-note">
-          <span class="material-symbols-rounded" aria-hidden="true">info</span>
-          <p>
-            {{
-              isDemo()
-                ? 'O cadastro demonstrativo não cria credenciais.'
-                : 'Ambiente local de teste: use apenas dados fictícios. Este cadastro não cria credenciais.'
-            }}
-          </p>
-        </div>
+        @if (isDemo()) {
+          <div class="mg-note">
+            <span class="material-symbols-rounded" aria-hidden="true">info</span>
+            <p>Este cadastro é demonstrativo.</p>
+          </div>
+        }
       } @else {
         <section class="mg-empty" role="alert">
           <h1>Supervisor não encontrado</h1>
-          <p>
-            O cadastro solicitado não está disponível
-            {{ isDemo() ? 'nesta demonstração' : 'no ambiente local de teste' }}.
-          </p>
+          <p>Não encontramos este cadastro. Volte à lista e tente de novo.</p>
           <a class="btn mg-primary" routerLink="/supervisores">Voltar à equipe</a>
         </section>
       }
@@ -132,8 +122,8 @@ export class SupervisorDetailComponent {
       this.missing.set(error instanceof SupervisorApiError && error.status === 404);
       this.loadError.set(
         this.missing()
-          ? 'O cadastro solicitado não está disponível no ambiente local de teste.'
-          : 'Confira a conexão com o backend local e tente novamente.',
+          ? 'Não encontramos este cadastro. Volte à lista e tente de novo.'
+          : ERROR_GENERIC,
       );
     } finally {
       this.loading.set(false);

@@ -1,14 +1,27 @@
 import { UnsavedFormDirective } from '../../shared/unsaved-form';
+import { trimmedLength } from '../../shared/field-rules';
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
-import { ExitKind, ExitRequest, OperationsDemoService } from './operations-demo.service';
+import { longPeriodError } from './long-exit.utils';
+import { ExitKind, OperationsDemoService } from './operations-demo.service';
+import { nextReturn, periodHint, shortPeriodError } from './operations-local.utils';
 
 function localDateTime(date: Date): string {
   const pad = (number: number) => String(number).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/** A partially typed year stays ignored until it reaches a plausible value. */
+function localInstant(input: string): string | null {
+  const date = new Date(input);
+  return date.getFullYear() >= 1900 ? date.toISOString() : null;
+}
+
+function localInput(instant: string): string {
+  return localDateTime(new Date(instant));
 }
 
 import { ExitFormLocalComponent } from './exit-form-local.component';
@@ -44,7 +57,7 @@ import { ExitFormLocalComponent } from './exit-form-local.component';
           <header class="op-heading">
             <div>
               <a routerLink="/saidas" class="op-back">← Saídas</a>
-              <h1>{{ editing ? 'Editar solicitação' : 'Solicitar saída' }}</h1>
+              <h1>{{ editing ? 'Editar solicitação' : 'Pedir saída' }}</h1>
               <p>Preencha os horários e o motivo. O supervisor analisará o pedido.</p>
             </div>
             <span class="op-demo-label">Simulação</span>
@@ -67,16 +80,18 @@ import { ExitFormLocalComponent } from './exit-form-local.component';
               <label [class.selected]="form.controls.kind.value === 'Longa'"
                 ><input type="radio" formControlName="kind" value="Longa" /><strong>Longa</strong
                 ><span
-                  >Exige assinatura eletrônica do responsável legal via link no WhatsApp e aprovação
-                  do supervisor.</span
+                  >Exige autorização do responsável legal pelo WhatsApp, conferida por um servidor,
+                  e aprovação do supervisor.</span
                 ></label
               >
             </fieldset>
+            @let hint = periodHint();
             <div class="op-form-grid">
               <label class="field"
                 >Data e hora de saída<input
                   type="datetime-local"
                   formControlName="departure"
+                  [attr.min]="departureMin()"
                   (change)="departureChanged()"
                 />
                 @if (form.controls.departure.touched && form.controls.departure.invalid) {
@@ -85,11 +100,39 @@ import { ExitFormLocalComponent } from './exit-form-local.component';
               </label>
               <label class="field"
                 >{{ form.controls.kind.value === 'Curta' ? 'Retorno previsto' : 'Fim do período'
-                }}<input type="datetime-local" formControlName="expectedReturn" />
+                }}<input
+                  type="datetime-local"
+                  formControlName="expectedReturn"
+                  [attr.min]="hint.returnMin"
+                  [attr.max]="hint.returnMax"
+                  aria-describedby="demo-exit-period-hint"
+                  (input)="returnNotice.set('')"
+                />
                 @if (form.controls.expectedReturn.touched && form.controls.expectedReturn.invalid) {
                   <span class="op-field-error">Informe a data e hora de retorno.</span>
                 }
+                @if (hint.error) {
+                  <span class="op-field-error">{{ hint.error }}</span>
+                }
               </label>
+            </div>
+            <p class="op-help" id="demo-exit-period-hint">
+              @if (hint.duration) {
+                Duração: {{ hint.duration }} ({{
+                  form.controls.kind.value === 'Curta' ? 'máx. 3 h' : 'mínimo: mais de 3 h'
+                }}).
+              } @else {
+                {{
+                  form.controls.kind.value === 'Curta'
+                    ? 'Duração máxima: 3 h.'
+                    : 'Duração mínima: mais de 3 h.'
+                }}
+              }
+            </p>
+            <div role="status">
+              @if (returnNotice()) {
+                <p class="op-warning">{{ returnNotice() }}</p>
+              }
             </div>
             @if (form.controls.kind.value === 'Curta') {
               <p class="op-help">
@@ -98,8 +141,8 @@ import { ExitFormLocalComponent } from './exit-form-local.component';
               </p>
             } @else {
               <p class="op-help">
-                Responsável pré-cadastrado neste cenário: Mariana Ribeiro. A assinatura é simulada e
-                não possui validade jurídica.
+                Responsável pré-cadastrado neste cenário: Mariana Ribeiro. O envio e a conferência
+                são simulados e não possuem validade jurídica.
               </p>
             }
             <label class="field"
@@ -122,7 +165,7 @@ import { ExitFormLocalComponent } from './exit-form-local.component';
             </label>
             @if (editing && original?.kind === 'Longa') {
               <p class="op-warning">
-                Ao alterar esta saída longa, o documento e a etapa de assinatura são reiniciados no
+                Ao alterar esta saída longa, o documento e a etapa de autorização são reiniciados no
                 protótipo.
               </p>
             }
@@ -133,7 +176,7 @@ import { ExitFormLocalComponent } from './exit-form-local.component';
               <a class="btn op-secondary" routerLink="/saidas">Cancelar</a
               ><button class="btn op-primary" type="submit">
                 <span class="material-symbols-outlined" aria-hidden="true">check</span>
-                {{ editing ? 'Salvar alterações' : 'Enviar solicitação' }}
+                {{ editing ? 'Salvar alterações' : 'Enviar pedido' }}
               </button>
             </div>
           </form>
@@ -148,24 +191,30 @@ export class ExitFormComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   readonly error = signal('');
+  readonly returnNotice = signal('');
   readonly editing = !!this.route.snapshot.paramMap.get('id');
+  private savedReturn = this.editing;
   readonly original = this.editing
     ? this.service.getExit(this.route.snapshot.paramMap.get('id')!)
     : undefined;
   readonly editable =
     !!this.original &&
     this.original.residentId === this.service.residentId &&
-    ['Aguardando análise', 'Aguardando assinatura', 'Falha no envio'].includes(
+    ['Aguardando análise', 'Aguardando autorização', 'Falha no envio'].includes(
       this.original.status,
     );
   private readonly initialDeparture = this.original
     ? new Date(this.original.departure)
     : new Date();
   readonly form = new FormGroup({
-    kind: new FormControl<ExitKind>(this.original?.kind ?? 'Curta', {
-      nonNullable: true,
-      validators: [Validators.required],
-    }),
+    kind: new FormControl<ExitKind>(
+      this.original?.kind ??
+        (this.route.snapshot.queryParamMap.get('tipo') === 'longa' ? 'Longa' : 'Curta'),
+      {
+        nonNullable: true,
+        validators: [Validators.required],
+      },
+    ),
     departure: new FormControl(localDateTime(this.initialDeparture), {
       nonNullable: true,
       validators: [Validators.required],
@@ -180,25 +229,52 @@ export class ExitFormComponent {
     ),
     reason: new FormControl(this.original?.reason ?? '', {
       nonNullable: true,
-      validators: [Validators.required],
+      validators: [trimmedLength(1, 2000)],
     }),
     notes: new FormControl(this.original?.notes ?? '', { nonNullable: true }),
   });
 
   constructor() {
-    this.form.controls.kind.valueChanges.subscribe((kind) => {
-      if (kind === 'Curta') this.departureChanged();
+    this.form.controls.kind.valueChanges.subscribe(() => {
+      this.departureChanged();
       this.error.set('');
     });
   }
 
   departureChanged(): void {
-    if (this.form.controls.kind.value !== 'Curta') return;
-    const departure = Date.parse(this.form.controls.departure.value);
-    if (Number.isFinite(departure))
-      this.form.controls.expectedReturn.setValue(
-        localDateTime(new Date(departure + 3 * 3_600_000)),
+    const control = this.form.controls.expectedReturn;
+    const short = this.form.controls.kind.value === 'Curta';
+    this.returnNotice.set('');
+    const next = nextReturn(
+      localInstant(this.form.controls.departure.value),
+      localInstant(control.value),
+      this.savedReturn || control.dirty,
+      short ? 180 : 240,
+      short ? shortPeriodError : longPeriodError,
+    );
+    if (!next) return;
+    this.savedReturn = false;
+    control.reset(next.value && localInput(next.value));
+    if (next.adjusted)
+      this.returnNotice.set(
+        `Volta ajustada para ${new Date(next.value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}: o horário anterior não dava.`,
       );
+  }
+
+  departureMin(): string {
+    return localDateTime(new Date());
+  }
+
+  periodHint() {
+    const short = this.form.controls.kind.value === 'Curta';
+    return periodHint(
+      localInstant(this.form.controls.departure.value),
+      localInstant(this.form.controls.expectedReturn.value),
+      short ? 1 : 181,
+      short ? 180 : null,
+      short ? shortPeriodError : longPeriodError,
+      localInput,
+    );
   }
 
   save(): void {

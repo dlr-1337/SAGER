@@ -1,28 +1,25 @@
+import { readableError } from '../../core/error-messages';
 import { UnsavedFormDirective } from '../../shared/unsaved-form';
+import { PasswordFieldComponent } from '../../shared/password-field.component';
+import { PASSWORD_HELP, PASSWORD_MISMATCH, passwordRules } from '../../shared/password-rules';
 import { Component, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { LocalAuthService } from '../../core/local-auth.service';
 
 @Component({
   standalone: true,
-  imports: [UnsavedFormDirective, ReactiveFormsModule, RouterLink],
+  imports: [UnsavedFormDirective, ReactiveFormsModule, RouterLink, PasswordFieldComponent],
   template: `
     <main class="page mg-page mg-narrow">
       <h1>Recuperar senha</h1>
-      <p class="lead">
-        Informe os dados do seu cadastro de residente. Nenhuma mensagem será enviada por e-mail ou
-        telefone.
-      </p>
-      <p>
-        Cadastros antigos sem data de nascimento ou conta vinculada devem procurar a equipe
-        responsável.
-      </p>
+      <p class="lead">Confirme seus dados e crie uma senha nova.</p>
       @if (done()) {
         <section class="panel mg-panel" role="status">
-          <h2>Senha redefinida</h2>
-          <p>As sessões anteriores foram encerradas. Entre com sua matrícula e a nova senha.</p>
-          <a class="btn" routerLink="/acesso">Voltar ao acesso</a>
+          <h2>Senha trocada</h2>
+          <p>Entre com sua matrícula e a senha nova.</p>
+          <a class="btn" routerLink="/acesso">Entrar</a>
         </section>
       } @else {
         <form
@@ -63,40 +60,48 @@ import { LocalAuthService } from '../../core/local-auth.service';
                 required
             /></label>
             <label class="mg-field"
-              >Nome completo do responsável ativo<input
+              >Nome completo do seu responsável (se tiver)<input
                 formControlName="guardianName"
                 maxlength="200"
-                aria-describedby="guardian-hint"
-              /><small id="guardian-hint"
-                >Preencha se houver um responsável ativo vinculado ao seu cadastro.</small
-              ></label
-            >
+            /></label>
           </fieldset>
           <fieldset>
             <legend>2. Crie a nova senha</legend>
-            <label class="mg-field"
-              >Nova senha<input
-                type="password"
-                formControlName="password"
-                [attr.aria-invalid]="invalid('password')"
-                [attr.aria-describedby]="invalid('password') ? 'recovery-error' : null"
-                autocomplete="new-password"
-                minlength="12"
-                maxlength="72"
-                required
-              /><small
-                >Use de 12 a 72 caracteres (até 72 bytes). Não use informações pessoais.</small
-              ></label
-            >
-            <label class="mg-field"
-              >Confirmar nova senha<input
-                type="password"
-                formControlName="passwordConfirmation"
-                [attr.aria-invalid]="invalid('passwordConfirmation')"
-                [attr.aria-describedby]="invalid('passwordConfirmation') ? 'recovery-error' : null"
-                autocomplete="new-password"
-                required
-            /></label>
+            <div class="mg-field">
+              <label for="recovery-password">Nova senha</label>
+              <sager-password-field>
+                <input
+                  id="recovery-password"
+                  type="password"
+                  formControlName="password"
+                  [attr.aria-invalid]="invalid('password')"
+                  [attr.aria-describedby]="
+                    invalid('password')
+                      ? 'recovery-password-help recovery-error'
+                      : 'recovery-password-help'
+                  "
+                  autocomplete="new-password"
+                  required
+                />
+              </sager-password-field>
+              <small id="recovery-password-help">{{ passwordHelp }}</small>
+            </div>
+            <div class="mg-field">
+              <label for="recovery-confirmation">Confirmar nova senha</label>
+              <sager-password-field>
+                <input
+                  id="recovery-confirmation"
+                  type="password"
+                  formControlName="passwordConfirmation"
+                  [attr.aria-invalid]="invalid('passwordConfirmation')"
+                  [attr.aria-describedby]="
+                    invalid('passwordConfirmation') ? 'recovery-error' : null
+                  "
+                  autocomplete="new-password"
+                  required
+                />
+              </sager-password-field>
+            </div>
           </fieldset>
           @if (error()) {
             <p class="mg-alert" id="recovery-error" role="alert">{{ error() }}</p>
@@ -104,7 +109,7 @@ import { LocalAuthService } from '../../core/local-auth.service';
           <div class="action-row">
             <a class="btn mg-secondary" routerLink="/acesso">Cancelar</a
             ><button class="btn" [disabled]="busy()">
-              {{ busy() ? 'Verificando…' : 'Redefinir senha' }}
+              {{ busy() ? 'Verificando…' : 'Trocar senha' }}
             </button>
           </div>
         </form>
@@ -114,8 +119,8 @@ import { LocalAuthService } from '../../core/local-auth.service';
         <div>
           <strong>Gestores, supervisores e profissionais de saúde</strong>
           <p>
-            Procure o suporte da instituição. Um operador autorizado confere sua identidade e
-            redefine a senha.
+            Procure o suporte da instituição. Alguém da equipe confere quem você é e troca sua
+            senha.
           </p>
         </div>
       </div>
@@ -158,6 +163,7 @@ export class RecoveryPage {
   readonly done = signal(false);
   readonly busy = signal(false);
   readonly error = signal('');
+  readonly passwordHelp = PASSWORD_HELP;
   readonly form = new FormGroup({
     matricula: new FormControl('', {
       nonNullable: true,
@@ -174,19 +180,18 @@ export class RecoveryPage {
     }),
     password: new FormControl('', {
       nonNullable: true,
-      // O servidor limita a senha a 72 bytes UTF-8; letras acentuadas ocupam mais de um.
-      validators: [
-        Validators.required,
-        Validators.minLength(12),
-        (control) =>
-          new TextEncoder().encode(control.value).length > 72 ? { maxBytes: true } : null,
-      ],
+      validators: [passwordRules('matricula')],
     }),
     passwordConfirmation: new FormControl('', {
       nonNullable: true,
       validators: [Validators.required],
     }),
   });
+  constructor() {
+    this.form.controls.matricula.valueChanges
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => this.form.controls.password.updateValueAndValidity());
+  }
   /** Marca o campo só enquanto a mensagem de erro existe, para o aria-describedby apontar para
    *  ela; a confirmação também falha se divergir. */
   invalid(name: keyof RecoveryPage['form']['controls']): 'true' | null {
@@ -199,10 +204,20 @@ export class RecoveryPage {
     if (this.busy()) return;
     this.error.set('');
     const input = this.form.getRawValue();
-    if (this.form.invalid || input.password !== input.passwordConfirmation) {
+    const { password, passwordConfirmation, ...identity } = this.form.controls;
+    const mismatch = input.password !== input.passwordConfirmation;
+    if (this.form.invalid || mismatch) {
       this.form.markAllAsTouched();
       this.error.set(
-        'Confira os campos e repita a mesma senha, com 12 a 72 caracteres e até 72 bytes.',
+        [
+          Object.values(identity).some((control) => control.invalid)
+            ? 'Confira os campos marcados.'
+            : '',
+          password.errors?.['passwordRules'],
+          mismatch ? PASSWORD_MISMATCH : '',
+        ]
+          .filter(Boolean)
+          .join(' '),
       );
       return;
     }
@@ -212,9 +227,7 @@ export class RecoveryPage {
       this.form.reset();
       this.done.set(true);
     } catch (error) {
-      this.error.set(
-        error instanceof Error ? error.message : 'Não foi possível redefinir a senha.',
-      );
+      this.error.set(readableError(error) + ' Não deu certo? Procure a equipe da residência.');
     } finally {
       this.busy.set(false);
     }

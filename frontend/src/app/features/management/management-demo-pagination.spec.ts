@@ -60,9 +60,11 @@ for (const config of configs) {
       const parent = demo.residents()[0];
       const records = [];
       for (let index = 0; index <= total; index++) {
-        const name =
-          index < total ? `Sintético ${String(index).padStart(3, '0')}` : 'Fora da busca';
-        const code = `PAG-${index}`;
+        const letters = String(index)
+          .padStart(3, '0')
+          .replace(/\d/g, (digit) => 'abcdefghij'[Number(digit)]);
+        const name = index < total ? `Sintético ${letters}` : 'Fora da busca';
+        const code = `20261PAG${String(index).padStart(7, '0')}`;
         if (config.key === 'residents') {
           records.push(
             demo.saveResident({
@@ -77,7 +79,7 @@ for (const config of configs) {
             demo.saveGuardian(parent.id, {
               name,
               relationship: 'Mãe',
-              phone: '',
+              phone: '62912345678',
               active: true,
               authorized: false,
             }),

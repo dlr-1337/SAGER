@@ -1,10 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ShortExitInput } from './operations-local.models';
 import {
+  formatDuration,
   formatOperationsTime,
+  minutesAfter,
+  nextReturn,
+  periodHint,
   saoPauloInput,
   saoPauloInstant,
+  serverClock,
   shortExitFormError,
+  shortPeriodError,
   validJustification,
 } from './operations-local.utils';
 
@@ -51,12 +57,56 @@ describe('Horários e regras das operações locais', () => {
     expect(
       shortExitFormError({ ...input, departureMode: 'NOW', requestedDepartureAt: undefined }, now),
     ).toBe('');
-    expect(shortExitFormError(input, '2026-09-30T16:00:01Z')).toContain(
-      'horário informado pelo servidor',
-    );
+    expect(shortExitFormError(input, '2026-09-30T16:00:01Z')).toContain('antes de agora');
     expect(
       shortExitFormError({ ...input, departureMode: 'NOW' }, '2026-09-30T19:00:01Z'),
     ).toContain('posterior');
+  });
+  it('limita a saída curta: 1 min e 3 h aceitos, 3 h 01 recusado', () => {
+    expect(shortPeriodError(now, minutesAfter(now, 1))).toBe('');
+    expect(shortPeriodError(now, minutesAfter(now, 180))).toBe('');
+    expect(shortPeriodError(now, minutesAfter(now, 181))).toContain('3 horas');
+    expect(shortPeriodError(now, now)).toContain('posterior');
+  });
+  it('decide o retorno após mudança da partida sem perder edição válida', () => {
+    const next = (departure: string | null, current: string | null, edited: boolean) =>
+      nextReturn(departure, current, edited, 180, shortPeriodError);
+    expect(next(now, minutesAfter(now, 60), false)).toEqual({
+      value: minutesAfter(now, 180),
+      adjusted: false,
+    });
+    expect(next(now, minutesAfter(now, 60), true)).toBeNull();
+    expect(next(now, minutesAfter(now, 200), true)).toEqual({
+      value: minutesAfter(now, 180),
+      adjusted: true,
+    });
+    expect(next(now, null, true)?.adjusted).toBe(false);
+    expect(next(null, minutesAfter(now, 60), true)).toBeNull();
+    expect(next(null, minutesAfter(now, 60), false)).toEqual({ value: '', adjusted: false });
+  });
+  it('resume duração e limites em minutos, sem cruzar o limite por causa de segundos', () => {
+    expect(formatDuration(150)).toBe('2 h 30 min');
+    expect(formatDuration(180)).toBe('3 h');
+    expect(formatDuration(45)).toBe('45 min');
+    const withSeconds = '2026-09-30T16:00:20Z';
+    const hint = periodHint(withSeconds, '2026-09-30T19:01:00Z', 1, 180, shortPeriodError);
+    expect(hint).toEqual({
+      returnMin: '2026-09-30T13:01',
+      returnMax: '2026-09-30T16:00',
+      duration: '3 h 1 min',
+      error: 'A saída curta deve durar no máximo 3 horas.',
+    });
+    expect(periodHint(null, null, 1, 180, shortPeriodError).returnMin).toBeNull();
+  });
+  it('deriva o horário do servidor do tempo decorrido, sem o relógio do dispositivo', () => {
+    vi.useFakeTimers({ toFake: ['performance', 'Date'], now: new Date('2001-01-01T00:00:00Z') });
+    try {
+      const clock = serverClock(now);
+      vi.advanceTimersByTime(50 * 60_000);
+      expect(clock()).toBe('2026-09-30T16:50:00.000Z');
+    } finally {
+      vi.useRealTimers();
+    }
   });
   it('valida motivo, observação e justificativa sem aceitar apenas espaços', () => {
     expect(shortExitFormError({ ...input, reason: '   ' }, now)).toContain('motivo');

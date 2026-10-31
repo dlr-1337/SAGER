@@ -18,21 +18,19 @@
         <strong>SAGER</strong>
         <span>Sistema de Apoio à Gestão da<br />Residência Estudantil</span>
       </div>
-      <div
-        class="demo-flag"
-        [attr.aria-label]="
-          session.active()
-            ? 'Ambiente de demonstração com dados fictícios'
-            : session.production
-              ? 'Conta autenticada do SAGER'
+      @if (!session.production) {
+        <div
+          class="demo-flag"
+          [attr.aria-label]="
+            session.active()
+              ? 'Ambiente de demonstração com dados fictícios'
               : 'Login local de teste com telas de dados fictícios'
-        "
-      >
-        <strong>{{
-          session.active() ? 'Demonstração' : session.production ? 'SAGER' : 'Login local'
-        }}</strong>
-        <span>{{ session.production ? 'Acesso autenticado' : 'Dados fictícios' }}</span>
-      </div>
+          "
+        >
+          <strong>{{ session.active() ? 'Demonstração' : 'Login local' }}</strong>
+          <span>Dados fictícios</span>
+        </div>
+      }
       @if (!isMobile() && session.active()) {
         <div class="session-controls">
           <div class="control">
@@ -192,11 +190,9 @@
         }
         <div class="sidebar-note">
           <strong>SAGER · Campus Urutaí</strong>
-          <span>{{
-            session.production
-              ? 'Acesso conforme o perfil da sua conta.'
-              : 'As telas mostram apenas dados fictícios.'
-          }}</span>
+          @if (!session.production) {
+            <span>As telas mostram apenas dados fictícios.</span>
+          }
           <button type="button" (click)="signOut()">
             {{
               session.active()
@@ -222,7 +218,7 @@
           <span>SAGER · Campus Urutaí</span>
           <span>{{
             session.production
-              ? 'Residência Estudantil · Acesso autenticado'
+              ? 'Residência Estudantil'
               : session.active()
                 ? 'Demonstração · dados fictícios'
                 : 'Login local de teste · dados fictícios'

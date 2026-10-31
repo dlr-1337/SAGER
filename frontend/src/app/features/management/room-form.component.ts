@@ -1,5 +1,12 @@
+import {
+  ERROR_CONFLICT,
+  ERROR_FORBIDDEN,
+  ERROR_GENERIC,
+  ERROR_SESSION,
+} from '../../core/error-messages';
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import { UnsavedFormDirective } from '../../shared/unsaved-form';
+import { validCapacity } from '../../shared/field-rules';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -9,28 +16,13 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import {
-  FormControl,
-  FormGroup,
-  ReactiveFormsModule,
-  ValidatorFn,
-  Validators,
-} from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { HousingMap, RoomRecord, RoomRecordInput } from './housing.models';
 import { ManagementDemoService } from './management-demo.service';
 import { RoomSituation } from './management.models';
 import { RoomApiError, RoomApiService, roomLoadError } from './room-api.service';
-
-const positiveInteger: ValidatorFn = (control) =>
-  control.value === null ||
-  (typeof control.value === 'number' &&
-    Number.isInteger(control.value) &&
-    control.value > 0 &&
-    control.value <= 2147483647)
-    ? null
-    : { positiveInteger: true };
 
 @Component({
   selector: 'app-room-form',
@@ -52,7 +44,7 @@ const positiveInteger: ValidatorFn = (control) =>
             >progress_activity</span
           >
           <h1>Carregando dados do quarto</h1>
-          <p>Consultando a localização cadastrada no ambiente local de teste.</p>
+          <p>Aguarde um momento.</p>
         </section>
       } @else if (loadError()) {
         <section class="mg-empty" role="alert">
@@ -173,20 +165,17 @@ const positiveInteger: ValidatorFn = (control) =>
             novalidate
           >
             <h2>Dados do quarto</h2>
-            <p class="mg-muted">
-              Campos marcados com * são obrigatórios. Use somente dados fictícios no ambiente local
-              de teste.
-            </p>
+            <p class="mg-muted">Campos marcados com * são obrigatórios.</p>
             <div class="form-grid mg-form-grid">
               <label class="field mg-field"
-                >Código global *<input
+                >Código do quarto *<input
                   formControlName="code"
                   autocomplete="off"
                   maxlength="64"
                   [attr.aria-invalid]="invalid('code') ? 'true' : null"
                   [attr.aria-describedby]="invalid('code') ? 'room-code-error' : 'room-code-hint'"
                 /><span class="mg-muted" id="room-code-hint"
-                  >Identificador único entre todos os alojamentos.</span
+                  >Não pode repetir. Exemplo: A-101.</span
                 >
                 @if (invalid('code')) {
                   <span class="mg-field-error" id="room-code-error"
@@ -203,12 +192,10 @@ const positiveInteger: ValidatorFn = (control) =>
                   [attr.aria-describedby]="
                     invalid('number') ? 'room-number-error' : 'room-number-hint'
                   "
-                /><span class="mg-muted" id="room-number-hint"
-                  >Pode se repetir em outra localização. Zeros iniciais são preservados.</span
-                >
+                /><span class="mg-muted" id="room-number-hint">Exemplo: 101.</span>
                 @if (invalid('number')) {
                   <span class="mg-field-error" id="room-number-error"
-                    >Informe um número ou identificação com até 64 caracteres.</span
+                    >Escreva o número do quarto, com até 64 letras ou números.</span
                   >
                 }
               </label>
@@ -259,18 +246,18 @@ const positiveInteger: ValidatorFn = (control) =>
                   type="number"
                   formControlName="capacity"
                   min="1"
-                  max="2147483647"
+                  [attr.max]="20"
                   step="1"
                   [attr.aria-invalid]="invalid('capacity') ? 'true' : null"
                   [attr.aria-describedby]="
                     invalid('capacity') ? 'room-capacity-error' : 'room-capacity-hint'
                   "
                 /><span class="mg-muted" id="room-capacity-hint"
-                  >Deixe em branco quando a capacidade ainda não estiver definida.</span
+                  >Deixe em branco se ainda não souber.</span
                 >
                 @if (invalid('capacity')) {
                   <span class="mg-field-error" id="room-capacity-error"
-                    >Informe um número inteiro positivo ou deixe em branco.</span
+                    >Informe um número de 1 a 20 ou deixe em branco.</span
                   >
                 }
               </label>
@@ -296,8 +283,8 @@ const positiveInteger: ValidatorFn = (control) =>
             <div class="mg-note">
               <span class="material-symbols-rounded" aria-hidden="true">info</span>
               <p>
-                A situação é manual e independente da ocupação. A capacidade limita novas alocações
-                e não pode ser reduzida abaixo do número de moradores ativos.
+                A capacidade é o máximo de moradores do quarto. Ela não pode ficar menor que o
+                número de moradores atuais.
               </p>
             </div>
             @if (error()) {
@@ -310,9 +297,9 @@ const positiveInteger: ValidatorFn = (control) =>
                 [disabled]="saving()"
                 (click)="reloadLatest()"
               >
-                Carregar versão atual do quarto
+                Recarregar dados
               </button>
-              <p class="mg-muted">Esta ação substituirá os campos pela versão salva no servidor.</p>
+              <p class="mg-muted">Recarregar troca o que você digitou pelos dados salvos.</p>
             }
             @if (saveSessionRequired()) {
               <a class="btn mg-secondary" routerLink="/acesso">Entrar novamente</a>
@@ -378,7 +365,16 @@ export class RoomFormComponent {
     accommodationId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     unitId: new FormControl('', { nonNullable: true }),
     floor: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(64)] }),
-    capacity: new FormControl<number | null>(null, { validators: [positiveInteger] }),
+    capacity: new FormControl<number | null>(null, {
+      validators: [
+        ({ value }) =>
+          value === null ||
+          value === this.localRoom()?.capacity ||
+          (typeof value === 'number' && validCapacity(value))
+            ? null
+            : { capacity: true },
+      ],
+    }),
     situation: new FormControl<RoomSituation | ''>('', {
       nonNullable: true,
       validators: [Validators.required],
@@ -527,10 +523,7 @@ export class RoomFormComponent {
       const stale =
         error instanceof RoomApiError && error.status === 409 && error.code === 'stale_version';
       this.conflict.set(stale);
-      if (stale)
-        this.error.set(
-          'Este quarto foi alterado por outra sessão. Suas alterações foram preservadas. Carregue a versão atual antes de salvar novamente.',
-        );
+      if (stale) this.error.set(ERROR_CONFLICT);
       else if (
         error instanceof RoomApiError &&
         error.status === 409 &&
@@ -561,15 +554,8 @@ export class RoomFormComponent {
         );
       else if (error instanceof RoomApiError && [401, 403].includes(error.status)) {
         this.saveSessionRequired.set(true);
-        this.error.set(
-          error.status === 401
-            ? 'A sessão expirou. Entre novamente para salvar.'
-            : 'A sessão não permite salvar este quarto. Entre com perfil de gestor ou supervisor.',
-        );
-      } else
-        this.error.set(
-          'Não foi possível confirmar o salvamento. Confira a conexão com o backend local e tente novamente.',
-        );
+        this.error.set(error.status === 401 ? ERROR_SESSION : ERROR_FORBIDDEN);
+      } else this.error.set(ERROR_GENERIC);
     } finally {
       this.saving.set(false);
     }

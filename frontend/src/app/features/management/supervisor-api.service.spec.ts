@@ -62,6 +62,30 @@ describe('SupervisorApiService', () => {
     });
   });
 
+  it('envia a senha ao criar, em POST', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ headerName: 'X-CSRF-TOKEN', token: 'csrf-test' })),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify(item), { status: 201 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const input = {
+      name: item.name,
+      institutionalId: item.institutionalId,
+      email: item.email,
+      password: 'Senha teste 123!',
+      passwordConfirmation: 'Senha teste 123!',
+    };
+
+    await TestBed.inject(SupervisorApiService).save(input);
+
+    const [url, request] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(url).toBe('/api/v1/supervisores');
+    expect(request.method).toBe('POST');
+    expect(JSON.parse(request.body as string)).toEqual(input);
+  });
+
   it('propaga conflito sem confundi-lo com um cadastro salvo', async () => {
     vi.stubGlobal(
       'fetch',

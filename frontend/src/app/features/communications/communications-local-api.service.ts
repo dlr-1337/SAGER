@@ -1,3 +1,11 @@
+import {
+  ERROR_CONFLICT,
+  ERROR_FORBIDDEN,
+  ERROR_GENERIC,
+  ERROR_INVALID,
+  ERROR_NOT_FOUND,
+  ERROR_SESSION,
+} from '../../core/error-messages';
 import { Injectable } from '@angular/core';
 import {
   CursorPage,
@@ -198,16 +206,13 @@ export function communicationsError(error: unknown): string {
     (record(error) && typeof error['status'] === 'number')
   ) {
     const status = error instanceof CommunicationsApiError ? error.status : error['status'];
-    if (status === 401) return 'Sua sessão terminou. Entre novamente para continuar.';
-    if (status === 403)
-      return 'Seu perfil não tem acesso a esta ação ou a proteção da sessão expirou.';
-    if (status === 404) return 'Este registro não está disponível para sua conta.';
-    if (status === 409)
-      return 'O registro ou a evidência mudou. Recarregue a versão atual e revise os dados antes de confirmar novamente.';
-    if (status === 400 || status === 422)
-      return 'Os dados foram recusados. Revise os campos, a data e os vínculos selecionados.';
+    if (status === 401) return ERROR_SESSION;
+    if (status === 403) return ERROR_FORBIDDEN;
+    if (status === 404) return ERROR_NOT_FOUND;
+    if (status === 409) return ERROR_CONFLICT;
+    if (status === 400 || status === 422) return ERROR_INVALID;
   }
-  return 'Não foi possível consultar ou gravar os registros. Confira a conexão e tente novamente.';
+  return ERROR_GENERIC;
 }
 
 @Injectable({ providedIn: 'root' })

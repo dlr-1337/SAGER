@@ -1,3 +1,4 @@
+import { ERROR_GENERIC } from '../../core/error-messages';
 import { Injectable, inject, signal } from '@angular/core';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { ManagementDemoService } from './management-demo.service';
@@ -57,10 +58,10 @@ export class CourseApiService {
         credentials: 'same-origin',
         cache: 'no-store',
       });
-      if (!csrfResponse.ok) throw new Error('Não foi possível proteger a sessão.');
+      if (!csrfResponse.ok) throw new Error(ERROR_GENERIC);
       const csrf = await csrfResponse.json();
       if (typeof csrf.headerName !== 'string' || typeof csrf.token !== 'string')
-        throw new Error('Resposta de sessão inválida.');
+        throw new Error(ERROR_GENERIC);
       headers = { ...headers, 'Content-Type': 'application/json', [csrf.headerName]: csrf.token };
     }
     const response = await fetch(url, {
@@ -73,8 +74,8 @@ export class CourseApiService {
     if (!response.ok)
       throw new Error(
         response.status === 409
-          ? 'Curso duplicado ou alterado por outra sessão. Recarregue a lista.'
-          : 'Não foi possível consultar ou salvar o curso. Confira a conexão e sua permissão.',
+          ? 'Já existe um curso com esse nome, ou outra pessoa alterou este curso. Recarregue a lista e confira.'
+          : ERROR_GENERIC,
       );
     const result: unknown = await response.json();
     const valid = (c: unknown): c is Course =>
@@ -89,7 +90,7 @@ export class CourseApiService {
       'version' in c &&
       typeof c.version === 'number';
     if (!(Array.isArray(result) ? result.every(valid) : valid(result)))
-      throw new Error('Resposta de cursos inválida.');
+      throw new Error(ERROR_GENERIC);
     return result as T;
   }
 }

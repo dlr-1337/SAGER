@@ -1,3 +1,4 @@
+import { ERROR_CONFLICT } from '../../core/error-messages';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -25,7 +26,7 @@ import {
       <header class="op-heading op-exit-heading">
         <a routerLink="/saidas" class="op-back">← Saídas</a>
         <div class="op-exit-title-row">
-          <h1>Solicitação de saída curta</h1>
+          <h1>Pedido de saída curta</h1>
           @if (item(); as exit) {
             <span class="op-status">{{ labels[exit.status] }}</span>
           }
@@ -36,18 +37,18 @@ import {
       </header>
       @if (loading()) {
         <section class="op-state" role="status">
-          <h2>Carregando solicitação</h2>
-          <p>Consultando os dados e o histórico.</p>
+          <h2>Carregando pedido</h2>
+          <p>Aguarde um momento.</p>
         </section>
       } @else if (loadError()) {
         <section class="op-state" role="alert">
-          <h2>Solicitação indisponível</h2>
+          <h2>Não foi possível abrir o pedido</h2>
           <p>{{ loadError() }}</p>
           <button class="btn op-secondary" type="button" (click)="load()">Tentar novamente</button>
         </section>
       } @else if (item(); as exit) {
         @if (saved()) {
-          <p class="op-success" role="status">Solicitação salva.</p>
+          <p class="op-success" role="status">Pedido salvo.</p>
         }
         <p class="op-help">Horário de Brasília. Este pedido segue as regras de saída curta.</p>
         @if (exit.deadlineAt) {
@@ -56,28 +57,22 @@ import {
               exit.status === 'AGUARDANDO_ANALISE'
                 ? 'Prazo para análise'
                 : 'Prazo para iniciar a saída'
-            }}: {{ formatTime(exit.deadlineAt) }}. Após esse prazo, a solicitação expira se a
-            partida ainda não tiver sido registrada.
+            }}: {{ formatTime(exit.deadlineAt) }}. Depois desse prazo, o pedido perde a validade se
+            a saída ainda não tiver sido registrada.
           </p>
         }
         <div class="op-exit-grid">
           <section class="panel op-panel op-exit-overview" aria-labelledby="local-exit-overview">
-            <h2 id="local-exit-overview">Dados da solicitação</h2>
+            <h2 id="local-exit-overview">Dados do pedido</h2>
             <dl class="op-definition">
               <div>
-                <dt>Identificador</dt>
-                <dd>{{ exit.id }}</dd>
-              </div>
-              <div>
-                <dt>Modalidade</dt>
+                <dt>Quando</dt>
                 <dd>
-                  {{
-                    exit.departureMode === 'NOW' ? 'Saída imediata solicitada' : 'Saída agendada'
-                  }}
+                  {{ exit.departureMode === 'NOW' ? 'Assim que liberar' : 'Saída agendada' }}
                 </dd>
               </div>
               <div>
-                <dt>Saída solicitada</dt>
+                <dt>Saída pedida</dt>
                 <dd>{{ formatTime(exit.requestedDepartureAt) }}</dd>
               </div>
               <div>
@@ -109,7 +104,7 @@ import {
               }
               @if (exit.actualDepartureAt) {
                 <div>
-                  <dt>Partida presencial</dt>
+                  <dt>Saiu em</dt>
                   <dd>
                     {{ formatTime(exit.actualDepartureAt)
                     }}<small>Registrada em {{ formatTime(exit.departureRecordedAt) }}</small>
@@ -118,7 +113,7 @@ import {
               }
               @if (exit.actualReturnAt) {
                 <div>
-                  <dt>Retorno presencial</dt>
+                  <dt>Voltou em</dt>
                   <dd>
                     {{ formatTime(exit.actualReturnAt)
                     }}<small>Registrado em {{ formatTime(exit.returnRecordedAt) }}</small>
@@ -140,7 +135,7 @@ import {
               @if (exit.expiryReason) {
                 <div>
                   <dt>Expiração</dt>
-                  <dd>O prazo terminou antes da conclusão da análise ou da partida presencial.</dd>
+                  <dd>O prazo terminou antes da resposta ou da saída.</dd>
                 </div>
               }
             </dl>
@@ -148,7 +143,7 @@ import {
           <section class="panel op-panel op-exit-timeline" aria-labelledby="local-exit-history">
             <h2 id="local-exit-history">Histórico</h2>
             @if (!exit.history.length) {
-              <p class="op-help">Nenhum evento disponível.</p>
+              <p class="op-help">Nada registrado ainda.</p>
             } @else {
               <ol class="op-timeline">
                 @for (event of exit.history; track event.id) {
@@ -165,10 +160,10 @@ import {
                             ? 'Supervisor'
                             : 'Sistema'
                       }}
-                      · {{ labels[event.status] }} · revisão {{ event.version }}
+                      · {{ labels[event.status] }}
                     </p>
                     @if (event.effectiveAt) {
-                      <p>Horário presencial: {{ formatTime(event.effectiveAt) }}</p>
+                      <p>Horário: {{ formatTime(event.effectiveAt) }}</p>
                     }
                     @if (event.justification) {
                       <p>{{ event.justification }}</p>
@@ -184,14 +179,16 @@ import {
           <div class="op-exit-side">
             <section class="panel op-panel op-exit-actions" aria-labelledby="local-exit-actions">
               <h2 id="local-exit-actions">
-                {{ session.hasRole('supervisor') ? 'Ações do supervisor' : 'Ações da solicitação' }}
+                {{
+                  session.hasRole('supervisor') ? 'Ações do supervisor' : 'O que você pode fazer'
+                }}
               </h2>
               @if (session.hasRole('residente') && exit.capabilities.canEdit) {
                 <a
                   class="btn op-primary"
                   [attr.aria-disabled]="busy() || conflict()"
                   [routerLink]="busy() || conflict() ? null : ['/saidas', exit.id, 'editar']"
-                  >Editar solicitação</a
+                  >Mudar pedido</a
                 >
               }
               @if (session.hasRole('supervisor') && exit.capabilities.canDecide) {
@@ -214,25 +211,25 @@ import {
                 </div>
               }
               @if (session.hasRole('supervisor') && exit.capabilities.canDepart) {
-                <p>Identifique o residente presencialmente antes de liberar a partida.</p>
+                <p>Veja o residente pessoalmente antes de liberar a saída.</p>
                 <button
                   class="btn op-primary"
                   type="button"
                   [disabled]="busy() || conflict()"
                   (click)="physical('partida')"
                 >
-                  Registrar partida presencial
+                  Registrar saída
                 </button>
               }
               @if (session.hasRole('supervisor') && exit.capabilities.canReturn) {
-                <p>Identifique o residente presencialmente antes de confirmar o retorno.</p>
+                <p>Veja o residente pessoalmente antes de confirmar a volta.</p>
                 <button
                   class="btn op-primary"
                   type="button"
                   [disabled]="busy() || conflict()"
                   (click)="physical('retorno')"
                 >
-                  Confirmar retorno presencial
+                  Registrar volta
                 </button>
               }
               @if (session.hasRole('supervisor', 'residente') && exit.capabilities.canCancel) {
@@ -243,7 +240,7 @@ import {
                     [disabled]="busy() || conflict()"
                     (click)="cancel()"
                   >
-                    Cancelar solicitação
+                    Cancelar pedido
                   </button>
                 </div>
               }
@@ -254,10 +251,10 @@ import {
                 !exit.capabilities.canDepart &&
                 !exit.capabilities.canReturn
               ) {
-                <p class="op-help">Nenhuma ação disponível para esta solicitação.</p>
+                <p class="op-help">Nenhuma ação disponível para este pedido.</p>
               }
               @if (session.hasRole('residente')) {
-                <p class="op-help">O supervisor registra a partida e o retorno presenciais.</p>
+                <p class="op-help">O supervisor registra a saída e a volta.</p>
               }
               @if (busy()) {
                 <p role="status">Processando registro…</p>
@@ -270,7 +267,7 @@ import {
               }
               @if (conflict()) {
                 <button class="btn op-secondary" type="button" (click)="load()">
-                  Recarregar solicitação
+                  Recarregar dados
                 </button>
               } @else {
                 <div class="op-actions">
@@ -321,11 +318,11 @@ export class ExitDetailLocalComponent {
   readonly labels = exitStatusLabels;
   readonly events = {
     ...exitEventLabels,
-    EDIT: 'Solicitação alterada',
-    APPROVE: 'Solicitação aprovada',
-    REJECT: 'Solicitação rejeitada',
-    CANCEL: 'Solicitação cancelada',
-    EXPIRE: 'Solicitação expirada',
+    EDIT: 'Pedido alterado',
+    APPROVE: 'Pedido aprovado',
+    REJECT: 'Pedido rejeitado',
+    CANCEL: 'Pedido cancelado',
+    EXPIRE: 'Pedido expirado',
   } as Record<string, string>;
   readonly formatTime = formatOperationsTime;
   constructor() {
@@ -380,13 +377,13 @@ export class ExitDetailLocalComponent {
       return;
     this.review(
       {
-        title: 'Revisar cancelamento da solicitação',
+        title: 'Conferir cancelamento do pedido',
         action: 'Confirmar cancelamento',
         lines: this.summary(exit),
         requireReason: true,
       },
       (result) => this.api.cancelExit(exit, result.reason),
-      'Solicitação cancelada.',
+      'Pedido cancelado.',
     );
   }
   async physical(action: 'partida' | 'retorno'): Promise<void> {
@@ -405,18 +402,18 @@ export class ExitDetailLocalComponent {
       const fresh = await this.api.exit(exit.id);
       if (fresh.version !== exit.version) {
         this.conflict.set(true);
-        this.error.set('A solicitação mudou. Recarregue os dados antes de registrar a presença.');
+        this.error.set(ERROR_CONFLICT);
         return;
       }
       if (!(action === 'partida' ? fresh.capabilities.canDepart : fresh.capabilities.canReturn)) {
         this.conflict.set(true);
-        this.error.set('A ação deixou de estar disponível. Recarregue os dados da solicitação.');
+        this.error.set(ERROR_CONFLICT);
         return;
       }
       this.review(
         {
-          title: action === 'partida' ? 'Revisar partida presencial' : 'Revisar retorno presencial',
-          action: action === 'partida' ? 'Confirmar partida' : 'Confirmar retorno',
+          title: action === 'partida' ? 'Conferir saída' : 'Conferir volta',
+          action: action === 'partida' ? 'Confirmar saída' : 'Confirmar volta',
           lines: this.summary(exit),
           warning: 'Confirme a identidade do residente e confira os horários antes de registrar.',
           physical: {
@@ -428,7 +425,7 @@ export class ExitDetailLocalComponent {
           },
         },
         (result) => this.api.physicalExit(exit.id, action, result.physical!),
-        action === 'partida' ? 'Partida presencial registrada.' : 'Retorno presencial registrado.',
+        action === 'partida' ? 'Saída registrada.' : 'Volta registrada.',
       );
     } catch (error) {
       this.error.set(operationsError(error));
@@ -440,7 +437,7 @@ export class ExitDetailLocalComponent {
     return [
       { label: 'Residente', value: exit.residentName },
       { label: 'Matrícula', value: exit.enrollment },
-      { label: 'Saída solicitada', value: formatOperationsTime(exit.requestedDepartureAt) },
+      { label: 'Saída pedida', value: formatOperationsTime(exit.requestedDepartureAt) },
       { label: 'Retorno previsto', value: formatOperationsTime(exit.expectedReturnAt) },
       { label: 'Motivo', value: exit.reason },
     ];
