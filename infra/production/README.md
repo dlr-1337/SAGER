@@ -8,12 +8,14 @@ Nenhuma credencial ou certificado operacional pertence ao repositório.
 
 1. Copie `.env.example` para um diretório privado fora do checkout. Defina o domínio,
    o nome exclusivo do stack e os caminhos absolutos dos segredos e do TLS.
-2. Crie três arquivos com valores aleatórios **distintos**, com pelo menos 32 caracteres:
-   `db_owner_password`, `db_runtime_password` e `login_rate_secret`. No Linux, mantenha o diretório com
+2. Crie cinco arquivos com valores aleatórios **distintos**, com pelo menos 32 caracteres:
+   `db_owner_password`, `db_runtime_password`, `login_rate_secret`, `waha_api_key` e
+   `waha_webhook_hmac`. Os dois últimos são exigidos mesmo com o WhatsApp desligado, porque o
+   stack os monta em todo início. No Linux, mantenha o diretório com
    modo `0700` e os arquivos com proprietário `root`, grupo `10001` e modo `0440`.
    O PostgreSQL lê seu segredo antes de reduzir o privilégio; a aplicação recebe
-   somente a senha de execução e o segredo HMAC dos contadores de login. O segredo
-   HMAC precisa permanecer estável entre reinícios. Acesso ao daemon Docker equivale a administração
+   a senha de execução, o segredo HMAC dos contadores de login e os dois segredos do gateway de
+   WhatsApp. O segredo HMAC dos contadores precisa permanecer estável entre reinícios. Acesso ao daemon Docker equivale a administração
    do ambiente e deve ser restrito pela TI.
 3. Disponibilize `fullchain.pem` e `privkey.pem` no diretório TLS externo. O processo
    Nginx usa UID/GID `101`; a chave precisa ser legível por esse processo e ficar
@@ -48,10 +50,13 @@ reverta o schema em uso com `clean` ou SQL destrutivo. Se a versão anterior nã
 compatível com a migração, restaure o ponto completo em um stack isolado, confira-o
 e só então planeje a troca de tráfego.
 
-Os provedores externos ficam desabilitados por padrão. A habilitação de Clicksign
-e WhatsApp requer configuração e segredos próprios, credenciais autorizadas,
-template aprovado e teste real da instituição. Não declare assinatura confirmada
-ou entrega de mensagem a partir de teste local, callback de tela ou HTTP aceito.
+O gateway de WhatsApp fica desligado por padrão e não há provedor externo de assinatura.
+Ligar o gateway exige segredos próprios, número dedicado, o teste de aceite e o aceite
+formal da integração não oficial. Com ele, a VPS precisa de no mínimo 2 vCPU e 4 GB
+mais swap, porque os limites somados chegam a 2.432 MiB, e o volume da sessão fica fora
+do backup. O passo a passo, incluindo a regra `DOCKER-USER` no host, está em
+[docs/whatsapp/OPERACAO.md](../../docs/whatsapp/OPERACAO.md). Não declare autorização
+conferida ou entrega de mensagem a partir de teste local, evento recebido ou HTTP aceito.
 
 Contas usam provisionamento operacional. `--sager-account=create` e `reset` leem
 senha duas vezes pelo console oculto; `disable` revoga a conta e suas sessões.
@@ -73,7 +78,7 @@ exigem CSRF. Não habilite o perfil `local` junto com `production`.
 [age](https://github.com/FiloSottile/age/releases). A identidade privada de
 recuperação deve ficar fora do host da aplicação; a criação usa apenas o destinatário
 público. Defina a periodicidade e a cópia externa no ambiente operacional da TI.
-Não existe agendamento criado pelo Codex para essa rotina.
+Os scripts entregues não criam agendamento para essa rotina.
 
 ```sh
 python infra/production/recovery.py --env-file /srv/sager/operator.env \

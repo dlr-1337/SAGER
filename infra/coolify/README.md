@@ -11,7 +11,7 @@ externa `coolify`. PostgreSQL e backend não publicam portas no host.
 - Docker Compose em modo **Raw (deploy file as-is)**.
 - Base directory `/`, Docker compose location `/compose.coolify.yml`.
 - Preserve repository during deployment ativado.
-- Custom build: `docker compose --profile maintenance build`.
+- Custom build: `docker compose --profile maintenance build && docker compose --profile whatsapp pull whatsapp-gateway`.
 - Custom start: `bash infra/coolify/start.sh`.
 - Build arguments: **Managed manually in Dockerfile**.
 - Auto deploy: **Manual deployments only**; previews desativados.
@@ -44,8 +44,10 @@ para os containers da aplicação.
 
 ## Segredos e início
 
-Gerar uma vez três valores aleatórios distintos, com 64 caracteres hexadecimais:
-`db_owner_password`, `db_runtime_password` e `login_rate_secret`.
+Gerar uma vez cinco valores aleatórios distintos, com 64 caracteres hexadecimais:
+`db_owner_password`, `db_runtime_password`, `login_rate_secret`, `waha_api_key` e
+`waha_webhook_hmac`. Os dois últimos existem mesmo com o WhatsApp desligado: sem o
+arquivo, o Docker cria um diretório no lugar e bloqueia a ativação depois.
 Armazenar fora do checkout, em `/srv/sager/homologacao/secrets`, com diretório
 `0700`, arquivos `0440` e grupo `10001`. Cada serviço recebe somente os arquivos
 necessários. Não colocar valores no painel, em argumentos, logs ou Git.
@@ -59,6 +61,8 @@ as chamadas Compose. A ordem é:
 2. Aguardar o PostgreSQL saudável.
 3. Executar uma nova tarefa de migração e outra de permissões do runtime.
 4. Aguardar readiness do backend, depois iniciar e verificar o gateway.
+5. Com `SAGER_INTEGRATIONS_WHATSAPP_ENABLED=true`, subir `whatsapp-gateway` e
+   `whatsapp-gateway-proxy`. Falha nesta etapa só gera aviso: o SAGER segue no ar.
 
 O preflight valida identidade do projeto e configuração antes de alterar containers;
 se ele falhar, a versão anterior permanece no estado em que estava. Depois da parada
@@ -68,6 +72,8 @@ Não iniciar manualmente a aplicação para contornar uma migração malsucedida
 
 As quotas permanentes são 512 MiB/0,25 CPU para PostgreSQL,
 1024 MiB/0,65 CPU para backend e 96 MiB/0,10 CPU para gateway: **1632 MiB/1 CPU**.
+Com o WhatsApp ligado, somam-se 768 MiB/0,5 CPU do gateway de WhatsApp e 32 MiB/0,10 CPU
+do proxy: **2432 MiB/1,6 CPU**, com mínimo de 2 vCPU e 4 GB mais swap na VPS.
 Os limites dos containers temporários de manutenção são adicionais.
 
 O gateway resolve `coolify-proxy` no DNS interno do Docker ao iniciar e confia

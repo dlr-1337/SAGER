@@ -35,11 +35,13 @@ if action[0] == "compose":
     for flag in ("--project-name", "--project-directory", "--env-file", "-f"):
         assert action[0] == flag, action
         action = action[2:]
-    if action[:2] == ["--profile", "maintenance"]:
+    if action[0] == "--profile":
         action = action[2:]
 command = action[0]
 target = action[-1]
 stage = command + (":" + target if command in ("up", "run") else "")
+if args[0] == "run":
+    stage = "secret-check"
 failed = state.get("failure") == stage
 if command == "stop" and not failed:
     for service in ("gateway", "backend"):
@@ -81,7 +83,7 @@ class RawLabelTests(unittest.TestCase):
                 blocks[service].append(line)
             else:
                 in_labels = False
-        self.assertEqual(set(blocks), {"database", "backend", "gateway"})
+        self.assertEqual(set(blocks), {"database", "backend", "gateway", "whatsapp-gateway", "whatsapp-gateway-proxy"})
         for service, labels in blocks.items():
             with self.subTest(service=service):
                 self.assertTrue(labels)
@@ -225,6 +227,50 @@ class StartupTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assert_stopped()
         self.assertEqual(self.actions()[-2][0], "stop")
+
+    def enable_whatsapp(self):
+        self.env_file.write_text(self.env_file.read_text() + "SAGER_INTEGRATIONS_WHATSAPP_ENABLED=true\n")
+
+    def whatsapp_actions(self):
+        return [action for action in self.actions() if action[:2] == ["--profile", "whatsapp"]]
+
+    def test_whatsapp_stays_off_by_default(self):
+        result = self.run_script()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.whatsapp_actions(), [])
+        self.assertFalse(any(call[0] == "run" for call in self.state["calls"]))
+
+    def test_whatsapp_starts_after_the_healthy_sager(self):
+        self.enable_whatsapp()
+        result = self.run_script()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.actions()[-3:], [
+            ["up", "-d", "--no-build", "--no-deps", "--pull", "never", "--wait", "--wait-timeout", "90", "gateway"],
+            ["--profile", "whatsapp", "run", "--rm", "-T", "--no-deps", "--pull", "never", "whatsapp-gateway-prepare"],
+            ["--profile", "whatsapp", "up", "-d", "--no-build", "--no-deps", "--pull", "never", "--wait",
+             "--wait-timeout", "90", "whatsapp-gateway", "whatsapp-gateway-proxy"],
+        ])
+
+    def test_whatsapp_failure_never_takes_the_sager_down(self):
+        for failure in ("run:whatsapp-gateway-prepare", "up:whatsapp-gateway-proxy"):
+            with self.subTest(failure=failure):
+                self.setUp()
+                self.enable_whatsapp()
+                self.state["failure"] = failure
+                result = self.run_script()
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("the SAGER stays up", result.stderr)
+                self.assertEqual(self.state["services"]["backend"], "running")
+                self.assertEqual(self.state["services"]["gateway"], "running")
+
+    def test_whatsapp_without_secret_files_preserves_the_running_version(self):
+        self.enable_whatsapp()
+        self.state["failure"] = "secret-check"
+        result = self.run_script()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("secret files are missing", result.stderr)
+        self.assertEqual(self.actions(), [["config", "--quiet"]])
+        self.assertEqual(self.state["services"]["backend"], "running")
 
     def test_stale_running_backend_blocks_even_database_start(self):
         self.state["stale"] = "backend"

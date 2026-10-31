@@ -117,7 +117,8 @@ root, temporary = (Path(value).resolve() for value in sys.argv[1:])
 if temporary.is_relative_to(root) or any((parent / '.git').exists() for parent in temporary.parents):
     raise SystemExit('Temporary secrets must be outside every Git checkout.')
 values = set()
-for name in ('db_owner_password', 'db_runtime_password', 'login_rate_secret'):
+for name in ('db_owner_password', 'db_runtime_password', 'login_rate_secret',
+             'waha_api_key', 'waha_webhook_hmac'):
     value = secrets.token_hex(32)
     while value in values:
         value = secrets.token_hex(32)
@@ -258,6 +259,18 @@ curl_request csrf /api/v1/auth/csrf 200
 curl_request principal /api/v1/auth/me 401
 curl_request unprotected-write /api/v1/auth/login 403 --request POST --data ''
 curl_request actuator /actuator/health/readiness 404
+for asset in favicon.svg favicon.ico apple-touch-icon.png icon-192.png icon-512.png og-image.png manifest.webmanifest; do
+  curl_request "$asset" "/$asset" 200
+done
+head -c 2097152 /dev/zero > "$temp_dir/2m.bin"
+head -c 12582912 /dev/zero > "$temp_dir/12m.bin"
+# The uploads reach the backend, which refuses them without CSRF, while the webhook keeps 1 MiB.
+upload_route=/api/v1/conversas/00000000-0000-0000-0000-000000000000/mensagens
+curl_request upload-allowed "$upload_route" 403 --request POST --data-binary "@$(native_path "$temp_dir/2m.bin")"
+curl_request upload-too-large "$upload_route" 413 --request POST --data-binary "@$(native_path "$temp_dir/12m.bin")"
+curl_request attachment-allowed /api/v1/saidas-longas/00000000-0000-0000-0000-000000000000/autorizacao/arquivos 403 \
+  --request POST --data-binary "@$(native_path "$temp_dir/2m.bin")"
+curl_request webhook-limit /api/v1/integracoes/whatsapp/webhook 413 --request POST --data-binary "@$(native_path "$temp_dir/2m.bin")"
 "$python_command" - "$temp_native" <<'PY'
 from html.parser import HTMLParser
 import json
@@ -311,27 +324,37 @@ def require_production_index(content):
     if index.inline_scripts:
         raise SystemExit('The production index must not contain executable inline scripts.')
 
-require_production_index((temporary / 'index.body').read_text(encoding='utf-8'))
+index_body = (temporary / 'index.body').read_text(encoding='utf-8')
+require_production_index(index_body)
+if 'content="https://sager.example.test/og-image.png"' not in index_body or '__SAGER_ORIGIN__' in index_body:
+    raise SystemExit('The link preview must use the real origin, without a marker.')
 csrf = json.loads((temporary / 'csrf.body').read_text(encoding='utf-8'))
 if (str(csrf.get('headerName', '')).lower() != 'x-csrf-token'
         or not isinstance(csrf.get('token'), str) or len(csrf['token']) < 16):
     raise SystemExit('The CSRF endpoint did not confirm its canonical token contract.')
 all_headers = {}
-for name in ('index', 'demo', 'csrf', 'principal', 'unprotected-write', 'actuator'):
+brand_assets = {'favicon.svg': 'image/svg+xml', 'favicon.ico': 'icon', 'apple-touch-icon.png': 'image/png',
+                'icon-192.png': 'image/png', 'icon-512.png': 'image/png', 'og-image.png': 'image/png',
+                'manifest.webmanifest': 'application/manifest+json'}
+for name in ('index', 'demo', 'csrf', 'principal', 'unprotected-write', 'actuator', *brand_assets):
     headers = {}
     for line in (temporary / (name + '.headers')).read_text(encoding='iso-8859-1').splitlines():
         if ':' in line:
             key, value = line.split(':', 1)
             headers.setdefault(key.lower(), []).append(value.strip())
     all_headers[name] = headers
+    if name in brand_assets and brand_assets[name] not in headers.get('content-type', [''])[0]:
+        raise SystemExit(f'{name} must serve its actual content type.')
     required = {
         'strict-transport-security': lambda value: bool(re.search(r'(?:^|;)\s*max-age=31536000\s*(?:;|$)', value)),
         'x-content-type-options': lambda value: value.lower() == 'nosniff',
         'referrer-policy': lambda value: value.lower() == 'no-referrer',
         'cache-control': lambda value: 'no-store' in value.lower(),
+        'permissions-policy': lambda value: value == 'camera=(), microphone=(self), geolocation=()',
         'content-security-policy': lambda value: all(directive in value for directive in (
             "default-src 'self'", "frame-ancestors 'none'", "object-src 'none'",
-            "base-uri 'self'", "form-action 'self'")),
+            "base-uri 'self'", "form-action 'self'", "media-src 'self' blob:"))
+            and 'clicksign' not in value,
     }
     for key, check in required.items():
         if not headers.get(key) or not all(check(value) for value in headers[key]):
