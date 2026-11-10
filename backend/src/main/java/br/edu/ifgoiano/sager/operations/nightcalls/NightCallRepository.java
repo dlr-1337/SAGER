@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import br.edu.ifgoiano.sager.auth.LocalAccountPrincipal;
 import br.edu.ifgoiano.sager.operations.AuthorizedExitLookup.Reference;
 import br.edu.ifgoiano.sager.operations.OpsInput;
 import org.springframework.context.annotation.Profile;
@@ -124,14 +123,14 @@ public class NightCallRepository {
     }
 
     public void history(NightCall.ResidentMark mark, long callVersion, String justification,
-            Instant now, LocalAccountPrincipal actor) {
+            Instant now, UUID actorId, String actorProfile) {
         jdbc.update("""
                 INSERT INTO sager_night_call_mark_history(id, mark_id, mark, authorized_exit_id,
                     authorized_exit_type, justification, recorded_at, actor_id, actor_profile,
                     resulting_version, call_version)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, UUID.randomUUID(), mark.id(), mark.mark(), mark.authorizedExitId(), mark.authorizedExitType(),
-                justification, timestamp(now), actor.id(), actor.profile(), mark.version(), callVersion);
+                justification, timestamp(now), actorId, actorProfile, mark.version(), callVersion);
     }
 
     public List<NightCall.MarkHistory> history(UUID markId) {

@@ -135,7 +135,7 @@ function localDateTime(date: Date): string {
       }
       .demo-note {
         color: var(--muted);
-        font-size: 0.875rem;
+        font-size: 1rem;
       }
       mat-dialog-actions button {
         min-height: 48px;

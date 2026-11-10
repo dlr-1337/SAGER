@@ -74,7 +74,7 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
             id="panel-notices"
             role="tabpanel"
             [attr.aria-labelledby]="tab() === 'aviso' ? 'tab-avisos' : 'tab-advertencias'"
-            class="notices-layout"
+            class="notices-layout mg-tab-panel"
           >
             <section class="notice-list" aria-label="Itens da categoria selecionada">
               @if (filtered().length === 0) {

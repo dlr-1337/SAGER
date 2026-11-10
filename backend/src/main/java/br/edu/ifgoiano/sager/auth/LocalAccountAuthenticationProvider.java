@@ -30,7 +30,7 @@ public class LocalAccountAuthenticationProvider implements AuthenticationProvide
     public Authentication authenticate(Authentication authentication) throws AuthenticationException {
         String enrollment = authentication.getName().trim();
         String password = String.valueOf(authentication.getCredentials());
-        LocalAccount account = accounts.findByEnrollment(enrollment).orElse(null);
+        LocalAccount account = accounts.findForLogin(enrollment).orElse(null);
         boolean valid = passwords.matches(password, account == null ? dummyPasswordHash : account.passwordHash());
         if (account == null || enrollment.contains("@") || !account.active() || !valid) {
             throw new BadCredentialsException("Credenciais invalidas");

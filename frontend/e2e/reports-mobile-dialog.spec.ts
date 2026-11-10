@@ -4,67 +4,67 @@ import { enterDemo } from './demo-session';
 
 test.beforeEach(async ({ page }) => enterDemo(page, 'Gestor'));
 
-test('filtros e resultados ficam legíveis a 320 px', async ({ page }) => {
-  await page.setViewportSize({ width: 320, height: 740 });
-  await page.goto('/relatorios');
-
-  await expect(page.getByRole('button', { name: 'Mais filtros' })).toBeVisible();
-  await expect(page.getByLabel('Data inicial')).toBeHidden();
-  await page.getByLabel('Tipo de relatório').selectOption('saidas');
-  await page.getByRole('button', { name: 'Aplicar filtros' }).click();
-  await expect(
-    page.getByRole('button', { name: /Remover filtro Relatório: Saídas e retornos/ }),
-  ).toBeVisible();
-  await expect(page.locator('.filter-count')).toHaveText('3 registros na seleção');
-  await page.getByRole('button', { name: 'Mais filtros' }).click();
-  await expect(page.getByLabel('Data inicial')).toBeVisible();
-
-  const firstCard = page.locator('.report-mobile-row').first();
-  await expect(firstCard.getByText('Ver detalhes')).toBeVisible();
-  await firstCard.locator('summary').click();
-  await expect(firstCard.getByText('Ocultar detalhes')).toBeVisible();
-  await page.getByLabel('Data inicial').fill('2026-09-30');
-  await page.getByLabel('Data final').fill('2026-09-01');
-  await page.getByRole('button', { name: 'Mais filtros' }).click();
-  await page.getByRole('button', { name: 'Aplicar filtros' }).click();
-  await expect(page.getByLabel('Data inicial')).toBeVisible();
-  await expect(page.getByRole('alert')).toContainText('A data inicial não pode ser posterior');
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(321);
-});
-
-test('diálogo de exportação contém o foco, bloqueia o fundo e restaura o botão', async ({
-  page,
-}) => {
-  await page.goto('/relatorios');
-  const trigger = page.getByRole('button', { name: 'Simular exportação PDF' });
-  await trigger.click();
-  const dialog = page.getByRole('dialog', { name: 'Exportação de PDF simulada' });
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole('button', { name: 'Entendi' })).toBeFocused();
-  await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe('hidden');
-  await page.keyboard.press('Tab');
-  await expect
-    .poll(() => page.evaluate(() => document.activeElement?.closest('dialog') !== null))
-    .toBe(true);
-  await page.keyboard.press('Shift+Tab');
-  await expect
-    .poll(() => page.evaluate(() => document.activeElement?.closest('dialog') !== null))
-    .toBe(true);
+async function seriousViolations(page: import('@playwright/test').Page) {
   const audit = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
     .analyze();
-  expect(
-    audit.violations.filter((item) => ['critical', 'serious'].includes(item.impact ?? '')),
-  ).toEqual([]);
-  await page.keyboard.press('Escape');
-  await expect(dialog).toHaveCount(0);
-  await expect(trigger).toBeFocused();
-  await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe('');
+  return audit.violations.filter((item) => ['critical', 'serious'].includes(item.impact ?? ''));
+}
 
-  await page.getByRole('button', { name: 'Simular exportação Excel' }).click();
-  await page
-    .getByRole('dialog', { name: 'Exportação de Excel simulada' })
-    .getByRole('button', { name: 'Entendi' })
-    .click();
-  await expect(page.getByRole('button', { name: 'Simular exportação Excel' })).toBeFocused();
+test('a 320 px gera, acompanha e informa que a demonstração não baixa arquivo', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/relatorios');
+
+  await expect(page.getByLabel('Data inicial')).toBeHidden();
+  await expect(page.getByRole('combobox', { name: 'Residente', exact: true })).toBeHidden();
+  await page.getByRole('radio', { name: /Saídas e retornos/ }).check();
+  const generate = page.getByRole('button', { name: 'Gerar relatório', exact: true });
+  await expect(generate).toBeVisible();
+  const box = await generate.boundingBox();
+  expect(box!.height).toBeGreaterThanOrEqual(48);
+  await generate.click();
+
+  const title = page.getByRole('heading', { name: 'Saídas e retornos', exact: true });
+  await expect(title).toBeFocused();
+  await expect(page.getByRole('status').filter({ hasText: 'Montando os arquivos' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Baixar PDF', exact: true })).toBeVisible({
+    timeout: 8000,
+  });
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Baixar planilha Excel', exact: true }).click();
+  await expect(page.getByText('Na demonstração nenhum arquivo é baixado.')).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(321);
+});
+
+test('sem registros orienta o usuário e os filtros ativos podem ser removidos', async ({
+  page,
+}) => {
+  await page.goto('/relatorios');
+  await page.getByRole('radio', { name: 'Mês passado', exact: true }).check();
+  await page.getByRole('button', { name: 'Gerar relatório', exact: true }).click();
+  await expect(
+    page.getByText('Não encontramos registros nesse período. Tente outro período.'),
+  ).toBeVisible();
+  await expect(page.locator('sager-report-card')).toHaveCount(0);
+
+  await page.getByText('Filtrar por alojamento', { exact: false }).click();
+  await page.getByRole('combobox', { name: 'Situação', exact: true }).selectOption('PRESENTE');
+  const chip = page.getByRole('button', { name: 'Remover filtro Presente', exact: true });
+  await expect(chip).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
+  await chip.click();
+  await expect(chip).toHaveCount(0);
+});
+
+test('o cenário de erro da demonstração oferece nova tentativa', async ({ page }) => {
+  await page.goto('/relatorios');
+  await expect(page.getByRole('button', { name: 'Gerar relatório', exact: true })).toBeVisible();
+  await page.locator('#scenario-select-desktop').selectOption('erro');
+  await expect(page.getByRole('heading', { name: 'Registros indisponíveis' })).toBeVisible();
+  await page.getByRole('button', { name: 'Tentar novamente', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Gerar relatório', exact: true })).toBeVisible();
 });

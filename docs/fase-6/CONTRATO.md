@@ -81,8 +81,12 @@ essa separação operacional.
 
 `/api/v1/limpeza/politica`, `/limpeza/avaliacoes`, correção explícita,
 `/limpeza/ranking`, `/me/limpeza/avaliacoes`; relatórios em `/relatorios/catalogo`,
-`POST /relatorios/consultas`, consulta de páginas/resumo, criação de exportação
-e download. Residente não recebe autorização de exportação administrativa.
+`POST /relatorios/consultas`, `GET /relatorios/consultas` (consultas válidas do
+autor com ao menos um registro, sem linhas, até 100), consulta de páginas/resumo,
+criação de exportação (recoloca na fila só a que falhou, com auditoria) e download.
+PDF e XLSX escondem colunas UUID e traduzem rótulos só na renderização. O filtro
+opcional `unitId` é omitido do JSON quando nulo: assim o hash de consultas já
+guardadas continua igual. A demonstração não baixa arquivo. Residente não recebe autorização de exportação administrativa.
 
 Testar limites/decimais/arredondamento/empates, histórico, alocação capturada,
 quarto vazio, propriedade UUID, correção de evidência F5, filtros combinados,

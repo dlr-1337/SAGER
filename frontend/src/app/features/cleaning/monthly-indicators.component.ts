@@ -8,22 +8,21 @@ type SeriesKey = 'unjustifiedAbsences' | 'confirmedLateReturns' | 'activeWarning
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <p class="comm-help">
-      As três séries contam registros distintos. Ausências consideram chamadas fechadas; atrasos
-      consideram retornos físicos confirmados; advertências consideram a situação vigente na
-      consulta. Nenhuma pontuação de comportamento é calculada.
+      Cada lista conta uma coisa: faltas nas chamadas já fechadas, voltas com atraso e advertências
+      que ainda valem. O sistema não dá nota de comportamento.
     </p>
     @if (items.length) {
       <div class="indicator-stack">
         @for (series of seriesList; track series.key) {
           <figure
             class="indicator-series"
-            [attr.aria-label]="series.label + ': série mensal'"
+            [attr.aria-label]="series.label + ': mês a mês'"
             style="margin:0"
           >
             <figcaption>
               <h3>{{ series.label }}</h3>
             </figcaption>
-            <p class="comm-help">Escala comum de 0 a {{ maximum() }} registros.</p>
+            <p class="comm-help">A barra vai de 0 a {{ maximum() }}.</p>
             @for (item of items; track item.month) {
               <div class="indicator-row">
                 <time [attr.datetime]="item.month">{{ month(item.month) }}</time>
@@ -39,16 +38,16 @@ type SeriesKey = 'unjustifiedAbsences' | 'confirmedLateReturns' | 'activeWarning
           </figure>
         }
       </div>
-      <table class="indicator-table">
+      <table class="indicator-table" tabindex="0">
         <caption>
-          Valores mensais das três séries
+          Números de cada mês
         </caption>
         <thead>
           <tr>
             <th scope="col">Mês</th>
-            <th scope="col">Ausências sem justificativa</th>
-            <th scope="col">Retornos com atraso</th>
-            <th scope="col">Advertências vigentes</th>
+            <th scope="col">Faltas</th>
+            <th scope="col">Atrasos</th>
+            <th scope="col">Advertências</th>
           </tr>
         </thead>
         <tbody>
@@ -63,7 +62,7 @@ type SeriesKey = 'unjustifiedAbsences' | 'confirmedLateReturns' | 'activeWarning
         </tbody>
       </table>
     } @else {
-      <p>Nenhuma série mensal disponível para o período desta consulta.</p>
+      <p>Não há dados para este período.</p>
     }
   `,
   styleUrl: './cleaning-local.scss',
@@ -72,8 +71,8 @@ export class MonthlyIndicatorsComponent {
   @Input({ required: true }) items: MonthlyIndicator[] = [];
   readonly seriesList: { key: SeriesKey; label: string }[] = [
     { key: 'unjustifiedAbsences', label: 'Ausências sem justificativa' },
-    { key: 'confirmedLateReturns', label: 'Retornos físicos com atraso' },
-    { key: 'activeWarnings', label: 'Advertências vigentes' },
+    { key: 'confirmedLateReturns', label: 'Voltas com atraso' },
+    { key: 'activeWarnings', label: 'Advertências valendo' },
   ];
   maximum(): number {
     return Math.max(

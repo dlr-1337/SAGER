@@ -129,6 +129,54 @@ class ResidentMigrationIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_resident", Integer.class)).isEqualTo(1);
     }
 
+    @Test
+    void v22FormatsResidentNamesOnlyAndMatchesTheApplicationRule() {
+        String schema = "resident_name_format";
+        migrate(schema, "9");
+        JdbcTemplate jdbc = jdbc(schema);
+        UUID legacy = UUID.randomUUID();
+        jdbc.update("INSERT INTO sager_resident (id, name, enrollment) VALUES (?, ?, ?)",
+                legacy, "ANA-MARIA D'ÁVILA  ÇÃO", "DEMO-LEGACY");
+        migrate(schema, "21");
+        UUID formatted = UUID.randomUUID();
+        UUID guardian = UUID.randomUUID();
+        UUID account = UUID.randomUUID();
+        UUID staff = UUID.randomUUID();
+        jdbc.update("INSERT INTO sager_resident (id, name, enrollment, birth_date, version) VALUES (?, ?, ?, ?, 7)",
+                formatted, "Já Formatado", "DEMO-OK", LocalDate.of(2006, 1, 2));
+        jdbc.update("INSERT INTO sager_guardian (id, resident_id, name, relationship, active) VALUES (?, ?, ?, ?, true)",
+                guardian, legacy, "MARIA RESPONSÁVEL", "Mãe");
+        jdbc.update("""
+                INSERT INTO sager_local_account (id, enrollment, display_name, password_hash, profile, resident_id)
+                VALUES (?, ?, ?, ?, 'residente', ?), (?, ?, ?, ?, 'gestor', NULL)
+                """, account, "demo-legacy", "ANA-MARIA D'ÁVILA  ÇÃO", "hash", legacy,
+                staff, "demo-staff", "EQUIPE GESTORA", "hash");
+        var before = jdbc.queryForObject("SELECT updated_at FROM sager_resident WHERE id = ?",
+                java.time.OffsetDateTime.class, legacy);
+
+        migrate(schema, "22");
+
+        String name = jdbc.queryForObject("SELECT name FROM sager_resident WHERE id = ?", String.class, legacy);
+        assertThat(name).isEqualTo("Ana-Maria D'Ávila  Ção")
+                .isEqualTo(ResidentService.formatName("ANA-MARIA D'ÁVILA  ÇÃO"));
+        assertThat(jdbc.queryForObject("SELECT birth_date FROM sager_resident WHERE id = ?", LocalDate.class, legacy))
+                .isNull();
+        assertThat(jdbc.queryForObject("SELECT updated_at FROM sager_resident WHERE id = ?",
+                java.time.OffsetDateTime.class, legacy)).isEqualTo(before);
+        assertThat(jdbc.queryForObject("SELECT version FROM sager_resident WHERE id = ?", Long.class, formatted))
+                .isEqualTo(7);
+        assertThat(jdbc.queryForObject("SELECT name FROM sager_guardian WHERE id = ?", String.class, guardian))
+                .isEqualTo("MARIA RESPONSÁVEL");
+        assertThat(jdbc.queryForObject("SELECT display_name FROM sager_local_account WHERE id = ?", String.class, account))
+                .isEqualTo(name);
+        assertThat(jdbc.queryForObject("SELECT display_name FROM sager_local_account WHERE id = ?", String.class, staff))
+                .isEqualTo("EQUIPE GESTORA");
+        assertThat(jdbc.queryForList("SELECT resource_id FROM sager_audit_event WHERE origin = 'SYSTEM_JOB'", UUID.class))
+                .containsExactly(legacy);
+        assertThat(jdbc.queryForObject("SELECT convalidated FROM pg_constraint c JOIN pg_namespace n ON n.oid = c.connamespace "
+                + "WHERE c.conname = 'sager_resident_birth_date_required' AND n.nspname = ?", Boolean.class, schema)).isFalse();
+    }
+
     private void migrate(String schema, String version) {
         Flyway.configure().dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                 .schemas(schema).defaultSchema(schema).locations("classpath:db/migration")

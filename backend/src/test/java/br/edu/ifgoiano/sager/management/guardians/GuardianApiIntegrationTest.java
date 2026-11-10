@@ -80,7 +80,7 @@ class GuardianApiIntegrationTest {
             login(client, "gestor");
             assertThat(json.readTree(get(client, PATH).body()).size()).isZero();
             HttpResponse<String> created = post(client, PATH,
-                    body(resident, "  Pessoa Responsável  ", "  Guardiã  ", "  ", true, null),
+                    body(resident, "  Pessoa Responsável  ", "  Guardiã  ", "(62) 3333-4444", true, null),
                     csrf(client));
             assertThat(created.statusCode()).isEqualTo(201);
             assertNoStore(created);
@@ -93,7 +93,7 @@ class GuardianApiIntegrationTest {
             assertThat(value.path("residentId").asText()).isEqualTo(resident.toString());
             assertThat(value.path("name").asText()).isEqualTo("Pessoa Responsável");
             assertThat(value.path("relationship").asText()).isEqualTo("Guardiã");
-            assertThat(value.path("phone").isNull()).isTrue();
+            assertThat(value.path("phone").asText()).isEqualTo("+556233334444");
             assertThat(value.path("active").asBoolean()).isTrue();
             assertThat(value.path("version").asLong()).isZero();
             create(client, resident, "Outra Pessoa");
@@ -101,12 +101,17 @@ class GuardianApiIntegrationTest {
             assertNoStore(get(client, PATH + "/" + id));
 
             HttpResponse<String> changed = put(client, PATH + "/" + id,
-                    body(secondResident, "Pessoa Atualizada", "Pai", "(00) 00000-0000", false, 0),
+                    body(secondResident, "Pessoa Atualizada", "Pai", "(62) 3333-5555", false, 0),
                     csrf(client));
             assertThat(changed.statusCode()).isEqualTo(200);
             JsonNode updated = json.readTree(changed.body());
             assertThat(updated.path("residentId").asText()).isEqualTo(secondResident.toString());
-            assertThat(updated.path("phone").asText()).isEqualTo("(00) 00000-0000");
+            assertThat(updated.path("phone").asText()).isEqualTo("+556233335555");
+            HttpResponse<String> masked = put(client, PATH + "/" + id,
+                    body(secondResident, "Pessoa Atualizada", "Pai", "(62) 91234-5678", false, 1),
+                    csrf(client));
+            assertThat(masked.statusCode()).isEqualTo(200);
+            assertThat(json.readTree(masked.body()).path("phone").asText()).isEqualTo("+5562912345678");
             assertThat(updated.path("active").asBoolean()).isFalse();
             assertThat(updated.path("version").asLong()).isEqualTo(1);
             assertThat(json.readTree(get(client, PATH + "/" + id).body()).path("name").asText())
@@ -124,23 +129,30 @@ class GuardianApiIntegrationTest {
         UUID resident = resident("DEMO-A");
         try (HttpClient client = browser()) {
             login(client, "gestor");
-            for (String invalid : List.of("{}", "{", body(null, "Pessoa", "Mãe", null, true, null),
-                    body("not-a-uuid", "Pessoa", "Mãe", null, true, null),
-                    body(123, "Pessoa", "Mãe", null, true, null),
+            for (String invalid : List.of("{}", "{", body(null, "Pessoa Sintética", "Mãe", null, true, null),
+                    body("not-a-uuid", "Pessoa Sintética", "Mãe", null, true, null),
+                    body(123, "Pessoa Sintética", "Mãe", null, true, null),
                     body(resident, "AB", "Mãe", null, true, null),
                     body(resident, "N".repeat(201), "Mãe", null, true, null),
-                    body(resident, "Pessoa", "A", null, true, null),
-                    body(resident, "Pessoa", "V".repeat(81), null, true, null),
-                    body(resident, "Pessoa", "Mãe", "9".repeat(31), true, null),
+                    body(resident, "Pessoa Sintética", "A", null, true, null),
+                    body(resident, "Pessoa Sintética", "V".repeat(81), null, true, null),
+                    body(resident, "Pessoa Sintética", "Mãe", "9".repeat(31), true, null),
                     body(resident, 123, "Mãe", null, true, null),
-                    body(resident, "Pessoa", false, null, true, null),
-                    body(resident, "Pessoa", "Mãe", 123, true, null),
-                    body(resident, "Pessoa", "Mãe", null, null, null),
-                    body(resident, "Pessoa", "Mãe", null, "true", null))) {
+                    body(resident, "Pessoa Sintética", false, null, true, null),
+                    body(resident, "Pessoa Sintética", "Mãe", 123, true, null),
+                    body(resident, "Maria", "Mãe", null, true, null),
+                    body(resident, "Da Silva", "Mãe", null, true, null),
+                    body(resident, "Pessoa Sintética", "12", null, true, null),
+                    body(resident, "Pessoa Sintética", "Mãe", "  ", true, null),
+                    body(resident, "Pessoa Sintética", "Mãe", "91234-5678", true, null),
+                    body(resident, "Pessoa Sintética", "Mãe", "(00) 00000-0000", true, null),
+                    body(resident, "Pessoa Sintética", "Mãe", "(62) 81234-5678", true, null),
+                    body(resident, "Pessoa Sintética", "Mãe", null, null, null),
+                    body(resident, "Pessoa Sintética", "Mãe", null, "true", null))) {
                 assertError(post(client, PATH, invalid, csrf(client)), 400, "invalid_input");
             }
             assertError(post(client, PATH,
-                    body(UUID.randomUUID(), "Pessoa", "Mãe", null, true, null), csrf(client)),
+                    body(UUID.randomUUID(), "Pessoa Sintética", "Mãe", null, true, null), csrf(client)),
                     422, "invalid_reference");
             assertError(get(client, PATH + "/not-a-uuid"), 400, "invalid_input");
             assertError(get(client, PATH + "/" + UUID.randomUUID()), 404, "not_found");
@@ -157,17 +169,17 @@ class GuardianApiIntegrationTest {
             String id = create(client, resident, "Pessoa Responsável");
             for (Object invalidVersion : List.of(-1, 0.5, "0", Long.MAX_VALUE, true)) {
                 assertError(put(client, PATH + "/" + id,
-                        body(resident, "Pessoa", "Mãe", null, true, invalidVersion), csrf(client)),
+                        body(resident, "Pessoa Sintética", "Mãe", null, true, invalidVersion), csrf(client)),
                         400, "invalid_input");
             }
             assertError(put(client, PATH + "/" + id,
-                    body(resident, "Pessoa", "Mãe", null, true, null), csrf(client)),
+                    body(resident, "Pessoa Sintética", "Mãe", null, true, null), csrf(client)),
                     400, "invalid_input");
             assertError(put(client, PATH + "/" + id,
-                    body(UUID.randomUUID(), "Pessoa", "Mãe", null, true, 0), csrf(client)),
+                    body(UUID.randomUUID(), "Pessoa Sintética", "Mãe", null, true, 0), csrf(client)),
                     422, "invalid_reference");
             assertError(put(client, PATH + "/" + UUID.randomUUID(),
-                    body(resident, "Pessoa", "Mãe", null, true, 0), csrf(client)),
+                    body(resident, "Pessoa Sintética", "Mãe", null, true, 0), csrf(client)),
                     404, "not_found");
             assertThat(put(client, PATH + "/" + id,
                     body(resident, "Pessoa Atualizada", "Mãe", null, true, 0), csrf(client))
@@ -193,7 +205,7 @@ class GuardianApiIntegrationTest {
             assertThat(post(gestor, PATH, body(resident, "Outra Pessoa", "Pai", null, true, null),
                     null).statusCode()).isEqualTo(403);
             assertThat(put(gestor, PATH + "/" + id,
-                    body(resident, "Pessoa", "Mãe", null, true, 0), null).statusCode())
+                    body(resident, "Pessoa Sintética", "Mãe", null, true, 0), null).statusCode())
                     .isEqualTo(403);
         }
         try (HttpClient supervisor = browser()) {
@@ -221,19 +233,45 @@ class GuardianApiIntegrationTest {
                 assertThat(get(anonymous, path).statusCode()).isEqualTo(401);
             }
             assertThat(post(residente, PATH,
-                    body(resident, "Pessoa", "Mãe", null, true, null), csrf(residente))
+                    body(resident, "Pessoa Sintética", "Mãe", null, true, null), csrf(residente))
                     .statusCode()).isEqualTo(403);
             assertThat(post(anonymous, PATH,
-                    body(resident, "Pessoa", "Mãe", null, true, null), csrf(anonymous))
+                    body(resident, "Pessoa Sintética", "Mãe", null, true, null), csrf(anonymous))
                     .statusCode()).isEqualTo(401);
             assertThat(put(residente, PATH + "/" + id,
-                    body(resident, "Pessoa", "Mãe", null, true, 0), csrf(residente))
+                    body(resident, "Pessoa Sintética", "Mãe", null, true, 0), csrf(residente))
                     .statusCode()).isEqualTo(403);
             assertThat(put(anonymous, PATH + "/" + id,
-                    body(resident, "Pessoa", "Mãe", null, true, 0), csrf(anonymous))
+                    body(resident, "Pessoa Sintética", "Mãe", null, true, 0), csrf(anonymous))
                     .statusCode()).isEqualTo(401);
         }
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_guardian", Integer.class)).isEqualTo(2);
+    }
+
+    @Test
+    void legacyGuardianKeepsUnchangedFieldsExactlyAsSaved() throws Exception {
+        account("gestor");
+        UUID resident = resident("DEMO-A");
+        UUID id = UUID.randomUUID();
+        UUID noPhone = UUID.randomUUID();
+        String insert = "INSERT INTO sager_guardian(id,resident_id,name,relationship,phone,active) VALUES (?,?,?,?,?,true)";
+        jdbc.update(insert, id, resident, "maria  RITA", "12", "(00) 00000-0000");
+        jdbc.update(insert, noPhone, resident, "Maria", "Mãe", null);
+        try (HttpClient client = browser()) {
+            login(client, "gestor");
+            HttpResponse<String> edited = put(client, PATH + "/" + id,
+                    body(resident, "maria  RITA", "12", "(00) 00000-0000", false, 0), csrf(client));
+            assertThat(edited.statusCode()).isEqualTo(200);
+            assertThat(jdbc.queryForMap("SELECT name, phone FROM sager_guardian WHERE id = ?", id))
+                    .containsEntry("name", "maria  RITA").containsEntry("phone", "(00) 00000-0000");
+            for (String changed : List.of(body(resident, "Maria", "12", "(00) 00000-0000", false, 1),
+                    body(resident, "maria  RITA", "34", "(00) 00000-0000", false, 1),
+                    body(resident, "maria  RITA", "12", "  ", false, 1))) {
+                assertError(put(client, PATH + "/" + id, changed, csrf(client)), 400, "invalid_input");
+            }
+            assertThat(put(client, PATH + "/" + noPhone, body(resident, "Maria", "Mãe", "  ", false, 0), csrf(client))
+                    .statusCode()).isEqualTo(200);
+        }
     }
 
     @Test
@@ -279,7 +317,8 @@ class GuardianApiIntegrationTest {
         fields.put("residentId", residentId);
         fields.put("name", name);
         fields.put("relationship", relationship);
-        fields.put("phone", phone);
+        // Null means a valid phone; a blank phone sends none.
+        fields.put("phone", phone == null ? "(62) 91234-5678" : phone);
         fields.put("active", active);
         if (version != null) {
             fields.put("version", version);

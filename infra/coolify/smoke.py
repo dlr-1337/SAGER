@@ -178,7 +178,8 @@ class Smoke:
         for folder in ('secrets', 'ca', 'tls'):
             (self.temporary / folder).mkdir(mode=0o700)
         self.secret_values = {}
-        for name in ('db_owner_password', 'db_runtime_password', 'login_rate_secret'):
+        for name in ('db_owner_password', 'db_runtime_password', 'login_rate_secret',
+                     'waha_api_key', 'waha_webhook_hmac'):
             value = secrets.token_hex(32)
             require(value not in self.secret_values.values(), 'Synthetic secrets must differ.')
             self.secret_values[name] = value
@@ -330,8 +331,10 @@ class Smoke:
                               'database'), 'database-up', timeout=150)
         self.maintenance('migrate', 'migration')
         self.maintenance('initialize-runtime', 'initialize-runtime')
-        migrated = self.sql("SELECT max(version::int) = 21 AND bool_and(success) FROM flyway_schema_history;")
-        require(migrated.stdout.strip() == b't', 'All migrations through V21 must succeed.')
+        latest = max(int(re.match(r'V(\d+)__', file.name)[1])
+                     for file in (ROOT / 'backend/src/main/resources/db/migration').glob('V*__*.sql'))
+        migrated = self.sql(f"SELECT max(version::int) = {latest} AND bool_and(success) FROM flyway_schema_history;")
+        require(migrated.stdout.strip() == b't', f'All migrations through V{latest} must succeed.')
         require(self.sql(RUNTIME_CHECK, runtime=True).stdout.strip() == b't',
                 'The runtime role must have only the approved database privileges.')
         denied = self.sql('CREATE TABLE sager_smoke_forbidden (id int);', runtime=True, check=False)
@@ -496,6 +499,18 @@ class Smoke:
         )
         return content, values
 
+    def refused_by_length(self, path, length):
+        def refusals():
+            logs = self.run(self.compose('logs', '--no-log-prefix', 'gateway'), 'gateway-log').stdout
+            return logs.count(b' 413 ')
+
+        before = refusals()
+        try:
+            self.request(path, 413, method='POST', body=bytes(length))
+        except (OSError, http.client.HTTPException):
+            pass  # The proxy may close while the body is still being sent; the gateway log decides.
+        require(refusals() == before + 1, f'The gateway must refuse POST {path} by length.')
+
     def csrf(self):
         content, headers = self.request('/api/v1/auth/csrf', 200)
         token = json.loads(content)
@@ -519,23 +534,38 @@ class Smoke:
         require(index.markers == ['production'] and index.styles and index.scripts
                 and not index.inline_scripts and not index.print_styles,
                 'The production index must include active external assets and the production marker.')
+        page = content.decode('utf-8')
+        require(f'content="https://{HOST}/og-image.png"' in page and '__SAGER_ORIGIN__' not in page,
+                'The link preview must use the real origin, without a marker.')
         for key, value in (
             ('strict-transport-security', 'max-age=31536000'),
             ('x-content-type-options', 'nosniff'), ('referrer-policy', 'no-referrer'),
-            ('cache-control', 'no-store'),
+            ('cache-control', 'no-store'), ('permissions-policy', 'microphone=(self)'),
         ):
             require(headers.get(key) and all(value in item for item in headers[key]),
                     f'The gateway must serve its {key} security header.')
         csp = headers.get('content-security-policy', [''])[0]
         require(all(value in csp for value in ("default-src 'self'", "frame-ancestors 'none'",
-                                               "object-src 'none'", "base-uri 'self'", "form-action 'self'")),
-                'The gateway must serve its approved CSP.')
+                                               "object-src 'none'", "base-uri 'self'", "form-action 'self'",
+                                               "media-src 'self' blob:"))
+                and 'clicksign' not in csp, 'The gateway must serve its approved CSP.')
         for path, expected_type in ((index.styles[0], 'text/css'), (index.scripts[0], 'javascript')):
             parsed = urlsplit(path)
             require(not parsed.scheme and not parsed.netloc, 'Production assets must use the same origin.')
             asset, asset_headers = self.request('/' + parsed.path.lstrip('/'), 200)
             require(asset and expected_type in asset_headers.get('content-type', [''])[0],
                     'Production JS and CSS must serve their actual content types.')
+        for path, expected_type in (
+            ('/favicon.svg', 'image/svg+xml'), ('/favicon.ico', 'icon'),
+            ('/apple-touch-icon.png', 'image/png'), ('/icon-192.png', 'image/png'),
+            ('/icon-512.png', 'image/png'), ('/og-image.png', 'image/png'),
+            ('/manifest.webmanifest', 'application/manifest+json'),
+        ):
+            asset, asset_headers = self.request(path, 200)
+            require(asset and expected_type in asset_headers.get('content-type', [''])[0]
+                    and asset_headers.get('content-security-policy')
+                    and asset_headers.get('strict-transport-security'),
+                    f'{path} must serve its type and the security headers.')
         self.request('/demonstracao', 404)
         self.request('/actuator/health/readiness', 404)
         # Fetch CSRF before any unauthenticated protected request can create a session.
@@ -548,6 +578,13 @@ class Smoke:
         self.request('/api/v1/auth/me', 401)
         failure, _ = self.request('/api/v1/auth/login', 403, method='POST', body='')
         require(json.loads(failure).get('code') == 'csrf_invalid', 'Login without CSRF must be rejected.')
+        # The uploads reach the backend, which refuses them without CSRF; the webhook keeps 1 MiB.
+        upload = '/api/v1/conversas/00000000-0000-0000-0000-000000000000/mensagens'
+        self.request(upload, 403, method='POST', body=bytes(2 * 1024 * 1024))
+        self.refused_by_length(upload, 12 * 1024 * 1024)
+        self.request('/api/v1/saidas-longas/00000000-0000-0000-0000-000000000000/autorizacao/arquivos',
+                     403, method='POST', body=bytes(2 * 1024 * 1024))
+        self.refused_by_length('/api/v1/integracoes/whatsapp/webhook', 2 * 1024 * 1024)
         _, redirected = self.request('/acesso', 301, secure=False)
         require(redirected.get('location') == [f'https://{HOST}/acesso'], 'HTTP must redirect permanently to HTTPS.')
         self.login(token, self.password, 204)

@@ -1,3 +1,4 @@
+import { ERROR_FORBIDDEN, ERROR_GENERIC, ERROR_SESSION } from '../../core/error-messages';
 import { readArrayPage } from '../../core/list-page';
 import { Injectable } from '@angular/core';
 import {
@@ -184,11 +185,8 @@ export class RoomApiService {
 }
 
 export function roomLoadError(error: unknown): string {
-  if (error instanceof RoomApiError && error.status === 401)
-    return 'A sessão expirou. Entre novamente para consultar os quartos.';
-  if (error instanceof RoomApiError && error.status === 403)
-    return 'A sessão não permite consultar os quartos. Entre com um perfil autorizado.';
-  if (error instanceof RoomApiError && error.status === 404)
-    return 'O quarto solicitado não está disponível no ambiente local de teste.';
-  return 'Não foi possível consultar o backend local. Confira a conexão e tente novamente.';
+  if (error instanceof RoomApiError && error.status === 401) return ERROR_SESSION;
+  if (error instanceof RoomApiError && error.status === 403) return ERROR_FORBIDDEN;
+  if (error instanceof RoomApiError && error.status === 404) return 'Não encontramos este quarto.';
+  return ERROR_GENERIC;
 }

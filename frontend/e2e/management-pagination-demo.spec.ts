@@ -20,11 +20,13 @@ for (const config of [
     await enterDemo(page, 'Gestor');
     await page.goto(`/${config.resource}`);
     for (let index = 1; index <= 26; index++) {
-      const name = `Sintético ${String(index).padStart(2, '0')}`;
+      const name = `Sintético A${'abcdefghijklmnopqrstuvwxyz'[index - 1]}`;
       await page.getByRole('link', { name: `Cadastrar ${config.entity}`, exact: true }).click();
       await page.locator(`[formControlName="${config.field}"]`).fill(name);
       if (config.resource === 'residentes') {
-        await page.locator('[formControlName="enrollment"]').fill(`PAG-${index}`);
+        await page
+          .locator('[formControlName="enrollment"]')
+          .fill(`20261PAG${String(index).padStart(7, '0')}`);
         await page.locator('[formControlName="birthDate"]').fill('2009-01-15');
         await page.locator('[formControlName="courseId"]').selectOption('course-1');
         await page.locator('[formControlName="password"]').fill('Senha sintética 123!');
@@ -36,6 +38,8 @@ for (const config of [
       } else if (config.resource === 'supervisores') {
         await page.locator('[formControlName="institutionalId"]').fill(`PAG-${index}`);
         await page.locator('[formControlName="email"]').fill(`${index}@example.invalid`);
+        await page.locator('[formControlName="password"]').fill('Senha sintética 123!');
+        await page.locator('[formControlName="passwordConfirmation"]').fill('Senha sintética 123!');
       } else if (config.resource === 'alojamentos') {
         await page.locator('[formControlName="code"]').fill(`PAG-${index}`);
       } else {
@@ -61,9 +65,7 @@ for (const config of [
       await page.locator('[formControlName="courseId"]').selectOption('course-1');
     } else if (config.resource === 'responsaveis') {
       await page.getByRole('combobox', { name: 'Situação', exact: true }).selectOption('true');
-      await page
-        .getByRole('combobox', { name: 'Residente vinculado', exact: true })
-        .selectOption('r-ana');
+      await page.getByRole('combobox', { name: 'Residente', exact: true }).selectOption('r-ana');
     } else if (config.resource === 'quartos') {
       await page.locator('[formControlName="block"]').selectOption('A');
       await page.locator('[formControlName="floor"]').selectOption('Térreo');
@@ -85,7 +87,12 @@ for (const config of [
     await page.getByRole('button', { name: `Salvar ${config.entity}`, exact: true }).click();
     await expect(
       page.getByRole('heading', {
-        name: config.resource === 'quartos' ? 'Quarto Fora do filtro' : 'Fora do filtro',
+        name:
+          config.resource === 'quartos'
+            ? 'Quarto Fora do filtro'
+            : config.resource === 'residentes'
+              ? 'Fora Do Filtro'
+              : 'Fora do filtro',
         exact: true,
       }),
     ).toBeVisible();
@@ -99,9 +106,9 @@ for (const config of [
       await expect(page.getByRole('combobox', { name: 'Situação', exact: true })).toHaveValue(
         'true',
       );
-      await expect(
-        page.getByRole('combobox', { name: 'Residente vinculado', exact: true }),
-      ).toHaveValue('r-ana');
+      await expect(page.getByRole('combobox', { name: 'Residente', exact: true })).toHaveValue(
+        'r-ana',
+      );
     }
     if (config.resource === 'quartos') {
       await expect(page.locator('[formControlName="block"]')).toHaveValue('A');

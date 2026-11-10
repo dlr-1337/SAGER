@@ -1,6 +1,6 @@
 import { readArrayPage } from '../../core/list-page';
 import { Injectable } from '@angular/core';
-import { Supervisor, SupervisorInput } from './management.models';
+import { Supervisor, SupervisorPayload } from './management.models';
 
 const baseUrl = '/api/v1/supervisores';
 
@@ -54,7 +54,7 @@ export class SupervisorApiService {
   }
 
   async save(
-    input: SupervisorInput,
+    input: SupervisorPayload,
     existing?: Pick<Supervisor, 'id' | 'version'>,
   ): Promise<Supervisor> {
     const csrfResponse = await fetch('/api/v1/auth/csrf', {

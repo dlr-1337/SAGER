@@ -40,10 +40,6 @@ const routes = {
     '/responsaveis/novo',
     '/responsaveis/g-1',
     '/responsaveis/g-1/editar',
-    '/supervisores',
-    '/supervisores/novo',
-    '/supervisores/s-1',
-    '/supervisores/s-1/editar',
     '/quartos',
     '/quartos/novo',
     '/quartos/q-102',
@@ -99,6 +95,21 @@ test('rotas dos três perfis renderizam sem erro e sem violações axe', async (
   }
   expect(pageErrors).toEqual([]);
   expect(violations).toEqual([]);
+});
+
+test('supervisor não entra nas rotas de supervisores nem as vê no menu', async ({ page }) => {
+  await enterDemo(page, 'Supervisor');
+  await expect(page.getByRole('link', { name: 'Residentes', exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Supervisores', exact: true })).toHaveCount(0);
+  for (const path of [
+    '/supervisores',
+    '/supervisores/novo',
+    '/supervisores/s-1',
+    '/supervisores/s-1/editar',
+  ]) {
+    await page.goto(path);
+    await expect(page, path).toHaveURL(/\/acesso-negado$/);
+  }
 });
 
 test('largura de 320 px e equivalência a zoom de 200% em telas principais', async ({ page }) => {

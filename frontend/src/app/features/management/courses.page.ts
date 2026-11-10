@@ -1,7 +1,9 @@
+import { readableError } from '../../core/error-messages';
 import { rememberValue } from '../../core/filter-state';
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { trimmedLength } from '../../shared/field-rules';
 import { Course, CourseApiService } from './course-api.service';
 import { normalizeSearch } from '../../shared/search';
 import { UnsavedFormDirective, UnsavedForms } from '../../shared/unsaved-form';
@@ -72,7 +74,13 @@ import { UnsavedFormDirective, UnsavedForms } from '../../shared/unsaved-form';
       @if (loading()) {
         <p role="status">Carregando cursos…</p>
       } @else {
-        <p role="status">{{ filtered().length }} curso(s) encontrado(s)</p>
+        <p role="status">
+          {{
+            filtered().length === 1
+              ? '1 curso encontrado'
+              : filtered().length + ' cursos encontrados'
+          }}
+        </p>
         @for (course of visible(); track course.id) {
           <div class="course-row">
             <div>
@@ -162,7 +170,7 @@ export class CoursesPage {
   readonly form = new FormGroup({
     name: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.required, Validators.maxLength(200)],
+      validators: [trimmedLength(1, 200)],
     }),
   });
   readonly filtered = computed(() =>
@@ -193,8 +201,7 @@ export class CoursesPage {
         this.page.update((page) => Math.max(0, Math.min(page, lastPage)));
       }
     } catch (e) {
-      if (!this.destroy.destroyed)
-        this.error.set(e instanceof Error ? e.message : 'Falha ao carregar cursos.');
+      if (!this.destroy.destroyed) this.error.set(readableError(e));
     } finally {
       if (!this.destroy.destroyed) this.loading.set(false);
     }
@@ -230,8 +237,7 @@ export class CoursesPage {
       this.notice.set('Curso salvo.');
       await this.load();
     } catch (e) {
-      if (!this.destroy.destroyed)
-        this.error.set(e instanceof Error ? e.message : 'Falha ao salvar.');
+      if (!this.destroy.destroyed) this.error.set(readableError(e));
     } finally {
       if (!this.destroy.destroyed) this.saving.set(false);
     }
@@ -246,8 +252,7 @@ export class CoursesPage {
       this.editing.update((current) => (current?.id === saved.id ? saved : current));
       await this.load();
     } catch (e) {
-      if (!this.destroy.destroyed)
-        this.error.set(e instanceof Error ? e.message : 'Falha ao alterar curso.');
+      if (!this.destroy.destroyed) this.error.set(readableError(e));
     } finally {
       if (!this.destroy.destroyed) this.saving.set(false);
     }

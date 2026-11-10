@@ -42,6 +42,25 @@ export const COMMUNICATION_ROUTES: Routes = [
     loadComponent: () => import('./notices-local.pages').then((m) => m.NoticesManagementLocalPage),
   },
   {
+    path: 'conversas/conexao',
+    data: { roles: ['supervisor'] },
+    loadComponent: () =>
+      import('./conversations-local.pages').then((m) => m.ConversationConnectionPage),
+  },
+  {
+    path: 'conversas',
+    data: { roles: ['supervisor'] },
+    loadComponent: () => import('./conversations-local.pages').then((m) => m.ConversationsPage),
+    loadChildren: () =>
+      import('./conversations-local.pages').then((m) => [
+        {
+          path: ':id',
+          canDeactivate: [m.conversationDraftGuard],
+          component: m.ConversationThreadComponent,
+        },
+      ]),
+  },
+  {
     path: 'minhas-comunicacoes/:id',
     data: { roles: ['residente'] },
     loadComponent: () =>

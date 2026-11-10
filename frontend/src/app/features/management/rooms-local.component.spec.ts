@@ -318,9 +318,11 @@ describe('Quartos em sessão local', () => {
     });
     await fixture.componentInstance.save();
     expect(api.save).not.toHaveBeenCalled();
-    fixture.componentInstance.localForm.controls.capacity.setValue(1.5);
-    await fixture.componentInstance.save();
-    expect(api.save).not.toHaveBeenCalled();
+    for (const capacity of [1.5, 21, 500]) {
+      fixture.componentInstance.localForm.controls.capacity.setValue(capacity);
+      await fixture.componentInstance.save();
+      expect(api.save).not.toHaveBeenCalled();
+    }
     fixture.componentInstance.localForm.controls.capacity.setValue(null);
     await fixture.componentInstance.save();
     expect(api.save).toHaveBeenCalledWith(
@@ -335,6 +337,21 @@ describe('Quartos em sessão local', () => {
       },
       undefined,
     );
+  });
+
+  it('quarto antigo acima do limite mantém a capacidade salva, mas não aceita outra', async () => {
+    const old = structuredClone(map.rooms[0]);
+    old.capacity = 500;
+    api.map.mockResolvedValue({ ...map, rooms: [old] });
+    route.snapshot.paramMap = convertToParamMap({ id: old.id });
+    const fixture = TestBed.createComponent(RoomFormComponent);
+    await fixture.whenStable();
+    const capacity = fixture.componentInstance.localForm.controls.capacity;
+    expect(capacity.valid).toBe(true);
+    capacity.setValue(400);
+    expect(capacity.valid).toBe(false);
+    capacity.setValue(20);
+    expect(capacity.valid).toBe(true);
   });
 
   it('conflito preserva edição até o usuário carregar a versão atual', async () => {

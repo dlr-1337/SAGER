@@ -1,5 +1,6 @@
 package br.edu.ifgoiano.sager.reports;
 import static br.edu.ifgoiano.sager.reports.ReportModels.*;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.*;
@@ -9,6 +10,7 @@ import tools.jackson.databind.JsonNode;
 public class ReportController {
  private final ReportService service;public ReportController(ReportService service){this.service=service;}
  @GetMapping("/catalogo") public ResponseEntity<Catalog> catalog(){return ok(service.catalog());}
+ @GetMapping("/consultas") public ResponseEntity<List<SnapshotListItem>> list(){return ok(service.list());}
  @PostMapping("/consultas") public ResponseEntity<Snapshot> create(@RequestBody JsonNode body){return ok(service.create(body));}
  @GetMapping("/consultas/{id}") public ResponseEntity<Snapshot> snapshot(@PathVariable UUID id){return ok(service.get(id));}
  @GetMapping("/consultas/{id}/linhas") public ResponseEntity<Rows> rows(@PathVariable UUID id,@RequestParam(defaultValue="0")int offset,@RequestParam(defaultValue="20")int limit){return ok(service.rows(id,offset,limit));}

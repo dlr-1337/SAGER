@@ -1,0 +1,38 @@
+schema: spec-driven
+
+context: |
+  Language: pt-BR. All artifacts must be written in pt-BR, with full accents.
+  Keep in English: structural headings (## Why, ## What Changes, ## Capabilities, ## Impact,
+  ## ADDED Requirements, ### Requirement:, #### Scenario:) and the keywords SHALL, MUST, GIVEN,
+  WHEN, THEN, AND. Portuguese equivalents fail `openspec validate --strict`.
+  Product: SAGER, gestão de residências estudantis do IF Goiano.
+  Stack: Angular 22 standalone with Signals and typed Reactive Forms; Spring Boot on JDK 21;
+  PostgreSQL with Flyway (never edit an applied migration); Testcontainers; Vitest; Playwright.
+  AGENTS.md is the canonical source of permissions and domain rules. The PRD and docs/fase-* are
+  source material, not requirements to be copied wholesale. Use synthetic data only.
+  Technical evidence never replaces institutional approval: state what the institution must decide.
+  Commits and documents carry no attribution to tools or assistants.
+
+rules:
+  proposal:
+    - Cite the PRD requirement, acceptance criterion or AGENTS.md rule that the change affects.
+    - State what is out of scope.
+  specs:
+    - Each requirement states one observable behavior in at most 500 characters.
+    - Describe behavior, never classes, libraries or internal steps.
+  design:
+    - Record the rejected alternative for each decision.
+    - List what the institution or the operator must still decide.
+  tasks:
+    - Each task names how it is verified.
+    - Tests and documentation stay inside the group they verify.
+
+operations:
+  apply:
+    guidance:
+      - Run the focused tests of the touched area before marking a task as done.
+      - Format touched frontend files with prettier.
+      - Never commit; the owner decides when to commit.
+  archive:
+    guidance:
+      - Run openspec validate <change> --strict before archiving.

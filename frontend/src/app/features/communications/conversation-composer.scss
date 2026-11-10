@@ -1,0 +1,190 @@
+// Vínculo com saída longa
+.conv-link {
+  flex: none;
+  max-height: 55%;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--line);
+  overflow-y: auto;
+  background: var(--surface);
+}
+.conv-link h3 {
+  margin: 0 0 var(--space-1);
+}
+.conv-link .field-hint {
+  margin: 0 0 var(--space-2);
+  line-height: 1.4;
+}
+.conv-link fieldset {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.conv-radio {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: #fff;
+  cursor: pointer;
+}
+.conv-radio input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  accent-color: var(--green-900);
+}
+.conv-radio small {
+  display: block;
+  color: var(--muted);
+  font-size: var(--text-meta);
+}
+.conv-link-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+// Composição
+.conv-composer {
+  flex: none;
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--line);
+  background: #fff;
+}
+.conv-composer p {
+  margin: 0;
+}
+.conv-send-blocked {
+  display: flex;
+  gap: 6px;
+  max-width: none;
+  color: var(--warning-ink);
+  font-size: var(--text-meta);
+  font-weight: 600;
+  line-height: 1.4;
+}
+.conv-send-blocked .material-symbols-rounded {
+  flex: none;
+  font-size: 18px;
+}
+.conv-composer .field {
+  gap: 2px;
+  font-size: var(--text-meta);
+}
+.conv-composer .field textarea {
+  min-height: 56px;
+  max-height: 160px;
+  field-sizing: content;
+  font-size: 1rem;
+  font-weight: 400;
+}
+.conv-composer-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.conv-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 6px 12px;
+  border: 1px solid var(--btn-secondary-border);
+  border-radius: var(--radius-control);
+  background: #fff;
+  color: var(--green-900);
+  font-weight: 600;
+}
+.conv-tool:hover:not(:disabled) {
+  background: var(--green-50);
+}
+.conv-icon {
+  padding: 0;
+}
+.conv-send {
+  margin-left: auto;
+}
+.conv-attachment {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 6px 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+}
+.conv-attachment-name {
+  flex: 1 1 120px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+.conv-attachment small {
+  color: var(--muted);
+  font-weight: 400;
+  white-space: nowrap;
+}
+.conv-attachment audio {
+  flex: 1 1 100%;
+  width: 100%;
+  height: 44px;
+}
+.conv-recording {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-control);
+  background: var(--danger-bg);
+  color: var(--danger-ink);
+}
+.conv-recording .btn-secondary {
+  min-height: 44px;
+}
+.conv-recording-dot {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--danger);
+  animation: conv-pulse 1.4s ease-in-out infinite;
+}
+.conv-recording-time {
+  flex: 1 1 120px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+@keyframes conv-pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+@media (max-width: 800px) {
+  .conv-composer,
+  .conv-link {
+    padding: var(--space-2) var(--space-3);
+  }
+  .conv-composer .field textarea {
+    min-height: 48px;
+  }
+}
+
+@media (max-width: 480px) {
+  .conv-tool-label {
+    display: none;
+  }
+}

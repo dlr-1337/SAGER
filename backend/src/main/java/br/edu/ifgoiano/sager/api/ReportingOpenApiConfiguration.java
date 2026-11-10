@@ -45,7 +45,8 @@ public class ReportingOpenApiConfiguration {
             Schema<?> filters = new ObjectSchema()
                     .addProperty("from", new StringSchema().format("date"))
                     .addProperty("to", new StringSchema().format("date"))
-                    .addProperty("accommodationId", uuid().nullable(true)).addProperty("roomId", uuid().nullable(true))
+                    .addProperty("accommodationId", uuid().nullable(true)).addProperty("unitId", uuid().nullable(true))
+                    .addProperty("roomId", uuid().nullable(true))
                     .addProperty("residentId", uuid().nullable(true)).addProperty("status", text(1, 40).nullable(true))
                     .required(List.of("from", "to"));
             filters.setAdditionalProperties(false);
@@ -66,7 +67,9 @@ public class ReportingOpenApiConfiguration {
                                     + "padrão 20/máximo 100 e exportação integral usam os mesmos dados. "
                                     + "Download exige autor/permissão atuais e integridade. Expiração remove apenas "
                                     + "artefatos transitórios; documentos permanentes e auditoria são preservados. "
-                                    + "Exportação deduplicada por snapshot/formato; estado consultado explicitamente."
+                                    + "Exportação deduplicada por snapshot/formato; nova solicitação recoloca na fila só a que falhou. "
+                                    + "GET /relatorios/consultas lista as consultas válidas do autor com registros e o estado "
+                                    + "de cada exportação, sem as linhas."
                             : "Supervisor grava/corrige. NOW usa relógio do servidor; RETROACTIVE exige evaluatedAt "
                                     + "não futuro e registrationReason de pelo menos 10 caracteres. Uma avaliação por "
                                     + "quarto/data America/Sao_Paulo, participantes históricos capturados. Quatro critérios "

@@ -21,20 +21,22 @@ final class ProviderHttp {
     private final HttpClient client;
     private final ObjectMapper json;
     private final Duration timeout;
+    private final String apiKey;
 
-    ProviderHttp(HttpClient client, ObjectMapper json, Duration timeout) {
+    ProviderHttp(HttpClient client, ObjectMapper json, Duration timeout, String apiKey) {
         this.client = client;
         this.json = json;
         this.timeout = timeout;
+        this.apiKey = apiKey;
     }
 
-    JsonNode json(URI uri, String method, String authorization, String contentType, Object body) {
+    JsonNode json(URI uri, String method, Object body) {
         byte[] response =
                 bytes(
                         uri,
                         method,
-                        authorization,
-                        contentType,
+                        "application/json",
+                        body == null ? null : "application/json",
                         body == null ? null : json.writeValueAsBytes(body),
                         2 * 1024 * 1024);
         try {
@@ -44,28 +46,13 @@ final class ProviderHttp {
         }
     }
 
-    void empty(URI uri, String method, String authorization, String contentType, Object body) {
-        bytes(
-                uri,
-                method,
-                authorization,
-                contentType,
-                body == null ? null : json.writeValueAsBytes(body),
-                2 * 1024 * 1024);
-    }
-
     byte[] bytes(
-            URI uri,
-            String method,
-            String authorization,
-            String contentType,
-            byte[] body,
-            int maximum) {
+            URI uri, String method, String accept, String contentType, byte[] body, int maximum) {
         HttpRequest.Builder builder =
                 HttpRequest.newBuilder(uri)
                         .timeout(timeout)
-                        .header("Accept", contentType == null ? "application/pdf" : contentType);
-        if (authorization != null) builder.header("Authorization", authorization);
+                        .header("Accept", accept)
+                        .header("X-Api-Key", apiKey);
         if (contentType != null) builder.header("Content-Type", contentType);
         builder.method(
                 method,
@@ -83,8 +70,16 @@ final class ProviderHttp {
                                 ProviderFailure.Kind.RETRYABLE, "provider_rate_limited");
                     if (response.statusCode() >= 500 || response.statusCode() == 408)
                         throw failure(method, "provider_http_temporary");
+                    if (response.statusCode() == 404)
+                        throw new ProviderFailure(
+                                ProviderFailure.Kind.PERMANENT, "provider_not_found");
+                    if (response.statusCode() == 401 || response.statusCode() == 403)
+                        throw new ProviderFailure(
+                                ProviderFailure.Kind.PERMANENT, "provider_unauthorized");
                     throw new ProviderFailure(
-                            ProviderFailure.Kind.PERMANENT, "provider_http_rejected");
+                            ProviderFailure.Kind.PERMANENT,
+                            "provider_http_rejected",
+                            response.statusCode());
                 }
                 FutureTask<byte[]> read = new FutureTask<>(() -> input.readNBytes(maximum + 1));
                 Thread.ofVirtual().start(read);
@@ -131,7 +126,7 @@ final class ProviderHttp {
 
     static String text(JsonNode node, String field) {
         JsonNode value = node.path(field);
-        if (!value.isString() || value.asText().isBlank()) throw invalid();
-        return value.asText();
+        if (!value.isString() || value.asString().isBlank()) throw invalid();
+        return value.asString();
     }
 }

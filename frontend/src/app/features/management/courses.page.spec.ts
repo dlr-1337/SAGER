@@ -45,6 +45,18 @@ describe('Página válida após atualizar o catálogo de cursos', () => {
     return fixture.componentInstance;
   }
 
+  it('recusa no campo o nome só com espaços, sem chamar o servidor', async () => {
+    const component = await create();
+    const save = TestBed.inject(CourseApiService).save as ReturnType<typeof vi.fn>;
+    component.form.controls.name.setValue('   ');
+    await component.save();
+    fixture.detectChanges();
+    expect(save).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('.mg-field-error')?.textContent).toContain(
+      'Informe um nome',
+    );
+  });
+
   it('retorna à primeira página ao desativar o único curso da segunda', async () => {
     const component = await create();
     expect(component.visible()).toHaveLength(1);

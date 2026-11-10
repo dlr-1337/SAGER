@@ -1,3 +1,10 @@
+import {
+  ERROR_CONFLICT,
+  ERROR_FORBIDDEN,
+  ERROR_GENERIC,
+  ERROR_NOT_FOUND,
+  ERROR_SESSION,
+} from '../../core/error-messages';
 import { Injectable } from '@angular/core';
 
 export interface AllocationRecord {
@@ -120,21 +127,21 @@ export function allocationErrorMessage(error: unknown): string {
   if (error instanceof AllocationApiError) {
     switch (error.code) {
       case 'stale_version':
-        return 'Este vínculo foi alterado em outra aba. Recarregue os dados e tente novamente.';
+        return ERROR_CONFLICT;
       case 'active_conflict':
-        return 'Este residente já possui uma alocação ativa. Recarregue os dados.';
+        return 'Este residente já está em um quarto. Recarregue os dados.';
       case 'room_full':
         return 'O quarto atingiu a capacidade cadastrada. Escolha outro quarto.';
       case 'room_unavailable':
         return 'O quarto está em manutenção ou indisponível. Escolha outro quarto.';
       case 'capacity_unknown':
-        return 'Defina a capacidade do quarto antes de alocar um residente.';
+        return 'Defina a capacidade do quarto antes de colocar um residente nele.';
       case 'invalid_reference':
         return 'Residente ou quarto não encontrado. Recarregue os dados.';
     }
-    if (error.status === 401) return 'A sessão expirou. Entre novamente.';
-    if (error.status === 403) return 'Seu perfil não permite esta operação.';
-    if (error.status === 404) return 'A alocação não foi encontrada. Recarregue os dados.';
+    if (error.status === 401) return ERROR_SESSION;
+    if (error.status === 403) return ERROR_FORBIDDEN;
+    if (error.status === 404) return ERROR_NOT_FOUND;
   }
-  return 'Não foi possível consultar ou salvar a alocação. Confira a conexão e tente novamente.';
+  return ERROR_GENERIC;
 }

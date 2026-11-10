@@ -122,6 +122,33 @@ describe.each([false, true])('Envio de responsável (demo=%s)', (demo) => {
     },
   );
 
+  it('mostra as regras no campo e o telefone com máscara ao sair dele', async () => {
+    const form = fixture.componentInstance.form;
+    const native = fixture.nativeElement as HTMLElement;
+    form.controls.name.setValue('Maria');
+    form.controls.relationship.setValue('12');
+    form.controls.phone.setValue('91234-5678');
+    await fixture.componentInstance.save();
+    fixture.detectChanges();
+    expect(save).not.toHaveBeenCalled();
+    expect(native.querySelector('#guardian-name-error')!.textContent).toBe(
+      'Digite o nome completo, como no documento.',
+    );
+    expect(native.querySelector('#guardian-relationship-error')!.textContent).toBe(
+      'Escreva o vínculo, como mãe ou pai.',
+    );
+    expect(native.querySelector('#guardian-phone-error')!.textContent).toBe(
+      'Digite o telefone com DDD.',
+    );
+    const phone = native.querySelector<HTMLInputElement>('input[formControlName="phone"]')!;
+    expect(phone.getAttribute('autocomplete')).toBe('off');
+    phone.value = '62912345678';
+    phone.dispatchEvent(new Event('input'));
+    phone.dispatchEvent(new Event('blur'));
+    expect(phone.value).toBe('(62) 91234-5678');
+    expect(form.controls.phone.valid).toBe(true);
+  });
+
   it('libera nova tentativa após falhar a gravação, preservando os dados pendentes', async () => {
     if (demo)
       save.mockImplementationOnce(() => {
@@ -159,6 +186,60 @@ describe.each([false, true])('Envio de responsável (demo=%s)', (demo) => {
       expect(TestBed.inject(UnsavedForms).canLeave()).toBe(true);
     });
   }
+});
+
+describe('Responsável antigo em sessão local', () => {
+  it('edita outro campo sem reescrever nome ou telefone salvos', async () => {
+    const old: GuardianRecord = {
+      id: 'responsavel-antigo',
+      residentId: 'residente-teste',
+      name: 'maria  RITA',
+      relationship: '12',
+      phone: null,
+      active: true,
+      version: 3,
+    };
+    const save = vi.fn().mockResolvedValue(old);
+    TestBed.configureTestingModule({
+      imports: [GuardianFormPage],
+      providers: [
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              paramMap: convertToParamMap({ id: old.id }),
+              queryParamMap: convertToParamMap({}),
+            },
+          },
+        },
+        { provide: DemoSessionService, useValue: { active: signal(false), hasRole: () => true } },
+        { provide: ManagementDemoService, useValue: {} },
+        { provide: GuardianApiService, useValue: { save, get: async () => old } },
+        { provide: ResidentApiService, useValue: { list: async () => [] } },
+        { provide: ReviewDialogService, useValue: {} },
+      ],
+    });
+    vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    const fixture = TestBed.createComponent(GuardianFormPage);
+    await fixture.whenStable();
+    const form = fixture.componentInstance.form;
+    form.controls.active.setValue(false);
+    await fixture.componentInstance.save();
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'maria  RITA',
+        relationship: '12',
+        phone: null,
+        active: false,
+      }),
+      old,
+    );
+    form.controls.name.setValue('Maria');
+    expect(form.controls.name.invalid).toBe(true);
+    form.controls.phone.setValue('6');
+    expect(form.controls.phone.invalid).toBe(true);
+  });
 });
 
 describe('Paginação de responsáveis na demonstração', () => {

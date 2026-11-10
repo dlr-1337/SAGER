@@ -1,5 +1,6 @@
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import { UnsavedFormDirective } from '../../shared/unsaved-form';
+import { trimmedLength } from '../../shared/field-rules';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -13,9 +14,14 @@ import { ExitEligibility, ShortExit, ShortExitInput } from './operations-local.m
 import {
   eligibilityBlocker,
   formatOperationsTime,
+  minutesAfter,
+  nextReturn,
+  periodHint,
   saoPauloInput,
   saoPauloInstant,
+  serverClock,
   shortExitFormError,
+  shortPeriodError,
 } from './operations-local.utils';
 
 @Component({
@@ -28,8 +34,8 @@ import {
       <header class="op-heading">
         <div>
           <a routerLink="/saidas" class="op-back">← Saídas</a>
-          <h1>{{ editing ? 'Editar saída curta' : 'Solicitar saída curta' }}</h1>
-          <p>Preencha os horários e o motivo para análise do supervisor.</p>
+          <h1>{{ editing ? 'Mudar saída curta' : 'Pedir saída curta' }}</h1>
+          <p>Diga quando você sai, quando volta e por quê. O supervisor vai ver seu pedido.</p>
         </div>
       </header>
       @if (!session.hasRole('residente')) {
@@ -39,32 +45,29 @@ import {
         </section>
       } @else if (loading()) {
         <section class="op-state" role="status">
-          <h2>Carregando dados da solicitação</h2>
-          <p>Verificando o cadastro e a disponibilidade da saída curta.</p>
+          <h2>Carregando seu pedido</h2>
+          <p>Aguarde um momento.</p>
         </section>
       } @else if (loadError()) {
         <section class="op-state" role="alert">
-          <h2>Não foi possível carregar a solicitação</h2>
+          <h2>Não foi possível carregar o pedido</h2>
           <p>{{ loadError() }}</p>
           <button type="button" class="btn op-secondary" (click)="load()">Tentar novamente</button>
         </section>
       } @else if (eligibility(); as resident) {
         @if (!resident.eligible) {
           <section class="op-empty" role="alert">
-            <h2>Solicitação indisponível</h2>
+            <h2>Você não pode pedir esta saída agora</h2>
             <ul>
               @for (blocker of resident.blockers; track blocker) {
                 <li>{{ blockerLabel(blocker) }}</li>
               }
             </ul>
-            <p>Solicite a atualização do cadastro ao responsável pela residência.</p>
           </section>
         } @else if (editing && !original()?.capabilities?.canEdit) {
           <section class="op-empty" role="alert">
-            <h2>Edição indisponível</h2>
-            <p>
-              Somente uma solicitação própria aguardando análise pode ser alterada dentro do prazo.
-            </p>
+            <h2>Não é possível mudar este pedido</h2>
+            <p>Você só pode mudar o pedido enquanto ele espera resposta e dentro do prazo.</p>
           </section>
         } @else {
           <form
@@ -81,19 +84,20 @@ import {
               {{ resident.roomNumber }}
             </p>
             <p class="op-help">
-              Saídas curtas duram até 3 horas. A partida e o retorno são confirmados presencialmente
-              pelo supervisor. Para períodos maiores, solicite uma saída longa.
+              Saída curta: até 3 horas. Fale com o supervisor antes de sair e ao voltar. Vai ficar
+              mais tempo? Peça uma saída longa.
             </p>
             <label class="field"
-              >Quando deseja sair?<select
+              >Quando você quer sair?<select
                 sagerSearchable
                 formControlName="departureMode"
                 (change)="modeChanged()"
               >
-                <option value="NOW">Agora, após a análise e a liberação presencial</option>
-                <option value="SCHEDULED">Agendar data e hora</option>
+                <option value="NOW">Agora</option>
+                <option value="SCHEDULED">Escolher data e hora</option>
               </select></label
             >
+            @let hint = periodHint();
             <div class="op-form-grid">
               @if (form.controls.departureMode.value === 'SCHEDULED') {
                 <label class="field"
@@ -101,6 +105,7 @@ import {
                     type="datetime-local"
                     formControlName="departure"
                     required
+                    [attr.min]="departureMin()"
                     (change)="departureChanged()"
                   />
                   @if (form.controls.departure.touched && !form.controls.departure.value) {
@@ -109,29 +114,44 @@ import {
                 </label>
               }
               <label class="field"
-                >Retorno previsto<input
+                >Que horas você volta?<input
                   type="datetime-local"
                   formControlName="expectedReturn"
                   required
+                  [attr.min]="hint.returnMin"
+                  [attr.max]="hint.returnMax"
+                  aria-describedby="exit-period-hint"
+                  (input)="returnNotice.set('')"
                 />
                 @if (form.controls.expectedReturn.touched && form.controls.expectedReturn.invalid) {
-                  <span class="op-field-error">Informe a data e hora de retorno.</span>
+                  <span class="op-field-error">Escolha a data e a hora da volta.</span>
+                }
+                @if (hint.error) {
+                  <span class="op-field-error">{{ hint.error }}</span>
                 }
               </label>
             </div>
-            <p class="op-help">
-              Horário de Brasília. Última consulta do servidor: {{ formatTime(resident.now) }}. Na
-              opção “Agora”, a saída solicitada usa o horário de envio registrado pelo servidor.
+            <p class="op-help" id="exit-period-hint">
+              @if (hint.duration) {
+                Duração: {{ hint.duration }} (máx. 3 h).
+              } @else {
+                Duração máxima: 3 h.
+              }
             </p>
+            <div role="status">
+              @if (returnNotice()) {
+                <p class="op-warning">{{ returnNotice() }}</p>
+              }
+            </div>
             <label class="field"
-              >Motivo da saída<textarea
+              >Por que você quer sair?<textarea
                 rows="3"
                 maxlength="2000"
                 formControlName="reason"
                 required
               ></textarea>
               @if (form.controls.reason.touched && form.controls.reason.invalid) {
-                <span class="op-field-error">Informe um motivo com 3 a 2.000 caracteres.</span>
+                <span class="op-field-error">Escreva o motivo da saída.</span>
               }
             </label>
             <label class="field"
@@ -146,19 +166,19 @@ import {
             }
             @if (conflict()) {
               <button class="btn op-secondary" type="button" (click)="load()">
-                Recarregar solicitação
+                Recarregar dados
               </button>
-              <p class="op-help">Recarregar substitui os campos pelos dados atuais do servidor.</p>
+              <p class="op-help">Recarregar troca o que você digitou pelos dados salvos.</p>
             }
             <div class="op-actions">
               <a routerLink="/saidas" class="btn op-secondary">Cancelar</a
-              ><button type="submit" class="btn op-primary" [disabled]="saving() || conflict()">
+              ><button
+                type="submit"
+                class="btn op-primary"
+                [disabled]="saving() || conflict() === 'stale_version'"
+              >
                 {{
-                  saving()
-                    ? 'Salvando solicitação…'
-                    : editing
-                      ? 'Salvar alterações'
-                      : 'Enviar solicitação'
+                  saving() ? 'Enviando pedido…' : editing ? 'Salvar alterações' : 'Enviar pedido'
                 }}
               </button>
             </div>
@@ -181,8 +201,10 @@ export class ExitFormLocalComponent {
   readonly saving = signal(false);
   readonly loadError = signal('');
   readonly error = signal('');
-  readonly conflict = signal(false);
-  readonly formatTime = formatOperationsTime;
+  readonly conflict = signal<string | null>(null);
+  readonly returnNotice = signal('');
+  private clock: () => string = () => '';
+  private savedReturn = false;
   readonly blockerLabel = eligibilityBlocker;
   readonly form = new FormGroup({
     departureMode: new FormControl<'NOW' | 'SCHEDULED'>('NOW', { nonNullable: true }),
@@ -190,7 +212,7 @@ export class ExitFormLocalComponent {
     expectedReturn: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     reason: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.required, Validators.minLength(3), Validators.maxLength(2000)],
+      validators: [trimmedLength(3, 2000)],
     }),
     notes: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(2000)] }),
   });
@@ -202,7 +224,8 @@ export class ExitFormLocalComponent {
     this.loading.set(true);
     this.loadError.set('');
     this.error.set('');
-    this.conflict.set(false);
+    this.conflict.set(null);
+    this.returnNotice.set('');
     try {
       const [eligibility, original] = await Promise.all([
         this.api.eligibility(),
@@ -210,12 +233,16 @@ export class ExitFormLocalComponent {
       ]);
       this.eligibility.set(eligibility);
       this.original.set(original);
+      this.clock = serverClock(eligibility.now);
+      this.savedReturn = !!original;
       this.form.reset({
         departureMode: original?.departureMode ?? 'NOW',
-        departure: saoPauloInput(original?.requestedDepartureAt ?? eligibility.now),
+        departure:
+          original?.departureMode === 'SCHEDULED'
+            ? saoPauloInput(original.requestedDepartureAt)
+            : '',
         expectedReturn: saoPauloInput(
-          original?.expectedReturnAt ??
-            new Date(Date.parse(eligibility.now) + 3 * 3_600_000).toISOString(),
+          original?.expectedReturnAt ?? minutesAfter(eligibility.now, 180),
         ),
         reason: original?.reason ?? '',
         notes: original?.notes ?? '',
@@ -231,15 +258,46 @@ export class ExitFormLocalComponent {
     this.departureChanged();
   }
   departureChanged(): void {
-    const eligibility = this.eligibility();
-    const departure =
-      this.form.controls.departureMode.value === 'NOW'
-        ? eligibility?.now
-        : saoPauloInstant(this.form.controls.departure.value);
-    if (departure)
-      this.form.controls.expectedReturn.setValue(
-        saoPauloInput(new Date(Date.parse(departure) + 3 * 3_600_000).toISOString()),
+    const control = this.form.controls.expectedReturn;
+    this.returnNotice.set('');
+    const next = nextReturn(
+      this.departure(),
+      saoPauloInstant(control.value),
+      this.returnEdited(),
+      180,
+      shortPeriodError,
+    );
+    if (!next) return;
+    this.savedReturn = false;
+    control.reset(saoPauloInput(next.value));
+    if (next.adjusted)
+      this.returnNotice.set(
+        `Volta ajustada para ${formatOperationsTime(next.value)}, porque o horário anterior não dava.`,
       );
+  }
+  departureMin(): string {
+    return saoPauloInput(minutesAfter(this.clock(), 1));
+  }
+  periodHint() {
+    return periodHint(
+      this.departure(),
+      saoPauloInstant(this.form.controls.expectedReturn.value),
+      1,
+      180,
+      shortPeriodError,
+    );
+  }
+  private departure(): string | null {
+    return this.form.controls.departureMode.value === 'NOW'
+      ? this.clock()
+      : saoPauloInstant(this.form.controls.departure.value);
+  }
+  private returnEdited(): boolean {
+    return this.savedReturn || this.form.controls.expectedReturn.dirty;
+  }
+  private refreshNowReturn(): void {
+    if (this.form.controls.departureMode.value === 'NOW' && !this.returnEdited())
+      this.form.controls.expectedReturn.setValue(saoPauloInput(minutesAfter(this.clock(), 180)));
   }
   async save(): Promise<void> {
     const resident = this.eligibility();
@@ -249,15 +307,19 @@ export class ExitFormLocalComponent {
       !resident?.eligible ||
       (this.editing && !original?.capabilities.canEdit) ||
       this.saving() ||
-      this.conflict()
+      this.conflict() === 'stale_version'
     )
       return;
     this.form.markAllAsTouched();
     this.error.set('');
+    this.conflict.set(null);
+    // Removing the field in "Agora" drops its required rule without revalidating the control.
+    this.form.controls.departure.updateValueAndValidity();
     if (this.form.invalid) {
       this.error.set('Revise os campos obrigatórios indicados.');
       return;
     }
+    this.refreshNowReturn();
     const value = this.form.getRawValue();
     const expectedReturnAt = saoPauloInstant(value.expectedReturn);
     const requestedDepartureAt =
@@ -273,7 +335,7 @@ export class ExitFormLocalComponent {
       notes: value.notes.trim() || null,
       ...(requestedDepartureAt ? { requestedDepartureAt } : {}),
     };
-    const error = shortExitFormError(input, resident.now);
+    const error = shortExitFormError(input, this.clock());
     if (error) {
       this.error.set(error);
       return;
@@ -282,10 +344,14 @@ export class ExitFormLocalComponent {
     try {
       const fresh = await this.api.eligibility();
       this.eligibility.set(fresh);
+      this.clock = serverClock(fresh.now);
       if (!fresh.eligible) {
         this.error.set('Seu cadastro deixou de atender aos requisitos da saída curta.');
         return;
       }
+      this.refreshNowReturn();
+      input.expectedReturnAt =
+        saoPauloInstant(this.form.controls.expectedReturn.value) ?? input.expectedReturnAt;
       const freshError = shortExitFormError(input, fresh.now);
       if (freshError) {
         this.error.set(freshError);
@@ -297,7 +363,12 @@ export class ExitFormLocalComponent {
       await this.router.navigate(['/saidas', exit.id], { queryParams: { saved: '1' } });
     } catch (error) {
       this.error.set(operationsError(error));
-      if (error instanceof OperationsApiError && error.status === 409) this.conflict.set(true);
+      if (
+        error instanceof OperationsApiError &&
+        error.status === 409 &&
+        error.code !== 'overlapping_exit'
+      )
+        this.conflict.set(error.code ?? 'conflict');
     } finally {
       this.saving.set(false);
     }

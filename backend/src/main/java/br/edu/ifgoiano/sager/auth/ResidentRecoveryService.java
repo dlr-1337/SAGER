@@ -1,5 +1,7 @@
 package br.edu.ifgoiano.sager.auth;
 
+import br.edu.ifgoiano.sager.management.FieldRules;
+
 import java.text.Normalizer;
 import java.time.LocalDate;
 import java.util.Locale;
@@ -23,13 +25,16 @@ public class ResidentRecoveryService {
     @Transactional
     public void recover(String enrollment, String name, LocalDate birthDate, String guardianName, String password, String confirmation) {
         if (password == null || !password.equals(confirmation)) throw refused();
+        if (enrollment != null && password.equalsIgnoreCase(FieldRules.normalizeEnrollment(enrollment))) throw refused();
         String hash;
-        try { hash = provisioning.hashAndClear(password.toCharArray()); }
+        // Antes da busca e com a matrícula informada: a recusa não pode depender de a conta existir.
+        try { hash = provisioning.hashAndClear(password.toCharArray(), enrollment); }
         catch (IllegalArgumentException error) { throw refused(); }
-        LocalAccount account = accounts.findByEnrollment(enrollment == null ? "" : enrollment.trim()).orElse(null);
+        LocalAccount account = accounts.findForLogin(enrollment == null ? "" : enrollment.trim()).orElse(null);
         if (account == null || !account.active() || !account.profile().equals("residente") || account.residentId() == null) throw refused();
+        String found = account.enrollment();
         account = accounts.findByIdForUpdate(account.id()).orElseThrow(ResidentRecoveryService::refused);
-        if (!account.active() || account.residentId() == null || !account.profile().equals("residente") || !enrollment.trim().equalsIgnoreCase(account.enrollment())) throw refused();
+        if (!account.active() || account.residentId() == null || !account.profile().equals("residente") || !found.equals(account.enrollment())) throw refused();
         var residents = jdbc.query("SELECT name,birth_date FROM sager_resident WHERE id=? FOR SHARE",
                 (r,n) -> new Identity(r.getString("name"), r.getObject("birth_date", LocalDate.class)), account.residentId());
         if (residents.isEmpty() || birthDate == null || !Objects.equals(residents.getFirst().birthDate(), birthDate)

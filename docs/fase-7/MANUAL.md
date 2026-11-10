@@ -27,11 +27,13 @@ não concede leitura de atendimentos clínicos.
 1. Abra **Chamada noturna**, confira data e participantes capturados, registre
    as presenças e finalize. Uma correção exige justificativa e preserva o registro
    original. Ausência justificada depende da saída autorizada e do movimento
-   físico válidos no instante de abertura.
+   físico válidos no instante de abertura. Quem está fora com saída válida já
+   entra como ausência justificada, marcada pelo sistema: confira e corrija se
+   preciso. Se a partida não foi registrada, o residente fica pendente.
 2. Em **Saídas e retornos**, confira modalidade, datas, responsável e documento.
-   Analise o pedido e registre partida/retorno reais. Aprovação longa exige a
-   assinatura elegível da revisão vigente e documentos íntegros. Mensagem enviada
-   ou callback recebido não significa aprovação.
+   Analise o pedido e registre partida/retorno reais. Aprovação longa exige
+   autorização conferida na revisão vigente, em etapa anterior, e arquivos íntegros.
+   Mensagem enviada ou arquivo recebido não significa aprovação.
 3. Consulte **Notificações** e a origem. Corrigir a origem pode exigir nova análise.
    Ao emitir uma advertência ou termo, confira evidências, motivo, versão e PDF.
    Nenhuma ocorrência aplica sanção automaticamente.
@@ -74,7 +76,7 @@ não integra relatórios administrativos nem a auditoria global de gestão.
 - **Falha de rede:** confira o estado antes de repetir uma confirmação. As ações
   que usam chave de idempotência preservam a mesma operação em uma repetição.
 - **Integração indisponível:** mantenha o pedido no estado informado e procure o
-  supervisor. Não presuma assinatura ou entrega externa.
+  supervisor. Não presuma autorização ou entrega externa.
 - **Relatório expirado:** prepare nova consulta com os filtros desejados.
 
 A navegação por teclado usa Tab, Enter e Espaço. Escape fecha diálogos de revisão;

@@ -13,6 +13,8 @@ Módulo único de Assistência Estudantil
 
 **Revisão da estrutura local de alojamentos:** 29/09/2026.
 
+**Substituição da assinatura eletrônica por link (2026-10-31):** a saída longa passa a exigir autorização do responsável recebida pelo WhatsApp e conferida por um servidor. Ver a nota na seção 11.
+
 ### Como interpretar este PRD
 
 Os requisitos sem marcador especial são derivados do documento-base. Os critérios de aceite transformam essas regras em resultados verificáveis, sem atribuir aprovação institucional a este PRD. **[U] Definido pelo solicitante** identifica Angular e Java com Spring Boot e as escolhas locais datadas neste documento. **[T] Decisão técnica** identifica escolhas de implementação feitas nesta revisão por delegação do solicitante. **[P] Proposta** identifica regras ou processos sugeridos que ainda precisam de validação. **[A] A definir** identifica informação institucional ausente, contraditória ou insuficiente na fonte. **[U/T]** combina uma escolha autorizada pelo solicitante com sua delimitação técnica local.
@@ -62,7 +64,7 @@ O resultado esperado é permitir que a AE acompanhe as operações diárias e o 
 
 ## 1.2 Objetivos do produto
 
-Digitalizar os registros de residência e reduzir a dependência de papel; tornar saídas e retornos verificáveis; exigir assinatura válida do responsável antes da aprovação de saída longa; apoiar a avaliação humana de ocorrências; tornar a gestão de limpeza e ocupação compreensível; disponibilizar relatórios e histórico individual com acesso controlado.
+Digitalizar os registros de residência e reduzir a dependência de papel; tornar saídas e retornos verificáveis; exigir autorização do responsável, conferida por um servidor, antes da aprovação de saída longa; apoiar a avaliação humana de ocorrências; tornar a gestão de limpeza e ocupação compreensível; disponibilizar relatórios e histórico individual com acesso controlado.
 
 **[A] Metas de impacto:** a SRS não informa quantidade atual de formulários, tempo médio dos processos ou metas percentuais de redução. Esses resultados não devem ser apresentados como ganhos já medidos. Indicadores propostos para o piloto aparecem na seção 22.
 
@@ -80,7 +82,7 @@ Não há aplicativo móvel próprio: o acesso pelo celular ocorre pela interface
 
 ## 1.5 Dependências e responsáveis
 
-A AE deve definir regras operacionais e homologar os fluxos. A TI deve disponibilizar infraestrutura e operação técnica. O login próprio do SAGER foi definido pelo solicitante em 30/09/2026 para a fase atual; eventual integração com SUAP ou Google fica para decisão futura. São dependências previstas: responsável legal ativo com telefone válido, autorização institucional para comunicação por WhatsApp, plataforma de mensagens e serviço de assinatura eletrônica disponíveis, além do treinamento inicial dos usuários.
+A AE deve definir regras operacionais e homologar os fluxos. A TI deve disponibilizar infraestrutura e operação técnica. O login próprio do SAGER foi definido pelo solicitante em 30/09/2026 para a fase atual; eventual integração com SUAP ou Google fica para decisão futura. São dependências previstas: responsável legal ativo com telefone válido, autorização institucional para comunicação por WhatsApp, gateway de mensagens disponível, com anexo manual como contingência, além do treinamento inicial dos usuários.
 
 **Fonte:** SRS, seções 1.1–1.3 e 2, pp. 4–6; restrições e propriedade intelectual, pp. 47–49; RN01–RN10, pp. 50–51.
 
@@ -93,17 +95,17 @@ A AE deve definir regras operacionais e homologar os fluxos. A TI deve disponibi
 | Ator              | Responsabilidade prevista                                                                                                                                                                      |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Gestor            | Administração de supervisores, residentes, quartos e responsáveis legais; relatórios estratégicos e inclusão manual de residentes.                                                             |
-| Supervisor        | Administração operacional de supervisores, residentes, responsáveis e quartos; chamada, limpeza, notificações, advertências, saídas e retorno curto. Acesso médico segue restrito à profissão. |
+| Supervisor        | Administração operacional de residentes, responsáveis e quartos; chamada, limpeza, notificações, advertências, saídas e retorno curto. Acesso médico segue restrito à profissão.               |
 | Residente         | Solicitação de saída quando menor de idade; acompanhamento das próprias solicitações; consulta de avisos, advertências e ranking; registro explícito de ciência.                               |
-| Responsável legal | Acesso ao documento de saída longa pelo link enviado ao telefone pré-cadastrado; assinatura eletrônica conforme mecanismo configurado.                                                         |
-| Sistema           | Geração de alertas e documentos, integração com mensagens e assinaturas, atualização de estados e auditoria. Não decide sanções.                                                               |
+| Responsável legal | Recebe o documento de saída longa pelo WhatsApp, no telefone pré-cadastrado, e devolve a autorização em foto ou PDF. Não acessa o sistema.                                                         |
+| Sistema           | Geração de alertas e documentos, integração com mensagens, guarda dos arquivos de autorização, atualização de estados e auditoria. Não decide sanções.                                                               |
 | Equipe de TI      | Suporte, manutenção e monitoramento. A SRS não define um perfil funcional próprio de administrador de TI.                                                                                      |
 
 ## 2.2 Matriz funcional de referência
 
 | Operação                                   | Gestor            | Supervisor             | Residente / responsável                                 |
 | ------------------------------------------ | ----------------- | ---------------------- | ------------------------------------------------------- |
-| Cadastrar e editar supervisores            | Sim               | Sim                    | Não previsto                                            |
+| Cadastrar e editar supervisores            | Sim               | Não (desde 31/10/2026) | Não previsto                                            |
 | Cadastrar e editar residentes              | Sim               | Sim                    | Edição própria a definir                                |
 | Gerenciar quartos e alocações              | Sim               | Sim                    | Não previsto                                            |
 | Gerenciar responsáveis legais              | Sim               | Sim                    | Alteração própria não definida                          |
@@ -120,7 +122,9 @@ A AE deve definir regras operacionais e homologar os fluxos. A TI deve disponibi
 
 ## 2.3 Isolamento e autenticação
 
-O usuário autenticado deve acessar apenas as funções e registros permitidos. Um residente não pode acessar dados privados de outro residente, notificações internas ou documentos de terceiros. O responsável legal participa pelo fluxo seguro de assinatura; não se presume uma conta institucional nem acesso ao painel geral.
+O usuário autenticado deve acessar apenas as funções e registros permitidos. Um residente não pode acessar dados privados de outro residente, notificações internas ou documentos de terceiros. O responsável legal devolve a autorização pelo WhatsApp, sem acesso ao sistema; não se presume uma conta institucional.
+
+**[U] Decisão de 31/10/2026:** substitui a decisão de 30/09/2026 e D01 somente quanto aos supervisores. Só o gestor lista, consulta, cadastra e edita supervisores, porque está acima deles e a criação passou a definir a senha de login. A paridade continua nos demais recursos de gestão. A homologação institucional segue pendente.
 
 **[A]** RF002 indica Gestor, mas UC015 admite Supervisor/Gestor; a paridade operacional local de 30/09 resolve a implementação atual, sem alterar o texto histórico da SRS. Ainda precisam de confirmação institucional os profissionais autorizados a dados médicos, o acesso a documentos assinados e os papéis acumuláveis. UC01 cita supervisor e residente, enquanto os demais requisitos pressupõem gestor autenticado.
 
@@ -142,7 +146,7 @@ A classificação da SRS é preservada: **RF001 é “Importante”; RF002–RF0
 | E06   | Solicitação de saída curta ou longa        | RF007; UC06; RN01 e RN03                    |
 | E07   | Aprovação e rejeição de saída              | RF008; UC07; RN05 e RN06                    |
 | E08   | Confirmação presencial de retorno curto    | RF014; UC17; RN01 e RN02                    |
-| E09   | Documento, WhatsApp e assinatura           | RF015 e RF016; UC18; RN03–RN06; RNF-WA01–05 |
+| E09   | Documento, WhatsApp e autorização          | RF015 e RF016; UC18; RN03–RN06; RNF-WA01–05 |
 | E10   | Geração e análise de notificações internas | RF004 e RF005; UC04 e UC10; RN07            |
 | E11   | Advertência manual, avisos e ciência       | UC03; RF009; UC08                           |
 | E12   | Termo de Compromisso por reincidência      | RN10                                        |
@@ -178,9 +182,9 @@ A SRS originalmente prescreve integração institucional, com LDAP e SSO como ex
 
 ## E03 — Gerenciar supervisores
 
-**Necessidade do gestor e do supervisor:** manter os dados dos supervisores que operam a Assistência Estudantil.
+**Necessidade do gestor:** manter os dados dos supervisores que operam a Assistência Estudantil e dar acesso a eles.
 
-O gestor ou supervisor autenticado acessa a listagem, seleciona um registro existente ou inicia um cadastro, preenche ou altera os dados e confirma. O sistema valida os campos obrigatórios, persiste as informações e informa sucesso. Dados inválidos devem ser apontados para correção, sem concluir o cadastro como se estivesse válido.
+O gestor autenticado acessa a listagem, seleciona um registro existente ou inicia um cadastro, preenche ou altera os dados e confirma. Na criação, informa também a senha e a confirmação; a matrícula ou SIAPE vira o login, e registro, conta e vínculo são criados na mesma transação. A edição não altera a senha. O sistema valida os campos obrigatórios, persiste as informações e informa sucesso. Dados inválidos devem ser apontados para correção, sem concluir o cadastro como se estivesse válido.
 
 **[A]** A SRS não fixa o formulário completo, critérios de unicidade, inativação, exclusão ou escopo por bloco/turno. O cadastro funcional e a conta de login próprio precisam ter vínculo controlado; criar um supervisor não deve gerar credenciais previsíveis.
 
@@ -191,7 +195,7 @@ O gestor ou supervisor autenticado acessa a listagem, seleciona um registro exis
 | AC01 | Login com e-mail e senha válidos da conta SAGER   | Usuário autenticado e direcionado ao perfil autorizado.              |
 | AC02 | Credencial inválida ou serviço indisponível       | Mensagem correspondente; nenhuma sessão válida criada indevidamente. |
 | AC03 | Acesso a funcionalidade fora do perfil            | Acesso negado; ocultar o botão não é o único controle.               |
-| AC04 | Gestor ou supervisor cadastra ou edita supervisor | Informações válidas persistidas e confirmação de sucesso.            |
+| AC04 | Gestor cadastra ou edita supervisor; outros perfis recebem 403 | Informações válidas persistidas e confirmação de sucesso; quem foi criado já entra com a matrícula ou SIAPE e a senha informadas. |
 | AC05 | Cadastro com campo obrigatório ausente            | Campo identificado e registro não concluído.                         |
 
 AC03 operacionaliza a restrição de acesso por perfil. A paridade operacional local e o sigilo médico seguem a matriz da seção 2; permissões adicionais do produto completo dependem de validação.
@@ -206,7 +210,7 @@ AC03 operacionaliza a restrição de acesso por perfil. A paridade operacional l
 
 **Necessidade da AE:** consultar e manter informações de residentes matriculados, com histórico operacional e acesso restrito a informações sensíveis.
 
-O supervisor/gestor acessa os residentes, busca um registro ou inicia cadastro manual, preenche ou altera os dados permitidos e confirma. O sistema valida os dados, exige vínculo de matrícula e data de nascimento no cadastro atual, salva e informa o resultado. O curso é opcional na API local. Erros devem ser associados aos campos correspondentes. Informações médicas seguem fluxo próprio, restrito a profissionais autorizados e ao sigilo profissional, ainda que um supervisor ou gestor possua acesso ao cadastro geral.
+O supervisor/gestor acessa os residentes, busca um registro ou inicia cadastro manual, preenche ou altera os dados permitidos e confirma. O sistema valida os dados, exige vínculo de matrícula e data de nascimento no cadastro atual, salva e informa o resultado. Desde 31/10/2026, o curso é obrigatório em novo cadastro e edição; residente antigo sem curso segue legível até a próxima edição. Erros devem ser associados aos campos correspondentes. Informações médicas seguem fluxo próprio, restrito a profissionais autorizados e ao sigilo profissional, ainda que um supervisor ou gestor possua acesso ao cadastro geral.
 
 A consulta deve permitir chegar ao histórico do residente e às informações necessárias para os fluxos de chamada, saída, limpeza, avisos, advertências e relatórios. A Figura 5 apresenta busca e filtros por bloco, curso, status e faixa etária, além de nome, quarto, curso e idade na listagem. Esses elementos visuais complementam o caso de uso, mas não definem sozinhos todos os campos cadastrais.
 
@@ -214,9 +218,9 @@ A consulta deve permitir chegar ao histórico do residente e às informações n
 
 Gestor e supervisor administram os dados de responsáveis legais na fase atual. Para uma saída longa, deve existir ao menos um responsável ativo e autorizado, vinculado ao residente, com telefone WhatsApp previamente cadastrado e válido. O envio deve usar esse contato, não um número livre informado no momento da solicitação pelo residente.
 
-**Dados explicitamente necessários ao fluxo:** identificação do residente, condição de menor de idade, matrícula/vínculo institucional, identificação do responsável, vínculo/autorização, situação ativa e telefone para envio. A assinatura gera dados adicionais de evidência, descritos na seção 11.
+**Dados explicitamente necessários ao fluxo:** identificação do residente, condição de menor de idade, matrícula/vínculo institucional, identificação do responsável, vínculo/autorização, situação ativa e telefone para envio. A autorização gera dados adicionais de evidência, descritos na seção 11.
 
-**[U/T]** A data de nascimento é obrigatória em novos cadastros e edições; a idade é calculada na data de referência da operação. O cadastro manual não impõe faixa etária de 16–17 anos. Registros legados sem nascimento permanecem legíveis, mas sua edição exige informar a data. A cardinalidade dos vínculos e a escolha de quem receberá o link seguem D15; uma assinatura válida de qualquer responsável ativo, autorizado e vinculado basta para a saída longa, sem exigir assinatura de todos. Isso não substitui prova de identidade, vínculo, autorização e telefone, que permanecem sujeitos à validação institucional.
+**[U/T]** A data de nascimento é obrigatória em novos cadastros e edições; a idade é calculada na data de referência da operação. O cadastro manual não impõe faixa etária de 16–17 anos. Registros legados sem nascimento permanecem legíveis, mas sua edição exige informar a data. A cardinalidade dos vínculos e a escolha de quem receberá o documento seguem D15; uma autorização conferida de qualquer responsável ativo, autorizado e vinculado basta para a saída longa, sem exigir a de todos. Isso não substitui prova de identidade, vínculo, autorização e telefone, que permanecem sujeitos à validação institucional.
 
 ## Critérios de aceite
 
@@ -293,7 +297,7 @@ O supervisor autenticado acessa a chamada noturna. O sistema lista os residentes
 
 A chamada deve ocorrer às **22h30**. A realização fora do horário padrão deve gerar alerta e requerer confirmação do registro tardio; o registro deve preservar essa indicação e o horário efetivo. Esse cenário não pode ser eliminado por um bloqueio absoluto de uso fora das 22h30.
 
-Quando o residente estiver ausente, o supervisor consulta a existência de autorização válida. O sistema informa o resultado e permite registrar ausência justificada quando houver autorização. A existência de solicitação pendente, por si só, não corresponde a autorização aprovada.
+Ao abrir a chamada, o sistema marca como ausência justificada o residente com uma saída aprovada e partida física registrada, e o supervisor confere e pode corrigir. Com mais de uma saída válida, o supervisor escolhe qual vincular. A existência de solicitação pendente, por si só, não corresponde a autorização aprovada.
 
 A Figura 3 apresenta agrupamento por blocos, busca e filtros para apoiar a marcação, além de resumo de registros. O fechamento da chamada depende de todos os residentes abrangidos estarem marcados.
 
@@ -305,7 +309,7 @@ A Figura 3 apresenta agrupamento por blocos, busca e filtros para apoiar a marca
 | AC17 | Confirmação com marcações faltantes                      | Sistema identifica a incompletude e não finaliza a chamada como completa.        |
 | AC18 | Confirmação de chamada completa                          | Presenças/ausências persistidas e confirmação exibida.                           |
 | AC19 | Registro fora do horário padrão                          | Alerta, confirmação de registro tardio e indicação preservada no histórico.      |
-| AC20 | Ausente com autorização válida                           | Supervisor consegue registrar ausência justificada após consulta da autorização. |
+| AC20 | Ausente com autorização válida                           | Ausência justificada marcada na abertura, com a saída indicada e correção possível. |
 | AC21 | Ausência não justificada que atinge critério configurado | Notificação interna para análise; nenhuma advertência automática.                |
 
 ## Exceções e decisões pendentes
@@ -328,25 +332,25 @@ Ao abrir o formulário, o sistema deve preencher a data/hora de saída com a dat
 
 ### Saída curta
 
-O retorno previsto começa em **saída + 3 horas** e é recalculado quando a saída é alterada. O residente pode antecipar esse retorno. A regra é: **retorno previsto posterior à saída e, no máximo, 3 horas depois dela**. Valores fora desse intervalo devem ser bloqueados na interface e no servidor, inclusive na edição.
+O retorno previsto começa em **saída + 3 horas** e acompanha a saída enquanto o residente não o editar. Uma edição manual válida é preservada; se a mudança da saída a deixar fora do limite, o retorno volta à sugestão, com aviso. O residente pode antecipar esse retorno. A regra é: **retorno previsto posterior à saída e, no máximo, 3 horas depois dela**. Valores fora desse intervalo devem ser bloqueados na interface e no servidor, inclusive na edição.
 
 Após o envio válido, a solicitação aguarda análise do supervisor. Não existe exigência de assinatura do responsável para essa modalidade. O retorno posterior será confirmado presencialmente pelo supervisor, não pelo residente.
 
 ### Saída longa
 
-Exige responsável legal ativo e autorizado, telefone pré-cadastrado e documento de autorização assinado eletronicamente. Após o registro, o sistema gera o documento e inicia o envio para assinatura. Uma assinatura válida de qualquer responsável vinculado, registrado e autorizado para o residente, com o documento assinado armazenado, torna a solicitação apta à análise; não se exige a assinatura de ambos ou de todos os responsáveis.
+Exige responsável legal ativo e autorizado, telefone pré-cadastrado e autorização conferida por um servidor. Após o registro, o sistema gera o documento e o envia pelo WhatsApp. Uma autorização conferida de qualquer responsável vinculado, registrado e autorizado para o residente, com o arquivo armazenado, torna a solicitação apta à decisão; não se exige a de ambos ou de todos os responsáveis.
 
 ### Microtextos obrigatórios
 
 **“Curta: até 3 horas; retorno confirmado presencialmente pelo supervisor”.**
 
-**“Longa: exige assinatura eletrônica do responsável legal via link no WhatsApp e aprovação do supervisor”.**
+**“Longa: exige autorização do responsável legal pelo WhatsApp, conferida por um servidor, e aprovação do supervisor”.**
 
 Os campos de data/hora devem explicar o preenchimento automático e os limites. Erros devem aparecer junto ao campo correspondente.
 
 ## Edição e exceções
 
-O residente pode editar solicitações pendentes. A alteração reaplica as validações e recalcula o limite do retorno curto. Quando uma alteração afetar uma saída longa já enviada ao responsável, o fluxo de assinatura deve ser reiniciado. Dados inválidos ou ausência de responsável devem impedir o envio e orientar correção cadastral.
+O residente pode editar solicitações pendentes. A alteração reaplica as validações e recalcula o limite do retorno curto. Quando uma alteração afetar uma saída longa já enviada ao responsável, a autorização anterior é invalidada e o documento da nova revisão é enviado. Dados inválidos ou ausência de responsável devem impedir o envio e orientar correção cadastral.
 
 ## Critérios de aceite
 
@@ -355,7 +359,7 @@ O residente pode editar solicitações pendentes. A alteração reaplica as vali
 | AC22 | Formulário de saída curta aberto                          | Saída preenchida automaticamente; retorno inicial calculado em +3 horas; microtextos visíveis. |
 | AC23 | Retorno igual/anterior à saída ou superior a +3 horas     | Operação rejeitada na interface e no servidor, também na edição.                               |
 | AC24 | Alteração da saída ou antecipação válida do retorno       | Limites recalculados e período válido aceito.                                                  |
-| AC25 | Saída longa alterada após envio para assinatura           | Fluxo de assinatura reiniciado para o conteúdo alterado.                                       |
+| AC25 | Saída longa alterada após envio ao responsável            | Autorização anterior invalidada e documento da nova revisão enviado.                           |
 | AC26 | Residente não elegível ou responsável obrigatório ausente | Solicitação bloqueada com indicação do motivo.                                                 |
 
 **[A]** A combinação “saída = agora” e “saída não pode estar no passado” necessita regra para o tempo gasto preenchendo o formulário. A AE também deve definir janelas de saída/retorno e conciliar “Breve” e “Visita pra casa” dos protótipos com os dois tipos textuais.
@@ -372,7 +376,7 @@ O residente pode editar solicitações pendentes. A alteração reaplica as vali
 
 O supervisor abre a lista de solicitações, seleciona uma e consulta residente, tipo, datas/horas, motivo e documentos. A **Linha do Tempo Visual** deve destacar a etapa atual, as concluídas e as pendentes, com data/hora dos eventos registrados.
 
-Na saída longa, o sistema verifica ao menos uma assinatura eletrônica válida de responsável ativo, autorizado e vinculado. Sem essa condição, a aprovação fica bloqueada e a pendência deve aparecer claramente. O supervisor ou gestor pode manter a pendência ou reenviar a mensagem, conforme o fluxo de reenvio.
+Na saída longa, o sistema verifica ao menos uma autorização conferida por servidor, de responsável ativo, autorizado e vinculado. Sem essa condição, a aprovação fica bloqueada e a pendência deve aparecer claramente. O supervisor pode manter a pendência, reenviar a mensagem ou anexar um arquivo recebido por outro meio.
 
 Ao escolher “Aprovar” ou “Rejeitar”, o sistema valida a decisão e abre um **Modal de Revisão**. O modal apresenta os dados completos da ação, inclusive responsável quando aplicável, e os botões de confirmar/cancelar. Somente a confirmação explícita altera o status. Cancelar ou fechar o modal não altera a solicitação.
 
@@ -380,7 +384,7 @@ A rejeição exige comentário obrigatório. A decisão deve registrar data, hor
 
 ## Linha do tempo
 
-Saídas longas devem representar assinatura e aprovação. Nas curtas, a assinatura deve constar como não aplicável, e o retorno deve ser acompanhado conforme o UC17. Rejeição, cancelamento e expiração devem aparecer quando ocorrerem.
+Saídas longas devem representar autorização e aprovação. Nas curtas, a autorização do responsável deve constar como não aplicável, e o retorno deve ser acompanhado conforme o UC17. Rejeição, cancelamento e expiração devem aparecer quando ocorrerem.
 
 Quando a data/hora da saída já passou, o sistema identifica a condição de expiração e alerta o supervisor. O UC07 prevê ação do supervisor para cancelar ou registrar como expirada; não estabelece uma rotina automática de expiração como solução única.
 
@@ -391,11 +395,11 @@ Quando a data/hora da saída já passou, o sistema identifica a condição de ex
 | AC27 | Primeiro clique em aprovar/rejeitar | Modal aberto; status ainda inalterado.                                |
 | AC28 | Fechamento ou cancelamento do modal | Nenhuma decisão persistida.                                           |
 | AC29 | Rejeição sem comentário             | Confirmação bloqueada até completar a justificativa.                  |
-| AC30 | Saída longa sem assinatura válida   | Aprovação bloqueada e pendência visível.                              |
+| AC30 | Saída longa sem autorização conferida | Aprovação bloqueada e pendência visível.                              |
 | AC31 | Decisão válida confirmada           | Status, auditoria e linha do tempo atualizados; residente notificado. |
 | AC32 | Solicitação com saída já passada    | Condição expirada identificada e apresentada ao supervisor.           |
 
-**[A]** Precisam de decisão: rejeitar uma saída longa antes da assinatura, antecedência mínima, quem pode cancelar, editabilidade após aprovação e evento que coloca uma saída em andamento. Este PRD não presume um registro de portaria ou confirmação automática de partida. A paridade operacional de gestor e supervisor foi definida para a fase atual em 30/09/2026.
+**[A]** Precisam de decisão: rejeitar uma saída longa antes da autorização, antecedência mínima, quem pode cancelar, editabilidade após aprovação e evento que coloca uma saída em andamento. Este PRD não presume um registro de portaria ou confirmação automática de partida. A paridade operacional de gestor e supervisor foi definida para a fase atual em 30/09/2026.
 
 **Fonte:** SRS, RF008, p. 7; UC07, pp. 18–19; Figuras 10 e 11, pp. 41–42; RN05, RN06 e RN08, p. 50.
 
@@ -438,50 +442,58 @@ Se não existir saída curta ativa, o sistema informa a ausência do registro e 
 
 <!-- pagebreak -->
 
-# 11. WhatsApp, documento e assinatura
+# 11. WhatsApp, documento e autorização
+
+> **Nota de substituição (2026-10-31).** Por decisão do dono do produto, a assinatura eletrônica por link, com provedor externo de assinatura e template oficial de WhatsApp, deixa de ser o requisito vigente. Esta seção, RNF-WA01, RNF-WA02, RNF-WA05, AC25, AC30, AC39–AC44 e as decisões D07 e D15–D17 foram reescritos para a autorização do responsável recebida pelo WhatsApp e conferida por um servidor. Os trechos derivados da SRS (RF015, RF016, UC18, RN03–RN06) ficam no histórico do Git. Esta é uma decisão de produto, não um aceite institucional. As decisões que continuam pendentes estão em [`docs/whatsapp/OPERACAO.md`](docs/whatsapp/OPERACAO.md).
 
 ## E09 — Autorização de saída longa
 
-**Necessidade do responsável legal:** receber, revisar e assinar o documento da saída vinculada ao residente, por acesso seguro, antes da decisão do supervisor.
+**Necessidade do responsável legal:** receber pelo WhatsApp o documento da saída vinculada ao residente, revisar e devolver a autorização do jeito que preferir, antes da decisão do supervisor.
 
-Após uma solicitação longa válida, o sistema gera documento contendo **identificação do residente, período da saída, motivo e termo de responsabilidade**. A mensagem é enviada via WhatsApp/API ao telefone pré-cadastrado do responsável, com link individual e seguro para visualização e assinatura.
+Após uma solicitação longa válida, o sistema gera documento contendo **nome do residente, nome do responsável, período da saída, motivo, termo, campo de assinatura, data, código curto e revisão**. O documento não traz data de nascimento, matrícula nem quarto, porque trafega pelo WhatsApp. O PDF é enviado ao telefone pré-cadastrado do responsável por um gateway WhatsApp auto-hospedado, desligado por padrão.
 
-Um responsável ativo, autorizado e vinculado acessa o link e assina no serviço de assinatura eletrônica. Ao receber uma confirmação válida desse responsável para a versão vigente, o sistema armazena o documento assinado e as evidências, registra a etapa **“Assinada”**, encaminha para **“Aguardando aprovação”** e notifica a equipe de que a solicitação está pronta para análise. A assinatura não aprova a saída por conta própria e não exige que outro responsável também assine.
+O responsável devolve o documento em foto ou PDF. O arquivo fica no armazenamento privado do SAGER, com hash, e vira candidato do pedido quando a correlação é segura: resposta citando o documento ou único pedido aberto para aquele telefone. Nos demais casos, o supervisor escolhe o pedido. Receber o arquivo não autoriza nada. Um supervisor confere responsável, documento e revisão, e confirma ou recusa com justificativa. A aprovação continua sendo um ato próprio, posterior e separado. Com o gateway desligado ou fora do ar, o supervisor anexa o arquivo recebido por outro meio, que passa pela mesma conferência.
+
+**Limitação:** o registro comprova que um arquivo foi recebido de um número, em data e hora registradas, e que não mudou desde então. Não comprova a autoria da assinatura e não constitui assinatura eletrônica nos termos da Lei 14.063/2020. A redação completa está em [`docs/whatsapp/OPERACAO.md`](docs/whatsapp/OPERACAO.md).
 
 ## Requisitos de integração
 
 | Referência | Comportamento obrigatório                                                                                                 |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------- |
-| RNF-WA01   | Usar modelo de mensagem aprovado/configurado, objetivo e com link seguro para assinatura.                                 |
-| RNF-WA02   | Receber eventos de entrega, leitura, falha e assinatura por webhooks ou rotinas equivalentes; manter auditoria.           |
+| RNF-WA01   | Enviar o documento em mensagem individual, disparada por um pedido real, com legenda objetiva, código e revisão.          |
+| RNF-WA02   | Receber eventos de entrega, leitura, falha e mensagem recebida por webhook autenticado e reconciliação; manter auditoria. |
 | RNF-WA03   | Proteger tokens, chaves e URLs privadas por criptografia ou gestão segura de segredos; nunca mantê-los no código-fonte.   |
-| RNF-WA04   | Exibir falhas ao supervisor e permitir registrar providência, reenvio ou contato alternativo autorizado.                  |
-| RNF-WA05   | Não expor dados médicos, sensíveis ou informações pessoais excessivas nas mensagens; documento completo em página segura. |
+| RNF-WA04   | Exibir falhas ao supervisor e permitir registrar providência, reenvio, contato alternativo autorizado ou anexo manual.    |
+| RNF-WA05   | Não expor dados médicos, sensíveis ou pessoais excessivos nas mensagens; o documento enviado leva só os dados mínimos.    |
 
-O envio deve registrar o identificador da mensagem/API. A assinatura deve preservar, no mínimo, responsável, data/hora, status, hash **ou** identificador do documento e versão do termo. O link deve expirar conforme prazo configurado. Tokens de integração devem ser protegidos, e webhooks devem ser autenticados.
+O envio deve registrar o identificador da mensagem. A conferência deve preservar, no mínimo, responsável, quem conferiu, data e hora do recebimento e da conferência, origem (WhatsApp ou manual), hash SHA-256 do arquivo como recebido, revisão e versão do termo. Chaves do gateway devem ser protegidas, e webhooks devem ser autenticados.
+
+## Conversas pelo WhatsApp
+
+Supervisores conversam com responsáveis de dentro do SAGER, com texto, imagem, documento e áudio, e veem a conexão do número e o QR de vinculação. Gestor, residente e profissional de saúde não têm acesso. O histórico fica no SAGER, a auditoria guarda metadados sem conteúdo, e a aba avisa para não tratar dados de saúde por esse canal. Uma mensagem de conversa nunca autoriza saída.
 
 ## Falha e reenvio
 
-Telefone inválido ou API indisponível devem gerar erro registrado e status **“Falha no envio”**. A solicitação continua sem possibilidade de aprovação enquanto faltar assinatura válida. O supervisor visualiza a falha, corrige o cadastro ou aguarda o serviço, registra providência e solicita nova tentativa.
+Telefone inválido ou gateway indisponível devem gerar erro registrado e status **“Falha no envio”**. A solicitação continua sem possibilidade de aprovação enquanto faltar autorização conferida. O supervisor visualiza a falha, corrige o cadastro ou aguarda o serviço, registra providência e solicita nova tentativa, ou anexa o arquivo recebido por outro meio. Sem confirmação de entrega em 15 minutos, a tela avisa e orienta o uso de outro canal.
 
-Também é permitido reenviar quando a solicitação está aguardando assinatura. O sistema valida limite de reenvio e disponibilidade da API, registra a tentativa e atualiza o acompanhamento. Não há valores fixados para quantidade de tentativas ou prazo de expiração.
+Também é permitido reenviar enquanto a solicitação aguarda autorização. O sistema valida limite de reenvio e disponibilidade do gateway, registra a tentativa e atualiza o acompanhamento. Os limites técnicos locais estão em `docs/fase-4/CONTRATO.md`; não há valores definidos pela instituição.
 
-Contato alternativo autorizado é contingência operacional, não dispensa automática de assinatura nem aprovação excepcional implícita. Entrega/leitura de mensagem não equivalem à assinatura do documento.
+Contato alternativo autorizado é contingência operacional, não dispensa automática de autorização nem aprovação excepcional implícita. Entrega, leitura ou recebimento de mensagem não equivalem à autorização.
 
 ## Critérios de aceite
 
-| ID   | Verificação                                       | Resultado esperado                                                                         |
-| ---- | ------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| AC39 | Solicitação longa válida é enviada                | Documento correto, destinatário pré-cadastrado e identificador do envio registrados.       |
-| AC40 | Mensagem chega ou é lida, sem assinatura          | Saída não fica apta à aprovação.                                                           |
-| AC41 | Assinatura válida recebida e documento armazenado | Evidências preservadas; etapas de assinatura e análise registradas; supervisor notificado. |
-| AC42 | Telefone/API falha                                | Erro visível, “Falha no envio” e nenhuma liberação indevida.                               |
-| AC43 | Reenvio dentro da política configurada            | Nova tentativa rastreável; status atualizado sem perder histórico.                         |
-| AC44 | Inspeção da mensagem e do código                  | Sem dados médicos na mensagem nem segredos no código-fonte.                                |
+| ID   | Verificação                                                | Resultado esperado                                                                                  |
+| ---- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| AC39 | Solicitação longa válida é enviada                         | Documento correto, destinatário pré-cadastrado e identificador do envio registrados.                |
+| AC40 | Mensagem chega, é lida ou arquivo é recebido, sem conferência | Saída não fica apta à aprovação.                                                                 |
+| AC41 | Arquivo conferido por supervisor na revisão atual          | Arquivo preservado com hash; quem conferiu e quando ficam registrados; aprovação segue separada.    |
+| AC42 | Telefone ou gateway falha                                  | Erro visível, “Falha no envio”, anexo manual disponível e nenhuma liberação indevida.               |
+| AC43 | Reenvio dentro da política configurada                     | Nova tentativa rastreável; status atualizado sem perder histórico.                                  |
+| AC44 | Inspeção da mensagem, do documento e do código             | Sem dados médicos, nascimento, matrícula ou quarto no documento, nem segredos no código-fonte.      |
 
-**[T]** A integração de referência escolhida é a Clicksign API 3.0, isolada por um adaptador substituível. Sua ativação depende da aprovação da instituição, da contratação/acesso à API e da compatibilidade com a restrição de licenciamento da SRS. **[A]** A modalidade de assinatura, a verificação de identidade, a recusa, a expiração do link e a política de reenvio ao responsável dependem da AE/TI. **[T]** Falha de armazenamento mantém a aprovação bloqueada; alteração do conteúdo gera nova versão, invalida o vínculo ativo anterior e impede que callbacks antigos liberem a versão nova. Detalhes no documento técnico, seções 8–9.
+**[T]** O canal é o gateway WAHA com motor GOWS, em imagem fixada por digest, isolado por uma interface substituível. Não há provedor externo de assinatura. **[A]** É uma integração não oficial do WhatsApp, sujeita a banimento do número e a veto da organização; o uso depende de aceite formal da instituição, assim como o nível mínimo de assinatura exigido para este ato. Se a instituição exigir nível avançado, a foto deixa de bastar como único meio. **[T]** Falha de armazenamento mantém a aprovação bloqueada; alteração do conteúdo gera nova revisão, invalida a autorização anterior e impede que arquivo de revisão antiga libere a nova.
 
-**[T]** Separar o estado da mensagem, o estado da assinatura e o estado da solicitação. Processar eventos repetidos sem duplicar documentos, assinaturas ou transições e impedir que callbacks de uma versão antiga liberem uma versão alterada. O adaptador deve mapear os eventos reais do provedor e confirmar o documento assinado pela API antes de liberar a aprovação.
+**[T]** Separar o estado da mensagem, o estado da autorização e o estado da solicitação. Processar eventos repetidos sem duplicar arquivos, autorizações ou transições. Nenhum evento do gateway confirma autorização ou aprova pedido.
 
 **Fonte:** SRS, RF015 e RF016, p. 7; UC06, p. 17; interfaces, pp. 47–48; RN03–RN09, p. 50; UC18 e RNF-WA01–05, pp. 54–55.
 
@@ -686,14 +698,15 @@ O supervisor deve conseguir acessar chamada, saídas, limpeza, notificações, r
 
 | Área                      | Conteúdo mínimo                                                                                                               |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Acesso e supervisores     | Login próprio do SAGER; lista e formulário de supervisores acessíveis a gestor e supervisor.                                  |
+| Acesso e supervisores     | Login próprio do SAGER; lista e formulário de supervisores acessíveis só ao gestor.                                           |
 | Residentes                | Listagem, cadastro/edição, informações autorizadas e histórico individual.                                                    |
-| Responsáveis              | Dados vinculados ao residente e necessários ao envio/assinatura.                                                              |
+| Responsáveis              | Dados vinculados ao residente e necessários ao envio do documento.                                                            |
 | Quartos                   | Cadastro de alojamentos e unidades opcionais; mapa por alojamento/unidade/piso, legenda, situação, ocupação, nota e detalhes. |
 | Chamada                   | Menores de idade, marcações, justificativa por autorização e confirmação.                                                     |
 | Saídas do residente       | Solicitação curta/longa, edição pendente, status e microtextos.                                                               |
 | Saídas do supervisor      | Lista, detalhes, linha do tempo, revisão da decisão, reenvio e retorno curto.                                                 |
-| Assinatura externa        | Página segura do documento, assinatura e resultado no fluxo configurado.                                                      |
+| Autorização do responsável | No detalhe da saída longa: documento enviado, arquivos recebidos, conferência e anexo manual, só para supervisor.            |
+| Conversas                 | Lista, conversa e conexão do WhatsApp, só para supervisor.                                                                    |
 | Ocorrências e comunicação | Painel interno, advertência manual, abas de avisos/advertências e ciência.                                                    |
 | Limpeza e ranking         | Avaliação, feedback imediato e classificação por período.                                                                     |
 | Relatórios                | Filtros combináveis, exportações visíveis e evolução individual.                                                              |
@@ -720,26 +733,26 @@ Esta seção organiza os estados citados na SRS. Ela não resolve silenciosament
 | Modalidade       | Sequência principal documentada                                                                                             | Condições e limites                                                                                                        |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | Curta            | Solicitação registrada → aguardando análise → aprovada → em andamento → retorno confirmado ou retorno confirmado com atraso | “Em andamento” é pré-condição do UC17, mas seu evento de entrada não foi definido.                                         |
-| Longa            | Solicitação registrada → aguardando assinatura → assinada → aguardando aprovação → aprovada                                 | Assinatura válida e documento armazenado precedem a análise/aprovação. Não há encerramento por retorno longo especificado. |
-| Longa com falha  | Falha no envio → reenvio → retomada do fluxo de assinatura                                                                  | Reenvio depende dos limites e da disponibilidade configurados.                                                             |
+| Longa            | Solicitação registrada → aguardando autorização → autorização conferida → aguardando aprovação → aprovada                   | Autorização conferida e arquivo armazenado precedem a aprovação. Não há encerramento por retorno longo especificado. |
+| Longa com falha  | Falha no envio → reenvio ou anexo manual → retomada do fluxo de autorização                                                 | Reenvio depende dos limites e da disponibilidade configurados.                                                             |
 | Decisão negativa | Rejeitada                                                                                                                   | Exige comentário e confirmação explícita no modal.                                                                         |
 | Interrupção      | Expirada ou cancelada                                                                                                       | Estados exigidos; faltam responsabilidades e transições completas.                                                         |
 
-O estado “Assinada” deve ser preservado no acompanhamento, mesmo quando a solicitação segue imediatamente para “Aguardando aprovação”. Um status de entrega/leitura de WhatsApp não substitui nenhum desses marcos.
+A conferência da autorização deve ser preservada no acompanhamento, mesmo quando a solicitação segue imediatamente para “Aguardando aprovação”. Um status de entrega/leitura de WhatsApp não substitui nenhum desses marcos.
 
 ## 18.2 Notificações e ciência
 
 A notificação interna pode estar Pendente, Visualizada, Em análise, Arquivada ou Convertida em advertência. A visualização é registrada; arquivamento exige justificativa; conversão depende do registro manual. O cancelamento citado no cenário de revisão precisa ser conciliado com essa lista.
 
-A leitura de aviso/advertência e a ciência explícita são eventos distintos. O item só se torna “Ciente” quando o residente confirma. Esse reconhecimento não deve ser utilizado para substituir a assinatura eletrônica exigida no documento de saída longa.
+A leitura de aviso/advertência e a ciência explícita são eventos distintos. O item só se torna “Ciente” quando o residente confirma. Esse reconhecimento não deve ser utilizado para substituir a autorização conferida por servidor exigida na saída longa.
 
 ## 18.3 Invariantes de negócio
 
-Uma saída longa não pode ser aprovada sem assinatura válida e documento assinado armazenado. Uma saída curta não pode ter período planejado superior a três horas. Retorno curto exige supervisor e verificação presencial. Cancelar o modal não altera estado. Notificação interna não é advertência. Ciência depende de ação explícita. Reincidência não recebe limiar ou penalidade automática inventados.
+Uma saída longa não pode ser aprovada sem autorização conferida por servidor e arquivo armazenado. Uma saída curta não pode ter período planejado superior a três horas. Retorno curto exige supervisor e verificação presencial. Cancelar o modal não altera estado. Notificação interna não é advertência. Ciência depende de ação explícita. Reincidência não recebe limiar ou penalidade automática inventados.
 
 ## 18.4 Organização técnica proposta
 
-**[T]** Manter histórico de transições separado do estado atual e estados independentes para solicitação, mensagem e assinatura. Relacionar cada assinatura à versão exata do documento. Validar novamente as condições no momento de confirmar ações, usando transação e controle de versão para evitar decisões sobre estado antigo ou conteúdo alterado. O backend Spring Boot é a autoridade dessas validações.
+**[T]** Manter histórico de transições separado do estado atual e estados independentes para solicitação, mensagem e autorização. Relacionar cada autorização à versão exata do documento. Validar novamente as condições no momento de confirmar ações, usando transação e controle de versão para evitar decisões sobre estado antigo ou conteúdo alterado. O backend Spring Boot é a autoridade dessas validações.
 
 **[A]** A máquina de estados definitiva depende das decisões D05–D08, D12 e D13 da seção 23. Nenhum estado administrativo novo deve ser confundido com ocorrência física de partida ou chegada.
 
@@ -763,7 +776,7 @@ Uma saída longa não pode ser aprovada sem assinatura válida e documento assin
 | Chamada/participação           | Data/horário, residente, presença/ausência, justificativa, supervisor e indicação de registro tardio.                                                  |
 | Solicitação de saída           | Residente, tipo, período, motivo, observações, estado, decisões e histórico de eventos.                                                                |
 | Retorno curto                  | Solicitação, horário real, supervisor e observação obrigatória quando houver atraso.                                                                   |
-| Documento/assinatura           | Conteúdo da autorização, versão do termo, responsável, data/hora, status, hash ou identificador, arquivo assinado e evidências.                        |
+| Documento/autorização          | Conteúdo da autorização, versão do termo, responsável, data/hora, status, hash, arquivo como recebido, origem e servidor que conferiu.                 |
 | Envio de WhatsApp              | Solicitação/documento, destinatário, identificador de mensagem/API, tentativas, estados de entrega/leitura/falha e erros.                              |
 | Ocorrência/notificação interna | Origem, motivo, data, evidências, residentes impactados, estado e decisão de análise.                                                                  |
 | Advertência                    | Residente, origem quando houver, descrição, data, gravidade, justificativa e supervisor.                                                               |
@@ -774,9 +787,9 @@ Uma saída longa não pode ser aprovada sem assinatura válida e documento assin
 
 ## Vínculos e integridade
 
-As solicitações pertencem a residentes; as assinaturas correspondem a documentos de uma saída longa; os retornos curtos pertencem à solicitação correspondente; notificações preservam a ocorrência/avaliação de origem; a advertência convertida mantém vínculo à notificação; o termo referencia residente e ocorrências; a ciência é única por residente e item.
+As solicitações pertencem a residentes; as autorizações correspondem a documentos de uma saída longa; os retornos curtos pertencem à solicitação correspondente; notificações preservam a ocorrência/avaliação de origem; a advertência convertida mantém vínculo à notificação; o termo referencia residente e ocorrências; a ciência é única por residente e item.
 
-**[T]** Usar UUIDs, chaves estrangeiras, restrições de unicidade e transações. O histórico distingue período planejado, horário real de retorno e momento do registro. Assinaturas são vinculadas à versão e à referência do arquivo; downloads exigem autorização no servidor. O documento técnico especifica controles de concorrência e processamento de tarefas persistentes.
+**[T]** Usar UUIDs, chaves estrangeiras, restrições de unicidade e transações. O histórico distingue período planejado, horário real de retorno e momento do registro. Autorizações são vinculadas à versão e à referência do arquivo; downloads exigem autorização no servidor. O documento técnico especifica controles de concorrência e processamento de tarefas persistentes.
 
 **[A]** Não estão definidos tamanhos de campos, formatos de anexos, limites de arquivos, cardinalidade de responsáveis, retenção, exclusão, migração de dados antigos ou fórmula física do ranking. Os diagramas das páginas 32 e 34 precisam ser atualizados com responsáveis, versões de documentos, mensagens, notificações, ciência e RN10 antes de servirem como modelo de implementação.
 
@@ -803,7 +816,7 @@ Os valores abaixo são os declarados pela SRS. A aprovação deste PRD não cons
 | Disponibilidade | 99% mensal, exceto manutenção programada                                        | Janela de medição e observabilidade precisam ser acordadas.                                                                         |
 | MTBF            | 500 horas de operação sem falhas críticas                                       | Definição de falha crítica e período de observação pendentes.                                                                       |
 | MTTR            | Reparo em até 4 horas após falha detectada                                      | Exige processo operacional; não é uma política de backup completa.                                                                  |
-| Exatidão        | Presença, saídas, retornos, assinaturas e notificações sem duplicatas ou perdas | Validar repetição de ações, falhas e recuperação.                                                                                   |
+| Exatidão        | Presença, saídas, retornos, autorizações e notificações sem duplicatas ou perdas | Validar repetição de ações, falhas e recuperação.                                                                                   |
 | Manutenção      | Código documentado, padrões claros e logs                                       | [T] Java com Javadoc quando necessário; Angular/TypeScript com tipagem estrita, lint e formatação. PEP 8 era apenas exemplo da SRS. |
 | Suporte         | Equipe de TI e alunos bolsistas do campus                                       | Responsabilidades de operação e acesso a produção a definir.                                                                        |
 | Ajuda           | Manual integrado, tutoriais e FAQ                                               | Conteúdo precisa cobrir funcionalidades efetivamente entregues.                                                                     |
@@ -826,15 +839,15 @@ Estas são exigências da fonte, não uma conclusão de conformidade jurídica j
 
 ## 21.2 Eventos auditáveis
 
-Devem ser auditados os envios e reenvios, assinaturas, decisões de aprovação/rejeição, confirmações de retorno e alterações de status, com **data, hora, usuário e origem**. O fluxo de análise também preserva visualização e decisão; a área do residente mantém leitura e ciência. Termos de Compromisso guardam decisão, data e usuário responsável. **[U] A trilha de auditoria é permanente**; isso não implica guardar indefinidamente o conteúdo integral de dados médicos, documentos ou todas as cópias de backup. A implementação da trilha permanente ainda está pendente.
+Devem ser auditados os envios e reenvios, conferências de autorização, decisões de aprovação/rejeição, confirmações de retorno e alterações de status, com **data, hora, usuário e origem**. O fluxo de análise também preserva visualização e decisão; a área do residente mantém leitura e ciência. Termos de Compromisso guardam decisão, data e usuário responsável. **[U] A trilha de auditoria é permanente**; isso não implica guardar indefinidamente o conteúdo integral de dados médicos, documentos ou todas as cópias de backup. A implementação da trilha permanente ainda está pendente.
 
-O registro da operação precisa permitir relacionar a ação à solicitação, documento, ocorrência ou item correto. Falhas de envio, recebimento e assinatura devem ser tratadas e permanecer identificáveis para operação.
+O registro da operação precisa permitir relacionar a ação à solicitação, documento, ocorrência ou item correto. Falhas de envio, recebimento e conferência devem ser tratadas e permanecer identificáveis para operação.
 
 ## 21.3 Contingência documentada
 
-Falhas de WhatsApp/API ou telefone inválido devem aparecer no painel. O supervisor pode registrar providência, reenvio ou contato alternativo autorizado. Enquanto os requisitos de assinatura da saída longa não forem atendidos, o sistema não libera aprovação.
+Falhas de WhatsApp/API ou telefone inválido devem aparecer no painel. O supervisor pode registrar providência, reenvio, contato alternativo autorizado ou anexo manual. Enquanto não houver autorização conferida na saída longa, o sistema não libera aprovação.
 
-A manutenção de operações básicas em falha parcial está prevista, com relatórios offline como exemplo. Não há descrição de chamada offline, sincronização posterior de retornos ou liberação manual de saídas sem assinatura. Esses comportamentos não devem ser implementados como exceções implícitas.
+A manutenção de operações básicas em falha parcial está prevista, com relatórios offline como exemplo. Não há descrição de chamada offline, sincronização posterior de retornos ou liberação manual de saídas sem autorização conferida. Esses comportamentos não devem ser implementados como exceções implícitas.
 
 ## 21.4 Proteções adotadas na arquitetura
 
@@ -865,7 +878,7 @@ O uso de simulações para desenvolvimento não substitui a homologação das in
 | Cadastro → chamada → ausência justificada        | Residente elegível, marcação completa e vínculo com autorização válida.                            |
 | Saída curta → aprovação → retorno                | Limite de 3 horas, dois modais no fluxo pertinente, presença verificada, horário real e histórico. |
 | Saída curta com atraso → análise                 | Observação obrigatória, status com atraso e alerta condicionado à regra, sem sanção automática.    |
-| Saída longa → WhatsApp → assinatura → decisão    | Documento correto, evidências armazenadas, assinatura antes da aprovação e eventos auditáveis.     |
+| Saída longa → WhatsApp → conferência → decisão   | Documento correto, arquivo armazenado, conferência antes da aprovação e eventos auditáveis.        |
 | Falha de envio → providência → reenvio           | Erro visível, histórico das tentativas e manutenção do bloqueio de aprovação.                      |
 | Ocorrência → notificação → advertência → ciência | Análise humana, justificativa, item do residente e ciência distinta da leitura.                    |
 | Reincidência → Termo de Compromisso              | Critério da AE, ocorrências vinculadas e ciência/assinatura conforme procedimento.                 |
@@ -879,7 +892,7 @@ Essa sequência é planejamento proposto, não redução de escopo, prazo contra
 
 ## 22.4 Indicadores propostos para o piloto
 
-**[P]** Acompanhar proporção de chamadas completas; tempo entre solicitação e decisão; envios com falha; tempo até assinatura; saídas curtas encerradas com retorno registrado; proporção de avisos/advertências com ciência; notificações analisadas/arquivadas/convertidas; tempo das consultas e erros após treinamento.
+**[P]** Acompanhar proporção de chamadas completas; tempo entre solicitação e decisão; envios com falha; tempo até a autorização; saídas curtas encerradas com retorno registrado; proporção de avisos/advertências com ciência; notificações analisadas/arquivadas/convertidas; tempo das consultas e erros após treinamento.
 
 Metas de impacto e linhas de base devem ser aprovadas pela AE. Os valores não funcionais já documentados permanecem os da seção 20. Os indicadores não devem transformar pendências operacionais ou notas de limpeza em diagnóstico de comportamento individual não definido.
 
@@ -895,13 +908,13 @@ Este registro não retira requisitos documentados. Identifica as decisões neces
 
 | ID  | Lacuna ou divergência identificada                                                                                                            | Decisão necessária / encaminhamento                                                                                                                                                                                  |
 | --- | --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D01 | RF002 indica Gestor; UC015 permite Supervisor/Gestor. UC01 não detalha Gestor.                                                                | [U] Em 30/09, paridade operacional de gestor e supervisor nas funções atuais, inclusive gestão de supervisores; médico apenas por profissão. AE/TI: demais perfis e permissões.                                      |
-| D02 | Cadastro não lista todos os campos, unicidades ou como comprovar matrícula.                                                                   | [U] Em 30/09, cadastro manual sem limite 16–17 anos, nascimento obrigatório em novo/edição e curso opcional na API local; legado sem nascimento legível. AE/TI: demais campos, validade da matrícula e desligamento. |
+| D01 | RF002 indica Gestor; UC015 permite Supervisor/Gestor. UC01 não detalha Gestor.                                                                | [U] Em 30/09, paridade operacional de gestor e supervisor nas funções atuais, inclusive gestão de supervisores; médico apenas por profissão. Em 31/10, só o gestor gerencia supervisores, inclusive leitura; a paridade segue nos demais cadastros. AE/TI: demais perfis e permissões.                                      |
+| D02 | Cadastro não lista todos os campos, unicidades ou como comprovar matrícula.                                                                   | [U] Em 30/09, cadastro manual sem limite 16–17 anos, nascimento obrigatório em novo/edição; legado sem nascimento legível. Desde 31/10/2026, curso também obrigatório em novo/edição; legado sem curso legível. AE/TI: demais campos, validade da matrícula e desligamento. |
 | D03 | UC06 preenche saída com “agora”, mas proíbe horário anterior ao atual; o preenchimento leva tempo.                                            | AE/TI: referência temporal no envio, atualização do valor ou tratamento explícito do intervalo de preenchimento.                                                                                                     |
 | D04 | Texto define Curta/Longa; Figuras 8 e 13 mostram também Breve e Visita pra casa. A Figura 4 exemplifica curta com intervalo acima de 3 horas. | AE: homologar modalidades. [P] Adotar os UC/RN revisados e corrigir protótipos conflitantes, sem incluir modalidades extras por inferência.                                                                          |
 | D05 | UC17 requer saída “em andamento”, mas não define como ocorre a transição após aprovação.                                                      | AE: definir evento de início e distinguir autorização de efetiva saída física.                                                                                                                                       |
 | D06 | Expiração e cancelamento são estados, sem política completa de prazos, atores ou automação.                                                   | AE: definir transições, cancelamento, antecedência e tratamento de solicitações já vencidas.                                                                                                                         |
-| D07 | Aprovação longa exige assinatura; pré-condição do UC07 é ampla e não esclarece rejeição antes da assinatura.                                  | AE: definir se o supervisor pode rejeitar antes do responsável assinar.                                                                                                                                              |
+| D07 | Aprovação longa exige autorização conferida; pré-condição do UC07 é ampla e não esclarece rejeição antes dela.                                | AE: definir se o supervisor pode rejeitar antes da autorização.                                                                                                                                                      |
 | D08 | Retorno curto informa horário real, mas não define lançamento tardio, correção ou saída ainda não encerrada após o prazo.                     | AE: definir esses cenários e confirmar que retorno longo permanece fora do fluxo detalhado.                                                                                                                          |
 | D09 | Chamada às 22h30, com alternativa tardia, sem tolerância e política de correção completas.                                                    | AE: janela, população, fechamento e correção. [T] Fuso America/Sao_Paulo, unicidade por chamada/residente e conflito de versão já definidos na arquitetura.                                                          |
 | D10 | Escala, critérios e pesos da limpeza, períodos, desempates e limiar de alerta não definidos.                                                  | AE: aprovar fórmula da avaliação, ranking e parâmetros de notificação.                                                                                                                                               |
@@ -914,9 +927,9 @@ Este registro não retira requisitos documentados. Identifica as decisões neces
 
 | ID  | Lacuna ou divergência identificada                                                                                                           | Decisão necessária / encaminhamento                                                                                                                                                                                                                                                                         |
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D15 | Responsáveis não têm cardinalidade, prioridade de contato ou verificação de identidade definida.                                             | [U] Em 30/09, uma assinatura válida de qualquer responsável ativo, autorizado e vinculado basta para saída longa; não exigir ambos. AE/TI: prova de identidade, vínculo, escolha do destinatário e telefone.                                                                                                |
-| D16 | Modalidade aceita e contratação do serviço de assinatura não homologadas.                                                                    | [T] Referência técnica: Clicksign API 3.0 com adaptador. AE/TI: aprovar método, identidade, serviço, custos e compatibilidade com D25 antes da ativação.                                                                                                                                                    |
-| D17 | Expiração do link, reenvio ao responsável e recusa não definidos institucionalmente.                                                         | AE/TI: aprovar essas políticas. [T] Versões imutáveis, callbacks idempotentes e bloqueio durante falha de armazenamento já definidos no documento técnico.                                                                                                                                                  |
+| D15 | Responsáveis não têm cardinalidade, prioridade de contato ou verificação de identidade definida.                                             | [U] Uma autorização conferida de qualquer responsável ativo, autorizado e vinculado basta para saída longa; não exigir ambos. AE/TI: prova de identidade, vínculo, escolha do destinatário e telefone.                                                                                                |
+| D16 | Nível de assinatura exigido e uso de integração não oficial do WhatsApp não homologados.                                                     | [U] Em 2026-10-31, sem provedor externo de assinatura: autorização recebida pelo WhatsApp e conferida por servidor. [T] Gateway WAHA/GOWS. AE/TI/Procuradoria: nível mínimo exigido, aceite formal da integração, base legal e compatibilidade com D25 antes da ativação.                                                                                                                                                    |
+| D17 | Prazo da autorização, reenvio ao responsável e recusa não definidos institucionalmente.                                                      | AE/TI: aprovar essas políticas e a retenção de mensagens e arquivos. [T] Versões imutáveis, eventos idempotentes e bloqueio durante falha de armazenamento já definidos no documento técnico.                                                                                                                                                  |
 | D18 | UC08 permite consultar avisos, mas não detalha autoria, publicação, segmentação ou revisão. UC04 mistura trechos de e-mail ao fluxo interno. | AE: definir gestão de avisos e canais de notificação, preservando o sigilo dos alertas internos.                                                                                                                                                                                                            |
 | D19 | UC16 exige número único; anexos de 2026 mostram alojamentos e unidades com divergências de capacidade e ocupação.                            | [U/T] Código global e número local por localização; alocação local provisória. Em 30/09, ZIP detalhado prevalece onde há divergência de capacidade: R4 66/64 e Laticínio 10/8; PDF complementa inventário ausente. Não inferir quartos de R3/Zootecnia nem importar alunos reais. AE: conferir e homologar. |
 | D20 | UC11/RF011 permitem relatórios para supervisor/gestor; Figura 9 indica exportação somente para gestor.                                       | AE: confirmar exportações por perfil, dados sensíveis e colunas/filtros de cada relatório.                                                                                                                                                                                                                  |
@@ -951,8 +964,8 @@ Até essa validação, o documento cobre o escopo conhecido do software, mas nã
 | Backend              | Java 21 LTS / Eclipse Temurin + Spring Boot 4.1             | API REST e regras de negócio em monólito modular, com Spring MVC.                |
 | Dados                | PostgreSQL 17 + Spring Data JPA/Hibernate + Flyway          | Banco relacional, transações, consultas, integridade e migrações.                |
 | Segurança            | Spring Security + Spring Session JDBC                       | Login próprio do SAGER, sessão no servidor e permissões por operação/registro.   |
-| Integrações          | Spring RestClient; Meta WhatsApp Cloud API                  | Comunicação externa pelo backend, com adaptadores, auditoria e retentativas.     |
-| Assinatura           | Clicksign API 3.0 como referência condicionada              | Coleta/evidências por serviço externo; ativação depende de D16 e D25.            |
+| Integrações          | Gateway WAHA/GOWS auto-hospedado, por HTTP                  | Comunicação externa pelo backend, com interface única, auditoria e retentativas. |
+| Autorização          | Conferência humana, sem provedor externo de assinatura      | Arquivo recebido e conferido por servidor; ativação depende de D16 e D25.        |
 | Tarefas              | Agendador Spring + tabela persistente no PostgreSQL         | Envios, eventos e recuperação após reinício, sem Redis/RabbitMQ obrigatórios.    |
 | Relatórios           | Apache PDFBox 3, Apache POI e Chart.js                      | PDFs, planilhas XLSX e gráficos com alternativa textual.                         |
 | Implantação          | Docker Engine + Compose + Nginx em VPS Linux                | Frontend estático, backend Java e banco; documentos em volume privado.           |
@@ -985,5 +998,6 @@ O documento técnico não autoriza modificar as regras da SRS, resolver por cont
 | 2.0 — 29/09/2026 | Decisão de projeto para a fatia local de alojamentos, unidades e quartos                          | E04/AC14 distinguem código global e número local; capacidade e situação manuais não simulam ocupação nem limpeza. Fase 2 e homologação institucional continuam abertas. |
 | 2.0 — 29/09/2026 | Regra provisória para a fatia local de alocação e transferência                                   | Um quarto ativo por residente, limite pela capacidade definida, histórico e bloqueios locais; situação manual e homologação institucional preservadas.                  |
 | 2.0 — 30/09/2026 | Decisões do solicitante para autenticação, acesso, cadastro, responsáveis, capacidade e auditoria | Login próprio; paridade operacional com sigilo médico; nascimento obrigatório sem limite etário de cadastro; uma assinatura; precedência do ZIP; trilha permanente.     |
+| 2.0 — 31/10/2026 | Substituição da assinatura eletrônica por link pela autorização conferida por servidor            | Seção 11, AC25, AC30, AC39–AC44 e D07, D15–D17 reescritos; conversas para supervisor; sem aceite institucional. |
 
 A proposta anterior de React/Django não integra a arquitetura vigente. O repositório já contém implementação e testes locais; esta revisão documental não comprova homologação ou implantação real. A homologação do produto e das integrações reais continua necessária.

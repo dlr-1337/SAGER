@@ -222,7 +222,7 @@ export class HealthResidentsPage extends LocalHealthState {
       @if (error()) {
         <p class="health-alert" role="alert">{{ error() }}</p>
         <button type="button" class="btn-secondary" [disabled]="loading()" (click)="load()">
-          Carregar versão atual
+          Recarregar dados
         </button>
       }
       @if (success()) {

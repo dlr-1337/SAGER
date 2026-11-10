@@ -61,20 +61,77 @@ export function formatCivilDate(date: string): string {
 export function validJustification(value: string): boolean {
   return value.trim().length >= 10 && value.trim().length <= 500;
 }
+export function minutesAfter(instant: string, minutes: number): string {
+  return new Date(Date.parse(instant) + minutes * 60_000).toISOString();
+}
+/** Server instant plus monotonic elapsed time, so changing the device clock has no effect. */
+export function serverClock(serverNow: string): () => string {
+  const server = Date.parse(serverNow);
+  const syncedAt = performance.now();
+  return () => new Date(server + performance.now() - syncedAt).toISOString();
+}
+export function shortPeriodError(departure: string, expectedReturn: string): string {
+  const duration = Date.parse(expectedReturn) - Date.parse(departure);
+  if (duration <= 0) return 'O retorno previsto deve ser posterior à saída.';
+  return duration > 3 * 3_600_000 ? 'A saída curta deve durar no máximo 3 horas.' : '';
+}
+export type PeriodError = (departure: string, expectedReturn: string) => string;
+/** What the return becomes after the departure changes; null keeps the current value. */
+export function nextReturn(
+  departure: string | null,
+  current: string | null,
+  edited: boolean,
+  suggestionMinutes: number,
+  periodError: PeriodError,
+): { value: string; adjusted: boolean } | null {
+  if (!departure) return edited ? null : { value: '', adjusted: false };
+  if (edited && current && !periodError(departure, current)) return null;
+  return { value: minutesAfter(departure, suggestionMinutes), adjusted: edited && !!current };
+}
+export function formatDuration(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return [hours ? `${hours} h` : '', rest ? `${rest} min` : ''].filter(Boolean).join(' ');
+}
+export interface PeriodHint {
+  returnMin: string | null;
+  returnMax: string | null;
+  duration: string;
+  error: string;
+}
+export function periodHint(
+  departure: string | null,
+  expectedReturn: string | null,
+  minMinutes: number,
+  maxMinutes: number | null,
+  periodError: PeriodError,
+  toInput: (instant: string) => string = saoPauloInput,
+): PeriodHint {
+  if (!departure) return { returnMin: null, returnMax: null, duration: '', error: '' };
+  // Rounding up keeps the text on the same side of the limit as the seconds of the "Agora" mode.
+  const minutes = expectedReturn
+    ? Math.ceil((Date.parse(expectedReturn) - Date.parse(departure)) / 60_000)
+    : 0;
+  return {
+    returnMin: toInput(minutesAfter(departure, minMinutes)),
+    returnMax: maxMinutes === null ? null : toInput(minutesAfter(departure, maxMinutes)),
+    duration: minutes > 0 ? formatDuration(minutes) : '',
+    error: expectedReturn ? periodError(departure, expectedReturn) : '',
+  };
+}
 export function shortExitFormError(input: ShortExitInput, serverNow: string): string {
-  const departure = Date.parse(
-    input.departureMode === 'NOW' ? serverNow : (input.requestedDepartureAt ?? ''),
-  );
+  const departureAt =
+    input.departureMode === 'NOW' ? serverNow : (input.requestedDepartureAt ?? '');
+  const departure = Date.parse(departureAt);
   const expectedReturn = Date.parse(input.expectedReturnAt);
   if (!Number.isFinite(departure) || !Number.isFinite(expectedReturn))
-    return 'Informe datas e horas válidas no horário de Brasília.';
+    return 'Escolha uma data e uma hora válidas.';
   if (input.departureMode === 'SCHEDULED' && departure < Date.parse(serverNow))
-    return 'A saída agendada deve ser igual ou posterior ao horário informado pelo servidor.';
-  if (expectedReturn <= departure) return 'O retorno previsto deve ser posterior à saída.';
-  if (expectedReturn - departure > 3 * 3_600_000)
-    return 'A saída curta deve durar no máximo 3 horas.';
+    return 'A saída não pode ser antes de agora. Escolha outro horário.';
+  const period = shortPeriodError(departureAt, input.expectedReturnAt);
+  if (period) return period;
   if (input.reason.trim().length < 3 || input.reason.trim().length > 2000)
-    return 'Informe um motivo com 3 a 2.000 caracteres.';
+    return 'Escreva o motivo da saída.';
   if ((input.notes?.length ?? 0) > 2000) return 'As observações devem ter até 2.000 caracteres.';
   return '';
 }
@@ -94,24 +151,24 @@ export const callMarkLabels = {
   AUSENCIA_JUSTIFICADA: 'Ausência justificada',
 };
 export const exitEventLabels: Record<string, string> = {
-  CREATED: 'Solicitação registrada',
-  UPDATED: 'Solicitação alterada',
-  CREATE: 'Solicitação registrada',
-  UPDATE: 'Solicitação alterada',
+  CREATED: 'Pedido registrado',
+  UPDATED: 'Pedido alterado',
+  CREATE: 'Pedido registrado',
+  UPDATE: 'Pedido alterado',
   DECISION: 'Decisão registrada',
-  DEPARTURE: 'Partida presencial registrada',
-  RETURN: 'Retorno presencial registrado',
-  CANCELLED: 'Solicitação cancelada',
-  EXPIRED: 'Solicitação expirada',
+  DEPARTURE: 'Saída registrada',
+  RETURN: 'Volta registrada',
+  CANCELLED: 'Pedido cancelado',
+  EXPIRED: 'Pedido expirado',
 };
 export function eligibilityBlocker(code: string): string {
   return (
     (
       {
-        birth_date_required: 'A data de nascimento precisa ser cadastrada.',
-        not_minor: 'A saída curta é destinada a residentes menores de idade.',
-        active_allocation_required: 'É necessária uma alocação ativa em quarto.',
+        birth_date_required: 'Sua data de nascimento não está no sistema. Fale com o supervisor.',
+        not_minor: 'Este pedido é só para residentes menores de idade.',
+        active_allocation_required: 'Você ainda não tem quarto no sistema. Fale com o supervisor.',
       } as Record<string, string>
-    )[code] ?? 'O cadastro precisa ser atualizado antes de solicitar a saída.'
+    )[code] ?? 'Seu cadastro precisa ser atualizado. Fale com o supervisor.'
   );
 }

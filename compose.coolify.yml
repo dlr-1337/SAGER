@@ -87,17 +87,23 @@ services:
       SAGER_PUBLIC_HOST: ${SAGER_PUBLIC_HOST:?Set the public DNS hostname}
       SAGER_DOCUMENTS_PRIVATE_ROOT: /data/documents
       SAGER_REPORTS_PRIVATE_ROOT: /data/reports
+      SAGER_INTEGRATIONS_WHATSAPP_ENABLED: ${SAGER_INTEGRATIONS_WHATSAPP_ENABLED:-false}
+      SAGER_INTEGRATIONS_WHATSAPP_BASE_URL: http://whatsapp-gateway-proxy:3000
     secrets:
       - source: db_runtime_password
         target: SAGER_DB_PASSWORD
       - source: login_rate_secret
         target: SAGER_RATE_LIMIT_SECRET
+      - source: waha_api_key
+        target: SAGER_INTEGRATIONS_WHATSAPP_API_KEY
+      - source: waha_webhook_hmac
+        target: SAGER_INTEGRATIONS_WHATSAPP_WEBHOOK_SECRET
     volumes:
       - documents:/data/documents
       - reports:/data/reports
     depends_on:
       database: { condition: service_healthy }
-    networks: [data, gateway, outbound]
+    networks: [data, gateway, outbound, whatsapp_api]
     labels:
       - coolify.managed=true
       - coolify.type=application
@@ -175,6 +181,100 @@ services:
       retries: 6
     logging: *safe_logging
 
+  whatsapp-gateway-prepare:
+    image: devlikeapro/waha:gows-2026.10.1@sha256:1f7faeb0227ad5edb5711f7058bfce807ea65e5f92234af0778e4db140f6eb46
+    profiles: [whatsapp]
+    user: "0:0"
+    entrypoint: [sh, -c, 'chown 10001:10001 /app/.sessions /app/.media && chmod 700 /app/.sessions /app/.media']
+    volumes:
+      - waha_sessions:/app/.sessions
+      - waha_media:/app/.media
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, FOWNER]
+    security_opt: [no-new-privileges:true]
+    logging: *safe_logging
+
+  whatsapp-gateway:
+    image: devlikeapro/waha:gows-2026.10.1@sha256:1f7faeb0227ad5edb5711f7058bfce807ea65e5f92234af0778e4db140f6eb46
+    profiles: [whatsapp]
+    restart: unless-stopped
+    user: "10001:10001"
+    entrypoint: [sh, -c, 'set -e; WAHA_API_KEY="$$(cat /run/secrets/waha_api_key)"; WHATSAPP_HOOK_HMAC_KEY="$$(cat /run/secrets/waha_webhook_hmac)"; export WAHA_API_KEY WHATSAPP_HOOK_HMAC_KEY; exec /usr/bin/tini -- /entrypoint.sh']
+    environment:
+      NODE_OPTIONS: --max-old-space-size=384
+      WHATSAPP_DEFAULT_ENGINE: GOWS
+      WAHA_DASHBOARD_ENABLED: "false"
+      WHATSAPP_SWAGGER_ENABLED: "false"
+      WHATSAPP_FILES_FOLDER: /app/.media
+      WHATSAPP_FILES_LIFETIME: "86400"
+      WHATSAPP_HOOK_URL: http://whatsapp-gateway-proxy:8080/api/v1/integracoes/whatsapp/webhook
+      WHATSAPP_HOOK_EVENTS: message.any,message.ack,session.status
+      # Covers the backup and deployment windows: 15 tries, 60 s apart.
+      WHATSAPP_HOOK_RETRIES_POLICY: constant
+      WHATSAPP_HOOK_RETRIES_DELAY_SECONDS: "60"
+      WHATSAPP_HOOK_RETRIES_ATTEMPTS: "15"
+    secrets: [waha_api_key, waha_webhook_hmac]
+    volumes:
+      - waha_sessions:/app/.sessions
+      - waha_media:/app/.media
+    depends_on:
+      whatsapp-gateway-prepare: { condition: service_completed_successfully }
+    networks: [whatsapp_private, whatsapp_egress]
+    labels:
+      - coolify.managed=true
+      - coolify.type=application
+      - coolify.applicationId=${SAGER_COOLIFY_APPLICATION_ID:?Set the existing Coolify application ID}
+      - coolify.name=${SAGER_STACK_NAME:-sager-homologacao}-whatsapp-gateway
+      - coolify.resourceName=${SAGER_STACK_NAME:-sager-homologacao}
+      - coolify.serviceName=whatsapp-gateway
+      - coolify.pullRequestId=0
+      - traefik.enable=false
+    read_only: true
+    tmpfs: ["/tmp:rw,nosuid,size=64m"]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 768m
+    memswap_limit: 768m
+    cpus: 0.5
+    cpu_shares: 256
+    oom_score_adj: 500
+    pids_limit: 256
+    healthcheck:
+      test: [CMD, curl, -fsS, http://127.0.0.1:3000/ping]
+      start_period: 30s
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    logging: *safe_logging
+
+  whatsapp-gateway-proxy:
+    image: ${SAGER_GATEWAY_IMAGE:-sager-homologacao-gateway:current}
+    profiles: [whatsapp]
+    restart: unless-stopped
+    entrypoint: [sh, -c, "envsubst '$$SAGER_PUBLIC_HOST $$SAGER_WEBHOOK_UPSTREAM' < /etc/nginx/whatsapp-gateway-proxy.conf.template > /tmp/nginx.conf && exec nginx -c /tmp/nginx.conf -g 'daemon off;'"]
+    environment:
+      SAGER_PUBLIC_HOST: ${SAGER_PUBLIC_HOST:?Set the public DNS hostname}
+      SAGER_WEBHOOK_UPSTREAM: backend:8080
+    networks: [whatsapp_api, whatsapp_private]
+    labels:
+      - coolify.managed=true
+      - coolify.type=application
+      - coolify.applicationId=${SAGER_COOLIFY_APPLICATION_ID:?Set the existing Coolify application ID}
+      - coolify.name=${SAGER_STACK_NAME:-sager-homologacao}-whatsapp-gateway-proxy
+      - coolify.resourceName=${SAGER_STACK_NAME:-sager-homologacao}
+      - coolify.serviceName=whatsapp-gateway-proxy
+      - coolify.pullRequestId=0
+      - traefik.enable=false
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=8m"]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 32m
+    cpus: 0.10
+    logging: *safe_logging
+
   archive-files:
     image: ${SAGER_BACKEND_IMAGE:-sager-homologacao-backend:current}
     profiles: [maintenance]
@@ -195,10 +295,19 @@ networks:
   gateway: { internal: true }
   outbound: {}
   coolify: { external: true, name: coolify }
+  whatsapp_api: { internal: true }
+  whatsapp_private: { internal: true }
+  # Fixed so the host firewall can block this subnet from private ranges and the public IP.
+  whatsapp_egress:
+    ipam:
+      config:
+        - subnet: 10.250.77.0/24
 volumes:
   database: {}
   documents: {}
   reports: {}
+  waha_sessions: {}
+  waha_media: {}
 secrets:
   db_owner_password:
     file: ${SAGER_SECRETS_DIR:?Set an absolute external secrets directory}/db_owner_password
@@ -206,3 +315,7 @@ secrets:
     file: ${SAGER_SECRETS_DIR:?Set an absolute external secrets directory}/db_runtime_password
   login_rate_secret:
     file: ${SAGER_SECRETS_DIR:?Set an absolute external secrets directory}/login_rate_secret
+  waha_api_key:
+    file: ${SAGER_SECRETS_DIR:?Set an absolute external secrets directory}/waha_api_key
+  waha_webhook_hmac:
+    file: ${SAGER_SECRETS_DIR:?Set an absolute external secrets directory}/waha_webhook_hmac

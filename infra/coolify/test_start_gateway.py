@@ -38,6 +38,22 @@ class StaticPolicyTests(unittest.TestCase):
         self.assertIn("listen 127.0.0.1:8081;", coolify)
         self.assertNotIn("ssl_certificate", coolify)
 
+    def test_upload_limit_covers_only_the_exact_routes_in_both_gateways(self):
+        for name in ("infra/production/nginx.conf.template", "infra/coolify/nginx.conf.template"):
+            with self.subTest(name=name):
+                source = (ROOT / name).read_text()
+                self.assertEqual(re.findall(r"client_max_body_size (\S+);", source), ["1m", "11m"])
+                self.assertIn("microphone=(self)", source)
+                self.assertIn("media-src 'self' blob:", source)
+                self.assertNotIn("clicksign", source)
+                pattern = re.search(r"location ~ (\^/api/v1/\S+) \{", source)[1]
+                uuid = "00000000-0000-0000-0000-000000000000"
+                for route in (f"/api/v1/conversas/{uuid}/mensagens", f"/api/v1/saidas-longas/{uuid}/autorizacao/arquivos"):
+                    self.assertRegex(route, pattern)
+                for route in ("/api/v1/integracoes/whatsapp/webhook", f"/api/v1/conversas/{uuid}/mensagens/x",
+                              "/api/v1/conversas/mensagens", f"/api/v1/saidas-longas/{uuid}/autorizacao/arquivos/{uuid}"):
+                    self.assertNotRegex(route, pattern)
+
 
 @unittest.skipUnless(shutil.which("docker"), "Docker is required for the focused shell/container tests")
 class StartupTests(unittest.TestCase):
@@ -119,7 +135,8 @@ class NginxSmokeTests(unittest.TestCase):
         names = {key: network + "-" + key for key in ["proxy", "backend", "gateway"]}
         with tempfile.TemporaryDirectory(prefix="sager-coolify-nginx-") as temp:
             folder = Path(temp)
-            (folder / "index.html").write_text('<meta name="sager-environment" content="production">Synthetic gateway smoke', newline="\n")
+            (folder / "index.html").write_text('<meta name="sager-environment" content="production"><meta property="og:image" content="__SAGER_ORIGIN__/og-image.png">Synthetic gateway smoke', newline="\n")
+            (folder / "manifest.webmanifest").write_text('{"name":"SAGER"}', newline="\n")
             (folder / "backend.conf").write_text("pid /tmp/backend.pid; error_log /dev/stderr warn; events {} http { access_log off; client_body_temp_path /tmp/client; proxy_temp_path /tmp/proxy; fastcgi_temp_path /tmp/fastcgi; uwsgi_temp_path /tmp/uwsgi; scgi_temp_path /tmp/scgi; server { listen 8080; location / { return 200 \"$http_host|$http_x_forwarded_for|$http_x_forwarded_proto|$http_x_forwarded_port|$http_forwarded\"; } } }", newline="\n")
             created = []
             try:
@@ -137,6 +154,7 @@ class NginxSmokeTests(unittest.TestCase):
                        "--mount", f"type=bind,src={ROOT / 'infra/coolify/nginx.conf.template'},dst=/etc/nginx/nginx.conf.template,readonly",
                        "--mount", f"type=bind,src={ROOT / 'infra/production/sager-proxy.conf'},dst=/etc/nginx/sager-proxy.conf,readonly",
                        "--mount", f"type=bind,src={folder / 'index.html'},dst=/usr/share/nginx/html/index.html,readonly",
+                       "--mount", f"type=bind,src={folder / 'manifest.webmanifest'},dst=/usr/share/nginx/html/manifest.webmanifest,readonly",
                        "--env", f"SAGER_PUBLIC_HOST={HOST}", "--entrypoint", "sh", IMAGE, "/opt/start-gateway.sh", check=True)
                 created.append(names["gateway"])
                 health = None
@@ -163,7 +181,14 @@ class NginxSmokeTests(unittest.TestCase):
                 self.assertIn("403", request(host=HOST + ":8080").stderr)
                 for route in ["/demonstracao", "/actuator/health", "/readiness", "/missing.js"]:
                     self.assertIn("404", request(route=route).stderr)
-                self.assertIn("Synthetic gateway smoke", request(route="/acesso").stdout)
+                page = request(route="/acesso")
+                self.assertIn("Synthetic gateway smoke", page.stdout)
+                self.assertIn(f'content="https://{HOST}/og-image.png"', page.stdout)
+                self.assertNotIn("__SAGER_ORIGIN__", page.stdout)
+                manifest = request(route="/manifest.webmanifest")
+                self.assertEqual(manifest.stdout, '{"name":"SAGER"}')
+                for header in ["Content-Type: application/manifest+json", "Strict-Transport-Security", "Content-Security-Policy"]:
+                    self.assertIn(header, manifest.stderr)
                 self.assertIn("Strict-Transport-Security", response.stderr)
                 self.assertIn("Content-Security-Policy", response.stderr)
                 self.assertNotEqual(docker("exec", names["proxy"], "wget", "-q", "-O", "-", "http://gateway:8081/readiness").returncode, 0)

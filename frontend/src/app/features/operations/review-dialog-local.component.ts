@@ -17,6 +17,7 @@ export interface LocalReviewData {
   lines: { label: string; value: string }[];
   warning?: string;
   requireConfirmation?: boolean;
+  confirmationLabel?: string;
   requireReason?: boolean;
   comment?: boolean;
   initialMark?: CallMark;
@@ -71,9 +72,10 @@ export interface LocalReviewResult {
         <label class="field"
           >Saída vinculada à ausência<select sagerSearchable [formControl]="authorizedExit">
             <option value="">Selecione a saída</option>
+            <!-- shortcut: duas saídas do mesmo tipo teriam o mesmo rótulo; se ocorrer, a referência precisa trazer a data. -->
             @for (exit of data.authorizedExits; track exit.id) {
               <option [value]="exit.id">
-                {{ exit.type === 'SHORT' ? 'Curta' : 'Longa' }} · {{ exit.id }}
+                {{ exit.type === 'SHORT' ? 'Saída curta' : 'Saída longa' }}
               </option>
             }
           </select></label
@@ -86,10 +88,7 @@ export interface LocalReviewResult {
             <option value="RETROACTIVE">Informar horário anterior</option>
           </select></label
         >
-        <p class="op-help">
-          Horário de Brasília. Na opção “Agora”, a API registra a hora da confirmação:
-          {{ formatTime(physical.now) }} na última consulta.
-        </p>
+        <p class="op-help">Horário de Brasília. “Agora” usa a hora em que você confirmar.</p>
         @if (timeMode.value === 'RETROACTIVE') {
           <label class="field"
             >{{
@@ -122,22 +121,20 @@ export interface LocalReviewResult {
           >Observação do atraso{{ late ? '' : ' (se houver)'
           }}<textarea rows="3" maxlength="500" [formControl]="lateObservation"></textarea>
         </label>
-        <p class="op-help">
-          O retorno presencial é registrado mesmo quando a duração ultrapassa 3 horas.
-        </p>
+        <p class="op-help">A volta é registrada mesmo se passar de 3 horas.</p>
       }
       @if (data.requireConfirmation) {
         <label class="op-check"
-          ><input type="checkbox" [formControl]="confirmation" />Confirmo o registro fora da janela
-          de 22h a 23h30.</label
+          ><input type="checkbox" [formControl]="confirmation" />{{
+            data.confirmationLabel ??
+              'Confirmo o registro fora do horário da chamada (22h às 23h30).'
+          }}</label
         >
       }
       @if (error()) {
         <p class="op-error" role="alert">{{ error() }}</p>
       }
-      <p class="op-help">
-        Confira os dados antes de confirmar. Cancelar fecha esta revisão sem gravar.
-      </p>
+      <p class="op-help">Confira os dados antes de confirmar. Cancelar fecha sem salvar.</p>
     </mat-dialog-content>
     <mat-dialog-actions align="end"
       ><button type="button" class="btn op-secondary" (click)="dialogRef.close()">Cancelar</button
@@ -228,7 +225,11 @@ export class LocalOperationsReviewDialogComponent {
       return;
     }
     if (this.data.requireConfirmation && !this.confirmation.value) {
-      this.error.set('Confirme expressamente o registro fora da janela.');
+      this.error.set(
+        this.data.confirmationLabel
+          ? 'Marque a declaração para continuar.'
+          : 'Confirme expressamente o registro fora da janela.',
+      );
       return;
     }
     const result: LocalReviewResult = { reason, confirmed: this.confirmation.value };
@@ -256,9 +257,7 @@ export class LocalOperationsReviewDialogComponent {
           return;
         }
         if (Date.parse(time) > Date.parse(p.now)) {
-          this.error.set(
-            'O horário anterior não pode estar no futuro em relação à última consulta do servidor.',
-          );
+          this.error.set('O horário anterior não pode estar no futuro.');
           return;
         }
         if (
@@ -267,7 +266,7 @@ export class LocalOperationsReviewDialogComponent {
         ) {
           this.error.set(
             p.action === 'retorno'
-              ? 'O retorno deve ser posterior à partida presencial.'
+              ? 'A volta precisa ser depois da saída.'
               : 'A partida não pode ser anterior à saída solicitada.',
           );
           return;

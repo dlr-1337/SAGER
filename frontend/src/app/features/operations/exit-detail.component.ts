@@ -72,13 +72,13 @@ import { ExitDetailLocalComponent } from './exit-detail-local.component';
                     <dd>{{ exit.notes || 'Nenhuma' }}</dd>
                   </div>
                   <div>
-                    <dt>Assinatura</dt>
+                    <dt>Autorização</dt>
                     <dd>
                       {{
                         exit.kind === 'Curta'
                           ? 'Não se aplica'
                           : exit.signed
-                            ? 'Simulada e registrada'
+                            ? 'Simulada e conferida'
                             : 'Pendente'
                       }}
                     </dd>
@@ -109,7 +109,12 @@ import { ExitDetailLocalComponent } from './exit-detail-local.component';
                   }
                 </ol>
                 @if (exit.kind === 'Longa' && !exit.signed) {
-                  <p class="op-timeline-next">Próxima etapa: assinatura do responsável.</p>
+                  <p class="op-timeline-next">
+                    Próxima etapa:
+                    {{
+                      exit.fileReceived ? 'conferência do supervisor' : 'arquivo do responsável'
+                    }}.
+                  </p>
                 }
                 @if (exit.kind === 'Curta' && exit.status === 'Aprovada') {
                   <p class="op-timeline-next">
@@ -126,30 +131,24 @@ import { ExitDetailLocalComponent } from './exit-detail-local.component';
                       >pending_actions</span
                     >
                     <div>
-                      <h2>Assinatura pendente</h2>
+                      <h2>Autorização pendente</h2>
                       <p>
                         {{
                           exit.messageState === 'Falha no envio'
                             ? 'O envio simulado falhou. Registre a providência e solicite novo envio.'
-                            : exit.messageState === 'Enviada'
-                              ? 'O envio simulado foi registrado. Aguarde a confirmação do responsável; a aprovação permanece bloqueada.'
-                              : 'O envio demonstrativo ainda não foi concluído. A aprovação permanece bloqueada.'
+                            : exit.fileReceived
+                              ? 'Arquivo simulado recebido. O recebimento não autoriza a saída: falta a conferência do supervisor.'
+                              : exit.messageState === 'Enviada'
+                                ? 'O envio simulado do documento foi registrado. Aguarde o arquivo do responsável; a aprovação permanece bloqueada.'
+                                : 'O envio demonstrativo ainda não foi concluído. A aprovação permanece bloqueada.'
                         }}
                       </p>
-                      @if (exit.id === 'S-1048') {
-                        <a class="op-inline-link" [routerLink]="['/assinatura', exit.id]"
-                          >Abrir link de assinatura simulada
-                          <span class="material-symbols-outlined" aria-hidden="true"
-                            >open_in_new</span
-                          ></a
-                        >
-                      }
                     </div>
                   </section>
                 }
                 @if (
                   isPast(exit) &&
-                  ['Aguardando análise', 'Aguardando assinatura', 'Falha no envio'].includes(
+                  ['Aguardando análise', 'Aguardando autorização', 'Falha no envio'].includes(
                     exit.status
                   )
                 ) {
@@ -170,8 +169,8 @@ import { ExitDetailLocalComponent } from './exit-detail-local.component';
                   }
                   @if (exit.kind === 'Longa' && !exit.signed) {
                     <p class="op-help">
-                      A etapa de assinatura pode ser explorada pela página de demonstração do
-                      responsável; o residente não assina o documento.
+                      O responsável devolve o documento autorizado e um supervisor confere o
+                      arquivo; o residente não autoriza a própria saída.
                     </p>
                   }
                 } @else if (session.hasRole('supervisor')) {
@@ -181,10 +180,33 @@ import { ExitDetailLocalComponent } from './exit-detail-local.component';
                   >
                     <h2 id="exit-actions-title">Ações do supervisor</h2>
                     @if (
-                      ['Aguardando análise', 'Aguardando assinatura', 'Falha no envio'].includes(
+                      ['Aguardando análise', 'Aguardando autorização', 'Falha no envio'].includes(
                         exit.status
                       )
                     ) {
+                      @if (
+                        exit.kind === 'Longa' && !exit.signed && exit.messageState === 'Enviada'
+                      ) {
+                        <div class="op-actions">
+                          @if (exit.fileReceived) {
+                            <button
+                              class="btn op-primary"
+                              type="button"
+                              (click)="confirmAuthorization(exit)"
+                            >
+                              Conferir autorização
+                            </button>
+                          } @else {
+                            <button
+                              class="btn op-secondary"
+                              type="button"
+                              (click)="simulateFile(exit)"
+                            >
+                              Simular arquivo recebido
+                            </button>
+                          }
+                        </div>
+                      }
                       <div class="op-actions">
                         <button
                           class="btn op-primary"
@@ -216,17 +238,20 @@ import { ExitDetailLocalComponent } from './exit-detail-local.component';
                         }
                       </div>
                       @if (
-                        exit.kind === 'Longa' && !exit.signed && exit.messageState === 'Enviada'
+                        exit.kind === 'Longa' &&
+                        !exit.signed &&
+                        exit.messageState === 'Enviada' &&
+                        !exit.fileReceived
                       ) {
                         <p class="op-help">
-                          Aguarde a confirmação do responsável. Nenhuma ação de reenvio é necessária
+                          Aguarde o arquivo do responsável. Nenhuma ação de reenvio é necessária
                           neste momento.
                         </p>
                       }
                       @if (exit.kind === 'Longa' && !exit.signed) {
                         <p class="op-help">
-                          Aprovação indisponível até a assinatura simulada. Rejeição antes da
-                          assinatura depende de decisão da AE.
+                          Aprovação indisponível até a conferência simulada. Rejeição antes da
+                          conferência depende de decisão da AE.
                         </p>
                       }
                     } @else if (exit.kind === 'Curta' && exit.status === 'Em andamento') {
@@ -274,7 +299,7 @@ export class ExitDetailComponent {
   editable(item: ExitRequest): boolean {
     return (
       item.residentId === this.service.residentId &&
-      ['Aguardando análise', 'Aguardando assinatura', 'Falha no envio'].includes(item.status)
+      ['Aguardando análise', 'Aguardando autorização', 'Falha no envio'].includes(item.status)
     );
   }
   isPast(item: ExitRequest): boolean {
@@ -327,6 +352,29 @@ export class ExitDetailComponent {
       },
       (result) => this.service.decideExit(item.id, decision, result.reason),
       decision === 'approve' ? 'Aprovação simulada registrada.' : 'Rejeição simulada registrada.',
+    );
+  }
+  simulateFile(item: ExitRequest): void {
+    if (!this.session.hasRole('supervisor')) return;
+    this.error.set('');
+    this.success.set('');
+    if (this.service.simulateReceivedFile(item.id))
+      this.success.set('Arquivo simulado recebido. Nenhuma mensagem real foi enviada.');
+    else this.error.set('A ação não pôde ser registrada. Revise a situação da solicitação.');
+  }
+  confirmAuthorization(item: ExitRequest): void {
+    if (!this.session.hasRole('supervisor')) return;
+    this.review(
+      {
+        title: 'Conferir autorização recebida',
+        action: 'Confirmar conferência',
+        mode: 'simple',
+        warning:
+          'Ao confirmar, você declara ter conferido responsável, documento e revisão. Simulação sem validade jurídica.',
+        lines: this.summary(item),
+      },
+      () => this.service.confirmAuthorization(item.id),
+      'Autorização conferida na demonstração. A aprovação continua sendo uma decisão separada.',
     );
   }
   resend(item: ExitRequest): void {

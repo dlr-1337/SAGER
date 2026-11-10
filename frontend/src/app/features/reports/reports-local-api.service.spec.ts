@@ -45,18 +45,16 @@ describe('Contrato dos recortes e arquivos privados', () => {
     await expect(api.rows(id)).rejects.toThrow('página');
   });
   it('falha fechada se o servidor acrescentar informação clínica ao relatório', async () => {
-    const fetch = vi
-      .fn()
-      .mockResolvedValue(
-        json({
-          snapshotId: id,
-          offset: 0,
-          limit: 20,
-          nextOffset: null,
-          total: 1,
-          items: [{ ...row, clinicalNote: 'private' }],
-        }),
-      );
+    const fetch = vi.fn().mockResolvedValue(
+      json({
+        snapshotId: id,
+        offset: 0,
+        limit: 20,
+        nextOffset: null,
+        total: 1,
+        items: [{ ...row, clinicalNote: 'private' }],
+      }),
+    );
     vi.stubGlobal('fetch', fetch);
     await expect(TestBed.inject(ReportsLocalApiService).rows(id)).rejects.toThrow('inválidos');
   });
@@ -76,6 +74,47 @@ describe('Contrato dos recortes e arquivos privados', () => {
     expect(write[0]).toBe('/api/v1/relatorios/consultas/' + id + '/exportacoes');
     expect(write[1].body).toBe('{"format":"PDF"}');
     expect(write[1].headers['X-CSRF-TOKEN']).toBe('synthetic');
+  });
+  it('lista relatórios conferindo o formato, sem aceitar resposta inválida', async () => {
+    const listed = {
+      id,
+      catalogCode: 'PRESENCA',
+      filters: {
+        from: '2026-09-01',
+        to: '2026-09-30',
+        accommodationId: null,
+        roomId: null,
+        residentId: null,
+        status: null,
+      },
+      rowCount: 1,
+      asOf: '2026-09-30T16:00:00Z',
+      expiresAt: '2026-10-01T16:00:00Z',
+      exports: [job],
+    };
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(json([listed]))
+      .mockResolvedValueOnce(json([{ ...listed, exports: [{ ...job, status: 'READY' }] }]));
+    vi.stubGlobal('fetch', fetch);
+    const api = TestBed.inject(ReportsLocalApiService);
+    expect((await api.list())[0].exports[0].status).toBe('PENDING');
+    expect(fetch.mock.calls[0][0]).toBe('/api/v1/relatorios/consultas');
+    await expect(api.list()).rejects.toThrow('inválidos');
+  });
+  it('falha de uma lista de filtros não impede usar as demais', async () => {
+    const fetch = vi
+      .fn()
+      .mockImplementation((url: string) =>
+        url.includes('/residentes')
+          ? Promise.resolve(new Response('{}', { status: 503 }))
+          : Promise.resolve(json({ accommodations: [], units: [], rooms: [] })),
+      );
+    vi.stubGlobal('fetch', fetch);
+    const options = await TestBed.inject(ReportsLocalApiService).filterOptions();
+    expect(options.failed).toBe(true);
+    expect(options.residents).toEqual([]);
+    expect(options.housing.rooms).toEqual([]);
   });
   it('exige arquivo não vazio no MIME solicitado e conserva autenticação', async () => {
     const fetch = vi
@@ -102,7 +141,7 @@ describe('Contrato dos recortes e arquivos privados', () => {
     expect(reportingError(error)).toContain('expirou');
     expect(reportingError(error)).not.toContain('secret');
     expect(reportingError(new ReportingApiError(422, 'report_limit_exceeded'))).toContain(
-      'nenhum resultado foi truncado',
+      'Escolha um período menor',
     );
     expect(fetch).toHaveBeenCalledTimes(1);
   });

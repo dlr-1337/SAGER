@@ -26,11 +26,8 @@ import { reportingError } from './reporting-local.transport';
     <header class="op-heading">
       <div>
         <a class="op-back" routerLink="/relatorios">← Relatórios</a>
-        <h1>Indicadores individuais</h1>
-        <p>
-          Consulte ausências sem justificativa, retornos físicos com atraso e advertências vigentes
-          por mês.
-        </p>
+        <h1>Evolução do residente</h1>
+        <p>Veja, mês a mês, faltas sem justificativa, voltas com atraso e advertências valendo.</p>
       </div>
     </header>
     <sager-communications-state
@@ -55,7 +52,7 @@ import { reportingError } from './reporting-local.transport';
             </select></label
           ><label class="field">Data inicial<input type="date" formControlName="from" /></label
           ><label class="field">Data final<input type="date" formControlName="to" /></label
-          ><button class="btn-secondary" type="submit">Consultar indicadores</button>
+          ><button class="btn-secondary" type="submit">Ver evolução</button>
         </form>
         @if (filterError()) {
           <p class="comm-error" role="alert">{{ filterError() }}</p>

@@ -25,6 +25,9 @@ import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
@@ -58,8 +61,20 @@ public class ApiExceptionHandler {
     }
 
     @ExceptionHandler({ HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class,
-            MissingServletRequestParameterException.class })
+            MissingServletRequestParameterException.class, MissingServletRequestPartException.class })
     public ResponseEntity<ApiError> invalidInput(Exception error, HttpServletRequest request) {
+        return ApiErrors.response(request, HttpStatus.BAD_REQUEST, "invalid_input",
+                ApiErrors.message(400));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiError> tooLarge(Exception error, HttpServletRequest request) {
+        return ApiErrors.response(request, HttpStatus.CONTENT_TOO_LARGE, "file_too_large",
+                "O arquivo deve ter no máximo 10 MiB.");
+    }
+
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<ApiError> invalidMultipart(Exception error, HttpServletRequest request) {
         return ApiErrors.response(request, HttpStatus.BAD_REQUEST, "invalid_input",
                 ApiErrors.message(400));
     }

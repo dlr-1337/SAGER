@@ -1,13 +1,16 @@
 # Fase 0 — WhatsApp e assinatura
 
+> **Nota de substituição (2026-10-31).** Esta avaliação de 25/09/2026 fica como registro. A decisão vigente é outra: gateway WAHA com motor GOWS, auto-hospedado, sem provedor externo de assinatura, com autorização do responsável conferida por um servidor. A Evolution API, a Twilio e os serviços de assinatura abaixo não são usados. Os motivos estão em [`docs/whatsapp/PESQUISA.md`](../whatsapp/PESQUISA.md), e a operação em [`docs/whatsapp/OPERACAO.md`](../whatsapp/OPERACAO.md). O uso continua dependendo de aceite institucional.
+
 **Estado em 25/09/2026:** avaliação técnica para planejamento. Nenhuma conta, contratação,
 credencial, mensagem ou assinatura real foi criada nesta fase. A escolha de fornecedor para
 produção e a validade do procedimento dependem da instituição, AE e TI.
 
 O [PRD, seção 11](../../SAGER_PRD_v2.0_Angular_SpringBoot.md) exige enviar ao responsável
-pré-cadastrado um link individual e seguro, registrar estados e falhas de mensagem e guardar o
-documento assinado com evidências. Entrega ou leitura da mensagem não é assinatura. A saída longa
-só pode ser aprovada após assinatura válida e armazenamento do documento assinado (AC39–AC44).
+pré-cadastrado o documento, registrar estados e falhas de mensagem e guardar o arquivo devolvido
+com evidências. Entrega ou leitura da mensagem não é autorização. A saída longa só pode ser
+aprovada após autorização conferida por um servidor e arquivo armazenado (AC39–AC44, revisados em
+2026-10-31).
 
 ## Canal WhatsApp: alternativas
 
@@ -21,8 +24,8 @@ só pode ser aprovada após assinatura válida e armazenamento do documento assi
 primeiro a Twilio em ambiente de teste autorizado, com dados sintéticos. O Sandbox não serve para
 produção e não demonstra entrega confiável a responsáveis no Brasil. A AE/TI precisa aprovar
 destinatário, modelo de mensagem, consentimento e política de reenvio; a instituição precisa
-definir conta, custos, contratação e operação antes do envio real. A mensagem deve conter somente
-o necessário e levar a uma página segura para o documento completo, como exige RNF-WA01–05.
+definir conta, custos, contratação e operação antes do envio real. Na época, a mensagem devia
+conter somente o necessário e levar a uma página segura para o documento completo.
 O Sandbox clássico está disponível apenas no console legado da Twilio; contas de avaliação no
 console atual podem usar o fluxo “Try out WhatsApp”.
 
@@ -47,6 +50,6 @@ destinatário) e D17 (expiração, recusa e reenvio). O texto das decisões est�
 
 Até essa decisão, o backend pode usar um adaptador simulado em desenvolvimento. Simulação,
 desenho de assinatura, mensagem entregue ou documento apenas gerado **não liberam aprovação**.
-A regra de produção permanece: verificar assinatura válida do responsável correto para a versão
-vigente, armazenar o documento assinado e as evidências e, só então, permitir análise e eventual
-aprovação pelo supervisor ([PRD, seções 8 e 11](../../SAGER_PRD_v2.0_Angular_SpringBoot.md)).
+A regra de produção vigente: um supervisor confere o arquivo devolvido contra responsável, documento
+e revisão, e só então pode haver aprovação, em ato separado
+([PRD, seções 8 e 11](../../SAGER_PRD_v2.0_Angular_SpringBoot.md)).

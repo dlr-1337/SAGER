@@ -204,6 +204,9 @@ matrícula ou das permissões da AE/TI.
 
 ### Prova integrada sem API simulada
 
+Registro histórico: desde 31/10/2026, a matrícula e a ausência de curso usadas nesta prova
+não passam mais em um cadastro novo ([regras](../fase-0/CADASTRO_IFGOIANO.md)).
+
 PostgreSQL 17.11 descartável foi publicado apenas em `127.0.0.1:15435`. O
 backend local rodou em `127.0.0.1:8080`, e o Angular em `127.0.0.1:4316` com
 proxy de `/api`. A CLI criou uma conta de gestor sintética, com senha inserida

@@ -3,6 +3,7 @@
 **Registro inicial:** 25/09/2026. **Revisão do login:** 26/09/2026.
 **Informações preliminares da Fase 2:** 26/09/2026. **Estrutura dos alojamentos e
 anexos recebidos:** 29/09/2026. **Respostas do solicitante:** 30/09/2026.
+**Gestão de supervisores:** 31/10/2026.
 **Base funcional:**
 [PRD v2.0, seção 23](../../SAGER_PRD_v2.0_Angular_SpringBoot.md). **Base de
 implementação:**
@@ -47,6 +48,11 @@ quartos. O gestor conserva essas operações. Essa paridade de gestão substitui
 o recorte de 29/09/2026, que restringia a escrita ao gestor e não liberava a API
 de supervisores ao supervisor.
 
+**Decisão de 31/10/2026, que substitui a acima só neste ponto:** somente o gestor
+lista, consulta, cadastra e edita supervisores, porque está acima deles e a criação
+passou a definir a senha de login. A paridade continua nos demais cadastros. A
+homologação institucional segue pendente.
+
 O projeto usa perfis locais explícitos e autorização
 no servidor, sem atribuir perfil pelo domínio do e-mail ou conceder acesso
 médico ao gestor. O solicitante
@@ -56,7 +62,7 @@ matriz de recursos e operações por perfil, com confirmação da AE/TI. Acesso 
 dados sensíveis segue a delimitação atualizada da D22. Para a fatia local de
 residentes, responsáveis, alojamentos, unidades, quartos, mapa e alocações,
 o contrato atualizado prevê leitura, escrita e movimentação por gestor e
-supervisor. O cadastro funcional de supervisores não cria conta de acesso. Acesso de residente
+supervisor. Até 30/10/2026, o cadastro funcional de supervisores não criava conta de acesso; desde 31/10/2026, a criação exige senha e cria conta e vínculo na mesma transação, e quem já estava cadastrado sem conta segue pelo comando do operador. Acesso de residente
 às APIs desses cadastros não está liberado. Este recorte autorizado para
 desenvolvimento não aprova a matriz institucional.
 
@@ -75,12 +81,11 @@ registrado. A matriz atual e os pontos a confirmar estão no
 definidos pelo solicitante em 30/09/2026; homologação institucional pendente.**
 O cadastro será manual, realizado pelo gestor; o supervisor também pode cadastrar
 e editar conforme D01. A integração com SUAP está adiada porque não há autorização.
-Nome, matrícula e nascimento são obrigatórios nas novas gravações, inclusive
-edições de registros existentes. A matrícula
-é tratada como texto, sem inferir quantidade de dígitos ou composição; espaços
-nas pontas, inclusive espaços Unicode, são retirados e a unicidade não distingue
-maiúsculas de minúsculas. Nascimento deve ser válido e não futuro; curso permanece
-opcional. A regra anterior de 29/09/2026 permitia nascimento ausente: registros
+Nome, matrícula, nascimento e curso são obrigatórios nas novas gravações, inclusive
+edições de registros existentes. Desde 31/10/2026, valor novo ou alterado segue as
+regras de [`CADASTRO_IFGOIANO.md`](CADASTRO_IFGOIANO.md), sem decodificar campus ou curso;
+espaços, pontos, barras e hífens da matrícula são retirados, e a unicidade não distingue
+maiúsculas de minúsculas. A regra anterior de 29/09/2026 permitia nascimento ausente: registros
 legados nessa condição são preservados, sem inventar datas, mas precisam informar
 a data ao serem editados. A ausência legada não implica maioridade nem autoriza
 operações que dependam da idade. O cadastro recebe um UUID local
@@ -150,6 +155,11 @@ transições definitivas.
 **Estado atual e encaminhamento:** **AE pendente.** Permanece vigente o
 requisito do PRD: **aprovação de saída longa exige assinatura válida e documento
 assinado armazenado**; a dúvida é apenas a ordem permitida da rejeição.
+
+**Decisão de 31/10/2026, que substitui o requisito acima:** a aprovação de saída longa
+exige autorização conferida por servidor, de qualquer responsável vinculado, na revisão
+atual do documento. Não há provedor de assinatura, e o SAGER não promete a validade da
+autorização.
 
 **Responsável / até a fase:** AE; Fases 3–4.
 
@@ -230,9 +240,15 @@ define a quantidade e a elegibilidade cadastral do signatário, mas não escolhe
 automaticamente o destinatário nem define serviço, modalidade ou comprovação
 de identidade da assinatura (D16/D17).
 
+**Decisão de 31/10/2026, que substitui o requisito acima:** a aprovação de saída longa
+exige autorização conferida por servidor, de qualquer responsável vinculado, na revisão
+atual do documento. Não há provedor de assinatura, e o SAGER não promete a validade da
+autorização.
+
 No cadastro local, um residente pode ter
 vários registros de responsáveis, cada um com nome, vínculo declarado, telefone
-opcional e estado ativo informado por gestor ou supervisor. Esse cadastro não
+(desde 31/10/2026, obrigatório em novo cadastro e em valor alterado) e estado ativo
+informado por gestor ou supervisor. Esse cadastro não
 comprova guarda nem a validade de uma assinatura. Comprovação do vínculo e da identidade,
 seleção do destinatário e tratamento de divergências precisam ser definidos
 antes de qualquer envio ao responsável. O solicitante
@@ -258,6 +274,10 @@ solicitante; aprovação pendente.** A Clicksign API 3.0 da especificação é s
 referência técnica condicionada; não há fornecedor nem assinatura
 manual/digital/gov.br homologados. O bloqueio da aprovação longa continua
 obrigatório.
+
+**Decisão de 31/10/2026, que substitui o serviço acima:** não há provedor de assinatura. O
+responsável devolve a autorização pelo WhatsApp, ou ela é anexada, e um servidor confere. O
+SAGER não promete a validade da autorização; a instituição decide se o método basta.
 
 **Responsável / até a fase:** AE/TI e instituição; antes de ativar a Fase 4.
 

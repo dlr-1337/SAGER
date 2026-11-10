@@ -9,6 +9,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import br.edu.ifgoiano.sager.auth.LocalAccountProvisioningService;
+import br.edu.ifgoiano.sager.management.FieldRules;
 import br.edu.ifgoiano.sager.management.courses.CourseService;
 import br.edu.ifgoiano.sager.audit.AuditAction;
 import br.edu.ifgoiano.sager.audit.AuditResource;
@@ -49,10 +50,11 @@ public class ResidentService {
 
     @Transactional
     public Resident create(String name, String enrollment, LocalDate birthDate, UUID courseId, String institutionalEmail, String password, String passwordConfirmation) {
+        if (courseId == null) throw invalidInput("courseId é obrigatório.");
         String course = courses.selectedName(courseId, null);
-        String email = checkedEmail(institutionalEmail);
+        String email = checkedEmail(institutionalEmail, null);
         if (password == null || !password.equals(passwordConfirmation)) throw invalidInput("As senhas devem coincidir.");
-        CheckedInput checked = checked(name, enrollment, birthDate, course);
+        CheckedInput checked = checked(name, enrollment, birthDate, course, null);
         UUID id = UUID.randomUUID();
         try {
             repository.insert(id, checked.name(), checked.enrollment(), birthDate, checked.course(), courseId, email);
@@ -78,9 +80,10 @@ public class ResidentService {
         }
         Resident current = get(id);
         accounts.lockResidentAccount(id);
+        if (courseId == null) throw invalidInput("courseId é obrigatório.");
         String course = courses.selectedName(courseId, current.courseId());
-        String email = checkedEmail(institutionalEmail);
-        CheckedInput checked = checked(name, enrollment, birthDate, course);
+        String email = checkedEmail(institutionalEmail, current.institutionalEmail());
+        CheckedInput checked = checked(name, enrollment, birthDate, course, current);
         if (current.version() != version) {
             throw new ResidentApiException(HttpStatus.CONFLICT, "stale_version",
                     "O estudante foi alterado. Recarregue o registro antes de salvar.");
@@ -123,26 +126,44 @@ public class ResidentService {
                 checked.course(), version + 1, courseId, email);
     }
 
-    private String checkedEmail(String value) {
+    private String checkedEmail(String value, String saved) {
         String email = optional(value, "institutionalEmail", 320);
         if (email == null) return null;
-        if (!email.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")) throw invalidInput("E-mail institucional inválido.");
-        return email.toLowerCase(java.util.Locale.ROOT);
+        String lower = email.toLowerCase(java.util.Locale.ROOT);
+        if (saved != null && lower.equals(saved.toLowerCase(java.util.Locale.ROOT))) return saved;
+        if (!FieldRules.validResidentEmail(lower)) {
+            throw invalidInput("Use o e-mail institucional, que termina em @estudante.ifgoiano.edu.br.");
+        }
+        return lower;
     }
 
-    private CheckedInput checked(String name, String enrollment, LocalDate birthDate, String course) {
-        String checkedName = required(name, "name", 3, 200);
-        String checkedEnrollment = required(enrollment, "enrollment", 1, 64);
-        try { LocalAccountProvisioningService.normalizeEnrollment(checkedEnrollment); }
-        catch (IllegalArgumentException error) { throw invalidInput(error.getMessage()); }
+    private CheckedInput checked(String name, String enrollment, LocalDate birthDate, String course, Resident current) {
+        String checkedName = checkedName(required(name, "name", 3, 200), current);
+        String checkedEnrollment = checkedEnrollment(required(enrollment, "enrollment", 1, 64), current);
         String checkedCourse = optional(course, "course", 200);
         if (birthDate == null) {
             throw invalidInput("birthDate é obrigatório.");
         }
-        if (birthDate.isAfter(LocalDate.now())) {
-            throw invalidInput("birthDate não pode ser futura.");
+        if ((current == null || !birthDate.equals(current.birthDate())) && !FieldRules.plausibleBirthDate(birthDate)) {
+            throw invalidInput("Confira a data de nascimento.");
         }
         return new CheckedInput(checkedName, checkedEnrollment, checkedCourse);
+    }
+
+    private String checkedName(String typed, Resident current) {
+        if (current != null && formatName(typed).equals(current.name())) return current.name();
+        String normalized = FieldRules.normalizeName(typed);
+        if (!FieldRules.validName(normalized)) throw invalidInput("Digite o nome completo, como no documento.");
+        return formatName(normalized);
+    }
+
+    private String checkedEnrollment(String typed, Resident current) {
+        String normalized = FieldRules.normalizeEnrollment(typed);
+        if (current != null && (typed.equals(current.enrollment()) || normalized.equals(current.enrollment()))) {
+            return current.enrollment();
+        }
+        if (!FieldRules.validResidentEnrollment(normalized)) throw invalidInput("Confira a matrícula no SUAP.");
+        return normalized;
     }
 
     private String required(String value, String field, int minLength, int maxLength) {
@@ -191,8 +212,19 @@ public class ResidentService {
         return value.substring(start, end);
     }
 
-    private boolean isSpace(int codePoint) {
+    private static boolean isSpace(int codePoint) {
         return Character.isWhitespace(codePoint) || Character.isSpaceChar(codePoint);
+    }
+
+    // Migration V22 applies this same rule to existing names; keep both aligned.
+    static String formatName(String value) {
+        StringBuilder formatted = new StringBuilder(value.length());
+        boolean wordStart = true;
+        for (int codePoint : value.codePoints().toArray()) {
+            formatted.appendCodePoint(wordStart ? Character.toUpperCase(codePoint) : Character.toLowerCase(codePoint));
+            wordStart = isSpace(codePoint) || codePoint == '-' || codePoint == '\'' || codePoint == '’';
+        }
+        return formatted.toString();
     }
 
     private RuntimeException integrityError(DataIntegrityViolationException error) {

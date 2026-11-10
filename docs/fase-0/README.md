@@ -26,19 +26,19 @@ institucional por si só.
   desligamento, testes no ambiente de destino e aceite TI/AE. Integrações Google
   e SUAP ficaram para avaliação futura; não são pré-requisito do mecanismo atual.
 - **D01 e D02:** gestor e supervisor receberam as mesmas operações nos recursos
-  de gestão já integrados. Cadastro de residente é manual; nome, matrícula e
-  nascimento são obrigatórios em novas gravações, curso é opcional. V10 mantém a
+  de gestão já integrados. Cadastro de residente é manual; nome, matrícula,
+  nascimento e curso são obrigatórios em novas gravações. V10 mantém a
   leitura de residentes legados sem nascimento, mas exige a data em inserções e
   edições. A fonte e a conferência institucional da matrícula, assim como os
   demais detalhes cadastrais e a matriz final de acesso, precisam de revisão AE/TI.
-- **D15 e D22:** uma assinatura válida de qualquer responsável cadastrado e
-  vinculado basta para uma saída longa futura; a funcionalidade ainda não foi
-  integrada. O compartilhamento de dados de saúde entre profissionais autorizados
+- **D15 e D22:** uma autorização conferida por servidor, de qualquer responsável
+  cadastrado e vinculado, basta para uma saída longa (decisão de 31/10/2026, sem
+  provedor e sem prometer validade). O compartilhamento de dados de saúde entre profissionais autorizados
   depende de recurso próprio. A retenção permanente foi escolhida para auditoria,
   sem estendê-la automaticamente a cadastros, dados de saúde ou documentos.
-- **D16/D25:** não há conta de WhatsApp, fornecedor contratado ou modalidade/serviço de
-  assinatura escolhidos para produção. Uma saída longa continua sem aprovação possível
-  até existir assinatura válida e documento assinado armazenado, conforme o PRD.
+- **D16/D25:** não há número de WhatsApp escolhido para produção, e o provedor de
+  assinatura foi retirado em 31/10/2026. Uma saída longa continua sem aprovação possível
+  até existir autorização conferida por servidor na revisão atual do documento, conforme o PRD.
 
 As verificações históricas de Google foram sintéticas; a prova do login próprio
 de 26/09/2026 cobriu apenas o ambiente local. Nenhuma delas demonstra a

@@ -40,7 +40,7 @@ import { Accommodation } from './housing.models';
         <label class="field mg-field"
           >Buscar por nome ou código<input type="search" [formControl]="search" /></label
         ><button class="btn mg-secondary" (click)="search.setValue('')">Limpar filtros</button>
-        <p role="status">{{ total() }} alojamento(s)</p>
+        <p role="status">{{ total() === 1 ? '1 alojamento' : total() + ' alojamentos' }}</p>
       </section>
       @if (loading()) {
         <section class="mg-empty" role="status" aria-live="polite">
@@ -85,16 +85,12 @@ import { Accommodation } from './housing.models';
           <sager-pagination [page]="page()" [total]="total()" (pageChange)="changePage($event)" />
         </section>
       }
-      <div class="mg-note">
-        <span class="material-symbols-rounded" aria-hidden="true">info</span>
-        <p>
-          {{
-            isDemo()
-              ? 'Estes cadastros são fictícios e permanecem somente nesta demonstração.'
-              : 'Ambiente local de teste: use apenas dados fictícios. Moradores e vagas livres ainda não estão integrados.'
-          }}
-        </p>
-      </div>
+      @if (isDemo()) {
+        <div class="mg-note">
+          <span class="material-symbols-rounded" aria-hidden="true">info</span>
+          <p>Estes cadastros são fictícios e permanecem somente nesta demonstração.</p>
+        </div>
+      }
     </main>
   `,
 })
@@ -134,8 +130,9 @@ export class AccommodationsComponent {
   );
   constructor() {
     rememberFilters('accommodations', this.search);
+    // A página volta ao início na hora: esperar a pausa desfazia um clique em "Próxima".
+    this.search.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => this.page.set(0));
     this.search.valueChanges.pipe(debounceTime(250), takeUntilDestroyed()).subscribe(() => {
-      this.page.set(0);
       if (!this.isDemo()) void this.load();
     });
     void this.load();

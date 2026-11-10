@@ -115,9 +115,10 @@ for (const edit of [false, true]) {
     const data = registry(edit ? [guardian] : []);
     await data.attach(page);
     await page.goto(edit ? `/responsaveis/${guardianId}/editar` : '/responsaveis/novo');
-    await page.getByLabel('Residente vinculado *').selectOption(residentId);
+    await page.getByLabel('Residente *', { exact: true }).selectOption(residentId);
     await page.getByRole('textbox', { name: 'Nome completo *' }).fill('Responsável Sintético');
-    await page.getByRole('textbox', { name: 'Vínculo com o residente *' }).fill('Mãe');
+    await page.getByRole('textbox', { name: 'Parentesco com o residente *' }).fill('Mãe');
+    await page.getByRole('textbox', { name: 'Telefone com DDD *' }).fill('(62) 99999-0000');
     let authPending = false;
     let release!: () => void;
     const pending = new Promise<void>((resolve) => {
@@ -167,15 +168,17 @@ test('Enter na busca do seletor não salva antes de escolher o residente', async
   const data = registry([guardian], residents);
   await data.attach(page);
   await page.goto(`/responsaveis/${guardianId}/editar`);
-  const search = page.getByRole('searchbox', { name: /Buscar opções de Residente vinculado/ });
-  const select = page.getByRole('combobox', { name: /^Residente vinculado/ });
+  const select = page.getByRole('combobox', { name: /^Residente/ });
+  await expect(select).toHaveValue(residentId);
+  await select.click();
+  const search = page.getByRole('combobox', { name: 'Buscar em Residente' });
   await search.fill(residents[1].name);
   await search.press('Enter');
-  await expect(search).toBeFocused();
-  await expect(select).toHaveValue(residentId);
+  await expect(search).toHaveCount(0);
+  await expect(select).toBeFocused();
+  await expect(select).toHaveValue(residents[1].id);
   await expect(page).toHaveURL(`/responsaveis/${guardianId}/editar`);
   expect(data.writes).toHaveLength(0);
-  await select.selectOption(residents[1].id);
   await page.getByRole('button', { name: 'Salvar responsável', exact: true }).click();
   await expect(page.getByRole('heading', { name: guardian.name, exact: true })).toBeVisible();
   expect(data.writes).toHaveLength(1);
@@ -192,24 +195,32 @@ test('gestor cadastra, consulta, edita e recarrega responsável sem autorizaçã
   await expect(page.getByRole('heading', { name: 'Nenhum responsável cadastrado' })).toBeVisible();
   await expect(page.getByText('Mariana Ribeiro')).toHaveCount(0);
   await page.getByRole('link', { name: 'Cadastrar responsável' }).click();
-  await page.getByLabel('Residente vinculado *').selectOption(residentId);
+  await page.getByLabel('Residente *', { exact: true }).selectOption(residentId);
   await page.getByRole('textbox', { name: 'Nome completo *' }).fill('Responsável Sintético');
-  await page.getByRole('textbox', { name: 'Vínculo com o residente *' }).fill('pessoa com guarda');
+  await page
+    .getByRole('textbox', { name: 'Parentesco com o residente *' })
+    .fill('pessoa com guarda');
+  await page.getByRole('button', { name: 'Salvar responsável' }).click();
+  await expect(page.getByText('Digite o telefone com DDD.')).toBeVisible();
+  expect(data.writes).toHaveLength(0);
+  await page.getByRole('textbox', { name: 'Telefone com DDD *' }).fill('62 99999 0000');
   await page.getByRole('button', { name: 'Salvar responsável' }).click();
   await expect(page.getByRole('heading', { name: 'Responsável Sintético' })).toBeVisible();
-  await expect(page.getByText('Pendente de definição institucional')).toBeVisible();
-  expect(data.writes[0]).toMatchObject({ residentId, phone: null, active: true });
+  await expect(page.getByText('Assinatura de saída longa')).toHaveCount(0);
+  expect(data.writes[0]).toMatchObject({ residentId, phone: '(62) 99999-0000', active: true });
   expect(data.writes[0]).not.toHaveProperty('authorized');
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Responsável Sintético' })).toBeVisible();
   await page.getByRole('link', { name: 'Editar responsável' }).click();
-  await page.getByRole('textbox', { name: 'Telefone (opcional)' }).fill('62 99999 0000');
+  await page.getByRole('textbox', { name: 'Telefone com DDD *' }).fill('62 98888 0000');
   await page.getByRole('button', { name: 'Salvar responsável' }).click();
-  await expect(page.getByText('62 99999 0000')).toBeVisible();
+  await expect(page.getByText('(62) 98888-0000')).toBeVisible();
   await page.goto(`/residentes/${residentId}`);
   await page.getByRole('button', { name: 'Responsáveis' }).click();
   await expect(page.getByRole('heading', { name: 'Responsável Sintético' })).toBeVisible();
-  await expect(page.getByText('Assinatura pendente de definição institucional')).toBeVisible();
+  await expect(
+    page.getByText('Cada saída longa precisa da autorização do responsável', { exact: false }),
+  ).toBeVisible();
 });
 
 test('formulário valida nome e vínculo após remover espaços das pontas', async ({ page }) => {
@@ -217,20 +228,24 @@ test('formulário valida nome e vínculo após remover espaços das pontas', asy
   const data = registry();
   await data.attach(page);
   await page.goto('/responsaveis/novo');
-  await page.getByLabel('Residente vinculado *').selectOption(residentId);
+  await page.getByLabel('Residente *', { exact: true }).selectOption(residentId);
   await page.getByRole('textbox', { name: 'Nome completo *' }).fill('  AB  ');
-  await page.getByRole('textbox', { name: 'Vínculo com o residente *' }).fill('  A  ');
+  await page.getByRole('textbox', { name: 'Parentesco com o residente *' }).fill('  A  ');
   await page.getByRole('button', { name: 'Salvar responsável' }).click();
-  await expect(page.getByText('Informe o nome com 3 a 200 caracteres.')).toBeVisible();
-  await expect(page.getByText('Informe o vínculo com 2 a 80 caracteres.')).toBeVisible();
+  await expect(page.getByText('Digite o nome completo, como no documento.')).toBeVisible();
+  await expect(page.getByText('Escreva o vínculo, como mãe ou pai.')).toBeVisible();
   expect(data.writes).toHaveLength(0);
 
-  await page.getByRole('textbox', { name: 'Nome completo *' }).fill('  ABC  ');
-  await page.getByRole('textbox', { name: 'Vínculo com o residente *' }).fill('  AB  ');
-  await page.getByRole('textbox', { name: 'Telefone (opcional)' }).fill('  ');
+  await page.getByRole('textbox', { name: 'Nome completo *' }).fill('  Ana Li  ');
+  await page.getByRole('textbox', { name: 'Parentesco com o residente *' }).fill('  AB  ');
+  await page.getByRole('textbox', { name: 'Telefone com DDD *' }).fill('  (62) 3333-4444  ');
   await page.getByRole('button', { name: 'Salvar responsável' }).click();
-  await expect(page.getByRole('heading', { name: 'ABC' })).toBeVisible();
-  expect(data.writes[0]).toMatchObject({ name: 'ABC', relationship: 'AB', phone: null });
+  await expect(page.getByRole('heading', { name: 'Ana Li' })).toBeVisible();
+  expect(data.writes[0]).toMatchObject({
+    name: 'Ana Li',
+    relationship: 'AB',
+    phone: '(62) 3333-4444',
+  });
 });
 
 test('conflito em duas abas exige recarregar antes de salvar', async ({ page, context }) => {
@@ -263,9 +278,9 @@ test('conflito em duas abas exige recarregar antes de salvar', async ({ page, co
   await expect(other.getByRole('heading', { name: 'Outra Alteração' })).toBeVisible();
   await page.getByRole('textbox', { name: 'Nome completo *' }).fill('Alteração Antiga');
   await page.getByRole('button', { name: 'Salvar responsável' }).click();
-  await expect(page.getByRole('alert')).toContainText('alterado por outra sessão');
+  await expect(page.getByRole('alert')).toContainText('Outra pessoa alterou este registro');
   await expect(page).toHaveURL(new RegExp(`/responsaveis/${guardianId}/editar$`));
-  await page.getByRole('button', { name: 'Carregar versão atual do cadastro' }).click();
+  await page.getByRole('button', { name: 'Recarregar dados' }).click();
   await expect(page.getByRole('textbox', { name: 'Nome completo *' })).toHaveValue(
     'Outra Alteração',
   );

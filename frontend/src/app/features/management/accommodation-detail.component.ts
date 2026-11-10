@@ -50,11 +50,7 @@ import { Accommodation, AccommodationUnit } from './housing.models';
         @if (saved()) {
           <p class="mg-success" role="status">
             <span class="material-symbols-rounded" aria-hidden="true">check_circle</span
-            >{{
-              isDemo()
-                ? 'Alojamento salvo nesta demonstração.'
-                : 'Alojamento salvo no ambiente local de teste.'
-            }}
+            >{{ isDemo() ? 'Alojamento salvo nesta demonstração.' : 'Alojamento salvo.' }}
           </p>
         }
         <section class="mg-section" aria-labelledby="unit-list-title">
@@ -147,7 +143,7 @@ import { Accommodation, AccommodationUnit } from './housing.models';
                   (click)="reloadUnit()"
                   [disabled]="unitSaving()"
                 >
-                  Carregar versão atual da unidade
+                  Recarregar dados
                 </button>
               }
               <div class="mg-actions">
@@ -169,12 +165,8 @@ import { Accommodation, AccommodationUnit } from './housing.models';
         <div class="mg-note">
           <span class="material-symbols-rounded" aria-hidden="true">info</span>
           <p>
-            {{
-              isDemo()
-                ? 'Dados fictícios da demonstração, mantidos somente em memória.'
-                : 'Ambiente local de teste: use apenas dados fictícios.'
-            }}
-            A capacidade é cadastrada por quarto. A ocupação ainda não está integrada.
+            {{ isDemo() ? 'Dados fictícios da demonstração, mantidos somente em memória.' : '' }}
+            O número de vagas é definido em cada quarto.
           </p>
         </div>
         <a class="mg-back" routerLink="/quartos"
@@ -294,9 +286,7 @@ export class AccommodationDetailComponent {
       this.unitForm.markAsPristine();
       this.unitOpen.set(false);
       this.unitSuccess.set(
-        this.isDemo()
-          ? 'Unidade salva nesta demonstração.'
-          : 'Unidade salva no ambiente local de teste.',
+        this.isDemo() ? 'Unidade salva nesta demonstração.' : 'Casa ou bloco salvo.',
       );
     } catch (error) {
       this.unitConflict.set(

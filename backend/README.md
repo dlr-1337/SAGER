@@ -58,6 +58,9 @@ O modo de provisionamento não inicia Tomcat e encerra ao terminar a operação.
 java -jar .\target\sager-backend-0.1.0-SNAPSHOT.jar --spring.profiles.active=local --sager-account=create --matricula=TESTE-RESIDENTE --email=pessoa@exemplo.invalid --name='Pessoa de Teste' --profile=residente
 ```
 
+Esta CLI e o login não recebem a regra de formato do cadastro de residentes, por isso
+identificadores como `TESTE-RESIDENTE` seguem válidos aqui. A API de residentes recusa esse valor.
+
 `--profile` aceita `gestor`, `supervisor`, `residente` ou `saude`. O perfil `saude`
 permite entrar na conta, mas exige habilitação profissional e vínculo assistencial
 administrados pela API antes de acessar conteúdo. A CLI não cria essas permissões.
@@ -76,7 +79,7 @@ impede novos logins.
 
 ### Vínculo explícito com cadastros
 
-Criar um residente pela API exige `password` e `passwordConfirmation` e cria a conta vinculada na mesma transação. Editar um residente não troca a senha. Criar um supervisor não cria credenciais. A migração V12
+Criar um residente pela API exige `password` e `passwordConfirmation` e cria a conta vinculada na mesma transação. Editar um residente não troca a senha. Criar um supervisor também exige `password` e `passwordConfirmation` e cria a conta vinculada na mesma transação: a matrícula ou SIAPE vira o login e a conta fica sem e-mail. Editar um supervisor não troca a senha, e quem já estava cadastrado sem conta segue pelo comando do operador. A migração V12
 permite que o operador vincule uma conta já provisionada ao UUID de um cadastro
 existente. Não há associação automática por nome, e-mail ou matrícula. Nos
 exemplos abaixo, substitua os UUIDs pelos IDs dos registros sintéticos consultados
@@ -192,25 +195,29 @@ livres ficam `null` quando a capacidade não foi definida, e a nota de limpeza
 continua `null`.
 Nos recursos de gestão já integrados, **gestor e supervisor locais podem consultar,
 cadastrar, editar e movimentar com as mesmas permissões**; isso inclui
-supervisores, alojamentos/unidades, quartos, residentes, responsáveis e alocações.
+alojamentos/unidades, quartos, residentes, responsáveis e alocações. Supervisores são
+a exceção: desde a decisão de 31/10/2026, só o gestor os consulta, cadastra e edita, e
+os demais perfis recebem `403`.
 O residente local não recebe acesso a essas APIs. Essas permissões não abrangem
 automaticamente futuras operações ou dados sensíveis.
-No cadastro manual de residentes, nome, matrícula e data de nascimento são
-obrigatórios em `POST` e `PUT`; nascimento deve ser válido e não futuro, e curso
-é opcional. A matrícula é única sem diferenciar maiúsculas/minúsculas após retirar
+No cadastro manual de residentes, nome, matrícula, data de nascimento e `courseId`
+são obrigatórios em `POST` e `PUT`; as regras de formato estão em
+[`CADASTRO_IFGOIANO.md`](../docs/fase-0/CADASTRO_IFGOIANO.md) e valem só para valor novo
+ou alterado. A matrícula é única sem diferenciar maiúsculas/minúsculas após retirar
 espaços das pontas, mas sua conferência institucional ainda precisa de procedimento
 AE/TI. O login não fornece matrícula; a integração com SUAP foi adiada. A migração
 V10 acrescenta `CHECK (birth_date IS NOT NULL) NOT VALID`: preserva a leitura de
 linhas legadas sem nascimento e exige a data em novas inserções e atualizações.
 Registros legados sem data não devem ser tratados como maiores de idade.
 No cadastro local de responsáveis, nome, vínculo e residente associado são
-obrigatórios; telefone é opcional. O estado ativo cadastral não comprova
-autorização legal ou assinatura. Para a saída longa futura, basta **uma assinatura
-válida de qualquer responsável cadastrado e vinculado ao residente**, sem exigir
-ambos; a comprovação do vínculo/identidade e o serviço de assinatura ainda faltam.
-O fluxo persistido de saída longa aplica essa regra, com revisão/PDF privado,
-convite limitado e conferência de evidência por adaptador; veja
-[Fase 4](../docs/fase-4/README.md). A homologação real do provedor permanece pendente.
+obrigatórios. Telefone também é obrigatório em novo cadastro e em valor alterado;
+registro antigo sem telefone continua passando na edição. O estado ativo cadastral
+não comprova autorização legal. Para a saída longa, basta **uma autorização de
+qualquer responsável cadastrado e vinculado ao residente**, sem exigir ambos. Ela
+chega pelo WhatsApp ou é anexada, e um supervisor confere o arquivo contra a revisão
+atual do PDF privado. Não há provedor de assinatura nem convite; o sistema não atesta
+a validade jurídica. Veja o [contrato](../docs/fase-4/CONTRATO.md). A homologação real
+do gateway permanece pendente.
 Na alocação provisória, um residente tem no máximo um quarto ativo. Entrada e
 transferência exigem capacidade definida com vaga e quarto fora de Manutenção
 e Indisponível. Encerramento e transferência preservam o histórico. A situação
@@ -289,7 +296,7 @@ reúne as decisões necessárias para homologação.
 
 ## Revisão de cadastros e acesso — 16/10/2026
 
-`POST /api/v1/residentes` recebe nome, matrícula textual, nascimento, `courseId` opcional, `institutionalEmail` opcional e senha com confirmação. O e-mail não precisa pertencer a um domínio específico. Senhas possuem 12–72 caracteres e até 72 bytes UTF-8. Conflitos de matrícula não deixam residente ou conta parcial. Alterar a matrícula do residente atualiza seu login vinculado e encerra as sessões anteriores.
+`POST /api/v1/residentes` recebe nome, matrícula, nascimento, `courseId` obrigatório, `institutionalEmail` opcional e senha com confirmação. O e-mail, quando preenchido, termina em `@estudante.ifgoiano.edu.br`. Senhas têm pelo menos 8 caracteres e até 72 bytes UTF-8 (limite do bcrypt), sem exigência de composição; sequências, um único caractere repetido, uma lista curta de senhas comuns e a própria matrícula são recusadas. Contas existentes não mudam: o login só compara o hash. Conflitos de matrícula não deixam residente ou conta parcial. Alterar a matrícula do residente atualiza seu login vinculado e encerra as sessões anteriores.
 
 `/api/v1/cursos` permite listar e cadastrar; `PUT /{id}` exige nome, `active` e versão. Gestor e supervisor administram o catálogo. A desativação mantém vínculos existentes; novas atribuições exigem curso ativo. `course` continua no resultado como rótulo de leitura; escritas usam exclusivamente `courseId`.
 

@@ -1,8 +1,15 @@
 # Contrato local de saídas longas e autorizações
 
 **Decisões delegadas em 30/09/2026.** Este documento registra escolhas locais
-de implementação para F4/E09–E10. Não representa homologação institucional ou
-validade jurídica de assinatura. A verificação técnica será registrada no QA.
+de implementação para F4/E09–E10. Não representa homologação institucional nem
+atesta a validade da autorização. A verificação técnica será registrada no QA.
+
+> **Nota de substituição (2026-10-31).** Os adaptadores Clicksign e Meta, o convite
+> por link e a conferência automática com provedor foram retirados por decisão do dono
+> do produto. As seções de autorização, gateway, fila e rotas abaixo descrevem o fluxo
+> vigente; o texto de 30/09/2026 fica no histórico do Git. O desenho está em
+> `openspec/changes/replace-signature-with-whatsapp-authorization` e a operação em
+> [`docs/whatsapp/OPERACAO.md`](../whatsapp/OPERACAO.md).
 
 ## Solicitação e decisão humana
 
@@ -15,33 +22,36 @@ validade jurídica de assinatura. A verificação técnica será registrada no Q
   operação de saída pela paridade dos cadastros de gestão.
 - A solicitação seleciona UUID de responsável cadastrado, ativo e vinculado,
   com telefone válido. Não aceita nome ou telefone livre como autorização.
-- Uma assinatura válida de qualquer responsável elegível basta. Cada binding
-  tem um único signatário; confirmar um invalida/cancela os demais pendentes.
-- Supervisor pode rejeitar antes da assinatura, com justificativa de pelo menos
-  dez caracteres. Assinatura não aprova a saída automaticamente.
-- Aprovação exige revisão atual, evidência confirmada por API autenticada,
-  responsável ainda elegível e arquivos original e assinado armazenados e íntegros.
+- Uma autorização conferida de qualquer responsável elegível basta. Cada binding
+  tem um único responsável; confirmar um invalida os demais pendentes.
+- Supervisor pode rejeitar antes da autorização, com justificativa de pelo menos
+  dez caracteres. Conferir a autorização não aprova a saída automaticamente.
+- Aprovação exige revisão atual, autorização conferida por supervisor, responsável
+  ainda elegível e arquivos original e recebido armazenados e íntegros.
 - Edição pendente antes da partida cria nova revisão documental e invalida
-  tokens, assinaturas e tarefas anteriores, preservando o histórico.
-- Alteração de identidade ou relação do responsável invalida o convite pendente.
+  autorizações e tarefas anteriores, preservando o histórico.
+- Alteração de identidade ou relação do responsável invalida o envio pendente.
   Reenvio cria nova revisão quando nome/relação mudaram ou o documento anterior
-  já tem PDF assinado; alteração apenas de telefone pode reutilizar o original
-  ainda não assinado. Aprovações realizadas preservam seu snapshot histórico.
+  já tem arquivo aceito; alteração apenas de telefone pode reutilizar o original.
+  Aprovações realizadas preservam seu snapshot histórico.
 - Cancelamento e expiração seguem F3. Em andamento não expira automaticamente.
   Retorno físico também é confirmado pelo supervisor: escolha local que encerra
-  ocupação física e permite verificar atrasos, sem confundi-lo com a assinatura.
+  ocupação física e permite verificar atrasos, sem confundi-lo com a autorização.
 - Janelas e partida física consultam todas as modalidades sob lock do residente,
   impedindo sobreposição e duas saídas físicas simultâneas.
 
 Linha concorrencial `version` e revisão imutável `documentVersionId` são distintas.
-Estados de solicitação, assinatura e mensagem permanecem separados. Entrega,
-leitura de WhatsApp, callback do widget ou presença de PDF não liberam aprovação.
-Provedores desativados apresentam indisponibilidade e nunca criam assinatura válida.
+Estados de solicitação, autorização e mensagem permanecem separados. Entrega,
+leitura ou recebimento pelo WhatsApp e presença de arquivo não liberam aprovação.
+Gateway desligado apresenta indisponibilidade e aceita anexo manual, que passa pela
+mesma conferência.
 
 ## Documento e armazenamento
 
-PDF gerado offline com snapshot mínimo: residente, matrícula, alocação, período,
-motivo, observações, termo local versionado, identificador, revisão e paginação.
+PDF gerado offline com snapshot mínimo: nome do residente, nome do responsável,
+período, motivo, termo local versionado (`SAGER-SAIDA-LONGA-v2`), campo de assinatura,
+data, código curto, revisão e paginação. Não traz nascimento, matrícula nem quarto,
+porque trafega pelo WhatsApp e fica no armazenamento do gateway.
 Usar PDFBox 3.0.8 e Source Sans 3 estática incorporada, com licença distribuída.
 Quebrar texto por largura e paginar; não depender das fontes do computador.
 
@@ -49,126 +59,113 @@ Arquivos ficam fora de `public`, em volume privado com raiz real validada.
 Chaves UUID internas compõem o caminho; nomes do cliente não compõem caminhos.
 Gravação limitada, hash SHA-256, temporário na mesma raiz, fechamento e movimento
 atômico antecedem confirmação `STORED`. Falha de movimento, ausência ou corrupção
-bloqueiam aprovação. Preservar o PDF assinado como recebido, com hash próprio.
+bloqueiam aprovação. Preservar o arquivo aceito como recebido, com hash e tipo próprios.
 Download exige autorização, `no-store`, `nosniff` e nome seguro. DTO não expõe
-caminho físico, segredo ou URL temporária do provedor.
+caminho físico, segredo ou URL de mídia do gateway.
 
 Banco e volume privado precisam de backup e recuperação conjuntos em F7.
-Ler um PDF com PDFBox não comprova integralmente sua assinatura jurídica.
+O hash comprova integridade desde o recebimento, não a autoria do conteúdo.
 
-## Clicksign v3
+## Autorização e conferência
 
-Adaptador usa API JSON:API em origem oficial explicitamente configurada:
-`app.clicksign.com/api/v3` ou `sandbox.clicksign.com/api/v3`.
-Header canônico `Authorization: <access_token>` e
-`Content-Type: application/vnd.api+json`.
+O arquivo aceito é imagem (JPEG, PNG, WEBP, HEIC) ou PDF, até 10 MiB, com tipo detectado
+pelos bytes. Arquivos candidatos ficam fora de `signed_*`, que só aceita uma gravação;
+só o aceito é promovido, em `signed_media_type` e `signed_*`.
 
-Sequência persistida por etapas: envelope → PDF → signatário → requisito
-`agree/role=sign` → requisito `provide_evidence/auth=sms` → envelope `running`.
-Um binding contém um único signatário para não exigir todos os responsáveis.
-Prazo do envelope acompanha o token: 24 horas, limitado pelo prazo funcional.
-Binding cancelado/expirado exige novo envelope em reenvio.
+Vinculação automática, nesta ordem: resposta citando o documento; único binding aberto
+para o telefone. Com dois bindings abertos para o mesmo telefone, como irmãos, o arquivo
+fica sem vínculo até o supervisor escolher. Número desconhecido e LID sem resolução não
+vinculam. `pushName` nunca identifica ninguém. Áudio nunca vira candidato.
 
-Cancelamento externo: documento em execução usa
-`PATCH /envelopes/{envelope_id}/documents/{document_id}` com `status=canceled`.
-Envelope ainda em rascunho pode usar `DELETE /envelopes/{envelope_id}`.
-Não enviar `canceled` ao PATCH do envelope, cujo status aceita `draft/running`.
-Revogação local do convite antecede a tarefa de cancelamento externo.
+Só supervisor confere, recusa, anexa manualmente ou vincula. A conferência exige declarar
+que responsável, documento e revisão foram conferidos, e grava `VALID`, `verified_by`,
+`signed_at` igual ao recebimento e `evidence_hash`. Arquivo de outra revisão ou de binding
+substituído responde `stale_document`. Remetente divergente exige justificativa. A recusa
+exige justificativa, mantém o arquivo e deixa o pedido aguardando.
 
-O widget v3 Embedded 2.1.0 recebe `signer.id` depois de `running`. Callback
-JavaScript só informa a interface; não grava evidência válida. Não usar chaves
-v1 ou inventar URL de assinatura a partir de UUID.
+Depois, `decisao` volta a conferir revisão, binding com `verified_by`, responsável e
+integridade dos dois arquivos: `signature_required`, `guardian_not_eligible` e
+`document_unavailable` bloqueiam. Anexo ou vínculo em pedido sem binding aberto cria
+binding `UNAVAILABLE`, sem tarefa, e nunca envia mensagem. Pedidos anteriores a V23 têm
+os bindings abertos invalidados e seguem por anexo manual ou reenvio.
 
-Webhook verifica `Content-Hmac: sha256=<hex>` com HMAC-SHA256 sobre bytes brutos,
-segredo exclusivo do webhook e comparação constante. Só depois interpreta JSON
-e persiste inbox durável. Evento `sign` inicia reconciliação; `document_closed`
-indica disponibilidade do arquivo. GET autenticado confere documento, signatário,
-requisitos, evento, revisão e responsável. PDF assinado armazenado e íntegro
-antecede estado válido. Parser incompleto/inconsistente falha fechado, sem fallback v1.
+### Limitação declarada
 
-Reconciliação é provocada por webhook, recuperação de tarefa interrompida ou ação
-explícita. Não executar polling periódico de documentos: a documentação proíbe
-consulta regular sem autorização.
+A evidência comprova que um arquivo veio de um número, em tal horário, e não mudou desde
+então. Não comprova autoria nem constitui assinatura eletrônica nos termos da Lei
+14.063/2020. O nível mínimo exigido é decisão institucional pendente. A redação completa
+está em [`docs/whatsapp/OPERACAO.md`](../whatsapp/OPERACAO.md#redação-recomendada-da-limitação).
 
-Telefone local/Meta usa E.164. Inicialmente aceitar somente Brasil (`+55` seguido
-de dez/onze dígitos nacionais); Clicksign recebe DDD e número sem DDI. País
-incompatível recebe erro explícito. Autenticação SMS é da Clicksign; Meta envia
-o convite. Não prometer desativação total de notificações da Clicksign: requisição
-e lembrete aceitam `none`, evento final documenta email/WhatsApp.
+## Gateway WhatsApp
 
-## Meta WhatsApp Cloud
+WAHA com motor GOWS, imagem `devlikeapro/waha:gows-2026.10.1` fixada por digest, atrás de
+`WhatsAppGateway`. Desligado por padrão. Propriedades sob `sager.integrations.whatsapp`:
+`enabled`, `base-url`, `api-key`, `webhook-secret` e `session`. Ligado sem endereço, chave ou
+segredo, ou com chave igual ao segredo, recusa a inicialização.
 
-POST Graph usa versão explícita, `phoneNumberId`, Bearer token e template aprovado
-`sager_autorizacao_saida_v1`, idioma `pt_BR`, botão URL com somente sufixo opaco.
-Sem versão Graph presumida e sem criar template aprovado fictício.
-Resposta `wamid` significa aceitação. Webhook distingue envio, entrega, leitura e falha.
+`POST /api/v1/integracoes/whatsapp/webhook` é a única rota pública. Verifica `X-Webhook-Hmac`
+com HMAC SHA-512 sobre os bytes brutos, em tempo constante, e responde 401 sem gravar nada
+se falhar. Corpo limitado a 1 MiB, só com metadados. Grava em inbox com chave única antes de
+responder; repetição responde sucesso sem duplicar. Evento que falha recebe `failure_code` e
+não trava os seguintes. Eventos de grupo, status e canal, e mensagens anteriores à vinculação,
+são ignorados. O evento nunca aprova nem confere nada.
 
-GET de validação exige `hub.mode=subscribe`, verify token correto e devolve
-challenge em texto. POST verifica `X-Hub-Signature-256` com App Secret, distinto
-do verify token. Conferir WABA, número, mensagem, destinatário e instante.
-Evento antigo não sobrescreve tentativa mais recente. Não inventar consulta GET
-de mensagem ou garantia de envio exatamente uma vez.
+Download de mídia: só o caminho `/api/files/`, sobre a base configurada. Endereço fora disso
+não é chamado e a chave não sai para outro host. Falha, tipo não aceito ou arquivo acima de
+10 MiB ficam visíveis, nunca descartados em silêncio.
 
-Desenvolvimento não envia mensagens reais. Habilitação dos adaptadores exige
-configuração completa e explícita. Homologação real, credenciais, template aprovado
-e domínio de callback são requisitos externos; testes usam doubles HTTP apenas
-em configuração de teste, ligados a loopback/porta aleatória.
+Telefone canônico `+55...`, normalizado em `GuardianService`; a comparação trata o nono
+dígito. LID é resolvido por `/lids/{lid}`. Reconciliação a cada 2 minutos, para telefones com
+autorização pendente e até 20 conversas por rodada com atividade nas últimas 24 horas, grava
+apenas o que falta.
 
-## Tokens, outbox e reenvio
+Desenvolvimento não envia mensagens reais. Testes usam double HTTP nos formatos conferidos
+na imagem, sem número vinculado.
 
-- Token individual: 32 bytes aleatórios, Base64 URL sem padding, somente SHA-256
-  persistido. Token bruto fica em memória durante envio; não logar URL completa.
-- Convite aponta para `/assinatura/acesso#token=<opaco>`: fragmento não é enviado
-  ao servidor HTTP. A página extrai o token em memória, remove o fragmento do
-  histórico e faz requisições com capability Bearer no header e `credentials: omit`.
-  Exibe somente revisão/responsável daquele vínculo, sem sessão institucional,
-  sem armazenamento no navegador e com `Referrer-Policy: no-referrer`.
-- Prazo de 24 horas limitado pela expiração funcional. Revogação/revisão bloqueia
-  consulta seguinte. Assinatura realizada no prazo pode ser reconciliada depois
-  se instante, revisão e elegibilidade forem confirmados.
+## Conversas
+
+Regra de acesso: só supervisor, em `SecurityConfiguration` e de novo no serviço. O envio
+exige `Idempotency-Key`: mesma chave e mesmo conteúdo devolvem a mensagem existente; outro
+conteúdo responde 409. Falha ambígua vira `UNCERTAIN`, sem novo POST. `message.any` com
+`source=app` é gravado como enviado pelo aparelho, e com `source=api` é ignorado. O estado de
+entrega só avança. Auditoria registra envio, início de conversa, vínculo, início de sessão e
+leitura do QR, sem conteúdo. O PDF enviado pelo fluxo de saída entra no histórico da conversa
+do responsável como mensagem de origem `AUTHORIZATION`, sem novo envio, e falha nesse registro
+não segura a saída. `POST /api/v1/conversas` só responde 422 `number_not_found` quando o gateway
+confirma que o número não existe; as demais falhas respondem 503.
+
+## Fila e reenvio
+
 - Até três reenvios manuais por saída em janela móvel de 24 horas, intervalo
-  mínimo de dez minutos, motivo e versão, validados sob lock.
-- Outbox durável: cinco tentativas totais; esperas 1, 5, 15 e 15 minutos.
-  Conexão 5 s, leitura 20 s, lease 120 s, reserva curta `SKIP LOCKED`;
-  HTTP fora da transação. Idempotência local e progresso persistido por etapa.
+  mínimo de dez minutos desde o último binding, motivo e versão, validados sob lock.
+  Reenvio exige o gateway ligado.
+- Tarefa durável: cinco tentativas totais; esperas de 1, 5, 15 e 15 minutos. Lease de 120 s,
+  reserva curta `SKIP LOCKED`; HTTP fora da transação.
+- Envio disparado pelo residente, ao criar ou editar, respeita 10 minutos de intervalo e três envios
+  em 24 horas: fica agendado para o próximo horário, e só a revisão mais recente sai.
+- Reenvio é recusado com `authorization_pending` enquanto houver arquivo candidato na revisão atual.
 - Timeout de POST com aceitação possível vira `UNCERTAIN`, sem reenvio cego.
   Resultado permanente falha; temporário seguro permite retentativa limitada.
-- Hash não recupera token: recuperação anterior a envio confirmado gira token
-  e revoga o anterior. Resultado ambíguo exige providência humana explícita.
+- "Enviado" só conta com confirmação do dispositivo. Sem ela em 15 minutos, o detalhe
+  avisa e orienta o uso de outro canal.
 - Mudança funcional, tarefa e auditoria são atômicas; inbox é deduplicada por
-  provedor/ambiente/evento. Nenhuma chamada do navegador fabrica `VALID`.
+  provedor/ambiente/evento. Nenhuma chamada do navegador grava `VALID` sem a conferência
+  do supervisor.
 
-## Rotas previstas
+## Rotas
 
-`/api/v1/saidas-longas`: lista própria ou supervisor, elegibilidade, criação,
-consulta, edição, decisão, cancelamento, partida, retorno, reenvio e documentos.
-`/api/v1/assinaturas/acesso` e `/documento`: capability individual limitada.
-`/api/v1/webhooks/clicksign` e `/whatsapp`: validação de provedor, com exceção
-de CSRF exclusiva desses POSTs. Escritas institucionais continuam com CSRF.
-Fora do perfil autorizado, a API continua fechada.
+`/api/v1/saidas-longas`: lista própria ou supervisor, elegibilidade, criação, consulta,
+edição, decisão, cancelamento, partida, retorno, reenvio e documentos.
+`/{id}/autorizacao/arquivos`, `/{fileId}`, `/{fileId}/conferencia` e `/{fileId}/recusa`,
+`/{id}/autorizacao/vinculos` e `/{id}/autorizacao/nao-vinculados`: só supervisor.
+`/api/v1/conversas/**`: só supervisor, inclusive mídia, `/sessao` e `/sessao/qr`.
+`/api/v1/integracoes/whatsapp/webhook`: HMAC, com exceção de CSRF exclusiva desse POST.
+Escritas institucionais continuam com CSRF. Fora do perfil autorizado, a API continua fechada.
 
-## Fontes primárias consultadas em 30/09/2026
+## Fontes primárias
 
-- Clicksign: [informações gerais](https://developers.clicksign.com/docs/informacoes-gerais),
-  [documentos](https://developers.clicksign.com/reference/api-upload-documentos),
-  [signatário](https://developers.clicksign.com/reference/api-criar-signatario),
-  [qualificação](https://developers.clicksign.com/reference/criar-requisito-qualificacao),
-  [SMS](https://developers.clicksign.com/reference/criar-requisito-de-autenticacao),
-  [envelope](https://developers.clicksign.com/reference/api-editar-envelope),
-  [eventos](https://developers.clicksign.com/reference/eventos-de-um-documento).
-- Clicksign: [widget v3](https://developers.clicksign.com/docs/implementando-o-widget-embedded),
-  [cancelar documento](https://developers.clicksign.com/reference/editar-documento),
-  [HMAC](https://developers.clicksign.com/docs/seguranca-de-webhooks),
-  [documento fechado](https://developers.clicksign.com/docs/evento-document-closed),
-  [política de webhooks](https://developers.clicksign.com/docs/introducao-a-webhooks),
-  [telefone/notificações](https://developers.clicksign.com/reference/signatario-campos-e-regras-de-negocio).
-- Meta: [coleção oficial de template](https://www.postman.com/meta/whatsapp-business-platform/request/lwtlz1k/send-message-template-interactive),
-  [estados](https://www.postman.com/meta/whatsapp-business-platform/folder/fuaee8l/statuses-object),
-  [botão URL](https://whatsapp.github.io/WhatsApp-Nodejs-SDK/api-reference/types/component_object/),
-  [webhook](https://whatsapp.github.io/WhatsApp-Nodejs-SDK/api-reference/webhooks/start/).
-  O SDK arquivado é fonte do formato, não dependência recomendada; páginas atuais
-  Developers responderam 429 durante a pesquisa.
-- Apache: [PDFBox 3](https://pdfbox.apache.org/3.0/getting-started.html) e
-  [fontes/layout](https://pdfbox.apache.org/3.0/faq.html);
-  Adobe: [Source Sans](https://github.com/adobe-fonts/source-sans);
-  Java: [movimento atômico](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/nio/file/Files.html).
+Do gateway: [`docs/whatsapp/PESQUISA.md`](../whatsapp/PESQUISA.md). Do documento:
+[PDFBox 3](https://pdfbox.apache.org/3.0/getting-started.html),
+[fontes/layout](https://pdfbox.apache.org/3.0/faq.html),
+[Source Sans](https://github.com/adobe-fonts/source-sans) e
+[movimento atômico](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/nio/file/Files.html).

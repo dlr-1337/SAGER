@@ -214,6 +214,38 @@ class AuthFlowIntegrationTest {
     }
 
     @Test
+    void existingAccountKeepsLoggingInWithPasswordTheCurrentRulesWouldRefuse() throws Exception {
+        String email = "conta-antiga@example.invalid";
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(email), email, "Conta Antiga", "gestor", PASSWORD.toCharArray());
+        String oldPassword = "aaaaaaaaaaaa";
+        jdbc.update("UPDATE sager_local_account SET password_hash = ? WHERE email = ?", passwords.encode(oldPassword), email);
+        try (HttpClient client = browser()) {
+            assertThat(login(client, email, oldPassword, csrfToken(client)).statusCode()).isEqualTo(204);
+        }
+    }
+
+    @Test
+    void enrollmentTypedWithPunctuationReachesTheAccountSavedWithoutIt() throws Exception {
+        provisioning.create("20171ABCD000123", "pontuada@example.invalid", "Conta Pontuada", "gestor", PASSWORD.toCharArray());
+        String form = "matricula=" + URLEncoder.encode("2017.1-abcd.000123", StandardCharsets.UTF_8)
+                + "&password=" + URLEncoder.encode(PASSWORD, StandardCharsets.UTF_8);
+        try (HttpClient client = browser()) {
+            assertThat(post(client, "/api/v1/auth/login", form, csrfToken(client)).statusCode()).isEqualTo(204);
+        }
+    }
+
+    @Test
+    void theCsrfTokenIsNeverReadFromTheBody() throws Exception {
+        try (HttpClient client = browser()) {
+            String token = csrfToken(client);
+            String form = "matricula=x&password=y&_csrf=" + URLEncoder.encode(token, StandardCharsets.UTF_8);
+            assertThat(post(client, "/api/v1/auth/login", form, null).statusCode()).isEqualTo(403);
+            assertThat(post(client, "/api/v1/auth/login", "matricula=x&password=y", token).statusCode())
+                    .isEqualTo(401);
+        }
+    }
+
+    @Test
     void usesTheImmutableAccountIdInTheSessionIndex() throws Exception {
         String email = "a".repeat(60) + "@" + "b".repeat(60) + "." + "c".repeat(60)
                 + "." + "d".repeat(60) + "." + "e".repeat(60);

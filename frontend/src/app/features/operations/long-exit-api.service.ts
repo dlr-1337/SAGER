@@ -1,6 +1,8 @@
+import { ERROR_GENERIC } from '../../core/error-messages';
 import { readArrayPage } from '../../core/list-page';
 import { Injectable } from '@angular/core';
-import { LongExit, LongExitEligibility, LongExitInput } from './long-exit.models';
+import { isAuthorizationMediaType } from './long-exit-document.utils';
+import { LongExit, LongExitEligibility, LongExitInput, ReceivedFile } from './long-exit.models';
 import { OperationsApiError } from './operations-local-api.service';
 import { PhysicalExitInput } from './operations-local.models';
 import { exitStatusLabels } from './operations-local.utils';
@@ -16,6 +18,37 @@ const instant = (value: unknown): value is string =>
   /(?:Z|[+-]\d\d:\d\d)$/.test(value);
 const version = (value: unknown): value is number =>
   typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+const nullableText = (value: unknown) => value === null || typeof value === 'string';
+const nullableInstant = (value: unknown) => value === null || instant(value);
+function isAuthorizationFile(value: unknown): boolean {
+  return (
+    record(value) &&
+    fields(value, ['id', 'documentVersionId', 'bindingId', 'mediaType', 'sha256']) &&
+    ['WHATSAPP', 'MANUAL'].includes(String(value['origin'])) &&
+    ['CANDIDATE', 'ACCEPTED', 'REFUSED'].includes(String(value['state'])) &&
+    version(value['size']) &&
+    nullableText(value['senderPhone']) &&
+    typeof value['senderDivergent'] === 'boolean' &&
+    instant(value['receivedAt']) &&
+    nullableText(value['decidedBy']) &&
+    nullableText(value['decidedByName']) &&
+    nullableInstant(value['decidedAt']) &&
+    nullableText(value['decisionReason'])
+  );
+}
+function isReceivedFile(value: unknown): value is ReceivedFile {
+  return (
+    record(value) &&
+    typeof value['messageId'] === 'string' &&
+    nullableText(value['senderPhone']) &&
+    typeof value['fromGuardian'] === 'boolean' &&
+    ['STORED', 'FAILED'].includes(String(value['mediaState'])) &&
+    nullableText(value['failureCode']) &&
+    nullableText(value['mediaType']) &&
+    version(value['size']) &&
+    instant(value['receivedAt'])
+  );
+}
 function isEligibility(value: unknown): value is LongExitEligibility {
   return (
     record(value) &&
@@ -25,7 +58,6 @@ function isEligibility(value: unknown): value is LongExitEligibility {
     Array.isArray(value['blockers']) &&
     value['blockers'].every((item) => typeof item === 'string') &&
     record(value['providers']) &&
-    typeof value['providers']['clicksignEnabled'] === 'boolean' &&
     typeof value['providers']['whatsappEnabled'] === 'boolean' &&
     Array.isArray(value['guardians']) &&
     value['guardians'].every(
@@ -39,7 +71,7 @@ function isEligibility(value: unknown): value is LongExitEligibility {
     )
   );
 }
-function isLongExit(value: unknown): value is LongExit {
+export function isLongExit(value: unknown): value is LongExit {
   if (
     !record(value) ||
     !fields(value, [
@@ -74,7 +106,7 @@ function isLongExit(value: unknown): value is LongExit {
       'canDepart',
       'canReturn',
       'canResend',
-      'canReconcile',
+      'canAttachAuthorization',
       'canDownloadOriginal',
       'canDownloadSigned',
     ].every((field) => typeof caps[field] === 'boolean')
@@ -101,18 +133,25 @@ function isLongExit(value: unknown): value is LongExit {
         fields(binding, ['id', 'documentVersionId', 'guardianId', 'guardianName']) &&
         Object.hasOwn(signatureStatusLabels, String(binding['status'])) &&
         Object.hasOwn(messageStatusLabels, String(binding['messageStatus'])) &&
-        typeof binding['widgetAvailable'] === 'boolean' &&
+        nullableText(binding['verifiedBy']) &&
+        nullableText(binding['verifiedByName']) &&
+        nullableInstant(binding['verifiedAt']) &&
         instant(binding['createdAt']) &&
         instant(binding['expiresAt']),
     )
   )
     return false;
   return (
+    Array.isArray(value['authorizationFiles']) &&
+    value['authorizationFiles'].every(isAuthorizationFile) &&
+    typeof value['whatsappAvailable'] === 'boolean' &&
+    typeof value['deliveryUnconfirmed'] === 'boolean' &&
     Array.isArray(value['history']) &&
     value['history'].every(
       (event) =>
         record(event) &&
-        fields(event, ['id', 'event', 'actorProfile', 'status', 'guardianId']) &&
+        fields(event, ['id', 'event', 'status', 'guardianId']) &&
+        nullableText(event['actorProfile']) &&
         version(event['version']) &&
         instant(event['recordedAt']),
     )
@@ -143,8 +182,7 @@ export class LongExitApiService {
     const value = await this.request(
       '/api/v1/saidas-longas' + (query.size ? '?' + query.toString() : ''),
     );
-    if (!Array.isArray(value) || !value.every(isLongExit))
-      throw new Error('O servidor retornou uma lista inválida. Tente novamente.');
+    if (!Array.isArray(value) || !value.every(isLongExit)) throw new Error(ERROR_GENERIC);
     return value;
   }
   async get(id: string): Promise<LongExit> {
@@ -165,7 +203,9 @@ export class LongExitApiService {
   }
   async decide(exit: LongExit, decision: 'APPROVE' | 'REJECT', comment: string): Promise<LongExit> {
     if (decision === 'APPROVE' && !exit.currentDocument)
-      throw new Error('O documento da revisão atual ainda não está disponível.');
+      throw new Error(
+        'O documento atual ainda não está pronto. Recarregue os dados e tente de novo.',
+      );
     return this.mutate(exit.id, 'decisao', {
       version: exit.version,
       decision,
@@ -185,8 +225,44 @@ export class LongExitApiService {
       ...(guardianId ? { guardianId } : {}),
     });
   }
-  async reconcile(exit: LongExit): Promise<LongExit> {
-    return this.mutate(exit.id, 'reconciliacao', { version: exit.version });
+  async attachAuthorization(exit: LongExit, file: File): Promise<LongExit> {
+    const form = new FormData();
+    form.append('version', String(exit.version));
+    form.append('file', file);
+    return this.mutate(exit.id, 'autorizacao/arquivos', form);
+  }
+  async linkAuthorization(exit: LongExit, messageId: string): Promise<LongExit> {
+    return this.mutate(exit.id, 'autorizacao/vinculos', { version: exit.version, messageId });
+  }
+  async unlinkedFiles(id: string): Promise<ReceivedFile[]> {
+    const value = await this.request(
+      `/api/v1/saidas-longas/${encodeURIComponent(id)}/autorizacao/nao-vinculados`,
+    );
+    if (!Array.isArray(value) || !value.every(isReceivedFile)) throw new Error(ERROR_GENERIC);
+    return value;
+  }
+  authorizationFileUrl(id: string, fileId: string): string {
+    return `/api/v1/saidas-longas/${encodeURIComponent(id)}/autorizacao/arquivos/${encodeURIComponent(fileId)}`;
+  }
+  async authorizationFile(id: string, fileId: string): Promise<Blob> {
+    return this.authorizationBlob(this.authorizationFileUrl(id, fileId));
+  }
+  async confirmAuthorization(
+    exit: LongExit,
+    fileId: string,
+    justification: string,
+  ): Promise<LongExit> {
+    return this.mutate(exit.id, `autorizacao/arquivos/${encodeURIComponent(fileId)}/conferencia`, {
+      version: exit.version,
+      confirmed: true,
+      ...(justification ? { justification } : {}),
+    });
+  }
+  async refuseAuthorization(exit: LongExit, fileId: string, comment: string): Promise<LongExit> {
+    return this.mutate(exit.id, `autorizacao/arquivos/${encodeURIComponent(fileId)}/recusa`, {
+      version: exit.version,
+      comment,
+    });
   }
   async physical(
     id: string,
@@ -200,14 +276,25 @@ export class LongExitApiService {
     documentVersionId: string,
     kind: 'original' | 'assinado',
   ): Promise<Blob> {
-    const response = await this.response(
-      `/api/v1/saidas-longas/${encodeURIComponent(id)}/documentos/${encodeURIComponent(documentVersionId)}/${kind}`,
-      'GET',
-      undefined,
-      'application/pdf',
-    );
-    if (response.headers.get('content-type')?.split(';')[0].trim() !== 'application/pdf')
+    const url = `/api/v1/saidas-longas/${encodeURIComponent(id)}/documentos/${encodeURIComponent(documentVersionId)}/${kind}`;
+    if (kind === 'assinado') return this.authorizationBlob(url);
+    const response = await this.response(url, 'GET', undefined, 'application/pdf');
+    if (this.mediaType(response) !== 'application/pdf')
       throw new Error('O arquivo recebido não é um documento PDF. Tente atualizar os dados.');
+    return this.filled(response);
+  }
+  private async authorizationBlob(url: string): Promise<Blob> {
+    const response = await this.response(url, 'GET', undefined, '*/*');
+    const type = this.mediaType(response);
+    if (!isAuthorizationMediaType(type))
+      throw new Error('O tipo do arquivo recebido não é permitido. Tente atualizar os dados.');
+    // The download name is derived from Blob.type, which must not carry parameters.
+    return (await this.filled(response)).slice(0, undefined, type);
+  }
+  private mediaType(response: Response): string {
+    return response.headers.get('content-type')?.split(';')[0].trim().toLowerCase() ?? '';
+  }
+  private async filled(response: Response): Promise<Blob> {
     const blob = await response.blob();
     if (!blob.size) throw new Error('O documento recebido está vazio. Tente atualizar os dados.');
     return blob;
@@ -223,8 +310,7 @@ export class LongExitApiService {
     );
   }
   private checked<T>(value: unknown, guard: (value: unknown) => value is T): T {
-    if (!guard(value))
-      throw new Error('O servidor retornou dados inválidos. Recarregue a solicitação.');
+    if (!guard(value)) throw new Error(ERROR_GENERIC);
     return value;
   }
   private async request(url: string, method = 'GET', input?: unknown): Promise<unknown> {
@@ -239,17 +325,19 @@ export class LongExitApiService {
     const headers: Record<string, string> = { Accept: accept };
     if (method !== 'GET') {
       const csrf = await this.request('/api/v1/auth/csrf');
-      if (!record(csrf) || !fields(csrf, ['headerName', 'token']))
-        throw new Error('Não foi possível obter a proteção da sessão.');
+      if (!record(csrf) || !fields(csrf, ['headerName', 'token'])) throw new Error(ERROR_GENERIC);
       headers[String(csrf['headerName'])] = String(csrf['token']);
-      headers['Content-Type'] = 'application/json';
+      // The browser must write the multipart boundary itself.
+      if (!(input instanceof FormData)) headers['Content-Type'] = 'application/json';
     }
     const response = await fetch(url, {
       method,
       credentials: 'same-origin',
       cache: 'no-store',
       headers,
-      ...(input === undefined ? {} : { body: JSON.stringify(input) }),
+      ...(input === undefined
+        ? {}
+        : { body: input instanceof FormData ? input : JSON.stringify(input) }),
     });
     if (!response.ok) {
       let body: unknown;

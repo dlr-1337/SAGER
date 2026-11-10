@@ -51,7 +51,7 @@ import { Accommodation } from './housing.models';
               Alojamentos</a
             >
             <h1>{{ editId ? 'Editar alojamento' : 'Cadastrar alojamento' }}</h1>
-            <p>Informe a identificação da residência ou conjunto de casas.</p>
+            <p>Informe o nome e o código da residência.</p>
           </div>
         </header>
         <form
@@ -73,7 +73,7 @@ import { Accommodation } from './housing.models';
                 [attr.aria-invalid]="form.controls.code.touched && form.controls.code.invalid"
                 aria-describedby="accommodation-code-help"
               /><span id="accommodation-code-help" class="mg-muted"
-                >Identificação única. Exemplo fictício: TESTE-A.</span
+                >Não pode repetir. Exemplo: ALOJ-A.</span
               >
               @if (form.controls.code.touched && form.controls.code.invalid) {
                 <span class="mg-field-error">Informe um código de até 64 caracteres.</span>
@@ -108,7 +108,7 @@ import { Accommodation } from './housing.models';
               (click)="reloadLatest()"
               [disabled]="saving()"
             >
-              Carregar versão atual do alojamento
+              Recarregar dados
             </button>
           }
           <div class="mg-actions">

@@ -1,3 +1,4 @@
+import { ERROR_CONFLICT, ERROR_GENERIC, ERROR_INVALID } from '../../core/error-messages';
 import { debounceTime, merge } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
@@ -5,6 +6,13 @@ import { PaginationComponent } from '../../shared/pagination.component';
 import { normalizeSearch } from '../../shared/search';
 import { rememberFilters, rememberValue } from '../../core/filter-state';
 import { UnsavedFormDirective } from '../../shared/unsaved-form';
+import {
+  fieldRule,
+  nameProblem,
+  phoneMask,
+  phoneProblem,
+  relationshipProblem,
+} from '../../shared/field-rules';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -14,25 +22,12 @@ import {
   signal,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import {
-  AbstractControl,
-  FormControl,
-  FormGroup,
-  ReactiveFormsModule,
-  Validators,
-} from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { GuardianApiError, GuardianApiService, GuardianRecord } from './guardian-api.service';
 import { ManagementDemoService } from './management-demo.service';
 import { ResidentApiService, ResidentRecord } from './resident-api.service';
-
-function trimmedLength(min: number, max: number) {
-  return (control: AbstractControl): { trimmedLength: true } | null => {
-    const length = String(control.value ?? '').trim().length;
-    return length < min || length > max ? { trimmedLength: true } : null;
-  };
-}
 
 @Component({
   selector: 'app-guardians',
@@ -52,7 +47,7 @@ function trimmedLength(min: number, max: number) {
             {{
               isDemo()
                 ? 'Consulte os vínculos e autorizações demonstrativas.'
-                : 'Consulte os vínculos cadastrados no ambiente local de teste.'
+                : 'Veja quem é responsável por cada residente.'
             }}
           </p>
         </div>
@@ -81,7 +76,7 @@ function trimmedLength(min: number, max: number) {
           </select></label
         >
         <label class="field mg-field"
-          >Residente vinculado<select sagerSearchable [formControl]="residentFilter">
+          >Residente<select sagerSearchable [formControl]="residentFilter">
             <option value="">Todos</option>
             @for (resident of isDemo() ? service.residents() : residents(); track resident.id) {
               <option [value]="resident.id">{{ resident.name }} · {{ resident.enrollment }}</option>
@@ -112,11 +107,7 @@ function trimmedLength(min: number, max: number) {
             >
             <h3>Carregando responsáveis</h3>
             <p>
-              {{
-                isDemo()
-                  ? 'Estado simulado para avaliar a interface.'
-                  : 'Consultando o cadastro local de teste.'
-              }}
+              {{ isDemo() ? 'Estado simulado para avaliar a interface.' : 'Aguarde um momento.' }}
             </p>
             @if (isDemo()) {
               <button class="btn mg-secondary" type="button" (click)="retry()">
@@ -131,7 +122,7 @@ function trimmedLength(min: number, max: number) {
               {{
                 isDemo()
                   ? 'Falha simulada. Tente novamente para ver os registros fictícios.'
-                  : 'Confira a conexão com o backend local e tente novamente.'
+                  : 'Não deu certo. Verifique a internet e tente de novo.'
               }}
             </p>
             <button class="btn mg-primary" type="button" (click)="retry()">Tentar novamente</button>
@@ -142,11 +133,7 @@ function trimmedLength(min: number, max: number) {
           <div class="mg-empty" role="status">
             <h3>Nenhum responsável cadastrado</h3>
             <p>
-              {{
-                isDemo()
-                  ? 'Estado vazio da demonstração.'
-                  : 'Cadastre um responsável para criar o primeiro vínculo.'
-              }}
+              {{ isDemo() ? 'Estado vazio da demonstração.' : 'Cadastre o primeiro responsável.' }}
             </p>
             @if (isDemo() && scenario() === 'vazio') {
               <button class="btn mg-secondary" type="button" (click)="retry()">
@@ -164,12 +151,10 @@ function trimmedLength(min: number, max: number) {
                   <p>{{ item.relationship }} de {{ residentName(item.residentId) }}</p>
                 </div>
                 <div class="mg-row-detail">
-                  <strong>{{ item.active ? 'Ativo' : 'Inativo' }}</strong
-                  ><span>{{
-                    isDemo()
-                      ? demoAuthorization(item.id)
-                      : 'Assinatura pendente de definição institucional'
-                  }}</span>
+                  <strong>{{ item.active ? 'Ativo' : 'Inativo' }}</strong>
+                  @if (isDemo()) {
+                    <span>{{ demoAuthorization(item.id) }}</span>
+                  }
                 </div>
                 <a class="mg-row-link" [routerLink]="['/responsaveis', item.id]"
                   >Ver detalhes
@@ -195,7 +180,7 @@ function trimmedLength(min: number, max: number) {
           {{
             isDemo()
               ? 'Telefones e autorizações são fictícios. Nenhuma mensagem ou documento será enviado nesta demonstração.'
-              : 'A autorização para saídas e a validade da assinatura dependem de definição da AE/TI.'
+              : 'Cada saída longa precisa da autorização do responsável, conferida por um servidor.'
           }}
         </p>
       </div>
@@ -249,16 +234,16 @@ export class GuardiansPage {
     rememberFilters('guardians', this.search);
     rememberFilters('guardian-active', this.activeFilter);
     rememberFilters('guardian-resident', this.residentFilter);
-    merge(
+    // A página volta ao início na hora: esperar a pausa desfazia um clique em "Próxima".
+    const changes = merge(
       this.search.valueChanges,
       this.activeFilter.valueChanges,
       this.residentFilter.valueChanges,
-    )
-      .pipe(debounceTime(250), takeUntilDestroyed())
-      .subscribe(() => {
-        this.page.set(0);
-        if (!this.isDemo()) void this.load();
-      });
+    );
+    changes.pipe(takeUntilDestroyed()).subscribe(() => this.page.set(0));
+    changes.pipe(debounceTime(250), takeUntilDestroyed()).subscribe(() => {
+      if (!this.isDemo()) void this.load();
+    });
     if (this.isDemo()) {
       const lastPage = Math.max(0, Math.ceil(this.filtered().length / 25) - 1);
       this.page.update((page) => Math.max(0, Math.min(page, lastPage)));
@@ -338,7 +323,7 @@ export class GuardiansPage {
       } @else if (loading()) {
         <section class="mg-empty" role="status">
           <h1>Carregando responsável</h1>
-          <p>Consultando o cadastro local de teste.</p>
+          <p>Aguarde um momento.</p>
         </section>
       } @else if (loadError()) {
         <section class="mg-empty" role="alert">
@@ -373,7 +358,7 @@ export class GuardiansPage {
         @if (saved()) {
           <p class="mg-success" role="status">
             <span class="material-symbols-rounded" aria-hidden="true">check_circle</span>
-            Responsável salvo {{ isDemo() ? 'nesta demonstração' : 'no ambiente local de teste' }}.
+            Responsável salvo{{ isDemo() ? ' nesta demonstração' : '' }}.
           </p>
         }
         <section class="panel mg-panel" aria-labelledby="guardian-data-title">
@@ -389,10 +374,10 @@ export class GuardiansPage {
             </div>
             <div>
               <dt>Telefone</dt>
-              <dd>{{ item.phone || 'Não informado' }}</dd>
+              <dd>{{ phoneMask(item.phone) || 'Não informado' }}</dd>
             </div>
             <div>
-              <dt>Residente vinculado</dt>
+              <dt>Residente</dt>
               <dd>
                 <a [routerLink]="['/residentes', item.residentId]">{{ residentName() }}</a>
               </dd>
@@ -401,28 +386,25 @@ export class GuardiansPage {
               <dt>Situação</dt>
               <dd>{{ item.active ? 'Ativo' : 'Inativo' }}</dd>
             </div>
-            <div>
-              <dt>Assinatura de saída longa</dt>
-              <dd>
-                {{ isDemo() ? demoAuthorization() : 'Pendente de definição institucional' }}
-              </dd>
-            </div>
+            @if (isDemo()) {
+              <div>
+                <dt>Assinatura de saída longa</dt>
+                <dd>{{ demoAuthorization() }}</dd>
+              </div>
+            }
           </dl>
         </section>
         <div class="mg-note">
           <span class="material-symbols-rounded" aria-hidden="true">info</span>
           <p>
-            O procedimento e a validade da assinatura dependem de definição institucional. Este
-            vínculo não concede autorização de saída.
+            Este cadastro sozinho não autoriza saídas. Cada saída longa precisa da autorização do
+            responsável, conferida por um servidor.
           </p>
         </div>
       } @else {
         <section class="mg-empty" role="alert">
           <h1>Responsável não encontrado</h1>
-          <p>
-            O cadastro solicitado não está disponível
-            {{ isDemo() ? 'nesta demonstração' : 'no ambiente local de teste' }}.
-          </p>
+          <p>Não encontramos este cadastro. Volte à lista e tente de novo.</p>
           <a class="btn mg-primary" routerLink="/responsaveis">Voltar aos responsáveis</a>
         </section>
       }
@@ -430,6 +412,7 @@ export class GuardiansPage {
   `,
 })
 export class GuardianDetailPage {
+  readonly phoneMask = phoneMask;
   private readonly service = inject(ManagementDemoService);
   private readonly api = inject(GuardianApiService);
   private readonly residentApi = inject(ResidentApiService);
@@ -485,8 +468,8 @@ export class GuardianDetailPage {
       this.missing.set(error instanceof GuardianApiError && error.status === 404);
       this.loadError.set(
         this.missing()
-          ? 'O cadastro solicitado não está disponível no ambiente local de teste.'
-          : 'Confira a conexão com o backend local e tente novamente.',
+          ? 'Não encontramos este cadastro. Volte à lista e tente de novo.'
+          : ERROR_GENERIC,
       );
     } finally {
       if (!this.destroyRef.destroyed) this.loading.set(false);
@@ -510,7 +493,7 @@ export class GuardianDetailPage {
       } @else if (loading()) {
         <section class="mg-empty" role="status">
           <h1>Carregando cadastro</h1>
-          <p>Consultando os dados locais de teste.</p>
+          <p>Aguarde um momento.</p>
         </section>
       } @else if (loadError()) {
         <section class="mg-empty" role="alert">
@@ -531,7 +514,7 @@ export class GuardianDetailPage {
               Responsáveis</a
             >
             <h1>{{ editId ? 'Editar responsável' : 'Cadastrar responsável' }}</h1>
-            <p>Vincule o contato a um residente.</p>
+            <p>Diga de qual residente esta pessoa é responsável.</p>
           </div>
         </header>
         <form
@@ -544,12 +527,14 @@ export class GuardianDetailPage {
         >
           <h2>Dados do responsável</h2>
           <p class="mg-muted">
-            Campos marcados com * são obrigatórios. Use somente dados fictícios
-            {{ isDemo() ? 'nesta demonstração' : 'no ambiente local de teste' }}.
+            Campos marcados com * são obrigatórios.
+            @if (isDemo()) {
+              Use somente dados fictícios nesta demonstração.
+            }
           </p>
           <div class="form-grid mg-form-grid">
             <label class="field mg-field mg-span-2"
-              >Residente vinculado *
+              >Residente *
               <select
                 [attr.aria-invalid]="
                   form.controls.residentId.invalid && form.controls.residentId.touched
@@ -577,18 +562,18 @@ export class GuardianDetailPage {
                   form.controls.name.invalid && form.controls.name.touched ? 'true' : null
                 "
                 formControlName="name"
-                autocomplete="name"
+                autocomplete="off"
                 maxlength="200"
                 aria-describedby="guardian-name-error"
               />
               @if (form.controls.name.invalid && form.controls.name.touched) {
-                <span class="mg-field-error" id="guardian-name-error"
-                  >Informe o nome com 3 a 200 caracteres.</span
-                >
+                <span class="mg-field-error" id="guardian-name-error">{{
+                  form.controls.name.errors?.['fieldRule']
+                }}</span>
               }
             </label>
             <label class="field mg-field"
-              >Vínculo com o residente *<input
+              >Parentesco com o residente *<input
                 [attr.aria-invalid]="
                   form.controls.relationship.invalid && form.controls.relationship.touched
                     ? 'true'
@@ -600,28 +585,26 @@ export class GuardianDetailPage {
                 aria-describedby="guardian-relationship-error"
               />
               @if (form.controls.relationship.invalid && form.controls.relationship.touched) {
-                <span class="mg-field-error" id="guardian-relationship-error"
-                  >Informe o vínculo com 2 a 80 caracteres.</span
-                >
+                <span class="mg-field-error" id="guardian-relationship-error">{{
+                  form.controls.relationship.errors?.['fieldRule']
+                }}</span>
               }
             </label>
             <label class="field mg-field"
-              >Telefone {{ isDemo() ? 'com DDD *' : '(opcional)'
-              }}<input
+              >Telefone com DDD *<input
                 [attr.aria-invalid]="
                   form.controls.phone.invalid && form.controls.phone.touched ? 'true' : null
                 "
                 type="tel"
                 formControlName="phone"
-                autocomplete="tel"
+                autocomplete="off"
                 maxlength="30"
                 aria-describedby="guardian-phone-error"
+                (blur)="form.controls.phone.setValue(phoneMask(form.controls.phone.value))"
               />
               @if (form.controls.phone.invalid && form.controls.phone.touched) {
                 <span class="mg-field-error" id="guardian-phone-error">{{
-                  isDemo()
-                    ? 'Informe 10 ou 11 dígitos, incluindo o DDD.'
-                    : 'O telefone pode ter até 30 caracteres.'
+                  form.controls.phone.errors?.['fieldRule']
                 }}</span>
               }
             </label>
@@ -638,8 +621,8 @@ export class GuardianDetailPage {
           <div class="mg-note">
             <span class="material-symbols-rounded" aria-hidden="true">info</span>
             <p>
-              Nenhuma mensagem será enviada. A autorização de saída e a assinatura válida dependem
-              de definição institucional.
+              Salvar este cadastro não envia mensagem. O responsável só recebe o pedido quando o
+              residente pede uma saída longa.
             </p>
           </div>
           @if (error()) {
@@ -647,7 +630,7 @@ export class GuardianDetailPage {
           }
           @if (conflict()) {
             <button type="button" class="btn mg-secondary" (click)="reloadLatest()">
-              Carregar versão atual do cadastro
+              Recarregar dados
             </button>
           }
           <div class="action-row mg-actions">
@@ -685,17 +668,33 @@ export class GuardianFormPage {
   readonly conflict = signal(false);
   readonly saving = signal(false);
   readonly submitting = signal(false);
+  readonly phoneMask = phoneMask;
+  private readonly saved = computed(() =>
+    this.isDemo()
+      ? this.editId
+        ? this.service.guardian(this.editId)
+        : undefined
+      : (this.localGuardian() ?? undefined),
+  );
   readonly form = new FormGroup({
     residentId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     name: new FormControl('', {
       nonNullable: true,
-      validators: [trimmedLength(3, 200)],
+      validators: [fieldRule(nameProblem, () => this.saved()?.name)],
     }),
     relationship: new FormControl('', {
       nonNullable: true,
-      validators: [trimmedLength(2, 80)],
+      validators: [fieldRule(relationshipProblem, () => this.saved()?.relationship)],
     }),
-    phone: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(30)] }),
+    phone: new FormControl('', {
+      nonNullable: true,
+      validators: [
+        fieldRule(phoneProblem, () => {
+          const guardian = this.saved();
+          return guardian && phoneMask(guardian.phone);
+        }),
+      ],
+    }),
     active: new FormControl(true, { nonNullable: true }),
     authorized: new FormControl(true, { nonNullable: true }),
   });
@@ -703,11 +702,6 @@ export class GuardianFormPage {
   constructor() {
     if (!this.canEdit()) return;
     if (this.isDemo()) {
-      this.form.controls.phone.setValidators([
-        Validators.required,
-        Validators.pattern(/^\d{10,11}$/),
-      ]);
-      this.form.controls.phone.updateValueAndValidity({ emitEvent: false });
       this.residents.set(this.service.residents());
       const existing = this.editId ? this.service.guardian(this.editId) : undefined;
       if (existing) {
@@ -742,7 +736,7 @@ export class GuardianFormPage {
       residentId: item.residentId,
       name: item.name,
       relationship: item.relationship,
-      phone: item.phone ?? '',
+      phone: phoneMask(item.phone),
       active: item.active,
       authorized: 'authorized' in item ? item.authorized : false,
     });
@@ -775,8 +769,8 @@ export class GuardianFormPage {
       this.missing.set(error instanceof GuardianApiError && error.status === 404);
       this.loadError.set(
         this.missing()
-          ? 'O cadastro solicitado não está disponível no ambiente local de teste.'
-          : 'Confira a conexão com o backend local e tente novamente.',
+          ? 'Não encontramos este cadastro. Volte à lista e tente de novo.'
+          : ERROR_GENERIC,
       );
     } finally {
       if (!this.destroyRef.destroyed) this.loading.set(false);
@@ -846,17 +840,13 @@ export class GuardianFormPage {
         (error.status === 409 || error.code === 'stale_version')
       ) {
         this.conflict.set(true);
-        this.error.set(
-          'O responsável foi alterado por outra sessão. Carregue a versão atual antes de salvar.',
-        );
+        this.error.set(ERROR_CONFLICT);
       } else if (error instanceof GuardianApiError && error.status === 422) {
-        this.error.set('O residente selecionado não está mais disponível. Atualize o cadastro.');
+        this.error.set('Não encontramos o residente escolhido. Recarregue a página e confira.');
       } else if (error instanceof GuardianApiError && error.status === 400) {
-        this.error.set('Os dados foram recusados. Revise os campos e tente novamente.');
+        this.error.set(ERROR_INVALID);
       } else {
-        this.error.set(
-          'Não foi possível salvar o responsável. Confira a conexão e tente novamente.',
-        );
+        this.error.set(ERROR_GENERIC);
       }
     } finally {
       if (!this.destroyRef.destroyed) {

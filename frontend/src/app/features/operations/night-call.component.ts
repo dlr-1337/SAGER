@@ -2,7 +2,7 @@ import { SearchableSelectDirective } from '../../shared/searchable-select.direct
 import { ProgressBarComponent } from '../../shared/progress-bar.component';
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { RouterLink } from '@angular/router';
@@ -68,6 +68,12 @@ import { NightCallLocalComponent } from './night-call-local.component';
                   A chamada real ocorre às 22h30. Horário, tolerância e correções após confirmação
                   dependem da AE.
                 </p>
+                @if (service.callSummary().justified) {
+                  <p class="op-warning">
+                    Residentes com saída em andamento já entram como ausência justificada. Confira e
+                    corrija se preciso.
+                  </p>
+                }
                 <label class="op-check"
                   ><input type="checkbox" [formControl]="lateScenario" /> Simular registro tardio
                   para revisar o alerta</label
@@ -99,6 +105,13 @@ import { NightCallLocalComponent } from './night-call-local.component';
                     <option value="">Todos</option>
                     <option value="A">Bloco A</option>
                     <option value="B">Bloco B</option>
+                  </select></label
+                ><label class="field"
+                  >Quarto<select sagerSearchable [formControl]="room">
+                    <option value="">Todos os quartos</option>
+                    @for (option of roomOptions(); track option) {
+                      <option [value]="option">{{ option }}</option>
+                    }
                   </select></label
                 >
               </div>
@@ -142,6 +155,16 @@ import { NightCallLocalComponent } from './night-call-local.component';
                           >Autorização aprovada no cenário de demonstração</span
                         >
                       }
+                      @if (markedBySystem(resident.id); as exit) {
+                        <p>
+                          Ausência justificada ·
+                          <a class="op-exit-link" [routerLink]="['/saidas', exit.id]"
+                            >saída {{ exit.kind === 'Longa' ? 'longa' : 'curta'
+                            }}<span class="sr-only"> de {{ resident.name }}</span></a
+                          >
+                          · Sistema
+                        </p>
+                      }
                     </div>
                     <div
                       class="op-mark-group"
@@ -184,7 +207,7 @@ import { NightCallLocalComponent } from './night-call-local.component';
             } @else {
               <div class="op-empty" role="status">
                 <h3>Nenhum residente encontrado</h3>
-                <p>Altere a busca ou o bloco para ver os demais residentes.</p>
+                <p>Altere a busca, o bloco ou o quarto para ver os demais residentes.</p>
               </div>
             }
           </section>
@@ -219,8 +242,10 @@ export class NightCallComponent {
   private readonly dialog = inject(MatDialog);
   readonly search = new FormControl('', { nonNullable: true });
   readonly block = new FormControl('', { nonNullable: true });
+  readonly room = new FormControl('', { nonNullable: true });
   private readonly searchValue = toSignal(this.search.valueChanges, { initialValue: '' });
   private readonly blockValue = toSignal(this.block.valueChanges, { initialValue: '' });
+  private readonly roomValue = toSignal(this.room.valueChanges, { initialValue: '' });
   readonly lateScenario = new FormControl(false, { nonNullable: true });
   readonly error = signal('');
   readonly filtered = computed(() => {
@@ -230,12 +255,36 @@ export class NightCallComponent {
       (resident) =>
         (!query ||
           `${resident.name} ${resident.registration}`.toLocaleLowerCase('pt-BR').includes(query)) &&
-        (!block || resident.block === block),
+        (!block || resident.block === block) &&
+        (!this.roomValue() || resident.room === this.roomValue()),
     );
   });
+  readonly roomOptions = computed(() => {
+    const block = this.blockValue();
+    return [
+      ...new Set(
+        this.service.minors
+          .filter((resident) => !block || resident.block === block)
+          .map((resident) => resident.room),
+      ),
+    ].sort();
+  });
+
+  constructor() {
+    this.block.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => this.room.setValue(''));
+  }
 
   markFor(id: string): AttendanceMark | null {
     return this.service.attendance().find((entry) => entry.residentId === id)?.mark ?? null;
+  }
+  markedBySystem(id: string) {
+    const entry = this.service.attendance().find((item) => item.residentId === id);
+    if (!entry?.system) return null;
+    return (
+      this.service
+        .exits()
+        .find((exit) => exit.residentId === id && exit.status === 'Em andamento') ?? null
+    );
   }
   mark(id: string, value: AttendanceMark): void {
     this.error.set('');

@@ -13,15 +13,11 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="panel op-panel" aria-labelledby="source-evidence-title">
-      <h2 id="source-evidence-title">Origem e evidência</h2>
+      <h2 id="source-evidence-title">O que aconteceu</h2>
       <dl class="comm-definition">
         <div>
           <dt>Origem</dt>
           <dd>{{ sources[occurrence.sourceType] || 'Origem registrada' }}</dd>
-        </div>
-        <div>
-          <dt>Identificador da origem</dt>
-          <dd>{{ occurrence.sourceId }}</dd>
         </div>
         <div>
           <dt>Categoria</dt>
@@ -32,16 +28,10 @@ import {
           <dd>{{ formatTime(occurrence.occurredAt) }}</dd>
         </div>
         <div>
-          <dt>Situação da evidência</dt>
+          <dt>Situação</dt>
           <dd>
-            {{
-              occurrence.valid ? 'Válida para análise humana' : 'Origem invalidada ou retificada'
-            }}
+            {{ occurrence.valid ? 'Válida para análise' : 'Origem invalidada ou corrigida' }}
           </dd>
-        </div>
-        <div>
-          <dt>Revisão da evidência</dt>
-          <dd>{{ occurrence.version }}</dd>
         </div>
         @for (row of rows(occurrence.evidence); track row.label) {
           <div>
@@ -51,13 +41,11 @@ import {
         }
       </dl>
       <details>
-        <summary>Histórico das revisões da origem</summary>
+        <summary>Histórico de correções</summary>
         <ol class="comm-history">
           @for (revision of occurrence.revisions; track revision.version) {
             <li>
-              <strong
-                >Revisão {{ revision.version }} ·
-                {{ revision.valid ? 'Válida' : 'Invalidada' }}</strong
+              <strong>{{ revision.valid ? 'Válida' : 'Invalidada' }}</strong
               ><time [attr.datetime]="revision.recordedAt"
                 >Registrada em {{ formatTime(revision.recordedAt) }}</time
               >
@@ -72,7 +60,7 @@ import {
               </dl>
             </li>
           } @empty {
-            <li>Nenhuma revisão anterior disponível.</li>
+            <li>Nenhuma correção anterior.</li>
           }
         </ol>
       </details>

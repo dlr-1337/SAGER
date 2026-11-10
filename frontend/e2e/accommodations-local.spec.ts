@@ -136,11 +136,11 @@ test('duplicidade, conflito em duas abas e recarga não perdem a edição nem ge
   };
   await page.getByRole('textbox', { name: /Nome do alojamento/ }).fill('Minha Edição');
   await page.getByRole('button', { name: 'Salvar alojamento' }).click();
-  await expect(page.getByRole('alert')).toContainText('alterado por outra sessão');
+  await expect(page.getByRole('alert')).toContainText('Outra pessoa alterou este registro');
   await expect(page.getByRole('textbox', { name: /Nome do alojamento/ })).toHaveValue(
     'Minha Edição',
   );
-  await page.getByRole('button', { name: 'Carregar versão atual do alojamento' }).click();
+  await page.getByRole('button', { name: 'Recarregar dados' }).click();
   await expect(page.getByRole('textbox', { name: /Nome do alojamento/ })).toHaveValue(
     'Versão Externa',
   );

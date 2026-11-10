@@ -18,6 +18,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Profile({ "local", "production" })
 public class LocalAccountProvisioningService {
     private static final Set<String> PROFILES = Set.of("gestor", "supervisor", "residente", "saude");
+    // Mantenha igual a frontend/src/app/shared/password-rules.ts.
+    private static final Set<String> COMMON_PASSWORDS = Set.of("senha123", "password", "qwertyui", "ifgoiano",
+            "sager123", "1234567890", "0987654321");
 
     private final LocalAccountRepository accounts;
     private final PasswordEncoder passwords;
@@ -37,7 +40,7 @@ public class LocalAccountProvisioningService {
         if (!PROFILES.contains(profile)) {
             throw new IllegalArgumentException("Perfil deve ser gestor, supervisor, residente ou saude.");
         }
-        String hash = hashAndClear(password);
+        String hash = hashAndClear(password, normalizedEnrollment);
         try {
             accounts.create(normalizedEnrollment, normalizedEmail, normalizedName, hash, profile);
         } catch (DuplicateKeyException error) {
@@ -48,7 +51,7 @@ public class LocalAccountProvisioningService {
     @Transactional
     public void resetPassword(String email, char[] password) {
         LocalAccount account = requireActiveAccount(email);
-        String hash = hashAndClear(password);
+        String hash = hashAndClear(password, account.enrollment());
         if (accounts.updatePassword(account, hash) != 1) {
             throw new IllegalArgumentException("Conta ativa nao encontrada.");
         }
@@ -115,7 +118,8 @@ public class LocalAccountProvisioningService {
 
     @Transactional
     public void resetPassword(UUID accountId, char[] password) {
-        if (accounts.updatePassword(requireActiveAccount(accountId), hashAndClear(password)) != 1)
+        LocalAccount account = requireActiveAccount(accountId);
+        if (accounts.updatePassword(account, hashAndClear(password, account.enrollment())) != 1)
             throw new IllegalArgumentException("Conta ativa nao encontrada.");
     }
 
@@ -150,14 +154,22 @@ public class LocalAccountProvisioningService {
         }
     }
 
-    public String hashAndClear(char[] password) {
+    /** A matrícula pode ser nula em conta legada; a recuperação passa a informada, sem consultar a conta. */
+    public String hashAndClear(char[] password, String enrollment) {
         try {
-            if (password == null || password.length < 12 || password.length > 72) {
-                throw new IllegalArgumentException("Senha deve ter entre 12 e 72 caracteres.");
+            if (password == null || password.length < 8) {
+                throw new IllegalArgumentException("A senha precisa ter pelo menos 8 letras ou números.");
             }
             String value = new String(password);
             if (value.getBytes(StandardCharsets.UTF_8).length > 72) {
-                throw new IllegalArgumentException("Senha deve ter no maximo 72 bytes UTF-8.");
+                throw new IllegalArgumentException("Essa senha é longa demais. Use uma mais curta.");
+            }
+            String lower = value.toLowerCase(Locale.ROOT);
+            if (enrollment != null && lower.equals(enrollment.trim().toLowerCase(Locale.ROOT))) {
+                throw new IllegalArgumentException("A senha não pode ser igual à matrícula.");
+            }
+            if (COMMON_PASSWORDS.contains(lower) || isSequenceOrRepetition(lower)) {
+                throw new IllegalArgumentException("Essa senha é fácil demais. Escolha outra.");
             }
             return passwords.encode(value);
         } finally {
@@ -165,6 +177,15 @@ public class LocalAccountProvisioningService {
                 Arrays.fill(password, '\0');
             }
         }
+    }
+
+    private static boolean isSequenceOrRepetition(String value) {
+        int step = value.charAt(1) - value.charAt(0);
+        if (Math.abs(step) > 1) return false;
+        for (int i = 2; i < value.length(); i++) {
+            if (value.charAt(i) - value.charAt(i - 1) != step) return false;
+        }
+        return true;
     }
 
     @Transactional

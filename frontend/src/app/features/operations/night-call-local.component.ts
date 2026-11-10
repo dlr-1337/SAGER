@@ -8,6 +8,8 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
+import { HousingMap, roomOptionLabel } from '../management/housing.models';
+import { RoomApiService } from '../management/room-api.service';
 import {
   OperationsApiError,
   OperationsLocalApiService,
@@ -32,7 +34,7 @@ import {
         <div>
           <a routerLink="/inicio" class="op-back">← Início</a>
           <h1>Chamada noturna</h1>
-          <p>Registre a presença dos residentes menores de idade alocados no alojamento.</p>
+          <p>Marque quem está presente hoje à noite.</p>
         </div>
       </header>
       @if (!session.hasRole('supervisor')) {
@@ -46,9 +48,13 @@ import {
             <h2 id="call-selection">Alojamento e data</h2>
             <div class="op-filters">
               <label class="field"
-                >Alojamento<select sagerSearchable [formControl]="accommodation" (change)="load()">
+                >Alojamento<select
+                  sagerSearchable
+                  [formControl]="accommodation"
+                  (change)="clearRoomFilters(); load()"
+                >
                   @for (option of ctx.accommodations; track option.id) {
-                    <option [value]="option.id">{{ option.name }} · {{ option.code }}</option>
+                    <option [value]="option.id">{{ option.name }}</option>
                   }
                 </select></label
               ><label class="field"
@@ -62,19 +68,16 @@ import {
                 [disabled]="loading() || busy()"
                 (click)="load()"
               >
-                Consultar chamadas
+                Ver chamada
               </button>
             </div>
-            <p class="op-help">
-              Janela de registro: 22h a 23h30 · Horário de Brasília. Data atual do servidor:
-              {{ formatDate(ctx.referenceDate) }}.
-            </p>
+            <p class="op-help">Horário da chamada: 22h às 23h30.</p>
           </section>
         }
         @if (loading()) {
           <div class="op-state" role="status">
             <h2>Carregando chamada</h2>
-            <p>Consultando os registros do alojamento.</p>
+            <p>Aguarde um momento.</p>
           </div>
         } @else if (loadError()) {
           <div class="op-state" role="alert">
@@ -88,7 +91,7 @@ import {
           @if (!ctx.accommodations.length) {
             <div class="op-empty" role="status">
               <h2>Nenhum alojamento cadastrado</h2>
-              <p>Cadastre o alojamento e aloque os residentes antes da chamada.</p>
+              <p>Cadastre o alojamento e coloque os residentes nos quartos antes da chamada.</p>
             </div>
           } @else if (call(); as current) {
             <section class="panel op-panel" aria-labelledby="call-summary">
@@ -126,12 +129,15 @@ import {
                 [total]="current.summary.total"
                 noun="marcações registradas"
               />
-              <p class="op-help">
-                Aberta em {{ formatTime(current.openedAt) }}. A relação de residentes e saídas
-                justificadoras preserva a situação no momento da abertura.
-              </p>
+              <p class="op-help">Aberta em {{ formatTime(current.openedAt) }}.</p>
+              @if (current.status === 'ABERTA' && current.summary.justified) {
+                <p class="op-warning">
+                  Residentes com saída em andamento já entram como ausência justificada. Confira e
+                  corrija se preciso.
+                </p>
+              }
               @if (current.outsideWindowConfirmed) {
-                <p class="op-warning">Abertura fora da janela: {{ current.justification }}</p>
+                <p class="op-warning">Aberta fora do horário: {{ current.justification }}</p>
               }
               @if (current.closedAt) {
                 <p class="op-success" role="status">
@@ -139,9 +145,7 @@ import {
                 </p>
               }
               @if (current.closeOutsideWindowConfirmed) {
-                <p class="op-warning">
-                  Fechamento fora da janela: {{ current.closeJustification }}
-                </p>
+                <p class="op-warning">Fechada fora do horário: {{ current.closeJustification }}</p>
               }
             </section>
             <section class="op-section" aria-labelledby="call-roster">
@@ -165,10 +169,29 @@ import {
                     <option value="AUSENCIA_JUSTIFICADA">Ausência justificada</option>
                   </select></label
                 >
-                <button class="btn op-secondary" (click)="search.setValue(''); markFilter.set('')">
-                  Limpar filtros
-                </button>
+                @if (unitOptions().length) {
+                  <label class="field"
+                    >Casa ou bloco<select sagerSearchable [formControl]="unit">
+                      <option value="">Todos os blocos</option>
+                      @for (option of unitOptions(); track option.id) {
+                        <option [value]="option.id">{{ option.name }}</option>
+                      }
+                    </select></label
+                  >
+                }
+                <label class="field"
+                  >Quarto<select sagerSearchable [formControl]="room">
+                    <option value="">Todos os quartos</option>
+                    @for (option of roomOptions(); track option.id) {
+                      <option [value]="option.id">{{ option.label }}</option>
+                    }
+                  </select></label
+                >
+                <button class="btn op-secondary" (click)="clearFilters()">Limpar filtros</button>
               </div>
+              @if (optionsError()) {
+                <p class="op-help">{{ optionsError() }}</p>
+              }
               <p role="status">
                 {{ filtered().length }} de {{ current.records.length }} residentes
               </p>
@@ -177,7 +200,7 @@ import {
               } @else if (!filtered().length) {
                 <div class="op-empty" role="status">
                   <h3>Nenhum residente encontrado</h3>
-                  <p>Altere a busca para consultar as demais marcações.</p>
+                  <p>Altere os filtros para consultar as demais marcações.</p>
                 </div>
               } @else {
                 <div class="op-list">
@@ -185,17 +208,25 @@ import {
                     <article class="op-row op-call-row">
                       <div class="op-row-main">
                         <h3>{{ row.residentName }}</h3>
-                        <p>Matrícula {{ row.enrollment }} · Quarto {{ row.roomNumber }}</p>
+                        <p>Matrícula {{ row.enrollment }} · {{ roomOf(row) }}</p>
                         @if (row.authorizedExits.length) {
-                          <span class="op-inline-note"
-                            >Saída autorizada em andamento na abertura</span
-                          >
+                          <span class="op-inline-note">Está fora com saída autorizada</span>
                         }
                         @if (row.mark) {
                           <p>
                             {{ labels[row.mark] }}
                             @if (row.authorizedExitId) {
-                              · saída {{ row.authorizedExitId }}
+                              ·
+                              <a
+                                class="op-exit-link"
+                                [routerLink]="[
+                                  row.authorizedExitType === 'LONG' ? '/saidas/longas' : '/saidas',
+                                  row.authorizedExitId,
+                                ]"
+                                >{{
+                                  row.authorizedExitType === 'LONG' ? 'saída longa' : 'saída curta'
+                                }}<span class="sr-only"> de {{ row.residentName }}</span></a
+                              >
                             }
                           </p>
                         }
@@ -208,11 +239,8 @@ import {
                                   <strong>{{ labels[event.mark] }}</strong> ·
                                   {{ formatTime(event.recordedAt) }}
                                   <p>
-                                    Revisão {{ event.version }} ·
                                     {{
-                                      event.actorProfile === 'supervisor'
-                                        ? 'Supervisor'
-                                        : event.actorProfile
+                                      event.actorProfile === 'sistema' ? 'Sistema' : 'Supervisor'
                                     }}
                                     @if (event.justification) {
                                       · {{ event.justification }}
@@ -276,14 +304,23 @@ import {
             </section>
             @if (current.status === 'ABERTA') {
               <div class="op-footer-action">
-                <p aria-live="polite">{{ current.summary.unmarked }} marcações pendentes</p>
+                <p aria-live="polite">
+                  {{
+                    current.summary.unmarked
+                      ? (current.summary.unmarked === 1
+                          ? 'Falta marcar 1 residente.'
+                          : 'Faltam marcar ' + current.summary.unmarked + ' residentes.') +
+                        ' Depois clique em Fechar chamada.'
+                      : 'Todos marcados. Clique em Fechar chamada.'
+                  }}
+                </p>
                 <button
                   type="button"
                   class="btn op-primary"
                   [disabled]="busy() || conflict() || current.summary.unmarked > 0"
                   (click)="close()"
                 >
-                  Revisar e fechar chamada
+                  Fechar chamada
                 </button>
               </div>
             }
@@ -292,13 +329,21 @@ import {
               <h2>Nenhuma chamada nesta data</h2>
               @if (date.value === ctx.referenceDate) {
                 <p>
-                  {{ ctx.eligibleResidents }} residente(s) menor(es) de idade abrangido(s) neste
-                  alojamento.
+                  {{
+                    ctx.eligibleResidents === 1
+                      ? '1 residente'
+                      : ctx.eligibleResidents + ' residentes'
+                  }}
+                  nesta chamada.
                 </p>
                 @if (ctx.missingBirthDates.length) {
                   <p class="op-warning">
-                    A abertura está bloqueada: {{ ctx.missingBirthDates.length }} residente(s)
-                    alocado(s) sem data de nascimento.
+                    Não é possível abrir a chamada: falta a data de nascimento no cadastro de
+                    {{
+                      ctx.missingBirthDates.length === 1
+                        ? '1 residente'
+                        : ctx.missingBirthDates.length + ' residentes'
+                    }}. Corrija o cadastro e volte aqui.
                   </p>
                   <ul>
                     @for (resident of ctx.missingBirthDates; track resident.residentId) {
@@ -310,8 +355,7 @@ import {
                   </ul>
                 } @else if (ctx.outsideWindow) {
                   <p class="op-warning">
-                    A abertura está fora da janela de 22h a 23h30. Será necessário confirmar o
-                    alerta e justificar o registro.
+                    Agora não é o horário da chamada. Você vai precisar escrever o motivo.
                   </p>
                 }
                 <button
@@ -325,12 +369,12 @@ import {
                   "
                   (click)="open()"
                 >
-                  Revisar e abrir chamada
+                  Abrir chamada
                 </button>
               } @else {
                 <p>
-                  Uma nova chamada só pode ser aberta na data atual do servidor. Selecione
-                  {{ formatDate(ctx.referenceDate) }} para abrir.
+                  Só é possível abrir a chamada de hoje. Escolha a data
+                  {{ formatDate(ctx.referenceDate) }}.
                 </p>
               }
             </section>
@@ -343,7 +387,7 @@ import {
           }
           @if (conflict()) {
             <button type="button" class="btn op-secondary" (click)="load()">
-              Recarregar dados da chamada
+              Recarregar dados
             </button>
           }
         }
@@ -380,6 +424,7 @@ import {
 export class NightCallLocalComponent {
   readonly session = inject(DemoSessionService);
   private readonly api = inject(OperationsLocalApiService);
+  private readonly roomApi = inject(RoomApiService);
   private readonly dialog = inject(MatDialog);
   readonly context = signal<CallContext | null>(null);
   readonly call = signal<NightCall | null>(null);
@@ -394,15 +439,55 @@ export class NightCallLocalComponent {
   readonly search = new FormControl('', { nonNullable: true });
   readonly searchValue = signal('');
   readonly markFilter = signal('');
-  readonly filtered = computed(() =>
-    (this.call()?.records ?? []).filter(
+  readonly unit = new FormControl('', { nonNullable: true });
+  readonly room = new FormControl('', { nonNullable: true });
+  private readonly unitValue = signal('');
+  private readonly roomValue = signal('');
+  private readonly housing = signal<HousingMap>({ accommodations: [], units: [], rooms: [] });
+  readonly optionsError = signal('');
+  // Parte da foto da abertura: só entram quartos com residente nesta chamada.
+  private readonly rosterRooms = computed(() => {
+    const { rooms, units } = this.housing();
+    const options = new Map<string, { id: string; unitId: string | null; label: string }>();
+    for (const { roomId, roomNumber } of this.call()?.records ?? []) {
+      if (options.has(roomId)) continue;
+      const room = rooms.find((item) => item.id === roomId);
+      options.set(roomId, {
+        id: roomId,
+        unitId: room?.unitId ?? null,
+        label: room ? roomOptionLabel(room, units) : `Quarto ${roomNumber}`,
+      });
+    }
+    return [...options.values()].sort((a, b) =>
+      a.label.localeCompare(b.label, 'pt-BR', { numeric: true }),
+    );
+  });
+  // Mesmo nome do filtro, para o supervisor achar o quarto de quem está na lista.
+  roomOf(row: { roomId: string; roomNumber: string }): string {
+    const room = this.housing().rooms.find((item) => item.id === row.roomId);
+    return room
+      ? `Quarto ${roomOptionLabel(room, this.housing().units)}`
+      : `Quarto ${row.roomNumber}`;
+  }
+  readonly unitOptions = computed(() => {
+    const used = new Set(this.rosterRooms().map((room) => room.unitId));
+    return this.housing().units.filter((unit) => used.has(unit.id));
+  });
+  readonly roomOptions = computed(() =>
+    this.rosterRooms().filter((room) => !this.unitValue() || room.unitId === this.unitValue()),
+  );
+  readonly filtered = computed(() => {
+    const rooms = new Set(this.roomOptions().map((room) => room.id));
+    return (this.call()?.records ?? []).filter(
       (row) =>
         normalizeSearch(`${row.residentName} ${row.enrollment}`).includes(
           normalizeSearch(this.searchValue()),
         ) &&
-        (!this.markFilter() || (row.mark ?? 'PENDENTE') === this.markFilter()),
-    ),
-  );
+        (!this.markFilter() || (row.mark ?? 'PENDENTE') === this.markFilter()) &&
+        rooms.has(row.roomId) &&
+        (!this.roomValue() || row.roomId === this.roomValue()),
+    );
+  });
   readonly formatDate = formatCivilDate;
   readonly formatTime = formatOperationsTime;
   readonly labels = callMarkLabels;
@@ -413,7 +498,27 @@ export class NightCallLocalComponent {
     this.search.valueChanges
       .pipe(takeUntilDestroyed())
       .subscribe((value) => this.searchValue.set(value));
+    rememberFilters('call-roster-unit', this.unit);
+    rememberFilters('call-roster-room', this.room);
+    this.unitValue.set(this.unit.value);
+    this.roomValue.set(this.room.value);
+    this.unit.valueChanges.pipe(takeUntilDestroyed()).subscribe((value) => {
+      this.unitValue.set(value);
+      this.room.setValue('');
+    });
+    this.room.valueChanges
+      .pipe(takeUntilDestroyed())
+      .subscribe((value) => this.roomValue.set(value));
     if (this.session.hasRole('supervisor')) void this.load();
+  }
+  clearRoomFilters(): void {
+    this.unit.setValue('');
+    this.room.setValue('');
+  }
+  clearFilters(): void {
+    this.search.setValue('');
+    this.markFilter.set('');
+    this.clearRoomFilters();
   }
   async load(): Promise<void> {
     if (!this.session.hasRole('supervisor') || this.busy()) return;
@@ -434,8 +539,21 @@ export class NightCallLocalComponent {
       this.context.set(context);
       if (!this.date.value) this.date.setValue(context.referenceDate);
       if (this.accommodation.value) {
-        const calls = await this.api.calls(this.accommodation.value, this.date.value);
-        if (seq === this.sequence) this.call.set(calls[0] ?? null);
+        const [calls, housing] = await Promise.all([
+          this.api.calls(this.accommodation.value, this.date.value),
+          this.roomApi.map().catch(() => null),
+        ]);
+        if (seq === this.sequence) {
+          if (housing) this.housing.set(housing);
+          this.optionsError.set(
+            housing ? '' : 'Não foi possível carregar casas, blocos e códigos dos quartos.',
+          );
+          this.call.set(calls[0] ?? null);
+          if (this.unit.value && !this.unitOptions().some((unit) => unit.id === this.unit.value))
+            this.unit.setValue('');
+          if (this.room.value && !this.roomOptions().some((room) => room.id === this.room.value))
+            this.room.setValue('');
+        }
       }
     } catch (error) {
       if (seq === this.sequence) this.loadError.set(operationsError(error));
@@ -474,7 +592,7 @@ export class NightCallLocalComponent {
       }
       this.review(
         {
-          title: 'Revisar abertura da chamada',
+          title: 'Conferir antes de abrir a chamada',
           action: 'Abrir chamada',
           lines: [
             {
@@ -482,8 +600,7 @@ export class NightCallLocalComponent {
               value: context.accommodations.find((a) => a.id === accommodationId)?.name ?? '',
             },
             { label: 'Data', value: formatCivilDate(context.referenceDate) },
-            { label: 'Residentes abrangidos', value: String(context.eligibleResidents) },
-            { label: 'Consulta do servidor', value: formatOperationsTime(context.now) },
+            { label: 'Residentes', value: String(context.eligibleResidents) },
           ],
           ...this.windowReview(context),
         },
@@ -509,7 +626,7 @@ export class NightCallLocalComponent {
     if (mark === 'AUSENCIA_JUSTIFICADA' && row.authorizedExits.length > 1) {
       this.review(
         {
-          title: 'Vincular ausência justificada',
+          title: 'Marcar ausência justificada',
           action: 'Registrar ausência justificada',
           lines: [{ label: 'Residente', value: row.residentName }],
           initialMark: mark,
@@ -569,7 +686,7 @@ export class NightCallLocalComponent {
       this.context.set(context);
       this.review(
         {
-          title: 'Revisar fechamento da chamada',
+          title: 'Conferir antes de fechar a chamada',
           action: 'Fechar chamada',
           lines: [
             { label: 'Data', value: formatCivilDate(call.referenceDate) },
@@ -592,7 +709,7 @@ export class NightCallLocalComponent {
     return context.outsideWindow
       ? {
           warning:
-            'Este registro está fora da janela de 22h a 23h30. Confirme expressamente e descreva o motivo.',
+            'Agora não é o horário da chamada (22h às 23h30). Marque a confirmação e escreva o motivo.',
           requireReason: true,
           requireConfirmation: true,
         }
@@ -628,7 +745,12 @@ export class NightCallLocalComponent {
       this.call.set(await action());
       this.success.set(message);
     } catch (error) {
-      this.error.set(operationsError(error));
+      // Este conflito diz qual residente corrigir; "outra pessoa alterou" esconderia a causa.
+      this.error.set(
+        error instanceof OperationsApiError && error.code === 'authorized_exit_outdated'
+          ? error.message
+          : operationsError(error),
+      );
       if (error instanceof OperationsApiError && error.status === 409) this.conflict.set(true);
     } finally {
       this.busy.set(false);

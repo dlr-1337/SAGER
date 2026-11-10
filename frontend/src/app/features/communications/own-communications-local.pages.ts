@@ -34,19 +34,12 @@ type OwnTab = 'avisos' | 'advertencias' | 'termos';
         <div>
           <a class="op-back" routerLink="/inicio">← Início</a>
           <h1>Minhas comunicações</h1>
-          <p>Consulte os avisos, advertências e termos publicados para sua conta.</p>
+          <p>Veja os avisos, advertências e termos da sua conta.</p>
         </div>
       </header>
       @if (!session.active() && session.hasRole('residente')) {
         <sager-communication-filters mode="own" (changed)="searchFilters = $event; load()" />
       }
-      <sager-communications-state
-        [demo]="session.active()"
-        [blocked]="!session.hasRole('residente')"
-        [loading]="loading()"
-        [error]="error()"
-        (retry)="load()"
-      />
       @if (!session.active() && session.hasRole('residente')) {
         <nav class="comm-tabs segmented" aria-label="Tipo de comunicação">
           <button
@@ -66,41 +59,40 @@ type OwnTab = 'avisos' | 'advertencias' | 'termos';
             [attr.aria-current]="tab() === 'termos' ? 'page' : null"
             (click)="choose('termos')"
           >
-            Termos de reincidência
+            Termos de compromisso
           </button>
         </nav>
-        @if (!loading() && !error()) {
+      }
+      <!-- O estado fica abaixo das abas: acima, empurraria as abas ao carregar. -->
+      <div class="mg-tab-panel">
+        <sager-communications-state
+          [demo]="session.active()"
+          [blocked]="!session.hasRole('residente')"
+          [loading]="loading()"
+          [error]="error()"
+          (retry)="load()"
+        />
+        @if (!session.active() && session.hasRole('residente') && !loading() && !error()) {
           <section class="op-section">
             <h2>{{ tabLabels[tab()] }}</h2>
-            <p class="comm-help">
-              Abrir uma comunicação não registra leitura nem ciência. Cada registro tem sua versão e
-              evidências próprias.
-            </p>
             <div class="op-list">
               @for (item of items(); track item.id) {
                 <article class="op-row">
                   <div class="op-row-main">
                     <h3>{{ item.title }}</h3>
-                    <p>
-                      {{ kinds[item.kind] }} · versão {{ item.contentVersion }} ·
-                      {{ formatTime(item.publishedAt) }}
-                    </p>
+                    <p>{{ kinds[item.kind] }} · {{ formatTime(item.publishedAt) }}</p>
                     @if (item.requiresReview) {
-                      <p>Origem ou base em revisão</p>
+                      <p>A equipe está conferindo este registro</p>
                     }
                   </div>
                   <div class="op-row-side">
                     <span class="op-status">{{ states[item.status] }}</span
                     ><small>{{
-                      item.acknowledgedAt
-                        ? 'Ciência registrada nesta versão'
-                        : item.readAt
-                          ? 'Leitura registrada nesta versão'
-                          : 'Sem leitura registrada'
+                      item.acknowledgedAt ? 'Ciente' : item.readAt ? 'Lido' : 'Não lido'
                     }}</small>
                   </div>
                   <a class="op-row-link" [routerLink]="['/minhas-comunicacoes', item.id]"
-                    >Ler comunicação<span class="material-symbols-outlined" aria-hidden="true"
+                    >Ler<span class="material-symbols-outlined" aria-hidden="true"
                       >arrow_forward</span
                     ></a
                   >
@@ -129,7 +121,7 @@ type OwnTab = 'avisos' | 'advertencias' | 'termos';
             }
           </section>
         }
-      }
+      </div>
     </main>
   `,
   styleUrl: './communications-local.scss',
@@ -152,9 +144,9 @@ export class OwnCommunicationsLocalPage {
   readonly states = communicationStateLabels;
   readonly formatTime = formatCommunicationTime;
   readonly tabLabels = {
-    avisos: 'Avisos publicados',
-    advertencias: 'Advertências emitidas',
-    termos: 'Termos de reincidência emitidos',
+    avisos: 'Seus avisos',
+    advertencias: 'Suas advertências',
+    termos: 'Termos de compromisso',
   };
   private generation = 0;
   constructor() {
@@ -227,7 +219,7 @@ export class OwnCommunicationsLocalPage {
           >
           <h1>Comunicação publicada</h1>
           @if (item(); as communication) {
-            <p>{{ kinds[communication.kind] }} · versão {{ communication.contentVersion }}</p>
+            <p>{{ kinds[communication.kind] }}</p>
           }
         </div>
       </header>
@@ -256,8 +248,7 @@ export class OwnCommunicationsLocalPage {
           }
           @if (communication.requiresReview) {
             <p class="comm-warning" role="status">
-              A origem ou a base está em revisão. O conteúdo emitido e sua leitura e ciência
-              anteriores permanecem preservados.
+              A equipe está conferindo este registro. O que você já marcou continua guardado.
             </p>
           }
           <dl class="comm-definition">
@@ -266,28 +257,26 @@ export class OwnCommunicationsLocalPage {
               <dd>{{ formatTime(communication.publishedAt) }}</dd>
             </div>
             <div>
-              <dt>Leitura desta versão</dt>
+              <dt>Lido em</dt>
               <dd>
-                {{
-                  communication.readAt ? formatTime(communication.readAt) : 'Ainda não registrada'
-                }}
+                {{ communication.readAt ? formatTime(communication.readAt) : 'Ainda não lido' }}
               </dd>
             </div>
             <div>
-              <dt>Ciência desta versão</dt>
+              <dt>Ciente em</dt>
               <dd>
                 {{
                   communication.acknowledgedAt
                     ? formatTime(communication.acknowledgedAt)
-                    : 'Ainda não registrada'
+                    : 'Ainda não marcado'
                 }}
               </dd>
             </div>
           </dl>
           @if (communication.status === 'PUBLICADO') {
             <p class="comm-help">
-              Leitura e ciência são registros distintos. Ciência confirma que você tomou
-              conhecimento desta versão, sem aceitar uma decisão ou assinar outro documento.
+              Clique em Já li quando terminar. Estou ciente mostra que você sabe do aviso; não é
+              assinatura.
             </p>
             <div class="comm-actions">
               @if (!communication.readAt) {
@@ -297,7 +286,7 @@ export class OwnCommunicationsLocalPage {
                   [disabled]="busy() || conflict()"
                   (click)="read()"
                 >
-                  Registrar minha leitura
+                  Já li
                 </button>
               }
               @if (!communication.acknowledgedAt) {
@@ -307,15 +296,12 @@ export class OwnCommunicationsLocalPage {
                   [disabled]="busy() || conflict()"
                   (click)="acknowledge()"
                 >
-                  Conferir e registrar ciência
+                  Estou ciente
                 </button>
               }
             </div>
           } @else {
-            <p class="comm-help">
-              Esta publicação é histórica. A leitura e a ciência anteriores são preservadas; esta
-              versão não recebe novos registros.
-            </p>
+            <p class="comm-help">Este aviso não vale mais. Ele fica aqui só para consulta.</p>
           }
           @if (communication.kind === 'TERMO' && communication.document) {
             <div class="comm-actions">
@@ -337,7 +323,7 @@ export class OwnCommunicationsLocalPage {
           }
           <div class="comm-actions">
             <button class="btn-secondary" type="button" [disabled]="busy()" (click)="load()">
-              {{ conflict() ? 'Recarregar comunicação' : 'Atualizar dados' }}
+              {{ conflict() ? 'Recarregar dados' : 'Atualizar dados' }}
             </button>
           </div>
         </section>
@@ -409,12 +395,11 @@ export class OwnCommunicationDetailLocalPage implements OnDestroy {
         CommunicationReviewDialogComponent,
         {
           data: {
-            title: 'Conferir ciência desta versão',
-            action: 'Confirmar minha ciência',
-            confirmation: 'Li o conteúdo apresentado e tomei conhecimento desta versão.',
+            title: 'Confirmar que está ciente',
+            action: 'Estou ciente',
+            confirmation: 'Li o conteúdo e estou ciente.',
             lines: [
               { label: 'Tipo', value: communicationLabels[item.kind] },
-              { label: 'Versão', value: String(item.contentVersion) },
               { label: 'Título', value: item.title },
               { label: 'Conteúdo publicado', value: item.body },
             ],
@@ -466,9 +451,7 @@ export class OwnCommunicationDetailLocalPage implements OnDestroy {
         fresh.body !== item.body
       ) {
         this.conflict.set(true);
-        this.error.set(
-          'A publicação mudou. Recarregue e leia a versão atual antes de registrar sua leitura ou ciência.',
-        );
+        this.error.set('Este aviso mudou. Clique em Recarregar dados e leia de novo.');
         return false;
       }
       return true;
@@ -492,11 +475,7 @@ export class OwnCommunicationDetailLocalPage implements OnDestroy {
     this.success.set('');
     try {
       this.item.set(await this.api.ownAction(item.id, action, item.contentVersion));
-      this.success.set(
-        action === 'leitura'
-          ? 'Leitura desta versão registrada.'
-          : 'Ciência desta versão registrada.',
-      );
+      this.success.set(action === 'leitura' ? 'Marcado como lido.' : 'Marcado como ciente.');
     } catch (error) {
       this.error.set(communicationsError(error));
       if (error instanceof CommunicationsApiError && error.status === 409) this.conflict.set(true);

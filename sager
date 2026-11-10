@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
+# Git Bash on Windows would rewrite /app/app.jar into a Windows path.
+export MSYS_NO_PATHCONV=1
 if docker info >/dev/null 2>&1; then
   engine=(docker)
 elif sudo -n docker info >/dev/null 2>&1; then
@@ -24,6 +26,14 @@ prepare() {
     printf 'SAGER_DB_PASSWORD=%s\nSAGER_RATE_LIMIT_SECRET=%s\nSAGER_PORT=4200\nSAGER_DB_VOLUME=sager-local_sager_postgres_data\n' "$password" "$secret" > .env.local
     chmod 600 .env.local
   fi
+  local key
+  for key in SAGER_INTEGRATIONS_WHATSAPP_API_KEY SAGER_INTEGRATIONS_WHATSAPP_WEBHOOK_SECRET; do
+    if ! grep -q "^$key=" .env.local; then
+      # A file edited by hand may lack the final newline.
+      if [[ -n $(tail -c 1 .env.local) ]]; then printf '\n' >> .env.local; fi
+      printf '%s=%s\n' "$key" "$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')" >> .env.local
+    fi
+  done
 }
 command=${1:-help}
 case "$command" in

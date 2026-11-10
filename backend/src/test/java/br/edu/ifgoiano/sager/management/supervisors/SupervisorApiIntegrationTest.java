@@ -77,7 +77,7 @@ class SupervisorApiIntegrationTest {
     }
 
     @Test
-    void gestorCreatesListsReadsAndUpdatesPersistedSupervisorWithoutProvisioningAnAccount()
+    void gestorCreatesListsReadsAndUpdatesPersistedSupervisorWithItsAccount()
             throws Exception {
         assertThat(jdbc.queryForObject("SELECT to_regclass('sager_supervisor')", String.class))
                 .isNotNull();
@@ -106,7 +106,7 @@ class SupervisorApiIntegrationTest {
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_supervisor", Integer.class))
                     .isEqualTo(1);
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_local_account", Integer.class))
-                    .isEqualTo(1);
+                    .isEqualTo(2);
             assertThat(json.readTree(get(client, PATH).body()).get(0).path("id").asText())
                     .isEqualTo(id);
             assertThat(json.readTree(get(client, PATH + "/" + id).body()).path("name").asText())
@@ -122,7 +122,7 @@ class SupervisorApiIntegrationTest {
             assertThat(jdbc.queryForObject("SELECT institutional_id FROM sager_supervisor WHERE id = ?",
                     String.class, UUID.fromString(id))).isEqualTo("DEMO-SUP-002");
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_local_account", Integer.class))
-                    .isEqualTo(1);
+                    .isEqualTo(2);
             assertAudit(id, "CREATE", 0, "name", "institutionalId", "email");
             assertAudit(id, "UPDATE", 1, "name", "institutionalId", "email");
         }
@@ -135,24 +135,29 @@ class SupervisorApiIntegrationTest {
         try (HttpClient client = browser()) {
             login(client, "gestor@example.invalid");
             assertError(post(client, PATH, "{}", csrfToken(client)), 400, "invalid_input");
-            assertError(post(client, PATH, input("Ana", "DEMO-001", "invalido"),
+            assertError(post(client, PATH, input("Ana Exemplo", "DEMO-001", "invalido"),
                     csrfToken(client)), 400, "invalid_input");
             assertError(post(client, PATH, input(" ", "DEMO-001", "ana@demo.invalid"),
                     csrfToken(client)), 400, "invalid_input");
+            for (String refused : new String[] { input("Ana", "DEMO-001", "ana@demo.invalid"),
+                    input("Ana Exemplo", "ABC", "ana@demo.invalid"), input("Ana Exemplo", "A".repeat(21), "ana@demo.invalid"),
+                    input("Ana Exemplo", "ana@demo", "ana@demo.invalid") }) {
+                assertError(post(client, PATH, refused, csrfToken(client)), 400, "invalid_input");
+            }
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_supervisor", Integer.class))
                     .isZero();
 
             String firstId = json.readTree(post(client, PATH,
-                    input("Ana", "DEMO-001", "ana@demo.invalid"), csrfToken(client)).body())
+                    input("Ana Exemplo", "DEMO-001", "ana@demo.invalid"), csrfToken(client)).body())
                     .path("id").asText();
-            assertError(post(client, PATH, input("Outra", "demo-001", "outra@demo.invalid"),
+            assertError(post(client, PATH, input("Outra Pessoa", "demo-001", "outra@demo.invalid"),
                     csrfToken(client)), 409, "duplicate_institutional_id");
 
             String secondId = json.readTree(post(client, PATH,
-                    input("Bia", "DEMO-002", "bia@demo.invalid"), csrfToken(client)).body())
+                    input("Bia Exemplo", "DEMO-002", "bia@demo.invalid"), csrfToken(client)).body())
                     .path("id").asText();
             assertError(put(client, PATH + "/" + secondId,
-                    updateInput("Bia", "DEMO-001", "bia@demo.invalid", 0),
+                    updateInput("Bia Exemplo", "DEMO-001", "bia@demo.invalid", 0),
                     csrfToken(client)), 409, "duplicate_institutional_id");
             assertThat(put(client, PATH + "/" + firstId,
                     updateInput("Ana Atualizada", "DEMO-001", "ana@demo.invalid", 0),
@@ -234,12 +239,14 @@ class SupervisorApiIntegrationTest {
     }
 
     @Test
-    void gestorAndSupervisorCanManageWithCsrfWhileOthersCannot() throws Exception {
+    void onlyGestorManagesSupervisorsWithCsrfWhileSupervisorKeepsOtherCadastros() throws Exception {
         provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("gestor@example.invalid"), "gestor@example.invalid", "Gestor", "gestor",
                 PASSWORD.toCharArray());
         provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("supervisor@example.invalid"), "supervisor@example.invalid", "Supervisor", "supervisor",
                 PASSWORD.toCharArray());
         provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("residente@example.invalid"), "residente@example.invalid", "Residente", "residente",
+                PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("saude@example.invalid"), "saude@example.invalid", "Saúde", "saude",
                 PASSWORD.toCharArray());
         String unknown = UUID.randomUUID().toString();
         try (HttpClient anonymous = browser()) {
@@ -251,7 +258,7 @@ class SupervisorApiIntegrationTest {
                     updateInput("Ana", "DEMO-001", "ana@demo.invalid", 0),
                     csrfToken(anonymous)).statusCode()).isEqualTo(401);
         }
-        for (String profile : new String[] { "residente" }) {
+        for (String profile : new String[] { "supervisor", "residente", "saude" }) {
             try (HttpClient client = browser()) {
                 login(client, profile + "@example.invalid");
                 assertThat(get(client, PATH).statusCode()).isEqualTo(403);
@@ -276,23 +283,119 @@ class SupervisorApiIntegrationTest {
         }
         try (HttpClient supervisor = browser()) {
             login(supervisor, "supervisor@example.invalid");
-            assertThat(get(supervisor, PATH).statusCode()).isEqualTo(200);
-            assertThat(post(supervisor, PATH, input("Ana", "DEMO-001", "ana@demo.invalid"),
-                    null).statusCode()).isEqualTo(403);
-            HttpResponse<String> created = post(supervisor, PATH,
-                    input("Ana", "DEMO-001", "ana@demo.invalid"), csrfToken(supervisor));
-            assertThat(created.statusCode()).isEqualTo(201);
-            String id = json.readTree(created.body()).path("id").asText();
-            assertThat(get(supervisor, PATH + "/" + id).statusCode()).isEqualTo(200);
-            assertThat(put(supervisor, PATH + "/" + id,
-                    updateInput("Ana", "DEMO-001", "ana@demo.invalid", 0),
-                    null).statusCode()).isEqualTo(403);
-            assertThat(put(supervisor, PATH + "/" + id,
-                    updateInput("Ana Atualizada", "DEMO-001", "ana@demo.invalid", 0),
-                    csrfToken(supervisor)).statusCode()).isEqualTo(200);
-            assertThat(jdbc.queryForObject("SELECT name FROM sager_supervisor WHERE id = ?",
-                    String.class, UUID.fromString(id))).isEqualTo("Ana Atualizada");
+            UUID courseId = UUID.randomUUID();
+            jdbc.update("INSERT INTO sager_course (id, name) VALUES (?, ?)", courseId, "Curso " + courseId);
+            HttpResponse<String> resident = post(supervisor, "/api/v1/residentes", """
+                    {"name":"Residente Sintético","enrollment":"20261PARIDADE001","birthDate":"2009-05-14",
+                    "courseId":"%s","password":"%s","passwordConfirmation":"%s"}
+                    """.formatted(courseId, PASSWORD, PASSWORD), csrfToken(supervisor));
+            assertThat(resident.statusCode()).isEqualTo(201);
         }
+    }
+
+    @Test
+    void createdSupervisorLogsInAtOnceAndPasswordIsNeitherAuditedNorReturned() throws Exception {
+        provisioning.create("gestor", null, "Gestor Sintético", "gestor", PASSWORD.toCharArray());
+        try (HttpClient manager = browser(); HttpClient supervisor = browser()) {
+            login(manager, "gestor");
+            HttpResponse<String> created = post(manager, PATH,
+                    input("Pessoa Sintética", "acesso-sup-010", "sup@example.invalid"), csrfToken(manager));
+            assertThat(created.statusCode()).isEqualTo(201);
+            assertThat(created.body()).doesNotContain("password", PASSWORD);
+            String id = json.readTree(created.body()).path("id").asText();
+            assertAudit(id, "CREATE", 0, "name", "institutionalId", "email");
+
+            login(supervisor, "acesso-sup-010");
+            JsonNode me = json.readTree(get(supervisor, "/api/v1/auth/me").body());
+            assertThat(me.path("perfis").get(0).asText()).isEqualTo("supervisor");
+            assertThat(me.path("supervisorId").asText()).isEqualTo(id);
+            assertThat(me.path("nome").asText()).isEqualTo("Pessoa Sintética");
+            assertThat(me.path("email").isNull()).isTrue();
+            assertThat(get(supervisor, PATH + "/" + id).statusCode()).isEqualTo(403);
+        }
+    }
+
+    @Test
+    void emailOfAnotherAccountDoesNotConflictBecauseTheNewAccountHasNone() throws Exception {
+        provisioning.create("gestor", "gestor@example.invalid", "Gestor Sintético", "gestor", PASSWORD.toCharArray());
+        try (HttpClient manager = browser()) {
+            login(manager, "gestor");
+            assertThat(post(manager, PATH, input("Pessoa Sintética", "acesso-sup-011", "gestor@example.invalid"),
+                    csrfToken(manager)).statusCode()).isEqualTo(201);
+        }
+    }
+
+    @Test
+    void keepsLeadingZeroAndLetsLegacyRecordsEditOtherFields() throws Exception {
+        provisioning.create("gestor", null, "Gestor Sintético", "gestor", PASSWORD.toCharArray());
+        UUID legacy = UUID.randomUUID();
+        jdbc.update("INSERT INTO sager_supervisor (id, name, institutional_id, email) VALUES (?, ?, ?, ?)",
+                legacy, "Ana", "A@1", "ana@example.invalid");
+        try (HttpClient manager = browser()) {
+            login(manager, "gestor");
+            HttpResponse<String> siape = post(manager, PATH,
+                    input("Pessoa Sintética", "0123456", "sup@example.invalid"), csrfToken(manager));
+            assertThat(json.readTree(siape.body()).path("institutionalId").asText()).isEqualTo("0123456");
+            HttpResponse<String> edited = put(manager, PATH + "/" + legacy,
+                    updateInput("Ana", "A@1", "nova@example.invalid", 0), csrfToken(manager));
+            assertThat(edited.statusCode()).isEqualTo(200);
+            assertError(put(manager, PATH + "/" + legacy,
+                    updateInput("Bia", "A@1", "nova@example.invalid", 1), csrfToken(manager)), 400, "invalid_input");
+            assertError(put(manager, PATH + "/" + legacy,
+                    updateInput("Ana", "B@1", "nova@example.invalid", 1), csrfToken(manager)), 400, "invalid_input");
+        }
+    }
+
+    @Test
+    void failedCreationLeavesNoRecordAccountOrAudit() throws Exception {
+        Integer audits = jdbc.queryForObject("SELECT COUNT(*) FROM sager_audit_event WHERE resource = 'SUPERVISOR'", Integer.class);
+        provisioning.create("gestor", null, "Gestor Sintético", "gestor", PASSWORD.toCharArray());
+        provisioning.create("ocupada-sup-001", null, "Residente Sintético", "residente", PASSWORD.toCharArray());
+        try (HttpClient manager = browser()) {
+            login(manager, "gestor");
+            assertError(post(manager, PATH, input("Pessoa Sintética", "OCUPADA-SUP-001", "sup@example.invalid"),
+                    csrfToken(manager)), 409, "duplicate_enrollment");
+            for (String password : new String[] { "curta", "12345678", "senha123", "nova-sup-001" }) {
+                assertError(post(manager, PATH, body("Pessoa Sintética", "nova-sup-001", "sup@example.invalid",
+                        password, password), csrfToken(manager)), 400, "invalid_input");
+            }
+            assertError(post(manager, PATH, body("Pessoa Sintética", "nova-sup-001", "sup@example.invalid",
+                    PASSWORD, "Senha diferente 123!"), csrfToken(manager)), 400, "invalid_input");
+            assertError(post(manager, PATH, input("Pessoa Sintética", "nova@sup", "sup@example.invalid"),
+                    csrfToken(manager)), 400, "invalid_input");
+            assertError(post(manager, PATH, """
+                    {"name":"Pessoa Sintética","institutionalId":"nova-sup-001","email":"sup@example.invalid"}
+                    """, csrfToken(manager)), 400, "invalid_input");
+            assertError(post(manager, PATH, json.writeValueAsString(Map.of("name", "Pessoa Sintética",
+                    "institutionalId", "nova-sup-001", "email", "sup@example.invalid", "password", 12345678,
+                    "passwordConfirmation", 12345678)), csrfToken(manager)), 400, "invalid_input");
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_supervisor", Integer.class)).isZero();
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_local_account", Integer.class)).isEqualTo(2);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_audit_event WHERE resource = 'SUPERVISOR'",
+                    Integer.class)).isEqualTo(audits);
+        }
+    }
+
+    @Test
+    void editingIgnoresPasswordAndKeepsTheCurrentOne() throws Exception {
+        provisioning.create("gestor", null, "Gestor Sintético", "gestor", PASSWORD.toCharArray());
+        try (HttpClient manager = browser(); HttpClient supervisor = browser()) {
+            login(manager, "gestor");
+            String id = json.readTree(post(manager, PATH, input("Pessoa Sintética", "acesso-sup-012",
+                    "sup@example.invalid"), csrfToken(manager)).body()).path("id").asText();
+            String hash = passwordHash("acesso-sup-012");
+            assertThat(put(manager, PATH + "/" + id, """
+                    {"name":"Nome Editado","institutionalId":"acesso-sup-012","email":"sup@example.invalid",
+                    "version":0,"password":"Outra senha 456!","passwordConfirmation":"Outra senha 456!"}
+                    """, csrfToken(manager)).statusCode()).isEqualTo(200);
+            assertThat(passwordHash("acesso-sup-012")).isEqualTo(hash);
+            login(supervisor, "acesso-sup-012");
+        }
+    }
+
+    private String passwordHash(String enrollment) {
+        return jdbc.queryForObject("SELECT password_hash FROM sager_local_account WHERE enrollment = ?",
+                String.class, enrollment);
     }
 
     @ParameterizedTest
@@ -352,10 +455,10 @@ class SupervisorApiIntegrationTest {
     private LocalAccount linkedSupervisor(HttpClient manager) throws Exception {
         provisioning.create("gestor", "gestor@example.invalid", "Gestor Sintético", "gestor", PASSWORD.toCharArray());
         login(manager, "gestor");
-        HttpResponse<String> created = post(manager, PATH,
-                input("Pessoa Sintética", "cad-sup-001", "sup@example.invalid"), csrfToken(manager));
-        assertThat(created.statusCode()).isEqualTo(201);
-        UUID id = UUID.fromString(json.readTree(created.body()).path("id").asText());
+        // Registro anterior à criação conjunta: o login vinculado difere da identificação.
+        UUID id = UUID.randomUUID();
+        jdbc.update("INSERT INTO sager_supervisor (id, name, institutional_id, email) VALUES (?, ?, ?, ?)",
+                id, "Pessoa Sintética", "cad-sup-001", "sup@example.invalid");
         provisioning.create("temporaria-sup", null, "Conta Sintética", "supervisor", PASSWORD.toCharArray());
         LocalAccount linked = provisioning.list().stream().filter(a -> a.enrollment().equals("temporaria-sup")).findFirst().orElseThrow();
         provisioning.linkSupervisor(linked.id(), id);
@@ -398,9 +501,13 @@ class SupervisorApiIntegrationTest {
     }
 
     private String input(String name, String institutionalId, String email) {
+        return body(name, institutionalId, email, PASSWORD, PASSWORD);
+    }
+
+    private String body(String name, String institutionalId, String email, String password, String confirmation) {
         return """
-                {"name":"%s","institutionalId":"%s","email":"%s"}
-                """.formatted(name, institutionalId, email);
+                {"name":"%s","institutionalId":"%s","email":"%s","password":"%s","passwordConfirmation":"%s"}
+                """.formatted(name, institutionalId, email, password, confirmation);
     }
 
     private String updateInput(String name, String institutionalId, String email, long version) {

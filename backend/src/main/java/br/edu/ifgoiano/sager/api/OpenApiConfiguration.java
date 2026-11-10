@@ -35,7 +35,7 @@ public class OpenApiConfiguration {
     OpenAPI localOpenApi() {
         return new OpenAPI().info(new Info().title("SAGER — API local").version("0.1.0")
                 .description("Contrato implementado em desenvolvimento, restrito a loopback. "
-                        + "Gestor e supervisor têm as mesmas permissões de gestão. "
+                        + "Gestor e supervisor têm as mesmas permissões de gestão, exceto em supervisores, só do gestor. "
                         + "Instantes usam UTC; datas civis usam ISO 8601. "
                         + "PUT exige a versão lida; conflitos devolvem 409. "
                         + "Erros e auditoria compartilham X-Request-Id gerado no servidor. "
@@ -54,11 +54,11 @@ public class OpenApiConfiguration {
                     .addProperty("name", text(3, 200, false))
                     .addProperty("enrollment", text(1, 64, false))
                     .addProperty("birthDate", new StringSchema().format("date"))
-                    .addProperty("courseId", uuid(true)).addProperty("institutionalEmail", new StringSchema().format("email").nullable(true)), List.of("name", "enrollment", "birthDate"));
+                    .addProperty("courseId", uuid(false)).addProperty("institutionalEmail", new StringSchema().format("email").nullable(true)), List.of("name", "enrollment", "birthDate", "courseId"));
             var residentCreate=api.getComponents().getSchemas().get("ResidentCreateRequest");
-            residentCreate.addProperty("password", new StringSchema().format("password").minLength(12).maxLength(72).writeOnly(true));
-            residentCreate.addProperty("passwordConfirmation", new StringSchema().format("password").minLength(12).maxLength(72).writeOnly(true));
-            residentCreate.setRequired(List.of("name","enrollment","birthDate","password","passwordConfirmation"));
+            residentCreate.addProperty("password", new StringSchema().format("password").minLength(8).maxLength(72).writeOnly(true));
+            residentCreate.addProperty("passwordConfirmation", new StringSchema().format("password").minLength(8).maxLength(72).writeOnly(true));
+            residentCreate.setRequired(List.of("name","enrollment","birthDate","courseId","password","passwordConfirmation"));
             crud(api, "/api/v1/cursos", "Course", new ObjectSchema().addProperty("name", text(1,200,false)), List.of("name"));
             var courseUpdate=api.getComponents().getSchemas().get("CourseUpdateRequest");
             courseUpdate.addProperty("active",new BooleanSchema()); courseUpdate.setRequired(List.of("name","active","version"));
@@ -67,6 +67,10 @@ public class OpenApiConfiguration {
                     .addProperty("institutionalId", text(1, 64, false))
                     .addProperty("email", new StringSchema().format("email").maxLength(320)),
                     List.of("name", "institutionalId", "email"));
+            var supervisorCreate=api.getComponents().getSchemas().get("SupervisorCreateRequest");
+            supervisorCreate.addProperty("password", new StringSchema().format("password").minLength(8).maxLength(72).writeOnly(true));
+            supervisorCreate.addProperty("passwordConfirmation", new StringSchema().format("password").minLength(8).maxLength(72).writeOnly(true));
+            supervisorCreate.setRequired(List.of("name","institutionalId","email","password","passwordConfirmation"));
             crud(api, "/api/v1/alojamentos", "Accommodation", new ObjectSchema()
                     .addProperty("code", text(1, 64, false)).addProperty("name", text(1, 200, false)),
                     List.of("code", "name"));
@@ -78,12 +82,15 @@ public class OpenApiConfiguration {
                     .addProperty("relationship", text(2, 80, false))
                     .addProperty("phone", text(0, 30, true)).addProperty("active", new BooleanSchema()),
                     List.of("residentId", "name", "relationship", "active"));
+            // Legacy guardians without a phone may keep it empty on PUT.
+            api.getComponents().getSchemas().get("GuardianCreateRequest")
+                    .setRequired(List.of("residentId", "name", "relationship", "phone", "active"));
             crud(api, "/api/v1/quartos", "Room", new ObjectSchema()
                     .addProperty("code", text(1, 64, false)).addProperty("number", text(1, 64, false))
                     .addProperty("accommodationId", uuid(false)).addProperty("unitId", uuid(true))
                     .addProperty("floor", text(0, 64, true))
                     .addProperty("capacity", new IntegerSchema().minimum(BigDecimal.ONE)
-                            .maximum(BigDecimal.valueOf(Integer.MAX_VALUE)).nullable(true))
+                            .maximum(BigDecimal.valueOf(20)).nullable(true))
                     .addProperty("situation", new StringSchema()._enum(List.of("Disponível", "Ocupado", "Manutenção", "Indisponível"))),
                     List.of("code", "number", "accommodationId", "situation"));
             request(api, "/api/v1/alocacoes", "AllocationCreateRequest", new ObjectSchema()

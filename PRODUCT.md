@@ -14,10 +14,10 @@ Angular 22, Angular Material/CDK e SCSS no frontend. O backend futuro será Java
 
 - Gestores da Assistência Estudantil administram residentes, responsáveis, supervisores e quartos e acompanham relatórios.
 - Supervisores têm autoridade operacional máxima e podem gerir os mesmos cadastros,
-  conforme decisão do solicitante em 30/09/2026. O perfil geral não concede acesso médico.
+  conforme decisão do solicitante em 30/09/2026, exceto supervisores: desde 31/10/2026, só o gestor os gerencia. O perfil geral não concede acesso médico.
 - Supervisores registram a chamada, acompanham saídas e retornos, analisam notificações, registram advertências e avaliam a limpeza.
 - Residentes consultam informações próprias, avisos e ranking; menores de idade solicitam saídas.
-- Responsáveis legais revisam e assinam autorizações de saídas longas por um acesso individual, sem painel institucional.
+- Responsáveis legais recebem o documento da saída longa pelo WhatsApp e devolvem a autorização em foto ou PDF, sem acesso ao sistema.
 - Pessoas mais velhas usarão a plataforma; tarefas essenciais precisam ser claras, legíveis e fáceis de acionar.
 
 ## Product Purpose
@@ -31,16 +31,18 @@ Plataforma web responsiva de uso institucional no IF Goiano, em computador e cel
 ## Capabilities and Constraints
 
 - As funcionalidades e critérios de aceite estão no PRD v2.0; a arquitetura de referência está na Especificação Técnica v2.0.
-- Chamada e solicitações formais de saída se aplicam a residentes menores de idade. Saída curta dura no máximo três horas. Saída longa exige assinatura válida do responsável antes de aprovação. Retorno curto é confirmado presencialmente pelo supervisor.
+- Chamada e solicitações formais de saída se aplicam a residentes menores de idade. Saída curta dura no máximo três horas. Saída longa exige autorização do responsável, conferida por um servidor, antes da aprovação, que é um ato separado. Retorno curto é confirmado presencialmente pelo supervisor.
 - Alertas internos não são advertências e não geram sanções automáticas. Ler um aviso é diferente de marcar ciência.
 - O login próprio do SAGER foi escolhido em 30/09/2026; integrações SUAP/Google ficam
   adiadas. O cadastro é manual e a data de nascimento obrigatória. Para saída longa,
-  uma assinatura válida de qualquer responsável cadastrado e vinculado é suficiente.
+  uma autorização conferida de qualquer responsável cadastrado e vinculado é suficiente.
 - Dados de saúde podem ser compartilhados entre profissionais de saúde, respeitado
-  o sigilo profissional; a auditoria terá retenção permanente. WhatsApp, modalidade
-  e evidências de assinatura, regras de limpeza/ranking e métricas de comportamento
+  o sigilo profissional; a auditoria terá retenção permanente. O canal é um gateway WhatsApp
+  auto-hospedado e não oficial, desligado por padrão, sem provedor externo de assinatura.
+  Conversas pelo WhatsApp são só para supervisores. O aceite dessa integração, o nível de
+  assinatura exigido, a retenção de mensagens, regras de limpeza/ranking e métricas de comportamento
   continuam com decisões abertas no PRD. As regras futuras ainda exigem implementação.
-- O protótipo pode simular ações, mas não deve apresentar autenticação, assinatura, exportação ou dados operacionais como reais.
+- O protótipo pode simular ações, mas não deve apresentar autenticação, autorização, exportação ou dados operacionais como reais. O registro comprova o recebimento de um arquivo e a conferência humana, não a autoria da assinatura.
 
 ## Brand Commitments
 

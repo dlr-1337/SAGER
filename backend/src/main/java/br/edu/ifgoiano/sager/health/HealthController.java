@@ -95,6 +95,11 @@ public class HealthController {
         return ok(service.custodies(residentId, limit, beforeSequence));
     }
 
+    @GetMapping("/saude/custodias/autores")
+    public ResponseEntity<List<AuthorChoice>> noteAuthors(@RequestParam UUID residentId) {
+        return ok(service.noteAuthors(residentId));
+    }
+
     @PostMapping("/saude/custodias")
     public ResponseEntity<Custody> createCustody(@RequestBody CustodyRequest request) {
         required(request);

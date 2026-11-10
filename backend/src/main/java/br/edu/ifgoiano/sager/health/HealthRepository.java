@@ -32,9 +32,10 @@ public class HealthRepository {
             JOIN sager_local_account a ON a.id = c.account_id JOIN sager_resident r ON r.id = c.resident_id
             """;
     private static final String CUSTODIES = """
-            SELECT c.*, a.display_name AS recipient_account_name
+            SELECT c.*, a.display_name AS recipient_account_name, s.display_name AS source_author_name
             FROM sager_health_custody c JOIN sager_health_grant g ON g.id = c.recipient_grant_id
             JOIN sager_local_account a ON a.id = g.account_id
+            JOIN sager_local_account s ON s.id = c.source_author_account_id
             """;
     private static final String NOTES = """
             SELECT n.*, v.version, v.body, v.recorded_at AS updated_at FROM sager_health_note n
@@ -341,6 +342,14 @@ public class HealthRepository {
                 residentId, sourceAccountId);
     }
 
+    /** Includes inactive accounts: the author who left is exactly who a custody is for. */
+    List<AuthorChoice> noteAuthors(UUID residentId) {
+        return jdbc.query("SELECT DISTINCT a.id, a.display_name FROM sager_health_note n "
+                + "JOIN sager_local_account a ON a.id = n.author_account_id WHERE n.resident_id=? "
+                + "ORDER BY a.display_name, a.id", (row, index) -> new AuthorChoice(uuid(row, "id"),
+                row.getString("display_name")), residentId);
+    }
+
     Optional<Custody> custody(UUID id, boolean lock) {
         return one(CUSTODIES + " WHERE c.id=?" + (lock ? " FOR UPDATE OF c" : ""),
                 this::custody, id);
@@ -407,7 +416,7 @@ public class HealthRepository {
 
     private Custody custody(ResultSet row, int index) throws SQLException {
         return new Custody(uuid(row, "id"), row.getLong("sequence"), uuid(row, "resident_id"),
-                uuid(row, "source_author_account_id"), uuid(row, "recipient_grant_id"),
+                uuid(row, "source_author_account_id"), row.getString("source_author_name"), uuid(row, "recipient_grant_id"),
                 row.getString("recipient_account_name"), uuid(row, "created_by"),
                 instant(row, "created_at"), row.getString("reason"), instant(row, "ended_at"), row.getLong("version"));
     }

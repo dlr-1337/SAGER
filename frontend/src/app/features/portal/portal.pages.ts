@@ -1,8 +1,10 @@
+import { ERROR_GENERIC, readableError } from '../../core/error-messages';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { LocalAuthService } from '../../core/local-auth.service';
+import { PasswordFieldComponent } from '../../shared/password-field.component';
 import { OperationsDemoService } from '../operations/operations-demo.service';
 import { DemoEntry } from './demo-entry.service';
 import { LocalHomePage } from './local-home.page';
@@ -10,7 +12,7 @@ import { LocalHomePage } from './local-home.page';
 @Component({
   standalone: true,
   selector: 'sager-access',
-  imports: [RouterLink, ReactiveFormsModule],
+  imports: [RouterLink, ReactiveFormsModule, PasswordFieldComponent],
   providers: [DemoEntry],
   template: `
     <header class="masthead public-masthead">
@@ -52,13 +54,15 @@ import { LocalHomePage } from './local-home.page';
           </div>
           <div class="field">
             <label for="login-password">Senha</label>
-            <input
-              id="login-password"
-              type="password"
-              formControlName="password"
-              autocomplete="current-password"
-              required
-            />
+            <sager-password-field>
+              <input
+                id="login-password"
+                type="password"
+                formControlName="password"
+                autocomplete="current-password"
+                required
+              />
+            </sager-password-field>
           </div>
           @if (error()) {
             <p class="access-error" role="alert">{{ error() }}</p>
@@ -71,7 +75,7 @@ import { LocalHomePage } from './local-home.page';
             <a routerLink="/recuperar-senha">Esqueci minha senha</a>
             @if (!session.demoAvailable) {
               <a routerLink="/ajuda">Ajuda para acessar</a>
-              <span>Servidores devem procurar o operador para recuperar o acesso.</span>
+              <span>É supervisor ou gestor? Peça ao suporte para trocar sua senha.</span>
             }
           </div>
         </form>
@@ -277,7 +281,9 @@ export class AccessPage {
         this.form.controls.password.value,
       );
       if (result === 'invalid') {
-        this.error.set('Matrícula ou senha inválidos, ou conta desativada.');
+        this.error.set(
+          'Matrícula ou senha errada. Confira e tente de novo. Se continuar, clique em Esqueci minha senha.',
+        );
         return;
       }
       this.session.deactivate();
@@ -285,11 +291,12 @@ export class AccessPage {
       await this.router.navigateByUrl('/inicio');
     } catch (error) {
       this.error.set(
-        error instanceof Error
-          ? error.message
-          : this.session.production
-            ? 'Não foi possível acessar o SAGER. Tente novamente mais tarde.'
+        readableError(
+          error,
+          this.session.production
+            ? ERROR_GENERIC
             : 'O login local está indisponível. Você ainda pode explorar a demonstração.',
+        ),
       );
     } finally {
       this.busy.set(false);
@@ -497,7 +504,7 @@ export class DemoSelectorPage {
                     }}</strong
                     ><small>{{
                       countsAvailable()
-                        ? 'Saídas longas exigem assinatura prévia.'
+                        ? 'Saídas longas exigem autorização conferida.'
                         : 'Contagens indisponíveis neste cenário.'
                     }}</small></span
                   ><span class="row-tail"
@@ -649,9 +656,9 @@ export class DemoSelectorPage {
                     ></span
                   ><span
                     ><strong>Relatórios</strong
-                    ><small>Combine filtros e consulte dados de demonstração.</small></span
+                    ><small>Escolha o tipo e o período. Dados de demonstração.</small></span
                   ><span class="row-tail"
-                    >Ver relatórios
+                    >Gerar relatório
                     <span class="material-symbols-outlined" aria-hidden="true"
                       >arrow_forward</span
                     ></span
@@ -925,6 +932,10 @@ export class DemoSelectorPage {
         min-height: 44px;
         margin-top: 8px;
         font-weight: 700;
+        text-decoration: none;
+      }
+      .aside-block a:hover {
+        text-decoration: underline;
       }
       .agenda-line {
         display: flex;
@@ -1027,7 +1038,7 @@ export class HomePage {
     this.shortReturnCount() ? 'Em andamento' : 'Nenhum retorno em andamento',
   );
   readonly notificationStatus = computed(() =>
-    this.notificationCount() ? 'Revisão humana' : 'Nenhuma sem decisão',
+    this.notificationCount() ? 'Aguardando decisão' : 'Nenhuma aguardando decisão',
   );
   readonly heading = computed(() =>
     this.session.role() === 'gestor'
@@ -1044,7 +1055,7 @@ export class HomePage {
       : this.session.role() === 'residente'
         ? 'Acompanhe o que precisa da sua atenção.'
         : this.session.role() === 'saude'
-          ? 'Acesso assistencial conforme sua habilitação e seus vínculos.'
+          ? 'Você vê os residentes que atende, depois que a gestão libera seu acesso.'
           : 'Veja o que precisa da sua atenção hoje.',
   );
 }
@@ -1074,10 +1085,10 @@ export class HomePage {
           } @else {
             <h2>Usar sua conta SAGER</h2>
             <p>
-              Entre com sua matrícula e a senha do SAGER. Seu perfil determina as tarefas
-              disponíveis. Confira os dados antes de confirmar uma ação.
+              Entre com sua matrícula e a senha do SAGER. O que aparece na tela depende da sua
+              função. Confira os dados antes de confirmar.
             </p>
-            <a routerLink="/perfil">Consultar meu perfil e vínculo</a>
+            <a routerLink="/perfil">Ver meu perfil</a>
           }
         </div>
       </section>
@@ -1093,7 +1104,7 @@ export class HomePage {
           <a routerLink="/saidas"
             ><span class="material-symbols-outlined" aria-hidden="true">directions_walk</span
             ><strong>Acompanhar saídas</strong
-            ><span>Entenda análise, assinatura e retorno.</span></a
+            ><span>Entenda análise, autorização e retorno.</span></a
           >
           <a
             [routerLink]="
@@ -1102,29 +1113,26 @@ export class HomePage {
                 : '/comunicacoes/avisos'
             "
             ><span class="material-symbols-outlined" aria-hidden="true">campaign</span
-            ><strong>Comunicações</strong
-            ><span>Confira o conteúdo e a ciência de cada versão.</span></a
+            ><strong>Comunicações</strong><span>Veja e confirme seus avisos.</span></a
           >
         }
         @if (session.hasRole('gestor', 'supervisor')) {
           <a routerLink="/relatorios"
             ><span class="material-symbols-outlined" aria-hidden="true">monitoring</span
-            ><strong>Consultar relatórios</strong
-            ><span>Combine filtros e leia os resultados.</span></a
+            ><strong>Gerar relatório</strong><span>Escolha o relatório e as datas.</span></a
           >
         }
         @if (session.hasRole('residente')) {
           <a [routerLink]="session.active() ? '/ranking' : '/minha-limpeza'"
             ><span class="material-symbols-outlined" aria-hidden="true">cleaning_services</span
-            ><strong>Minha limpeza</strong
-            ><span>Consulte avaliações, participantes e a posição do quarto.</span></a
+            ><strong>Minha limpeza</strong><span>Veja as notas e a posição do quarto.</span></a
           >
         }
         @if (session.hasRole('saude')) {
           <a routerLink="/saude"
             ><span class="material-symbols-outlined" aria-hidden="true">health_and_safety</span
             ><strong>Atendimento de saúde</strong
-            ><span>Consulte os atendimentos permitidos pelo seu vínculo.</span></a
+            ><span>Veja os atendimentos que você pode acessar.</span></a
           >
         }
       </div>
@@ -1142,40 +1150,34 @@ export class HomePage {
           <details>
             <summary>Como recuperar ou alterar minha senha?</summary>
             <p>
-              Procure o suporte da instituição. Um operador autorizado confere sua identidade e
-              redefine a senha. Use a nova senha para entrar novamente.
+              Procure o suporte da instituição. Alguém da equipe confere quem você é e troca sua
+              senha. Depois, entre com a senha nova.
             </p>
           </details>
         }
         <details>
           <summary>Quem confirma o retorno de uma saída curta?</summary>
-          <p>
-            O supervisor registra a confirmação depois de verificar presencialmente a chegada do
-            residente.
-          </p>
+          <p>O supervisor registra a volta depois de ver o residente chegar.</p>
         </details>
         <details>
-          <summary>A saída longa pode ser aprovada antes da assinatura?</summary>
+          <summary>A saída longa pode ser aprovada antes da autorização?</summary>
           <p>
-            Não. A jornada exige assinatura válida e documento armazenado antes da aprovação.
+            Não. Um servidor precisa conferir a autorização do responsável antes da aprovação.
             @if (session.active()) {
-              Nesta demonstração, a assinatura é uma simulação sem validade jurídica.
+              Nesta demonstração, o arquivo e a conferência são simulados, sem validade jurídica.
             } @else {
-              Assinatura ou envio indisponível deve ser conferido pelo supervisor. A entrega da
-              mensagem não confirma a assinatura nem a partida física.
+              Se o WhatsApp não estiver funcionando, o supervisor anexa o arquivo recebido por outro
+              meio. Mensagem entregue não confirma a autorização nem a saída.
             }
           </p>
         </details>
         <details>
-          <summary>Uma notificação gera advertência automaticamente?</summary>
-          <p>
-            Não. O supervisor analisa a ocorrência e decide se deve arquivar ou registrar uma
-            advertência manual.
-          </p>
+          <summary>Uma notificação vira advertência sozinha?</summary>
+          <p>Não. O supervisor vê o que aconteceu e decide se arquiva ou dá uma advertência.</p>
         </details>
         <details>
-          <summary>Abrir um aviso significa dar ciência?</summary>
-          <p>Não. A ciência depende de um botão específico e de confirmação.</p>
+          <summary>Abrir um aviso já conta como “Estou ciente”?</summary>
+          <p>Não. Você precisa clicar no botão “Estou ciente” e confirmar.</p>
         </details>
         <details>
           <summary>Como são calculados o ranking e os relatórios?</summary>
@@ -1183,10 +1185,8 @@ export class HomePage {
             @if (session.active()) {
               Os números da demonstração são sintéticos.
             } @else {
-              A nota de limpeza é a média de quatro critérios com o mesmo peso. A tela informa a
-              regra e o período; quartos empatados têm a mesma posição. Sem avaliações, a tela
-              informa a ausência de dados. Prévia e exportação usam a mesma consulta salva. As
-              regras locais aguardam homologação da Assistência Estudantil.
+              A nota de limpeza é a média dos quatro itens. Quartos com a mesma média ficam na mesma
+              posição. A tela e os arquivos mostram os mesmos dados.
             }
           </p>
         </details>
@@ -1334,28 +1334,20 @@ export class HelpPage {
     @if (!session.active()) {
       @if (auth.principal()?.perfis?.[0] === 'saude') {
         <section class="profile-link" aria-labelledby="profile-health-title">
-          <h2 id="profile-health-title">Acesso assistencial</h2>
-          <p>Sua habilitação e os residentes assistidos são conferidos na área de saúde.</p>
+          <h2 id="profile-health-title">Área de saúde</h2>
+          <p>Veja seus atendimentos na área de saúde.</p>
           <a routerLink="/saude">Abrir área de saúde</a>
         </section>
       } @else {
         <section class="profile-link" aria-labelledby="profile-link-title">
-          <h2 id="profile-link-title">Vínculo cadastral</h2>
-          @if (auth.principal()?.residenteId; as recordId) {
-            <p>Cadastro de residente vinculado</p>
-            <details>
-              <summary>Referência do cadastro</summary>
-              <code>{{ recordId }}</code>
-            </details>
-          } @else if (auth.principal()?.supervisorId; as recordId) {
-            <p>Cadastro de supervisor vinculado</p>
-            <details>
-              <summary>Referência do cadastro</summary>
-              <code>{{ recordId }}</code>
-            </details>
+          <h2 id="profile-link-title">Seu cadastro</h2>
+          @if (auth.principal()?.residenteId) {
+            <p>Sua conta está ligada ao seu cadastro de residente.</p>
+          } @else if (auth.principal()?.supervisorId) {
+            <p>Sua conta está ligada ao seu cadastro de supervisor.</p>
           } @else {
-            <p>Conta sem cadastro vinculado</p>
-            <p>Para associar sua conta ao cadastro, solicite o vínculo ao operador do SAGER.</p>
+            <p>Sua conta ainda não está ligada a um cadastro.</p>
+            <p>Peça ao suporte para ligar sua conta ao cadastro.</p>
           }
         </section>
       }

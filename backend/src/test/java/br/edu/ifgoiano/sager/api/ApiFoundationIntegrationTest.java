@@ -119,6 +119,18 @@ class ApiFoundationIntegrationTest {
                     .path("ResidentCreateRequest").path("properties").path("birthDate");
             assertThat(birthDate.path("type").asText()).isEqualTo("string");
             assertThat(birthDate.path("format").asText()).isEqualTo("date");
+            for (String field : List.of("password", "passwordConfirmation")) {
+                JsonNode password = document.path("components").path("schemas")
+                        .path("ResidentCreateRequest").path("properties").path(field);
+                assertThat(password.path("minLength").asInt()).isEqualTo(8);
+                assertThat(password.path("maxLength").asInt()).isEqualTo(72);
+            }
+            JsonNode supervisorCreate = document.path("components").path("schemas").path("SupervisorCreateRequest");
+            assertThat(supervisorCreate.path("properties").path("password").path("minLength").asInt()).isEqualTo(8);
+            assertThat(supervisorCreate.path("properties").path("passwordConfirmation").path("writeOnly").asBoolean()).isTrue();
+            assertThat(supervisorCreate.path("required").toString()).contains("password", "passwordConfirmation");
+            assertThat(document.path("components").path("schemas").path("SupervisorUpdateRequest")
+                    .path("properties").has("password")).isFalse();
             assertThat(document.path("paths").path("/api/v1/responsaveis").path("post")
                     .path("responses").has("422")).isTrue();
             assertThat(document.path("paths").path("/api/v1/alocacoes").path("post")
@@ -165,7 +177,31 @@ class ApiFoundationIntegrationTest {
     }
 
     @Test
-    void openApiIncludesLongExitBodiesCapabilityAndPrivatePdfContracts() throws Exception {
+    void openApiIncludesConversationRoutesAndBodies() throws Exception {
+        account("supervisor");
+        try (HttpClient client = browser()) {
+            login(client, "supervisor@example.test", PASSWORD, csrf(client));
+            HttpResponse<String> response = get(client, "/api/v1/openapi");
+            assertThat(response.statusCode()).isEqualTo(200);
+            JsonNode paths = json.readTree(response.body()).path("paths");
+            for (String path : List.of("/api/v1/conversas", "/api/v1/conversas/{id}",
+                    "/api/v1/conversas/{id}/leitura", "/api/v1/conversas/{id}/mensagens",
+                    "/api/v1/conversas/{id}/saidas-abertas", "/api/v1/conversas/mensagens/{id}/midia",
+                    "/api/v1/conversas/mensagens/{id}/vinculo", "/api/v1/conversas/sessao",
+                    "/api/v1/conversas/sessao/inicio", "/api/v1/conversas/sessao/qr")) {
+                assertThat(paths.has(path)).as(path).isTrue();
+            }
+            JsonNode send = paths.path("/api/v1/conversas/{id}/mensagens").path("post");
+            assertThat(send.path("requestBody").path("content").has("application/json")).isTrue();
+            assertThat(send.path("requestBody").path("content").has("multipart/form-data")).isTrue();
+            assertThat(send.path("description").asString()).contains("Idempotency-Key", "supervisor");
+            assertThat(paths.path("/api/v1/conversas/mensagens/{id}/midia").path("get").path("responses")
+                    .path("200").path("content").has("application/octet-stream")).isTrue();
+        }
+    }
+
+    @Test
+    void openApiIncludesLongExitBodiesAuthorizationRoutesAndGatewayWebhook() throws Exception {
         account("supervisor");
         try (HttpClient client = browser()) {
             login(client, "supervisor@example.test", PASSWORD, csrf(client));
@@ -177,10 +213,15 @@ class ApiFoundationIntegrationTest {
                     "/api/v1/saidas-longas/{id}", "/api/v1/saidas-longas/{id}/decisao",
                     "/api/v1/saidas-longas/{id}/cancelamento", "/api/v1/saidas-longas/{id}/partida",
                     "/api/v1/saidas-longas/{id}/retorno", "/api/v1/saidas-longas/{id}/reenvio",
-                    "/api/v1/saidas-longas/{id}/reconciliacao",
+                    "/api/v1/saidas-longas/{id}/autorizacao/arquivos",
+                    "/api/v1/saidas-longas/{id}/autorizacao/arquivos/{fileId}",
+                    "/api/v1/saidas-longas/{id}/autorizacao/arquivos/{fileId}/conferencia",
+                    "/api/v1/saidas-longas/{id}/autorizacao/arquivos/{fileId}/recusa",
+                    "/api/v1/saidas-longas/{id}/autorizacao/vinculos",
+                    "/api/v1/saidas-longas/{id}/autorizacao/nao-vinculados",
+                    "/api/v1/integracoes/whatsapp/webhook",
                     "/api/v1/saidas-longas/{id}/documentos/{documentVersionId}/original",
-                    "/api/v1/saidas-longas/{id}/documentos/{documentVersionId}/assinado",
-                    "/api/v1/assinaturas/acesso", "/api/v1/assinaturas/documento")) {
+                    "/api/v1/saidas-longas/{id}/documentos/{documentVersionId}/assinado")) {
                 assertThat(paths.has(path)).as(path).isTrue();
             }
             JsonNode schemas = document.path("components").path("schemas");
@@ -191,12 +232,19 @@ class ApiFoundationIntegrationTest {
             assertThat(paths.path("/api/v1/saidas-longas/{id}/decisao").path("post")
                     .path("requestBody").path("content").path("application/json").path("schema")
                     .path("$ref").asText()).isEqualTo("#/components/schemas/LongExitDecisionRequest");
-            assertThat(paths.path("/api/v1/assinaturas/acesso").path("get").path("security")
-                    .get(0).has("signatureCapability")).isTrue();
-            assertThat(paths.path("/api/v1/assinaturas/documento").path("get").path("responses")
-                    .path("200").path("content").has("application/pdf")).isTrue();
-            assertThat(document.path("components").path("securitySchemes").path("signatureCapability")
-                    .path("scheme").asText()).isEqualTo("bearer");
+            assertThat(paths.has("/api/v1/saidas-longas/{id}/reconciliacao")).isFalse();
+            assertThat(paths.has("/api/v1/assinaturas/acesso")).isFalse();
+            assertThat(paths.has("/api/v1/webhooks/clicksign")).isFalse();
+            assertThat(paths.path("/api/v1/saidas-longas/{id}/autorizacao/arquivos/{fileId}/conferencia")
+                    .path("post").path("requestBody").path("content").path("application/json").path("schema")
+                    .path("$ref").asText()).isEqualTo("#/components/schemas/LongExitAuthorizationConfirmRequest");
+            assertThat(paths.path("/api/v1/integracoes/whatsapp/webhook").path("post").path("security")
+                    .get(0).has("gatewayHmac")).isTrue();
+            assertThat(document.path("components").path("securitySchemes").path("gatewayHmac")
+                    .path("name").asText()).isEqualTo("X-Webhook-Hmac");
+            assertThat(paths.path("/api/v1/saidas-longas/{id}/autorizacao/arquivos/{fileId}").path("get")
+                    .path("responses").path("200").path("content").has("application/octet-stream")).isTrue();
+            assertThat(document.toString()).doesNotContainIgnoringCase("clicksign");
         }
     }
 
@@ -268,6 +316,8 @@ class ApiFoundationIntegrationTest {
             assertThat(paths.path("/api/v1/relatorios/exportacoes/{id}/arquivo").path("get").path("responses").path("200").path("content")
                     .has("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")).isTrue();
             assertThat(paths.path("/api/v1/relatorios/consultas").path("post").path("description").asText()).contains("10.000", "366", "24 horas");
+            assertThat(paths.path("/api/v1/relatorios/consultas").path("get").path("description").asText()).contains("sem as linhas", "só a que falhou");
+            assertThat(filters.path("properties").path("unitId").path("format").asText()).isEqualTo("uuid");
         }
     }
 

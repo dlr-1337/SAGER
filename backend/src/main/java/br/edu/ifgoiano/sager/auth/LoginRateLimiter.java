@@ -1,5 +1,7 @@
 package br.edu.ifgoiano.sager.auth;
 
+import br.edu.ifgoiano.sager.management.FieldRules;
+
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.OffsetDateTime;
@@ -61,7 +63,8 @@ public class LoginRateLimiter {
     }
 
     private OffsetDateTime now() { return OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC); }
-    private String normalize(String email) { return email == null ? "" : email.trim().toLowerCase(Locale.ROOT); }
+    // Each spelling of an enrollment reaches the same account, so it must share the same limit.
+    private String normalize(String email) { return email == null ? "" : FieldRules.normalizeEnrollment(email).toLowerCase(Locale.ROOT); }
     private String key(String type, String value) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");

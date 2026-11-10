@@ -380,7 +380,7 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
 async function fillWarning(page: Page): Promise<void> {
   await page.getByLabel('Gravidade decidida pelo supervisor').selectOption('GRAVE');
   await page
-    .getByLabel('Descrição da ocorrência')
+    .getByLabel('O que aconteceu?')
     .fill('Ausência na chamada conferida após análise humana.');
   await page
     .getByLabel('Justificativa da decisão', { exact: true })
@@ -391,18 +391,58 @@ async function confirm(page: Page, name: string): Promise<void> {
 }
 test.use({ timezoneId: 'Pacific/Auckland' });
 
+test('lista longa em diálogo: painel acima do diálogo, Esc fecha só o painel, sem erro de axe', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await mockApi(page);
+  await page.goto('/notificacoes');
+  await page.getByRole('link', { name: 'Ver notificação' }).click();
+  await page.getByRole('button', { name: 'Registrar visualização' }).click();
+  await page.getByRole('button', { name: 'Iniciar análise', exact: true }).click();
+  await page.getByRole('button', { name: 'Arquivar com justificativa' }).click();
+  const dialog = page.getByRole('dialog');
+  const select = dialog.getByRole('combobox', { name: 'Motivo do arquivamento', exact: true });
+  await select.evaluate((element: HTMLSelectElement) => {
+    for (let index = 1; index <= 12; index += 1)
+      element.add(new Option(`Motivo sintético ${index}`, `CODIGO_${index}`));
+  });
+  await select.click();
+  const search = page.getByRole('combobox', { name: 'Buscar em Motivo do arquivamento' });
+  await expect(search).toBeFocused();
+  await expect(dialog.locator('.select-panel')).toBeVisible();
+  const box = (await page.locator('.select-panel').boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.y).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(320);
+  expect(box.y + box.height).toBeLessThanOrEqual(568);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page.keyboard.press('Escape');
+  await expect(search).toHaveCount(0);
+  await expect(dialog).toBeVisible();
+  await expect(select).toBeFocused();
+  await select.click();
+  await search.fill('sintético 12');
+  await dialog
+    .locator('.select-panel')
+    .getByRole('option', { name: 'Motivo sintético 12' })
+    .click();
+  await expect(select).toHaveValue('CODIGO_12');
+  await expect(dialog).toBeVisible();
+});
+
 test('GET não decide; supervisor registra visualização, análise e arquivamento motivado', async ({
   page,
 }) => {
   const state = await mockApi(page);
   await page.goto('/notificacoes');
-  await page.getByRole('link', { name: 'Abrir análise' }).click();
-  await expect(page.getByRole('heading', { name: 'Origem e evidência' })).toBeVisible();
+  await page.getByRole('link', { name: 'Ver notificação' }).click();
+  await expect(page.getByRole('heading', { name: 'O que aconteceu' })).toBeVisible();
   expect(state.writes).toHaveLength(0);
   await page.getByRole('button', { name: 'Registrar visualização' }).click();
   await expect(page.getByText('Visualização registrada por ação explícita.')).toBeVisible();
   await page.getByRole('button', { name: 'Iniciar análise', exact: true }).click();
-  await expect(page.getByText('Análise iniciada. Nenhuma advertência foi emitida.')).toBeVisible();
+  await expect(page.getByText('Análise iniciada.')).toBeVisible();
   const archive = page.getByRole('button', { name: 'Arquivar com justificativa' });
   await archive.click();
   await expect(page.getByRole('dialog').getByLabel('Motivo do arquivamento')).toBeFocused();
@@ -441,27 +481,25 @@ test('origem corrigida exige revisão humana antes da conversão com gravidade e
     sourceVersion: 5,
   });
   await page.goto('/notificacoes/' + notificationId);
-  await expect(page.getByRole('button', { name: 'Converter após análise humana' })).toBeDisabled();
-  await page.getByRole('button', { name: 'Confirmar evidência atual' }).click();
+  await expect(page.getByRole('button', { name: 'Criar advertência' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Confirmar registro atual' }).click();
   await page
     .getByRole('dialog')
     .getByLabel('Justificativa', { exact: true })
     .fill('A evidência atual continua válida após a correção da chamada.');
   await page.getByRole('dialog').getByRole('checkbox').check();
-  await confirm(page, 'Confirmar evidência atual');
-  await expect(page.getByText('Revisão humana da evidência registrada.')).toBeVisible();
-  await page.getByRole('button', { name: 'Converter após análise humana' }).click();
+  await confirm(page, 'Confirmar registro atual');
+  await expect(page.getByText('Conferência registrada.')).toBeVisible();
+  await page.getByRole('button', { name: 'Criar advertência' }).click();
   await fillWarning(page);
-  await page.getByRole('button', { name: 'Revisar conversão em advertência' }).click();
+  await page.getByRole('button', { name: 'Conferir advertência' }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(
-    page.getByRole('button', { name: 'Revisar conversão em advertência' }),
-  ).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Conferir advertência' })).toBeFocused();
   expect(state.writes).toHaveLength(1);
-  await page.getByRole('button', { name: 'Revisar conversão em advertência' }).click();
-  await confirm(page, 'Confirmar emissão da advertência');
+  await page.getByRole('button', { name: 'Conferir advertência' }).click();
+  await confirm(page, 'Criar advertência');
   await expect(page).toHaveURL(/\/advertencias\//);
   const write = state.writes.find((item) => item.path.endsWith('/converter'))!;
   expect(write.body).toMatchObject({
@@ -485,14 +523,14 @@ test('advertência manual valida data do servidor, repete intenção com a mesma
   await page.getByRole('combobox', { name: 'Residente', exact: true }).selectOption(residentId);
   await fillWarning(page);
   await page.getByLabel('Data da advertência').fill('2026-10-01');
-  await page.getByRole('button', { name: 'Revisar e emitir advertência' }).click();
+  await page.getByRole('button', { name: 'Conferir e dar advertência' }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'não seja futura' })).toBeVisible();
   expect(state.writes).toHaveLength(0);
   await page.getByLabel('Data da advertência').fill('2026-09-30');
-  await page.getByRole('button', { name: 'Revisar e emitir advertência' }).click();
+  await page.getByRole('button', { name: 'Conferir e dar advertência' }).click();
   await confirm(page, 'Confirmar emissão da advertência');
-  await expect(page.getByRole('alert').filter({ hasText: 'conexão' })).toBeVisible();
-  await page.getByRole('button', { name: 'Revisar e emitir advertência' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Verifique a internet' })).toBeVisible();
+  await page.getByRole('button', { name: 'Conferir e dar advertência' }).click();
   await confirm(page, 'Confirmar emissão da advertência');
   await expect(page).toHaveURL(/\/advertencias\/000/);
   expect(state.writes[0].body.idempotencyKey).toBe(state.writes[1].body.idempotencyKey);
@@ -503,9 +541,7 @@ test('advertência manual valida data do servidor, repete intenção com a mesma
     .getByLabel('Justificativa', { exact: true })
     .fill('Nova evidência demonstra que a advertência deve ser anulada.');
   await confirm(page, 'Confirmar anulação');
-  await expect(
-    page.getByText('Advertência anulada por decisão humana. O histórico foi preservado.'),
-  ).toBeVisible();
+  await expect(page.getByText('Advertência anulada. O histórico continua guardado.')).toBeVisible();
   await page.reload();
   await expect(page.getByText('Anulada', { exact: true })).toBeVisible();
 });
@@ -545,9 +581,7 @@ test('candidato é revisto, termo exige confirmação humana e PDF privado prese
     .fill('A base foi reavaliada com novas informações e o termo foi anulado.');
   await confirm(page, 'Confirmar anulação do termo');
   await expect(
-    page.getByText(
-      'Termo anulado por decisão humana. O documento e o histórico foram preservados.',
-    ),
+    page.getByText('Termo anulado. O documento e o histórico continuam guardados.'),
   ).toBeVisible();
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Termo anulado' })).toBeVisible();
@@ -569,15 +603,15 @@ test('base corrigida e conflito impedem escrita até recarregar evidência atual
   await expect(page.getByRole('alert').filter({ hasText: 'A base mudou' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Revisar emissão de termo' })).toBeDisabled();
   expect(state.writes).toHaveLength(0);
-  await page.getByRole('button', { name: 'Recarregar base' }).click();
+  await page.getByRole('button', { name: 'Recarregar dados' }).click();
   await expect(page.getByRole('checkbox')).toHaveCount(1);
   await expect(page.getByRole('checkbox')).toBeDisabled();
   await page.goto('/notificacoes/' + notificationId);
   state.conflictOnce = true;
   await page.getByRole('button', { name: 'Registrar visualização' }).click();
-  await expect(page.getByRole('alert').filter({ hasText: 'Recarregue' })).toBeVisible();
+  await expect(page.getByRole('alert').filter({ hasText: 'Clique em Recarregar' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Registrar visualização' })).toBeDisabled();
-  await page.getByRole('button', { name: 'Recarregar notificação' }).click();
+  await page.getByRole('button', { name: 'Recarregar dados' }).click();
   await expect(page.getByRole('button', { name: 'Registrar visualização' })).toBeEnabled();
   expect(state.writes).toHaveLength(1);
 });
@@ -629,10 +663,10 @@ test('aviso mantém seleção após falha e sai sem alerta de descarte após sal
   await page
     .getByLabel('Mensagem', { exact: true })
     .fill('Mensagem sintética para testar a gravação.');
-  const save = page.getByRole('button', { name: 'Revisar e salvar rascunho', exact: true });
+  const save = page.getByRole('button', { name: 'Salvar rascunho', exact: true });
   await save.click();
   await confirm(page, 'Salvar rascunho');
-  await expect(page.getByRole('alert').filter({ hasText: 'conexão' })).toBeVisible();
+  await expect(page.getByRole('alert').filter({ hasText: 'Verifique a internet' })).toBeVisible();
   await page.getByRole('link', { name: 'Cancelar', exact: true }).click();
   const dialog = page.getByRole('alertdialog');
   await expect(dialog).toContainText('Descartar alterações?');
@@ -656,7 +690,7 @@ test('supervisor publica aviso por UUID, revisa preservando destinatários e ret
     .getByLabel('Mensagem', { exact: true })
     .fill('Compareçam ao auditório às 18 horas para a reunião geral.');
   await page.getByRole('checkbox', { name: /Estudante Sintético/ }).check();
-  await page.getByRole('button', { name: 'Revisar e salvar rascunho' }).click();
+  await page.getByRole('button', { name: 'Salvar rascunho' }).click();
   await confirm(page, 'Salvar rascunho');
   await expect(page).toHaveURL('/comunicacoes/avisos/' + noticeId);
   expect(state.writes[0].body.residentIds).toEqual([residentId]);
@@ -669,18 +703,14 @@ test('supervisor publica aviso por UUID, revisa preservando destinatários e ret
   await page.getByRole('button', { name: 'Revisar publicação' }).click();
   await confirm(page, 'Confirmar publicação');
   await expect(page.getByText('Aviso publicado para os destinatários selecionados.')).toBeVisible();
-  await page.getByRole('button', { name: 'Preparar nova versão' }).click();
+  await page.getByRole('button', { name: 'Corrigir aviso' }).click();
   await expect(page.getByRole('checkbox')).toHaveCount(0);
   await page
     .getByLabel('Mensagem', { exact: true })
     .fill('A reunião foi transferida para as 19 horas no mesmo auditório.');
-  await page.getByRole('button', { name: 'Revisar e publicar nova versão' }).click();
-  await confirm(page, 'Publicar nova versão');
-  await expect(
-    page.getByText(
-      'Nova versão publicada. O conteúdo e as evidências anteriores foram preservados.',
-    ),
-  ).toBeVisible();
+  await page.getByRole('button', { name: 'Publicar correção' }).click();
+  await confirm(page, 'Publicar correção');
+  await expect(page.getByText('Correção publicada.')).toBeVisible();
   expect(state.writes[2].body).toMatchObject({ version: 1, title: 'Reunião geral de residentes' });
   expect(state.writes[2].body).not.toHaveProperty('residentIds');
   await page.getByRole('button', { name: 'Retirar com justificativa' }).click();
@@ -693,7 +723,7 @@ test('supervisor publica aviso por UUID, revisa preservando destinatários e ret
     page.getByText('Aviso retirado com justificativa. Histórico preservado.'),
   ).toBeVisible();
   await page.reload();
-  await expect(page.getByText('Versão 3 · Retirado')).toBeVisible();
+  await expect(page.getByText('Retirado')).toBeVisible();
 });
 
 test('residente consulta dados próprios e registra leitura e ciência separadas na versão exata', async ({
@@ -702,7 +732,7 @@ test('residente consulta dados próprios e registra leitura e ciência separadas
   const state = await mockApi(page, { role: 'residente' });
   await page.goto('/avisos');
   await expect(page.getByRole('heading', { name: 'Minhas comunicações' })).toBeVisible();
-  await page.getByRole('link', { name: 'Ler comunicação' }).click();
+  await page.getByRole('link', { name: 'Ler', exact: true }).click();
   await expect(page.getByRole('heading', { name: state.own.title })).toBeVisible();
   expect(state.writes).toHaveLength(0);
   expect(
@@ -710,10 +740,10 @@ test('residente consulta dados próprios e registra leitura e ciência separadas
       (path) => !path.startsWith('/notificacoes') && !path.startsWith('/residentes'),
     ),
   ).toBe(true);
-  await page.getByRole('button', { name: 'Registrar minha leitura' }).click();
-  await expect(page.getByText('Leitura desta versão registrada.')).toBeVisible();
+  await page.getByRole('button', { name: 'Já li' }).click();
+  await expect(page.getByText('Marcado como lido.')).toBeVisible();
   expect(state.own.acknowledgedAt).toBeNull();
-  const trigger = page.getByRole('button', { name: 'Conferir e registrar ciência' });
+  const trigger = page.getByRole('button', { name: 'Estou ciente' });
   await trigger.click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.keyboard.press('Escape');
@@ -722,13 +752,13 @@ test('residente consulta dados próprios e registra leitura e ciência separadas
   expect(state.writes).toHaveLength(1);
   await trigger.click();
   await page.getByRole('dialog').getByRole('checkbox').check();
-  await confirm(page, 'Confirmar minha ciência');
-  await expect(page.getByText('Ciência desta versão registrada.')).toBeVisible();
+  await confirm(page, 'Estou ciente');
+  await expect(page.getByText('Marcado como ciente.')).toBeVisible();
   expect(state.writes.map((item) => item.path.split('/').pop())).toEqual(['leitura', 'ciencia']);
   expect(state.writes.every((item) => JSON.stringify(item.body) === '{"version":2}')).toBe(true);
   await page.reload();
-  await expect(page.getByRole('button', { name: 'Conferir e registrar ciência' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Registrar minha leitura' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Estou ciente' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Já li' })).toHaveCount(0);
 });
 
 test('publicação alterada exige leitura atual; registro de outra conta e falha não expõem demo', async ({
@@ -742,24 +772,22 @@ test('publicação alterada exige leitura atual; registro de outra conta e falha
     contentVersion: 3,
     body: 'Nova versão do conteúdo publicada pelo supervisor.',
   };
-  await page.getByRole('button', { name: 'Conferir e registrar ciência' }).click();
-  await expect(page.getByRole('alert').filter({ hasText: 'A publicação mudou' })).toBeVisible();
+  await page.getByRole('button', { name: 'Estou ciente' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Este aviso mudou' })).toBeVisible();
   expect(state.writes).toHaveLength(0);
-  await expect(page.getByRole('button', { name: 'Conferir e registrar ciência' })).toBeDisabled();
-  await page.getByRole('button', { name: 'Recarregar comunicação' }).click();
+  await expect(page.getByRole('button', { name: 'Estou ciente' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Recarregar dados' }).click();
   await expect(page.getByText(state.own.body, { exact: true })).toBeVisible();
   await page.goto('/minhas-comunicacoes/' + uuid(999));
-  await expect(
-    page.getByRole('alert').filter({ hasText: 'não está disponível para sua conta' }),
-  ).toBeVisible();
+  await expect(page.getByRole('alert').filter({ hasText: 'Não encontramos' })).toBeVisible();
   await expect(page.getByText('private-db-schema')).toHaveCount(0);
   state.failReads = true;
   await page.goto('/avisos');
-  await expect(page.getByRole('alert').filter({ hasText: 'conexão' })).toBeVisible();
+  await expect(page.getByRole('alert').filter({ hasText: 'Verifique a internet' })).toBeVisible();
   await expect(page.getByText('Dados de demonstração')).toHaveCount(0);
   state.failReads = false;
   await page.getByRole('button', { name: 'Tentar novamente' }).click();
-  await expect(page.getByRole('link', { name: 'Ler comunicação' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Ler', exact: true })).toBeVisible();
 });
 
 test('termo próprio usa UUID da fonte para PDF e preserva ciência histórica e base em revisão', async ({
@@ -780,12 +808,12 @@ test('termo próprio usa UUID da fonte para PDF e preserva ciência histórica e
   };
   const state = await mockApi(page, { role: 'residente', own });
   await page.goto('/avisos?tipo=termos');
-  await page.getByRole('link', { name: 'Ler comunicação' }).click();
+  await page.getByRole('link', { name: 'Ler', exact: true }).click();
   await expect(
-    page.getByText('A origem ou a base está em revisão.', { exact: false }),
+    page.getByText('A equipe está conferindo este registro.', { exact: false }),
   ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Registrar minha leitura' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Conferir e registrar ciência' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Já li' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Estou ciente' })).toHaveCount(0);
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Baixar meu termo em PDF' }).click();
   expect((await download).suggestedFilename()).toBe('sager-termo-' + termId + '.pdf');

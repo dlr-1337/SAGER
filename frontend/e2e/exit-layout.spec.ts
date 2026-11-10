@@ -13,7 +13,7 @@ test('detalhe de saída mantém próxima etapa visível e reordena sem rolagem h
     await expect(page.getByRole('heading', { name: 'Solicitação S-1048' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Dados da solicitação' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Linha do tempo' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Assinatura pendente' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Autorização pendente' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Ações do supervisor' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Aprovar' })).toBeDisabled();
     await expect(
@@ -32,7 +32,7 @@ test('detalhe de saída mantém próxima etapa visível e reordena sem rolagem h
     if (width === 1440) {
       expect(overview.x).toBeLessThan(timeline.x);
       expect(timeline.x).toBeLessThan(nextStep.x);
-      await expect(page.getByRole('heading', { name: 'Assinatura pendente' })).toBeInViewport();
+      await expect(page.getByRole('heading', { name: 'Autorização pendente' })).toBeInViewport();
     } else if (width === 800) {
       expect(overview.x).toBeLessThan(timeline.x);
       expect(nextStep.y).toBeGreaterThan(overview.y);

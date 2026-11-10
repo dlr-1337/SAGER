@@ -1,19 +1,60 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, Page, test } from '@playwright/test';
 import type {
+  AuthorizationFile,
   LongExit,
   LongExitEligibility,
+  ReceivedFile,
 } from '../src/app/features/operations/long-exit.models';
-import type { SignatureAccess } from '../src/app/features/signature/signature-access.models';
 
 const residentId = '00000000-0000-0000-0000-000000000041';
 const guardianId = '00000000-0000-0000-0000-000000000051';
 const exitId = '00000000-0000-0000-0000-000000000801';
 const documentId = '00000000-0000-0000-0000-000000000811';
 const bindingId = '00000000-0000-0000-0000-000000000821';
-const token = 'A'.repeat(43);
+const fileId = '00000000-0000-0000-0000-000000000831';
+const messageId = '00000000-0000-0000-0000-000000000841';
+const supervisorAccount = '00000000-0000-0000-0000-000000000001';
 const now = '2026-09-30T16:00:00Z';
 const pdf = '%PDF-1.7\n1 0 obj<</Type/Catalog>>endobj\n%%EOF';
+const png = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/AAAMBAQAY3Y2wAAAAAElFTkSuQmCC',
+  'base64',
+);
+
+function candidate(overrides: Partial<AuthorizationFile> = {}): AuthorizationFile {
+  return {
+    id: fileId,
+    documentVersionId: documentId,
+    bindingId,
+    origin: 'WHATSAPP',
+    state: 'CANDIDATE',
+    mediaType: 'image/png',
+    size: png.length,
+    sha256: 'a'.repeat(64),
+    senderPhone: '+5562999999999',
+    senderDivergent: false,
+    receivedAt: '2026-09-30T15:30:00Z',
+    decidedBy: null,
+    decidedByName: null,
+    decidedAt: null,
+    decisionReason: null,
+    ...overrides,
+  };
+}
+function receivedFile(overrides: Partial<ReceivedFile> = {}): ReceivedFile {
+  return {
+    messageId,
+    senderPhone: '+5562988887777',
+    fromGuardian: false,
+    mediaState: 'STORED',
+    failureCode: null,
+    mediaType: 'image/png',
+    size: png.length,
+    receivedAt: '2026-09-30T15:40:00Z',
+    ...overrides,
+  };
+}
 
 function exitFixture(): LongExit {
   return {
@@ -51,8 +92,11 @@ function exitFixture(): LongExit {
       documentVersionId: documentId,
       revisionNumber: 1,
       originalState: 'STORED',
-      signedState: 'NOT_AVAILABLE',
+      signedState: 'MISSING',
     },
+    authorizationFiles: [],
+    whatsappAvailable: true,
+    deliveryUnconfirmed: false,
     signatureStatus: 'PENDING',
     messageStatus: 'READ',
     signedAt: null,
@@ -71,8 +115,9 @@ function exitFixture(): LongExit {
         revokedAt: null,
         signedAt: null,
         verifiedAt: null,
+        verifiedBy: null,
+        verifiedByName: null,
         failureCode: null,
-        widgetAvailable: true,
       },
     ],
     capabilities: {
@@ -83,35 +128,11 @@ function exitFixture(): LongExit {
       canDepart: false,
       canReturn: false,
       canResend: true,
-      canReconcile: false,
+      canAttachAuthorization: true,
       canDownloadOriginal: true,
       canDownloadSigned: false,
     },
     history: [],
-  };
-}
-function invitationFixture(): SignatureAccess {
-  return {
-    bindingId,
-    documentVersionId: documentId,
-    revisionNumber: 1,
-    residentName: 'Estudante Sintético',
-    enrollment: 'TESTE-001',
-    guardianName: 'Responsável Sintético',
-    guardianRelationship: 'Mãe',
-    requestedDepartureAt: now,
-    expectedReturnAt: '2026-09-30T22:00:00Z',
-    reason: 'Visita à família sintética',
-    notes: null,
-    signatureStatus: 'PENDING',
-    expiresAt: '2026-09-30T22:00:00Z',
-    now,
-    widget: {
-      available: true,
-      signerId: '00000000-0000-0000-0000-000000000831',
-      environment: 'sandbox',
-      libraryVersion: '2.1.0',
-    },
   };
 }
 interface MockState {
@@ -123,12 +144,11 @@ interface MockState {
   canResend: boolean;
   conflict: boolean;
   failReads: boolean;
-  publicStatus: number;
-  invitation: SignatureAccess;
+  conflictCode: string;
+  signedMediaType: string;
+  unlinked: ReceivedFile[];
   writes: { path: string; body: Record<string, any>; headers: Record<string, string> }[];
-  publicReads: { path: string; method: string; headers: Record<string, string> }[];
   paths: string[];
-  widgetRequests: { url: string; headers: Record<string, string> }[];
 }
 async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<MockState> {
   const state: MockState = {
@@ -140,12 +160,11 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
     canResend: true,
     conflict: false,
     failReads: false,
-    publicStatus: 200,
-    invitation: invitationFixture(),
+    conflictCode: 'stale_version',
+    signedMediaType: 'application/pdf',
+    unlinked: [],
     writes: [],
-    publicReads: [],
     paths: [],
-    widgetRequests: [],
     ...options,
   };
   const view = (exit: LongExit): LongExit => {
@@ -154,9 +173,15 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
     return {
       ...exit,
       now: state.now,
+      authorizationFiles: supervisor ? exit.authorizationFiles : [],
+      whatsappAvailable: state.providersEnabled,
       capabilities: {
         canEdit: pending && state.role === 'residente',
-        canApprove: pending && supervisor && exit.signatureStatus === 'VALID',
+        canApprove:
+          pending &&
+          supervisor &&
+          exit.signatureStatus === 'VALID' &&
+          exit.currentDocument?.signedState === 'STORED',
         canReject: pending && supervisor,
         canCancel: pending || (supervisor && exit.status === 'APROVADA'),
         canDepart: supervisor && exit.status === 'APROVADA',
@@ -169,7 +194,7 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
           exit.signatureStatus !== 'VALID' &&
           exit.signatureStatus !== 'UNCERTAIN' &&
           exit.remainingResends > 0,
-        canReconcile: supervisor && pending && exit.signatureStatus === 'UNCERTAIN',
+        canAttachAuthorization: supervisor && pending && exit.signatureStatus !== 'VALID',
         canDownloadOriginal: exit.currentDocument?.originalState === 'STORED',
         canDownloadSigned: exit.currentDocument?.signedState === 'STORED',
       },
@@ -178,10 +203,18 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
   const history = (exit: LongExit, event: string, body: Record<string, any>) => {
     exit.version++;
     exit.updatedAt = state.now;
-    const { history: previousHistory, capabilities, bindings, currentDocument, ...snapshot } = exit;
+    const {
+      history: previousHistory,
+      capabilities,
+      bindings,
+      authorizationFiles,
+      currentDocument,
+      ...snapshot
+    } = exit;
     void previousHistory;
     void capabilities;
     void bindings;
+    void authorizationFiles;
     exit.history.push({
       ...snapshot,
       id: `evento-${exit.version}`,
@@ -215,14 +248,6 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
       });
     if (path === '/api/v1/auth/csrf')
       return ok({ headerName: 'X-CSRF-TOKEN', token: 'synthetic-csrf' });
-    if (path.startsWith('/api/v1/assinaturas/')) {
-      state.publicReads.push({ path, method, headers: request.headers() });
-      if (state.publicStatus !== 200)
-        return route.fulfill({ status: state.publicStatus, json: { message: `secret=${token}` } });
-      if (path.endsWith('/documento'))
-        return route.fulfill({ contentType: 'application/pdf', body: pdf });
-      return ok(state.invitation);
-    }
     if (method === 'GET') {
       if (state.failReads)
         return route.fulfill({
@@ -253,10 +278,7 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
               blockers: state.guardiansEligible ? [] : ['invalid_phone'],
             },
           ],
-          providers: {
-            clicksignEnabled: state.providersEnabled,
-            whatsappEnabled: state.providersEnabled,
-          },
+          providers: { whatsappEnabled: state.providersEnabled },
         };
         return ok(eligibility);
       }
@@ -270,18 +292,30 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
             .map(view),
         );
       if (path === '/api/v1/saidas-curtas') return ok([]);
+      if (path.endsWith('/autorizacao/nao-vinculados')) return ok(state.unlinked);
+      if (path.includes('/autorizacao/arquivos/')) {
+        const file = state.exits
+          .flatMap((exit) => exit.authorizationFiles)
+          .find((item) => path.endsWith(item.id));
+        return file?.mediaType === 'application/pdf'
+          ? route.fulfill({ contentType: 'application/pdf', body: pdf })
+          : route.fulfill({ contentType: 'image/png', body: png });
+      }
+      if (path.endsWith('/assinado') && state.signedMediaType === 'image/png')
+        return route.fulfill({ contentType: 'image/png', body: png });
       if (path.includes('/documentos/'))
         return route.fulfill({ contentType: 'application/pdf', body: pdf });
       const item = state.exits.find((exit) => path === `/api/v1/saidas-longas/${exit.id}`);
       return item ? ok(view(item)) : route.fulfill({ status: 404 });
     }
-    const body = request.postDataJSON() as Record<string, any>;
+    const multipart = request.headers()['content-type']?.startsWith('multipart/form-data');
+    const body = (multipart ? {} : request.postDataJSON()) as Record<string, any>;
     state.writes.push({ path, body, headers: request.headers() });
     if (state.conflict) {
       state.conflict = false;
       return route.fulfill({
         status: 409,
-        json: { code: 'version_conflict', message: 'A solicitação foi alterada por outra pessoa.' },
+        json: { code: state.conflictCode, message: 'Mensagem do servidor sobre o conflito.' },
       });
     }
     if (path === '/api/v1/saidas-longas' && method === 'POST') {
@@ -306,13 +340,12 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
       exit.bindings.forEach((binding) => {
         binding.status = 'INVALIDATED';
         binding.revokedAt = state.now;
-        binding.widgetAvailable = false;
       });
       exit.currentDocument = {
         documentVersionId: '00000000-0000-0000-0000-000000000812',
         revisionNumber: 2,
         originalState: 'STORED',
-        signedState: 'NOT_AVAILABLE',
+        signedState: 'MISSING',
       };
       exit.signatureStatus = state.providersEnabled ? 'PENDING' : 'UNAVAILABLE';
       exit.messageStatus = state.providersEnabled ? 'QUEUED' : 'UNAVAILABLE';
@@ -334,8 +367,51 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
       state.canResend = false;
       exit.messageStatus = 'QUEUED';
       history(exit, 'RESEND', body);
-    } else if (action === 'reconciliacao') {
-      history(exit, 'RECONCILE', body);
+    } else if (action === 'arquivos') {
+      exit.authorizationFiles.push(
+        candidate({
+          id: `00000000-0000-0000-0000-00000000085${exit.authorizationFiles.length}`,
+          origin: 'MANUAL',
+          mediaType: 'application/pdf',
+          senderPhone: null,
+          receivedAt: state.now,
+        }),
+      );
+      history(exit, 'AUTHORIZATION_LINKED', body);
+    } else if (action === 'vinculos') {
+      state.unlinked = state.unlinked.filter((item) => item.messageId !== body.messageId);
+      exit.authorizationFiles.push(candidate({ senderDivergent: true }));
+      history(exit, 'AUTHORIZATION_LINKED', body);
+    } else if (action === 'conferencia') {
+      const file = exit.authorizationFiles.find((item) => path.includes(item.id))!;
+      Object.assign(file, {
+        state: 'ACCEPTED',
+        decidedBy: supervisorAccount,
+        decidedByName: 'Ana Supervisora',
+        decidedAt: state.now,
+        decisionReason: body.justification ?? null,
+      });
+      Object.assign(exit.bindings[0], {
+        status: 'VALID',
+        signedAt: file.receivedAt,
+        verifiedAt: state.now,
+        verifiedBy: supervisorAccount,
+        verifiedByName: 'Ana Supervisora',
+      });
+      exit.signatureStatus = 'VALID';
+      exit.signedAt = file.receivedAt;
+      exit.currentDocument!.signedState = 'STORED';
+      history(exit, 'AUTHORIZATION_CONFIRMED', body);
+    } else if (action === 'recusa') {
+      const file = exit.authorizationFiles.find((item) => path.includes(item.id))!;
+      Object.assign(file, {
+        state: 'REFUSED',
+        decidedBy: supervisorAccount,
+        decidedByName: 'Ana Supervisora',
+        decidedAt: state.now,
+        decisionReason: body.comment,
+      });
+      history(exit, 'AUTHORIZATION_REFUSED', body);
     } else if (action === 'partida') {
       exit.actualDepartureAt = body.timeMode === 'NOW' ? state.now : body.occurredAt;
       exit.departureRecordedAt = state.now;
@@ -353,21 +429,6 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
     }
     return ok(view(exit));
   });
-  await page.route(
-    'https://cdn-public-library.clicksign.com/embedded/embedded.min-2.1.0.js',
-    async (route) => {
-      state.widgetRequests.push({ url: route.request().url(), headers: route.request().headers() });
-      await route.fulfill({
-        contentType: 'text/javascript',
-        body: `window.Clicksign = class {
-      constructor(id) { this.id = id; this.callbacks = {}; }
-      on(name, callback) { this.callbacks[name] = callback; }
-      mount(id) { this.container = document.getElementById(id); const frame = document.createElement('iframe'); frame.src='about:blank'; frame.style.width='100%'; frame.style.border='0'; this.container.appendChild(frame); const button = document.createElement('button'); button.textContent='Concluir no provedor de teste'; button.onclick=()=>this.callbacks.signed?.({}); this.container.appendChild(button); this.callbacks.loaded?.({}); this.callbacks.resized?.({data:{height:480}}); }
-      unmount() { this.container?.replaceChildren(); }
-    };`,
-      });
-    },
-  );
   return state;
 }
 
@@ -403,9 +464,9 @@ test('redução de 26 para 25 saídas longas retorna à página válida com filt
   await expect(pagination).toContainText('1–25 de 26');
   await pagination.getByRole('button', { name: 'Próxima' }).click();
   await expect(pagination).toContainText('1–25 de 25');
-  await expect(page.getByRole('link', { name: 'Ver solicitação' })).toHaveCount(25);
+  await expect(page.getByRole('link', { name: 'Ver pedido' })).toHaveCount(25);
   await expect(page.getByRole('heading', { name: 'Nenhuma saída encontrada' })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Longas', exact: true })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: 'Saídas longas', exact: true })).toHaveAttribute(
     'aria-current',
     'page',
   );
@@ -432,18 +493,18 @@ test('situação Aprovada permanece no retorno à lista longa e limpa ao trocar 
   });
   await page.getByRole('button', { name: 'Buscar', exact: true }).click();
   await filtered;
-  await page.getByRole('link', { name: 'Ver solicitação' }).click();
-  await expect(page.getByRole('heading', { name: 'Solicitação de saída longa' })).toBeVisible();
+  await page.getByRole('link', { name: 'Ver pedido' }).click();
+  await expect(page.getByRole('heading', { name: 'Pedido de saída longa' })).toBeVisible();
   const restored = page.waitForRequest(
     (request) => new URL(request.url()).pathname === '/api/v1/saidas-longas',
   );
   await page.getByRole('link', { name: '← Saídas longas', exact: true }).click();
   await expect(page.getByLabel('Situação', { exact: true })).toHaveValue('APROVADA');
   expect(new URL((await restored).url()).searchParams.get('status')).toBe('APROVADA');
-  await expect(page.getByRole('link', { name: 'Ver solicitação' })).toHaveCount(1);
-  await page.getByRole('link', { name: 'Curtas', exact: true }).click();
+  await expect(page.getByRole('link', { name: 'Ver pedido' })).toHaveCount(1);
+  await page.getByRole('link', { name: 'Saídas curtas', exact: true }).click();
   await expect(page.getByLabel('Situação', { exact: true })).toHaveValue('');
-  await page.getByRole('link', { name: 'Longas', exact: true }).click();
+  await page.getByRole('link', { name: 'Saídas longas', exact: true }).click();
   await expect(page.getByLabel('Situação', { exact: true })).toHaveValue('');
 });
 
@@ -452,17 +513,17 @@ test('residente cria NOW, mantém revisão persistida no mock e edição substit
 }) => {
   const state = await mockApi(page, { role: 'residente', exits: [], providersEnabled: false });
   await page.goto('/saidas?tipo=longa');
-  await page.getByRole('link', { name: 'Solicitar saída longa' }).click();
-  await page.getByLabel('Responsável para o convite').selectOption(guardianId);
-  await page.getByLabel('Retorno previsto').fill('2026-09-30T16:00');
-  await page.getByLabel('Motivo da saída').fill('Visita à família sintética');
-  await page.getByRole('button', { name: 'Enviar solicitação de saída longa' }).click();
-  await expect(
-    page.getByText('A saída longa deve durar mais de 3 horas.', { exact: false }),
-  ).toBeVisible();
+  await page.getByRole('link', { name: 'Pedir saída longa' }).click();
+  await page.getByLabel('Quem vai autorizar?').selectOption(guardianId);
+  await page.getByLabel('Que horas você volta?').fill('2026-09-30T16:00');
+  await page.getByLabel('Por que você quer sair?').fill('Visita à família sintética');
+  await page.getByRole('button', { name: 'Enviar pedido' }).click();
+  await expect(page.getByRole('alert')).toContainText(
+    'A saída longa precisa durar mais de 3 horas.',
+  );
   expect(state.writes).toHaveLength(0);
-  await page.getByLabel('Retorno previsto').fill('2026-09-30T19:00');
-  await page.getByRole('button', { name: 'Enviar solicitação de saída longa' }).click();
+  await page.getByLabel('Que horas você volta?').fill('2026-09-30T19:00');
+  await page.getByRole('button', { name: 'Enviar pedido' }).click();
   await expect(page).toHaveURL(new RegExp(`/saidas/longas/${exitId}`));
   expect(state.writes[0].body).toMatchObject({
     departureMode: 'NOW',
@@ -473,16 +534,55 @@ test('residente cria NOW, mantém revisão persistida no mock e edição substit
   expect(state.writes[0].body).not.toHaveProperty('version');
   expect(state.writes[0].headers['x-csrf-token']).toBe('synthetic-csrf');
   expect(state.paths).not.toContain('/api/v1/responsaveis');
-  await expect(page.getByText('Serviço de assinatura indisponível', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText('WhatsApp indisponível; autorização por outro canal', { exact: true }),
+  ).toBeVisible();
   await page.reload();
-  await page.getByRole('link', { name: 'Editar solicitação', exact: true }).click();
-  await expect(page.getByText('invalida', { exact: false }).first()).toBeVisible();
-  await page.getByLabel('Motivo da saída').fill('Consulta familiar em novo período');
-  await page.getByRole('button', { name: 'Salvar alterações e gerar nova revisão' }).click();
-  await expect(page.getByRole('heading', { name: 'Documento · revisão 2' })).toBeVisible();
+  await page.getByRole('link', { name: 'Mudar pedido', exact: true }).click();
+  await expect(page.getByText('precisa autorizar de novo', { exact: false }).first()).toBeVisible();
+  await page.getByLabel('Por que você quer sair?').fill('Consulta familiar em novo período');
+  await page.getByRole('button', { name: 'Salvar alterações' }).click();
+  await expect(page.getByRole('heading', { name: 'Documento atual' })).toBeVisible();
   expect(state.writes[1].body.version).toBe(1);
   expect(state.exits[0].history.map((item) => item.event)).toEqual(['CREATE', 'EDIT']);
-  await expect(page.getByRole('button', { name: 'Registrar partida presencial' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Registrar saída' })).toHaveCount(0);
+});
+
+test('saída longa agendada começa sem partida, sugere 4 h e preserva o retorno manual', async ({
+  page,
+}) => {
+  const state = await mockApi(page, {
+    role: 'residente',
+    exits: [],
+    now: '2026-09-30T16:00:20Z',
+  });
+  await page.goto('/saidas/longas/nova');
+  const departure = page.getByLabel('Data e hora de saída');
+  const expectedReturn = page.getByLabel('Que horas você volta?');
+  await page.getByLabel('Quem vai autorizar?').selectOption(guardianId);
+  await page.getByLabel('Por que você quer sair?').fill('Visita à família sintética');
+  await page.getByLabel('Quando você quer sair?').selectOption('SCHEDULED');
+  await expect(departure).toHaveValue('');
+  await page.getByRole('button', { name: 'Enviar pedido' }).click();
+  await expect(page.getByText('Informe a data e hora de saída.', { exact: true })).toBeVisible();
+  expect(state.writes).toHaveLength(0);
+  await departure.fill('2026-09-30T14:00');
+  await expect(expectedReturn).toHaveValue('2026-09-30T18:00');
+  await expect(expectedReturn).toHaveAttribute('min', '2026-09-30T17:01');
+  await expect(
+    page.getByText('Duração: 4 h (mínimo: mais de 3 h).', { exact: true }),
+  ).toBeVisible();
+  await expectedReturn.fill('2026-09-30T20:00');
+  await departure.fill('2026-09-30T14:30');
+  await expect(expectedReturn).toHaveValue('2026-09-30T20:00');
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page.getByRole('button', { name: 'Enviar pedido' }).click();
+  await expect(page).toHaveURL(new RegExp(`/saidas/longas/${exitId}`));
+  expect(state.writes[0].body).toMatchObject({
+    departureMode: 'SCHEDULED',
+    requestedDepartureAt: '2026-09-30T17:30:00.000Z',
+    expectedReturnAt: '2026-09-30T23:00:00.000Z',
+  });
 });
 
 test('cadastro de responsável inválido e falha da API bloqueiam pedido sem dados demonstrativos', async ({
@@ -490,36 +590,36 @@ test('cadastro de responsável inválido e falha da API bloqueiam pedido sem dad
 }) => {
   const state = await mockApi(page, { role: 'residente', guardiansEligible: false });
   await page.goto('/saidas/longas/nova');
-  await expect(page.getByRole('heading', { name: 'Solicitação indisponível' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Enviar solicitação de saída longa' })).toHaveCount(
-    0,
-  );
+  await expect(
+    page.getByRole('heading', { name: 'Você não pode pedir esta saída agora' }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Enviar pedido' })).toHaveCount(0);
   state.guardiansEligible = true;
   state.failReads = true;
   await page.reload();
   await expect(
-    page.getByRole('heading', { name: 'Não foi possível carregar a solicitação' }),
+    page.getByRole('heading', { name: 'Não foi possível carregar o pedido' }),
   ).toBeVisible();
   expect(state.writes).toHaveLength(0);
   state.failReads = false;
   await page.getByRole('button', { name: 'Tentar novamente' }).click();
-  await expect(page.getByLabel('Responsável para o convite')).toBeVisible();
+  await expect(page.getByLabel('Quem vai autorizar?')).toBeVisible();
 });
 
-test('convite lido não habilita aprovação; supervisor rejeita antes da assinatura com justificativa', async ({
+test('documento lido não habilita aprovação; supervisor rejeita antes da conferência com justificativa', async ({
   page,
 }) => {
   const state = await mockApi(page);
   await page.goto(`/saidas/longas/${exitId}`);
   await expect(page.getByRole('button', { name: 'Aprovar saída longa' })).toBeDisabled();
-  await expect(page.getByText('Convite lido', { exact: true }).first()).toBeVisible();
-  await page.getByRole('button', { name: 'Rejeitar solicitação' }).click();
+  await expect(page.getByText('Documento lido', { exact: true }).first()).toBeVisible();
+  await page.getByRole('button', { name: 'Rejeitar pedido' }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByLabel('Justificativa', { exact: true })).toBeFocused();
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('button', { name: 'Rejeitar solicitação' })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Rejeitar pedido' })).toBeFocused();
   expect(state.writes).toHaveLength(0);
-  await page.getByRole('button', { name: 'Rejeitar solicitação' }).click();
+  await page.getByRole('button', { name: 'Rejeitar pedido' }).click();
   await dialog.getByRole('button', { name: 'Confirmar rejeição' }).click();
   await expect(dialog.getByText('Informe uma justificativa', { exact: false })).toBeVisible();
   await dialog
@@ -544,14 +644,14 @@ test('aprovação usa revisão atual; partida NOW e retorno retroativo preservam
   await page.goto(`/saidas/longas/${exitId}`);
   await page.getByRole('button', { name: 'Aprovar saída longa' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Confirmar aprovação' }).click();
-  await page.getByRole('button', { name: 'Registrar partida presencial' }).click();
+  await page.getByRole('button', { name: 'Registrar saída' }).click();
   await page
     .getByRole('dialog')
-    .getByRole('button', { name: 'Confirmar partida', exact: true })
+    .getByRole('button', { name: 'Confirmar saída', exact: true })
     .click();
-  await expect(page.getByText('Partida presencial registrada.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Saída registrada.', { exact: true })).toBeVisible();
   state.now = '2026-09-30T23:30:00Z';
-  await page.getByRole('button', { name: 'Confirmar retorno presencial' }).click();
+  await page.getByRole('button', { name: 'Registrar volta' }).click();
   const dialog = page.getByRole('dialog');
   await expect(
     dialog.getByText('O retorno está após o horário previsto.', { exact: false }),
@@ -564,8 +664,8 @@ test('aprovação usa revisão atual; partida NOW e retorno retroativo preservam
   await dialog
     .getByLabel('Observação do atraso', { exact: true })
     .fill('Transporte retornou após o horário previsto');
-  await dialog.getByRole('button', { name: 'Confirmar retorno', exact: true }).click();
-  await expect(page.getByText('Retorno presencial registrado.', { exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Confirmar volta', exact: true }).click();
+  await expect(page.getByText('Volta registrada.', { exact: true })).toBeVisible();
   expect(state.writes[0].body).toEqual({
     version: 0,
     decision: 'APPROVE',
@@ -584,7 +684,7 @@ test('aprovação usa revisão atual; partida NOW e retorno retroativo preservam
   await expect(page.getByText('Registrado em 30/09/2026, 20:30', { exact: true })).toBeVisible();
 });
 
-test('resultado incerto exige conferência; reenvio com limite e conflito congela ações até recarga explícita', async ({
+test('resultado incerto bloqueia reenvio; reenvio com limite e conflito congela ações até recarga explícita', async ({
   page,
 }) => {
   const exit = exitFixture();
@@ -593,32 +693,25 @@ test('resultado incerto exige conferência; reenvio com limite e conflito congel
   const state = await mockApi(page, { exits: [exit] });
   await page.goto(`/saidas/longas/${exitId}`);
   await expect(
-    page.getByRole('button', { name: 'Reenviar convite ao responsável' }),
+    page.getByRole('button', { name: 'Reenviar documento ao responsável' }),
   ).toBeDisabled();
-  await page.getByRole('button', { name: 'Solicitar conferência da assinatura' }).click();
-  await page
-    .getByRole('dialog')
-    .getByRole('button', { name: 'Solicitar conferência', exact: true })
-    .click();
-  await expect(page.getByText('Conferência solicitada.', { exact: false })).toBeVisible();
-  expect(state.writes[0].body).toEqual({ version: 0 });
   exit.signatureStatus = 'FAILED';
   exit.messageStatus = 'FAILED';
   await page.getByRole('button', { name: 'Atualizar dados' }).click();
   state.conflict = true;
-  await page.getByRole('button', { name: 'Reenviar convite ao responsável' }).click();
+  await page.getByRole('button', { name: 'Reenviar documento ao responsável' }).click();
   await page
     .getByRole('dialog')
     .getByLabel('Justificativa', { exact: true })
     .fill('Telefone conferido com o responsável');
   await page.getByRole('dialog').getByRole('button', { name: 'Confirmar reenvio' }).click();
-  await expect(page.getByRole('button', { name: 'Recarregar solicitação' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Recarregar dados' })).toBeVisible();
   await expect(
-    page.getByRole('button', { name: 'Reenviar convite ao responsável' }),
+    page.getByRole('button', { name: 'Reenviar documento ao responsável' }),
   ).toBeDisabled();
-  expect(state.writes).toHaveLength(2);
-  await page.getByRole('button', { name: 'Recarregar solicitação' }).click();
-  await page.getByRole('button', { name: 'Reenviar convite ao responsável' }).click();
+  expect(state.writes).toHaveLength(1);
+  await page.getByRole('button', { name: 'Recarregar dados' }).click();
+  await page.getByRole('button', { name: 'Reenviar documento ao responsável' }).click();
   await page
     .getByRole('dialog')
     .getByLabel('Justificativa', { exact: true })
@@ -626,184 +719,215 @@ test('resultado incerto exige conferência; reenvio com limite e conflito congel
   await page.getByRole('dialog').getByRole('button', { name: 'Confirmar reenvio' }).click();
   await expect(page.getByText('Reenvio solicitado.', { exact: false })).toBeVisible();
   await expect(
-    page.getByRole('button', { name: 'Reenviar convite ao responsável' }),
+    page.getByRole('button', { name: 'Reenviar documento ao responsável' }),
   ).toBeDisabled();
-  expect(state.writes[2].body).toEqual({
-    version: 1,
+  expect(state.writes[1].body).toEqual({
+    version: 0,
     comment: 'Telefone conferido com o responsável',
   });
 });
 
-test('convite público usa capability sem cookies e callback do widget não fabrica confirmação', async ({
-  page,
-  baseURL,
-}) => {
-  const state = await mockApi(page);
-  await page
-    .context()
-    .addCookies([{ name: 'JSESSIONID', value: 'synthetic-session', url: baseURL! }]);
-  await page.goto(`/assinatura/acesso#token=${token}`);
-  await expect(page.getByRole('heading', { name: 'Revise a autorização de saída' })).toBeVisible();
-  await expect(page).toHaveURL(/\/assinatura\/acesso$/);
-  await expect(page.getByRole('button', { name: 'Abrir assinatura na Clicksign' })).toBeDisabled();
-  expect(state.widgetRequests).toHaveLength(0);
-  const downloading = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Baixar documento original' }).click();
-  expect((await downloading).suggestedFilename()).toBe(
-    `sager-saida-longa-${documentId}-original.pdf`,
-  );
-  await page.getByRole('checkbox', { name: 'Li o documento original' }).check();
-  await page.getByRole('button', { name: 'Abrir assinatura na Clicksign' }).click();
-  await page.getByRole('button', { name: 'Concluir no provedor de teste' }).click();
-  await expect(
-    page.getByText('O serviço informou a conclusão da assinatura.', { exact: false }),
-  ).toBeVisible();
-  await expect(page.getByText('Aguardando assinatura', { exact: true })).toBeVisible();
-  expect(state.writes).toHaveLength(0);
-  expect(
-    state.publicReads.every(
-      (read) =>
-        read.method === 'GET' &&
-        read.headers['authorization'] === `Bearer ${token}` &&
-        !read.headers['cookie'] &&
-        !read.headers['x-csrf-token'] &&
-        !read.headers['referer'],
-    ),
-  ).toBe(true);
-  expect(state.widgetRequests).toHaveLength(1);
-  expect(state.widgetRequests[0].url).not.toContain(token);
-  expect(state.widgetRequests[0].headers['referer']).toBeUndefined();
-  const storage = await page.evaluate(() =>
-    JSON.stringify({
-      local: { ...localStorage },
-      session: { ...sessionStorage },
-      history: history.state,
-    }),
-  );
-  expect(storage).not.toContain(token);
-  state.invitation.signatureStatus = 'VALID';
-  state.invitation.widget.available = false;
-  state.invitation.widget.signerId = null;
-  state.invitation.widget.environment = null;
-  await page.getByRole('button', { name: 'Atualizar situação' }).click();
-  await expect(
-    page.getByText('Assinatura confirmada pelo servidor', { exact: true }),
-  ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Concluir no provedor de teste' })).toHaveCount(0);
-  state.publicStatus = 410;
-  await page.getByRole('button', { name: 'Atualizar situação' }).click();
-  await expect(page.getByRole('heading', { name: 'Convite indisponível' })).toBeVisible();
-  await expect(page.getByText('Estudante Sintético', { exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Tentar novamente' })).toHaveCount(0);
-  expect(await page.locator('body').innerText()).not.toContain(token);
-});
-
-test('convite ausente ou revogado falha fechado; rota antiga sem demonstração não simula assinatura', async ({
-  page,
-}) => {
-  const state = await mockApi(page);
-  await page.goto('/assinatura/acesso');
-  await expect(page.getByRole('heading', { name: 'Convite indisponível' })).toBeVisible();
-  expect(state.publicReads).toHaveLength(0);
-  await page.goto(`/assinatura/${token}`);
-  await expect(page.getByRole('heading', { name: 'Convite indisponível' })).toBeVisible();
-  await expect(page.getByText('Simulação sem validade jurídica.', { exact: true })).toHaveCount(0);
-  state.invitation.widget.environment = 'https://evil.test';
-  await page.goto(`/assinatura/acesso#token=${token}`);
-  await expect(page.getByRole('heading', { name: 'Convite indisponível' })).toBeVisible();
-  expect(state.widgetRequests).toHaveLength(0);
-  state.invitation = invitationFixture();
-  state.publicStatus = 410;
-  await page.goto(`/assinatura/acesso#token=${token}`);
-  await expect(
-    page.getByText('Este convite expirou ou foi revogado.', { exact: false }),
-  ).toBeVisible();
-  expect(state.writes).toHaveLength(0);
-});
-
-test('revogação entre leitura do PDF e abertura bloqueia o widget e apaga dados do convite', async ({
-  page,
-}) => {
-  const state = await mockApi(page);
-  await page.goto(`/assinatura/acesso#token=${token}`);
-  await page.getByRole('button', { name: 'Baixar documento original' }).click();
-  await page.getByRole('checkbox', { name: 'Li o documento original' }).check();
-  state.publicStatus = 410;
-  await page.getByRole('button', { name: 'Abrir assinatura na Clicksign' }).click();
-  await expect(page.getByRole('heading', { name: 'Convite indisponível' })).toBeVisible();
-  await expect(page.getByText('Estudante Sintético', { exact: true })).toHaveCount(0);
-  expect(state.widgetRequests).toHaveLength(0);
-});
-
-test('novo convite na mesma aba descarta uma resposta pendente da revisão anterior', async ({
-  page,
-}) => {
-  await mockApi(page);
-  const nextToken = 'B'.repeat(43);
-  let releasePrevious!: () => void;
-  let previousStarted!: () => void;
-  const pendingPrevious = new Promise<void>((resolve) => {
-    releasePrevious = resolve;
-  });
-  const startedPrevious = new Promise<void>((resolve) => {
-    previousStarted = resolve;
-  });
-  await page.route('**/api/v1/assinaturas/acesso', async (route) => {
-    if (route.request().headers()['authorization'] === `Bearer ${token}`) {
-      previousStarted();
-      await pendingPrevious;
-      await route.fulfill({
-        headers: { 'X-Test-Revision': 'previous' },
-        json: invitationFixture(),
-      });
-    } else {
-      await route.fulfill({
-        json: {
-          ...invitationFixture(),
-          bindingId: '00000000-0000-0000-0000-000000000822',
-          documentVersionId: '00000000-0000-0000-0000-000000000812',
-          revisionNumber: 2,
-          guardianName: 'Outro Responsável Sintético',
-        },
-      });
-    }
-  });
-  await page.goto(`/assinatura/acesso#token=${token}`, { waitUntil: 'domcontentloaded' });
-  await startedPrevious;
-  await page.goto(`/assinatura/acesso#token=${nextToken}`);
-  await expect(page.getByText('Outro Responsável Sintético · Mãe', { exact: true })).toBeVisible();
-  const previousResponse = page.waitForResponse(
-    (response) => response.headers()['x-test-revision'] === 'previous',
-  );
-  releasePrevious();
-  await (await previousResponse).finished();
-  await page.evaluate(
-    () =>
-      new Promise<void>((resolve) =>
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-      ),
-  );
-  await expect(page.getByText('Outro Responsável Sintético · Mãe', { exact: true })).toBeVisible();
-  await expect(page.getByText('Documento da revisão 2', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Abrir assinatura na Clicksign' })).toBeDisabled();
-  await expect(page.getByRole('checkbox', { name: 'Li o documento original' })).not.toBeChecked();
-  await expect(page).toHaveURL(/\/assinatura\/acesso$/);
-});
-
-test('institucional e convite a 320px têm leitura acessível, PDF privado e restrições de papel', async ({
+test('arquivo recebido não aprova; conferência registra quem e quando e libera a decisão separada', async ({
   page,
 }) => {
   const exit = exitFixture();
-  exit.signatureStatus = 'VALID';
-  exit.currentDocument!.signedState = 'STORED';
+  exit.authorizationFiles = [candidate()];
+  const state = await mockApi(page, { exits: [exit], signedMediaType: 'image/png' });
+  await page.goto(`/saidas/longas/${exitId}`);
+  await expect(page.getByRole('button', { name: 'Aprovar saída longa' })).toBeDisabled();
+  await expect(page.getByText('Aguardando conferência', { exact: true })).toBeVisible();
+  await expect(page.getByRole('img', { name: /Imagem recebida em/ })).toHaveJSProperty(
+    'naturalWidth',
+    1,
+  );
+  await page.getByRole('button', { name: /Confirmar conferência do arquivo/ }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByText('00000000', { exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Confirmar conferência' }).click();
+  await expect(dialog.getByText('Marque a declaração para continuar.')).toBeVisible();
+  expect(state.writes).toHaveLength(0);
+  await dialog
+    .getByLabel(/Declaro que conferi o responsável e o documento com o código 00000000/)
+    .check();
+  await dialog.getByRole('button', { name: 'Confirmar conferência' }).click();
+  await expect(
+    page.getByText('Autorização conferida. A aprovação', { exact: false }),
+  ).toBeVisible();
+  expect(state.writes[0].path).toBe(
+    `/api/v1/saidas-longas/${exitId}/autorizacao/arquivos/${fileId}/conferencia`,
+  );
+  expect(state.writes[0].body).toEqual({ version: 0, confirmed: true });
+  expect(exit.status).toBe('AGUARDANDO_ANALISE');
+  await expect(page.getByText('Ana Supervisora', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Conferido em .* por Ana Supervisora/)).toBeVisible();
+  await expect(page.getByText(supervisorAccount)).toHaveCount(0);
+  await expect(page.getByRole('main')).not.toContainText(/assinatura válida/i);
+  const downloading = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Baixar autorização conferida' }).click();
+  expect((await downloading).suggestedFilename()).toBe(
+    `sager-saida-longa-${documentId}-autorizacao.png`,
+  );
+  await page.getByRole('button', { name: 'Aprovar saída longa' }).click();
+  await dialog.getByRole('button', { name: 'Confirmar aprovação' }).click();
+  await expect(page.getByText('Pedido aprovado.', { exact: false })).toBeVisible();
+  expect(state.writes[1].body).toEqual({
+    version: 1,
+    decision: 'APPROVE',
+    documentVersionId: documentId,
+  });
+});
+
+test('remetente divergente exige justificativa; recusa mantém o pedido aguardando autorização', async ({
+  page,
+}) => {
+  const exit = exitFixture();
+  const refused = '00000000-0000-0000-0000-000000000832';
+  exit.authorizationFiles = [
+    candidate({ senderDivergent: true }),
+    candidate({ id: refused, mediaType: 'application/pdf' }),
+  ];
   const state = await mockApi(page, { exits: [exit] });
+  await page.goto(`/saidas/longas/${exitId}`);
+  await page
+    .getByRole('button', { name: /Recusar arquivo/ })
+    .nth(1)
+    .click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Justificativa', { exact: true }).fill('Foto ilegível do documento');
+  await dialog.getByRole('button', { name: 'Confirmar recusa' }).click();
+  await expect(page.getByText('Arquivo recusado', { exact: true })).toBeVisible();
+  await expect(page.getByText('Foto ilegível do documento', { exact: true }).first()).toBeVisible();
+  expect(state.writes[0].path).toContain(`/autorizacao/arquivos/${refused}/recusa`);
+  expect(state.writes[0].body).toEqual({ version: 0, comment: 'Foto ilegível do documento' });
+  await expect(page.getByRole('button', { name: 'Aprovar saída longa' })).toBeDisabled();
+  await expect(page.getByText('O telefone de origem é diferente', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: /Confirmar conferência do arquivo/ }).click();
+  await dialog.getByRole('checkbox').check();
+  await dialog.getByRole('button', { name: 'Confirmar conferência' }).click();
+  await expect(dialog.getByText('Informe uma justificativa', { exact: false })).toBeVisible();
+  expect(state.writes).toHaveLength(1);
+  await dialog
+    .getByLabel('Justificativa', { exact: true })
+    .fill('Responsável confirmou por telefone que usou outro aparelho');
+  await dialog.getByRole('button', { name: 'Confirmar conferência' }).click();
+  await expect(
+    page.getByText('Autorização conferida. A aprovação', { exact: false }),
+  ).toBeVisible();
+  expect(state.writes[1].body).toEqual({
+    version: 1,
+    confirmed: true,
+    justification: 'Responsável confirmou por telefone que usou outro aparelho',
+  });
+});
+
+test('WhatsApp desligado: anexo manual em multipart com CSRF, sem link de conversa e com limite de tamanho', async ({
+  page,
+}) => {
+  const exit = exitFixture();
+  exit.signatureStatus = 'UNAVAILABLE';
+  exit.messageStatus = 'UNAVAILABLE';
+  const state = await mockApi(page, { exits: [exit], providersEnabled: false });
+  await page.goto(`/saidas/longas/${exitId}`);
+  await expect(page.getByText('O WhatsApp está indisponível.', { exact: false })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Abrir conversa com o responsável' })).toHaveCount(0);
+  const input = page.getByLabel('Anexar arquivo recebido por outro meio');
+  await input.setInputFiles({
+    name: 'grande.pdf',
+    mimeType: 'application/pdf',
+    buffer: Buffer.alloc(10 * 1024 * 1024 + 1),
+  });
+  await expect(page.getByText('mais de 10 MB', { exact: false }).first()).toBeVisible();
+  expect(state.writes).toHaveLength(0);
+  await input.setInputFiles({
+    name: 'autorizacao.pdf',
+    mimeType: 'application/pdf',
+    buffer: Buffer.from(pdf),
+  });
+  await expect(page.getByText('Anexado por supervisor', { exact: true })).toBeVisible();
+  expect(state.writes[0].path).toBe(`/api/v1/saidas-longas/${exitId}/autorizacao/arquivos`);
+  expect(state.writes[0].headers['content-type']).toMatch(/^multipart\/form-data; boundary=/);
+  expect(state.writes[0].headers['x-csrf-token']).toBe('synthetic-csrf');
+  await expect(page.getByRole('img', { name: /Imagem recebida em/ })).toHaveCount(0);
+  const downloading = page.waitForEvent('download');
+  await page.getByRole('button', { name: /Baixar arquivo recebido em/ }).click();
+  expect((await downloading).suggestedFilename()).toMatch(/-autorizacao-recebida\.pdf$/);
+});
+
+test('sem confirmação de entrega avisa; arquivo sem vínculo é escolhido pelo supervisor e conflito explica a causa', async ({
+  page,
+}) => {
+  const exit = exitFixture();
+  exit.deliveryUnconfirmed = true;
+  const state = await mockApi(page, {
+    exits: [exit],
+    conflict: true,
+    conflictCode: 'already_linked',
+    unlinked: [
+      receivedFile(),
+      receivedFile({
+        messageId: '00000000-0000-0000-0000-000000000842',
+        fromGuardian: true,
+        mediaState: 'FAILED',
+        mediaType: null,
+        size: 0,
+      }),
+    ],
+  });
+  await page.goto(`/saidas/longas/${exitId}`);
+  await expect(
+    page.getByText('segue sem confirmação de entrega após 15 minutos', { exact: false }),
+  ).toBeVisible();
+  const conversation = page.getByRole('link', { name: 'Abrir conversa com o responsável' });
+  await expect(conversation).toHaveAttribute('href', /\/conversas\?q=/);
+  await page.mouse.move(0, 0);
+  await expect(conversation).toHaveCSS('text-decoration-line', 'none');
+  await conversation.hover();
+  await expect(conversation).toHaveCSS('text-decoration-line', 'underline');
+  await expect(page.getByText('Outro número', { exact: true })).toBeVisible();
+  await expect(page.getByText('não pode ser vinculado', { exact: false })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Vincular a este pedido/ })).toHaveCount(1);
+  await page.getByRole('button', { name: /Vincular a este pedido/ }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByText('número diferente do responsável', { exact: false })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Confirmar vínculo' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Mensagem do servidor' })).toBeVisible();
+  await page.getByRole('button', { name: 'Recarregar dados' }).click();
+  await page.getByRole('button', { name: /Vincular a este pedido/ }).click();
+  await dialog.getByRole('button', { name: 'Confirmar vínculo' }).click();
+  await expect(page.getByText('Arquivo vinculado. Ele ainda', { exact: false })).toBeVisible();
+  expect(state.writes[1].path).toBe(`/api/v1/saidas-longas/${exitId}/autorizacao/vinculos`);
+  expect(state.writes[1].body).toEqual({ version: 0, messageId });
+  await expect(page.getByText('Aguardando conferência', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Vincular a este pedido/ })).toHaveCount(0);
+});
+
+test('saída longa a 320px tem leitura acessível, arquivos privados e restrições de papel', async ({
+  page,
+}) => {
+  const exit = exitFixture();
+  exit.deliveryUnconfirmed = true;
+  exit.authorizationFiles = [candidate({ senderDivergent: true })];
+  const state = await mockApi(page, { exits: [exit], unlinked: [receivedFile()] });
   await page.setViewportSize({ width: 320, height: 800 });
   await page.goto(`/saidas/longas/${exitId}`);
-  await expect(page.getByRole('heading', { name: 'Solicitação de saída longa' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Arquivos recebidos' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Vincular a este pedido/ })).toBeVisible();
+  await expect(page.getByRole('img', { name: /Imagem recebida em/ })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page.getByRole('button', { name: /Confirmar conferência do arquivo/ }).click();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page.keyboard.press('Escape');
+  exit.authorizationFiles = [];
+  exit.signatureStatus = 'VALID';
+  exit.currentDocument!.signedState = 'STORED';
+  await page.reload();
   const downloading = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Baixar PDF assinado' }).click();
+  await page.getByRole('button', { name: 'Baixar autorização conferida' }).click();
   expect((await downloading).suggestedFilename()).toBe(
-    `sager-saida-longa-${documentId}-assinado.pdf`,
+    `sager-saida-longa-${documentId}-autorizacao.pdf`,
   );
   expect(state.paths).toContain(
     `/api/v1/saidas-longas/${exitId}/documentos/${documentId}/assinado`,
@@ -812,12 +936,9 @@ test('institucional e convite a 320px têm leitura acessível, PDF privado e res
     true,
   );
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-  await page.goto(`/assinatura/acesso#token=${token}`);
-  await expect(page.getByRole('heading', { name: 'Revise a autorização de saída' })).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
-    true,
-  );
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page.goto('/assinatura/acesso');
+  await expect(page.getByRole('heading', { name: 'Página não encontrada' })).toBeVisible();
+  expect(state.paths.some((path) => path.startsWith('/api/v1/assinaturas'))).toBe(false);
   state.role = 'gestor';
   await page.goto(`/saidas/longas/${exitId}`);
   await expect(page).toHaveURL(/\/acesso-negado$/);
@@ -827,6 +948,9 @@ test('institucional e convite a 320px têm leitura acessível, PDF privado e res
   state.role = 'residente';
   await page.goto(`/saidas/longas/${exitId}`);
   await expect(page.getByRole('button', { name: 'Aprovar saída longa' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Registrar partida presencial' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Registrar saída' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Autorização do responsável' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Arquivos recebidos' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Abrir conversa com o responsável' })).toHaveCount(0);
   expect(state.writes).toHaveLength(0);
 });

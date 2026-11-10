@@ -171,6 +171,31 @@ describe('OperationsLocalApiService', () => {
     ).rejects.toEqual(new OperationsApiError(409, 'version_conflict'));
     expect(fetch).toHaveBeenCalledTimes(2);
   });
+  it('aceita a expiração do sistema, gravada sem perfil, na lista e no detalhe', async () => {
+    const expired = {
+      ...exit,
+      status: 'EXPIRADA',
+      history: [
+        {
+          id: 'evento',
+          event: 'EXPIRE',
+          actorId: null,
+          actorProfile: null,
+          status: 'EXPIRADA',
+          version: 2,
+          recordedAt: '2026-09-30T19:00:00Z',
+        },
+      ],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify(expired), { status: 200 })),
+    );
+    await expect(TestBed.inject(OperationsLocalApiService).exit(exit.id)).resolves.toMatchObject({
+      history: [{ actorProfile: null }],
+    });
+  });
+
   it('rejeita respostas malformadas e preserva lista vazia', async () => {
     const fetch = vi
       .fn()
@@ -179,8 +204,8 @@ describe('OperationsLocalApiService', () => {
       .mockResolvedValueOnce(json([]));
     vi.stubGlobal('fetch', fetch);
     const api = TestBed.inject(OperationsLocalApiService);
-    await expect(api.exits()).rejects.toThrow('lista inválida');
-    await expect(api.exits()).rejects.toThrow('lista inválida');
+    await expect(api.exits()).rejects.toThrow('Não deu certo');
+    await expect(api.exits()).rejects.toThrow('Não deu certo');
     expect(await api.exits()).toEqual([]);
   });
 });

@@ -113,6 +113,13 @@ public class NightCallService {
             NightCall.ResidentMark mark = calls.insertMark(created.id(), resident);
             audit.record(AuditResource.NIGHT_CALL_MARK, mark.id(), AuditAction.CREATE, 0,
                     Set.of("callId", "residentId"));
+            List<AuthorizedExitLookup.Reference> exits = authorized(resident.id(), now);
+            if (exits.size() == 1) { // com mais de uma, o supervisor escolhe a saída
+                NightCall.ResidentMark justified = calls.updateMark(mark.id(), "AUSENCIA_JUSTIFICADA", exits.getFirst());
+                calls.history(justified, 0, null, now, actor.id(), "sistema");
+                audit.record(AuditResource.NIGHT_CALL_MARK, justified.id(), AuditAction.UPDATE, justified.version(),
+                        Set.of("mark", "authorizedExitId", "authorizedExitType"));
+            }
         }
         return view(created);
     }
@@ -132,7 +139,7 @@ public class NightCallService {
         AuthorizedExitLookup.Reference exit = authorization(current, residentId, mark, authorizedExitId, authorizedExitType);
         NightCall.ResidentMark changed = calls.updateMark(previous.id(), mark, exit);
         long callVersion = calls.advanceVersion(id, version);
-        calls.history(changed, callVersion, correction ? justification : null, now(), actor);
+        calls.history(changed, callVersion, correction ? justification : null, now(), actor.id(), actor.profile());
         Set<String> fields = new HashSet<>();
         if (!Objects.equals(previous.mark(), changed.mark())) fields.add("mark");
         if (!Objects.equals(previous.authorizedExitId(), changed.authorizedExitId())) fields.add("authorizedExitId");
@@ -152,6 +159,14 @@ public class NightCallService {
         if (!"ABERTA".equals(current.status())) throw OpsInput.conflict("invalid_state", "A chamada já está fechada.");
         if (calls.marks(id).stream().anyMatch(mark -> mark.mark() == null)) {
             throw OpsInput.conflict("incomplete_call", "Marque todos os residentes antes de fechar a chamada.");
+        }
+        // A return recorded afterwards may show that the resident was back before the call opened.
+        for (NightCall.ResidentMark mark : calls.marks(id)) {
+            if ("AUSENCIA_JUSTIFICADA".equals(mark.mark()) && authorized(mark.residentId(), current.openedAt()).stream()
+                    .noneMatch(exit -> exit.id().equals(mark.authorizedExitId()))) {
+                throw OpsInput.conflict("authorized_exit_outdated", mark.residentName()
+                        + " voltou antes do início da chamada. Corrija a marcação para fechar.");
+            }
         }
         Instant now = now();
         boolean exceptional = outsideWindow(now) || !current.referenceDate().equals(today(now));

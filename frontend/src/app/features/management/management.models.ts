@@ -43,6 +43,11 @@ export interface Supervisor {
 
 export type SupervisorInput = Pick<Supervisor, 'name' | 'institutionalId' | 'email'>;
 
+export type SupervisorPayload = SupervisorInput & {
+  password?: string;
+  passwordConfirmation?: string;
+};
+
 export interface Room {
   id: string;
   number: string;

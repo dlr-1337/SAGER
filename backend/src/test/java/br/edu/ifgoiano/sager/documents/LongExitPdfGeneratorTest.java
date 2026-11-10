@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -18,18 +17,22 @@ import org.junit.jupiter.api.Test;
 
 class LongExitPdfGeneratorTest {
     @Test
-    void embedsOfflineStaticFontsAndAllSnapshotFieldsWithAccentsAndLocalTermVersion() throws Exception {
-        var snapshot = snapshot("Observações sobre acompanhamento e alimentação.");
+    void embedsOfflineFontsAndCarriesOnlyTheMinimumDataWithCodeAndRevision() throws Exception {
+        var snapshot = snapshot("Consulta e reunião familiar");
         byte[] bytes = new LongExitPdfGenerator(new PdfTextRenderer()).generate(snapshot);
 
         try (PDDocument document = Loader.loadPDF(bytes)) {
             String text = new PDFTextStripper().getText(document);
-            assertThat(text).contains("Autorização de saída longa", "João Conceição", "202600123",
-                    "17/03/2010", "Quarto 12", "Alojamento Ipê", "30/09/2026 09:00",
-                    "30/09/2026 18:00", "Consulta e reunião familiar", snapshot.notes(),
-                    "Maria Conceição", "Mãe", snapshot.documentVersionId().toString(),
-                    snapshot.exitId().toString(), "Revisão 3", LongExitPdfGenerator.TERM_VERSION,
-                    "Página 1 de 1");
+            assertThat(LongExitPdfGenerator.TERM_VERSION).hasSizeLessThanOrEqualTo(32);
+            assertThat(text).contains("Autorização de saída longa", "João Conceição",
+                    "30/09/2026 09:00", "30/09/2026 18:00", "Consulta e reunião familiar",
+                    "Maria Conceição", "Assinatura:", "Data:",
+                    LongExitPdfGenerator.shortCode(snapshot.documentVersionId()), "Revisão 3",
+                    LongExitPdfGenerator.TERM_VERSION, "Página 1 de 1");
+            assertThat(text).doesNotContain("202600123", "17/03/2010", "Quarto", "Alojamento",
+                    "Matrícula", "Nascimento", snapshot.exitId().toString());
+            assertThat(text.toLowerCase(java.util.Locale.ROOT))
+                    .doesNotContain("assinatura válida", "assinatura eletrônica", "validade jurídica");
             assertThat(document.getNumberOfPages()).isEqualTo(1);
             for (var page : document.getPages()) {
                 for (var name : page.getResources().getFontNames()) {
@@ -73,11 +76,19 @@ class LongExitPdfGeneratorTest {
         }
     }
 
-    private static LongExitPdfGenerator.Snapshot snapshot(String notes) {
+    private static LongExitPdfGenerator.Snapshot snapshot(String reason) {
         return new LongExitPdfGenerator.Snapshot(UUID.randomUUID(), UUID.randomUUID(), 3,
-                "João Conceição", "202600123", LocalDate.of(2010, 3, 17), "12", "Alojamento Ipê",
-                Instant.parse("2026-09-30T12:00:00Z"), Instant.parse("2026-09-30T21:00:00Z"),
-                "Consulta e reunião familiar", notes, "Maria Conceição", "Mãe");
+                "João Conceição", Instant.parse("2026-09-30T12:00:00Z"),
+                Instant.parse("2026-09-30T21:00:00Z"), reason, "Maria Conceição");
+    }
+
+    @Test
+    void oldSnapshotsWithRemovedFieldsStillDeserialize() throws Exception {
+        var mapper = new tools.jackson.databind.ObjectMapper();
+        var old = mapper.readValue(
+                "{\"revisionNumber\":1,\"residentName\":\"João\",\"birthDate\":\"2010-03-17\",\"roomNumber\":\"12\"}",
+                LongExitPdfGenerator.Snapshot.class);
+        assertThat(old.residentName()).isEqualTo("João");
     }
 
     private static void saveReviewSample(String name, byte[] bytes) throws IOException {
