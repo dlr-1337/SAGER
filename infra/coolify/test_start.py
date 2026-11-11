@@ -250,6 +250,9 @@ class StartupTests(unittest.TestCase):
             ["--profile", "whatsapp", "up", "-d", "--no-build", "--no-deps", "--pull", "never", "--wait",
              "--wait-timeout", "90", "whatsapp-gateway", "whatsapp-gateway-proxy"],
         ])
+        # The secrets directory is 0700; the gateway image's own user cannot list it.
+        check = next(call for call in self.state["calls"] if call[0] == "run")
+        self.assertEqual(check[check.index("--user") + 1], "0:0")
 
     def test_whatsapp_failure_never_takes_the_sager_down(self):
         for failure in ("run:whatsapp-gateway-prepare", "up:whatsapp-gateway-proxy"):
