@@ -81,8 +81,10 @@ compose=(docker compose --project-name "$SAGER_STACK_NAME" \
 "${compose[@]}" config --quiet >/dev/null || fail 'Invalid Compose configuration.'
 # This wrapper may run in a helper container, so only the daemon can see the host secrets.
 # Enabled without them, the backend would refuse to start and take the SAGER down.
+# Root because the secrets directory is 0700 and the gateway image runs as user 101.
 if [[ $SAGER_INTEGRATIONS_WHATSAPP_ENABLED == true ]]; then
-  docker run --rm --network none --mount "type=bind,src=$SAGER_SECRETS_DIR,dst=/secrets,readonly" \
+  docker run --rm --network none --user 0:0 \
+    --mount "type=bind,src=$SAGER_SECRETS_DIR,dst=/secrets,readonly" \
     --entrypoint sh "$SAGER_GATEWAY_IMAGE" -c 'test -f /secrets/waha_api_key && test -f /secrets/waha_webhook_hmac' \
     || fail 'WhatsApp is enabled but its secret files are missing.'
 fi
