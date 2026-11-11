@@ -43,6 +43,8 @@ stage = command + (":" + target if command in ("up", "run") else "")
 if args[0] == "run":
     stage = "secret-check"
 failed = state.get("failure") == stage
+if stage == "up:backend":
+    state["backend_whatsapp"] = os.environ.get("SAGER_INTEGRATIONS_WHATSAPP_ENABLED")
 if command == "stop" and not failed:
     for service in ("gateway", "backend"):
         if state.get("stale") != service:
@@ -253,6 +255,7 @@ class StartupTests(unittest.TestCase):
         # The secrets directory is 0700; the gateway image's own user cannot list it.
         check = next(call for call in self.state["calls"] if call[0] == "run")
         self.assertEqual(check[check.index("--user") + 1], "0:0")
+        self.assertEqual(self.state["backend_whatsapp"], "true")
 
     def test_whatsapp_failure_never_takes_the_sager_down(self):
         for failure in ("run:whatsapp-gateway-prepare", "up:whatsapp-gateway-proxy"):
@@ -266,14 +269,17 @@ class StartupTests(unittest.TestCase):
                 self.assertEqual(self.state["services"]["backend"], "running")
                 self.assertEqual(self.state["services"]["gateway"], "running")
 
-    def test_whatsapp_without_secret_files_preserves_the_running_version(self):
+    def test_whatsapp_without_secret_files_starts_the_sager_without_it(self):
+        # Coolify removes the old containers before this script, so a failure here meant a 503.
         self.enable_whatsapp()
         self.state["failure"] = "secret-check"
         result = self.run_script()
-        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("secret files are missing", result.stderr)
-        self.assertEqual(self.actions(), [["config", "--quiet"]])
+        self.assertEqual(self.whatsapp_actions(), [])
+        self.assertEqual(self.state["backend_whatsapp"], "false")
         self.assertEqual(self.state["services"]["backend"], "running")
+        self.assertEqual(self.state["services"]["gateway"], "running")
 
     def test_stale_running_backend_blocks_even_database_start(self):
         self.state["stale"] = "backend"
@@ -290,7 +296,7 @@ class StartupTests(unittest.TestCase):
         self.assertIn("operator intervention", result.stderr)
         self.assertFalse(any(action[0] in ("up", "run") for action in self.actions()))
 
-    def test_compose_validation_failure_does_not_mutate_existing_runtime(self):
+    def test_compose_validation_failure_stops_before_touching_containers(self):
         self.state["failure"] = "config"
         result = self.run_script()
         self.assertNotEqual(result.returncode, 0)

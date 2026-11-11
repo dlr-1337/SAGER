@@ -64,11 +64,25 @@ as chamadas Compose. A ordem é:
 5. Com `SAGER_INTEGRATIONS_WHATSAPP_ENABLED=true`, subir `whatsapp-gateway` e
    `whatsapp-gateway-proxy`. Falha nesta etapa só gera aviso: o SAGER segue no ar.
 
-O preflight valida identidade do projeto e configuração antes de alterar containers;
-se ele falhar, a versão anterior permanece no estado em que estava. Depois da parada
-inicial, qualquer falha interrompe a sequência e tenta manter gateway/backend parados.
-Uma falha do Docker que impeça a parada exige intervenção do operador.
-Não iniciar manualmente a aplicação para contornar uma migração malsucedida.
+O Coolify 4.3.14 remove todos os containers com o label `coolify.applicationId` desta
+aplicação **antes** de chamar o Custom start
+([código](https://github.com/coollabsio/coolify/blob/v4.3.14/app/Jobs/ApplicationDeploymentJob.php#L796)).
+Não existe versão anterior preservada: qualquer falha do wrapper deixa o site fora do ar
+(503) até um novo deploy. Por isso só continuam fatais as falhas que impedem um início
+correto e seguro:
+
+- configuração operacional ausente ou inválida e Compose inválido, verificados antes de
+  alterar containers. Supor valores, como outro nome de projeto, criaria volumes novos e
+  vazios no lugar do banco existente;
+- runtime que não parou, PostgreSQL, migração, permissões do runtime e saúde de backend
+  ou gateway. Depois da parada inicial, a falha interrompe a sequência e tenta manter
+  gateway/backend parados. Uma falha do Docker que impeça a parada exige intervenção do
+  operador. Não iniciar manualmente a aplicação para contornar uma migração malsucedida.
+
+O WhatsApp é opcional e nunca derruba o SAGER. Com a flag ligada e os arquivos
+`waha_api_key` ou `waha_webhook_hmac` ausentes, o wrapper avisa e sobe o SAGER com
+`SAGER_INTEGRATIONS_WHATSAPP_ENABLED=false`, sem os serviços do perfil `whatsapp`.
+Saídas longas continuam aceitando anexo manual.
 
 As quotas permanentes são 512 MiB/0,25 CPU para PostgreSQL,
 1024 MiB/0,65 CPU para backend e 96 MiB/0,10 CPU para gateway: **1632 MiB/1 CPU**.

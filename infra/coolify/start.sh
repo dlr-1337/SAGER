@@ -76,17 +76,19 @@ load_setting SAGER_INTEGRATIONS_WHATSAPP_ENABLED false
 
 compose=(docker compose --project-name "$SAGER_STACK_NAME" \
   --project-directory "$repository_root" --env-file "$environment_file" -f "$manifest")
-# Preflight has not entered maintenance: invalid settings/config preserve the
-# existing runtime. Arm failure cleanup only after the target configuration is valid.
+# Coolify 4.3.14 removes the old containers before calling this script, so every fail
+# leaves the SAGER off until the next deploy. Only what prevents a correct start stays fatal.
+# Arm failure cleanup only after the target configuration is valid.
 "${compose[@]}" config --quiet >/dev/null || fail 'Invalid Compose configuration.'
 # This wrapper may run in a helper container, so only the daemon can see the host secrets.
-# Enabled without them, the backend would refuse to start and take the SAGER down.
+# Enabled without them, the backend would refuse to start, so WhatsApp is turned off instead.
 # Root because the secrets directory is 0700 and the gateway image runs as user 101.
-if [[ $SAGER_INTEGRATIONS_WHATSAPP_ENABLED == true ]]; then
-  docker run --rm --network none --user 0:0 \
+if [[ $SAGER_INTEGRATIONS_WHATSAPP_ENABLED == true ]] && ! docker run --rm --network none --user 0:0 \
     --mount "type=bind,src=$SAGER_SECRETS_DIR,dst=/secrets,readonly" \
-    --entrypoint sh "$SAGER_GATEWAY_IMAGE" -c 'test -f /secrets/waha_api_key && test -f /secrets/waha_webhook_hmac' \
-    || fail 'WhatsApp is enabled but its secret files are missing.'
+    --entrypoint sh "$SAGER_GATEWAY_IMAGE" -c 'test -f /secrets/waha_api_key && test -f /secrets/waha_webhook_hmac'; then
+  printf '%s\n' 'SAGER startup: WhatsApp secret files are missing; starting the SAGER with WhatsApp off.' >&2
+  # The exported value overrides the runtime .env in Compose interpolation.
+  export SAGER_INTEGRATIONS_WHATSAPP_ENABLED=false
 fi
 
 assert_runtime_stopped() {
