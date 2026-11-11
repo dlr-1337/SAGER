@@ -472,7 +472,7 @@ for (const kind of ['habilitação', 'vínculo'] as const) {
     await page.getByRole('link', { name: 'Residentes', exact: true }).click();
     await expect(page).toHaveURL('/residentes');
     await expect(page.getByRole('alertdialog')).toHaveCount(0);
-    await page.getByRole('link', { name: 'Acessos de saúde', exact: true }).click();
+    await page.goto('/saude/acessos');
     if (kind === 'habilitação') {
       await page.getByText('Conferir e liberar profissional', { exact: true }).click();
       await page.getByLabel('Justificativa da verificação *').fill('Novo rascunho sintético');
@@ -492,7 +492,6 @@ test('gestão habilita, vincula e autoriza custódia usando apenas metadados em 
   await page.setViewportSize({ width: 320, height: 740 });
   await page.goto('/saude/acessos');
   await expect(page.getByRole('heading', { name: 'Acessos de saúde', exact: true })).toBeVisible();
-  await expect(page.locator('nav a.active span:last-child')).toHaveText(['Acessos de saúde']);
   await page.getByLabel('Buscar conta por nome ou e-mail').fill('Sintética');
   const accountSearch = page.waitForRequest((request) => {
     const url = new URL(request.url());

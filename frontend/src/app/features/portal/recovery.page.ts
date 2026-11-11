@@ -117,7 +117,7 @@ import { LocalAuthService } from '../../core/local-auth.service';
       <div class="mg-note">
         <span class="material-symbols-rounded" aria-hidden="true">info</span>
         <div>
-          <strong>Gestores, supervisores e profissionais de saúde</strong>
+          <strong>Gestores e supervisores</strong>
           <p>
             Procure o suporte da instituição. Alguém da equipe confere quem você é e troca sua
             senha.

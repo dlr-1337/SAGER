@@ -72,12 +72,6 @@ const residentTasks: HomeTask[] = [
     links: [{ label: 'Ver comunicações', to: '/avisos' }],
   },
   {
-    title: 'Minha saúde',
-    text: 'Veja seus registros de saúde.',
-    icon: 'health_and_safety',
-    links: [{ label: 'Ver minha saúde', to: '/minha-saude' }],
-  },
-  {
     title: 'Minha limpeza',
     text: 'Veja as notas de limpeza do seu quarto.',
     icon: 'cleaning_services',
@@ -118,12 +112,6 @@ const staffTasks: HomeTask[] = [
     text: 'Veja residentes, responsáveis e quartos.',
     icon: 'groups',
     links: [{ label: 'Ver residentes', to: '/residentes' }],
-  },
-  {
-    title: 'Acessos de saúde',
-    text: 'Escolha quem da saúde pode ver os registros.',
-    icon: 'admin_panel_settings',
-    links: [{ label: 'Gerenciar acessos', to: '/saude/acessos' }],
   },
 ];
 

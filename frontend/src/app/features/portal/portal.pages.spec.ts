@@ -34,7 +34,7 @@ describe('HomePage', () => {
     await fixture.whenStable();
     expect(element.querySelector('a[href="/chamada"]')).toBeNull();
     expect(element.querySelector('a[href="/residentes"]')).toBeNull();
-    expect(element.querySelector('a[href="/minha-saude"]')).not.toBeNull();
+    expect(element.querySelector('a[href="/minha-saude"]')).toBeNull();
   });
 
   it('apresenta a jornada de saúde sem ações pessoais de residente', async () => {

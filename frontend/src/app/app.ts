@@ -161,19 +161,13 @@ export class App implements OnDestroy {
           : role === 'supervisor'
             ? [{ label: 'Ranking', path: '/ranking', icon: 'leaderboard' }]
             : [];
-    // Gestão não dá acesso ao conteúdo de saúde: /saude exige habilitação profissional.
+    // Saúde fica fora dos menus de gestão e do residente (a monografia prevê só três perfis);
+    // as rotas continuam, e só quem tem habilitação profissional vê /saude.
     const healthProfessional = this.auth.principal()?.perfis.includes('saude') ?? false;
     const healthItems: NavItem[] =
-      role === 'gestor' || role === 'supervisor'
-        ? [
-            ...(healthProfessional
-              ? [{ label: 'Saúde', path: '/saude', icon: 'health_and_safety' }]
-              : []),
-            { label: 'Acessos de saúde', path: '/saude/acessos', icon: 'admin_panel_settings' },
-          ]
-        : role === 'residente'
-          ? [{ label: 'Minha saúde', path: '/minha-saude', icon: 'health_and_safety' }]
-          : [];
+      (role === 'gestor' || role === 'supervisor') && healthProfessional
+        ? [{ label: 'Saúde', path: '/saude', icon: 'health_and_safety' }]
+        : [];
     return grouped([
       ...localItems.slice(0, -1),
       ...communicationItems,
