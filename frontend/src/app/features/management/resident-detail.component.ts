@@ -280,17 +280,6 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
                   }
                 </p>
               </div>
-              <section class="mg-note mg-sensitive" aria-labelledby="medical-title">
-                <span class="material-symbols-rounded" aria-hidden="true">lock</span>
-                <div>
-                  <h2 id="medical-title">Informações médicas restritas</h2>
-                  <p>
-                    As notas assistenciais têm habilitação, vínculo e partilha próprios. O perfil de
-                    gestão não concede acesso ao conteúdo.
-                  </p>
-                  <a [routerLink]="['/saude/residentes', item.id]">Ver área de saúde</a>
-                </div>
-              </section>
             } @else if (tab() === 'responsaveis') {
               <section class="panel mg-panel" aria-labelledby="local-guardians-heading">
                 <div class="mg-section-heading">
