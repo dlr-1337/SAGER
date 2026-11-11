@@ -11,7 +11,7 @@ externa `coolify`. PostgreSQL e backend não publicam portas no host.
 - Docker Compose em modo **Raw (deploy file as-is)**.
 - Base directory `/`, Docker compose location `/compose.coolify.yml`.
 - Preserve repository during deployment ativado.
-- Custom build: `docker compose --profile maintenance build && docker compose --profile whatsapp pull whatsapp-gateway`.
+- Custom build: `docker compose -f ./compose.coolify.yml --env-file /artifacts/build-time.env --profile maintenance build && docker compose -f ./compose.coolify.yml --env-file /artifacts/build-time.env --profile whatsapp pull whatsapp-gateway`. O Coolify só injeta `-f` e `--env-file` no primeiro `docker compose`, e deixa de injetar quando o comando já tem `-f`; sem eles o pull lê `compose.yaml` e falha.
 - Custom start: `bash infra/coolify/start.sh`.
 - Build arguments: **Managed manually in Dockerfile**.
 - Auto deploy: **Manual deployments only**; previews desativados.
