@@ -258,8 +258,8 @@ export class GuardiansPage {
 
   demoAuthorization(id: string): string {
     return this.service.guardian(id)?.authorized
-      ? 'Autorizado para assinatura demonstrativa'
-      : 'Sem autorização de assinatura demonstrativa';
+      ? 'Pode autorizar saída longa (demonstração)'
+      : 'Não autoriza saída longa (demonstração)';
   }
 
   retry(): void {
@@ -388,7 +388,7 @@ export class GuardiansPage {
             </div>
             @if (isDemo()) {
               <div>
-                <dt>Assinatura de saída longa</dt>
+                <dt>Autorização de saída longa</dt>
                 <dd>{{ demoAuthorization() }}</dd>
               </div>
             }
@@ -614,8 +614,8 @@ export class GuardianDetailPage {
           >
           @if (isDemo()) {
             <label class="mg-check"
-              ><input type="checkbox" formControlName="authorized" /> Autorizado para assinatura
-              demonstrativa</label
+              ><input type="checkbox" formControlName="authorized" /> Pode autorizar saída longa
+              (demonstração)</label
             >
           }
           <div class="mg-note">

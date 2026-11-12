@@ -591,8 +591,8 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
                             >{{ guardian.active ? 'Ativo' : 'Inativo' }}</span
                           ><span>{{
                             guardian.authorized
-                              ? 'Autorizado para assinatura'
-                              : 'Sem autorização de assinatura'
+                              ? 'Pode autorizar saída longa'
+                              : 'Não autoriza saída longa'
                           }}</span>
                         </div>
                         <a class="mg-row-link" [routerLink]="['/responsaveis', guardian.id]"
@@ -653,7 +653,7 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
                         }
                       </label>
                       <label class="field mg-field"
-                        >Telefone para o fluxo de assinatura *<input
+                        >Telefone para a autorização de saída longa *<input
                           type="tel"
                           formControlName="phone"
                           inputmode="tel"
@@ -678,8 +678,8 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
                       ><input type="checkbox" formControlName="active" /> Responsável ativo</label
                     >
                     <label class="mg-check"
-                      ><input type="checkbox" formControlName="authorized" /> Autorizado para
-                      assinatura de saída longa</label
+                      ><input type="checkbox" formControlName="authorized" /> Pode autorizar saída
+                      longa</label
                     >
                     <p class="mg-muted">Nenhuma mensagem será enviada nesta demonstração.</p>
                     @if (guardianError()) {

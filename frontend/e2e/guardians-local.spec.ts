@@ -206,7 +206,7 @@ test('gestor cadastra, consulta, edita e recarrega responsável sem autorizaçã
   await page.getByRole('textbox', { name: 'Telefone com DDD *' }).fill('62 99999 0000');
   await page.getByRole('button', { name: 'Salvar responsável' }).click();
   await expect(page.getByRole('heading', { name: 'Responsável Sintético' })).toBeVisible();
-  await expect(page.getByText('Assinatura de saída longa')).toHaveCount(0);
+  await expect(page.getByText('Autorização de saída longa')).toHaveCount(0);
   expect(data.writes[0]).toMatchObject({ residentId, phone: '(62) 99999-0000', active: true });
   expect(data.writes[0]).not.toHaveProperty('authorized');
   await page.reload();
