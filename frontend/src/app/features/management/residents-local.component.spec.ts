@@ -631,7 +631,8 @@ describe('Residentes em sessão local', () => {
     const form = fixture.componentInstance.form;
     expect(form.controls.entryYear.value).toBe(2100);
     expect(form.controls.extraSemesters.value).toBe(3);
-    await fixture.componentInstance.save();    expect(api.save).toHaveBeenCalledWith(
+    await fixture.componentInstance.save();
+    expect(api.save).toHaveBeenCalledWith(
       expect.objectContaining({ entryYear: 2100, extraSemesters: 3 }),
       { id: resident.id, version: 0 },
     );
