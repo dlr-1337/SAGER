@@ -4,6 +4,7 @@ import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angul
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DemoScenario, DemoSessionService, Role } from '../../core/demo-session.service';
 import { FilterState } from '../../core/filter-state';
+import { civilToday } from '../../shared/field-rules';
 import {
   AllocationApiError,
   AllocationApiService,
@@ -346,6 +347,8 @@ describe('Residentes em sessão local', () => {
       birthDate: '',
       courseId: '',
       institutionalEmail: '',
+      entryYear: null,
+      extraSemesters: 0,
       password: 'Senha teste 123!',
       passwordConfirmation: 'Senha teste 123!',
     });
@@ -367,6 +370,8 @@ describe('Residentes em sessão local', () => {
         birthDate: '2009-05-14',
         courseId: 'curso-1',
         institutionalEmail: null,
+        entryYear: null,
+        extraSemesters: 0,
         password: 'Senha teste 123!',
         passwordConfirmation: 'Senha teste 123!',
       },
@@ -382,6 +387,8 @@ describe('Residentes em sessão local', () => {
       birthDate: '2999-01-01',
       courseId: 'curso-1',
       institutionalEmail: '',
+      entryYear: null,
+      extraSemesters: 0,
       password: 'Senha teste 123!',
       passwordConfirmation: 'Senha teste 123!',
     });
@@ -570,6 +577,97 @@ describe('Residentes em sessão local', () => {
     expect(form.controls.enrollment.errors).toEqual({ fieldRule: 'Confira a matrícula no SUAP.' });
   });
 
+  it('valida ano de ingresso e prorrogação e envia os dois ao servidor', async () => {
+    const fixture = TestBed.createComponent(ResidentFormComponent);
+    await fixture.whenStable();
+    const native = fixture.nativeElement as HTMLElement;
+    const form = fixture.componentInstance.form;
+    const next = Number(civilToday().slice(0, 4)) + 1;
+    expect(native.querySelector('#resident-extra-semesters-help')!.textContent).toBe(
+      'Cada semestre adiciona 6 meses à previsão de formatura.',
+    );
+    form.setValue({
+      name: 'Pessoa Sintética',
+      enrollment: '20261TESTE00003',
+      birthDate: '2009-05-14',
+      courseId: 'curso-1',
+      institutionalEmail: '',
+      entryYear: 1989,
+      extraSemesters: 11,
+      password: 'Senha teste 123!',
+      passwordConfirmation: 'Senha teste 123!',
+    });
+    await fixture.componentInstance.save();
+    fixture.detectChanges();
+    expect(api.save).not.toHaveBeenCalled();
+    expect(native.querySelector('#resident-entry-year-error')!.textContent).toBe(
+      `Informe um ano de 1990 a ${next}.`,
+    );
+    expect(native.querySelector('#resident-extra-semesters-error')!.textContent).toBe(
+      'Use um número de 0 a 10.',
+    );
+    form.controls.entryYear.setValue(next + 1);
+    expect(form.controls.entryYear.valid).toBe(false);
+    form.controls.entryYear.setValue(next);
+    form.controls.extraSemesters.setValue(2);
+    await fixture.componentInstance.save();
+    expect(api.save).toHaveBeenCalledWith(
+      expect.objectContaining({ entryYear: next, extraSemesters: 2 }),
+      undefined,
+    );
+  });
+
+  it('ano de ingresso antigo fora da regra continua editável se não mudar', async () => {
+    route.snapshot.paramMap = convertToParamMap({ id: resident.id });
+    api.get.mockResolvedValue({
+      ...resident,
+      birthDate: '2009-05-14',
+      courseId: 'curso-1',
+      entryYear: 2100,
+      extraSemesters: 3,
+    });
+    const fixture = TestBed.createComponent(ResidentFormComponent);
+    await fixture.whenStable();
+    const form = fixture.componentInstance.form;
+    expect(form.controls.entryYear.value).toBe(2100);
+    expect(form.controls.extraSemesters.value).toBe(3);
+    await fixture.componentInstance.save();    expect(api.save).toHaveBeenCalledWith(
+      expect.objectContaining({ entryYear: 2100, extraSemesters: 3 }),
+      { id: resident.id, version: 0 },
+    );
+    form.controls.entryYear.setValue(2099);
+    expect(form.controls.entryYear.valid).toBe(false);
+  });
+
+  it('detalhe local mostra etapa e previsão de formatura com o curso da API', async () => {
+    route.snapshot.paramMap = convertToParamMap({ id: resident.id });
+    api.get.mockResolvedValue({
+      ...resident,
+      courseId: 'curso-1',
+      course: 'Sistemas Sintéticos',
+      entryYear: 2026,
+      extraSemesters: 1,
+    });
+    vi.mocked(TestBed.inject(CourseApiService).list).mockResolvedValue([
+      {
+        id: 'curso-1',
+        name: 'Sistemas Sintéticos',
+        active: true,
+        version: 0,
+        level: 'SUPERIOR',
+        durationYears: 4,
+      },
+    ]);
+    const fixture = TestBed.createComponent(ResidentDetailComponent);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const text = fixture.nativeElement.textContent;
+    expect(text).toContain('prorrogação de 1 semestre');
+    expect(text).toContain('2030/1');
+    expect(text).toMatch(/º período|Ingressa em 2026/);
+    expect(text).not.toContain('Sem dados para calcular');
+  });
+
   it('não redireciona quando um salvamento termina depois de cancelar', async () => {
     let finishSave!: (value: ResidentRecord) => void;
     api.save.mockImplementation(
@@ -582,6 +680,8 @@ describe('Residentes em sessão local', () => {
       birthDate: '2009-05-14',
       courseId: 'curso-1',
       institutionalEmail: '',
+      entryYear: null,
+      extraSemesters: 0,
       password: 'Senha teste 123!',
       passwordConfirmation: 'Senha teste 123!',
     });

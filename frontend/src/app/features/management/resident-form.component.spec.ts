@@ -27,6 +27,8 @@ describe('ResidentFormComponent', () => {
       birthDate: '2009-05-14',
       courseId: '',
       institutionalEmail: '',
+      entryYear: null,
+      extraSemesters: 0,
       password: 'Senha teste 123!',
       passwordConfirmation: 'Senha teste 123!',
     });
@@ -64,6 +66,8 @@ describe('ResidentFormComponent', () => {
         birthDate: '2009-05-14',
         courseId: '',
         institutionalEmail: '',
+        entryYear: null,
+        extraSemesters: 0,
         password: value,
         passwordConfirmation: value,
       });
@@ -89,6 +93,8 @@ describe('ResidentFormComponent', () => {
         birthDate: '2009-05-14',
         courseId: '',
         institutionalEmail: '',
+        entryYear: null,
+        extraSemesters: 0,
         password: 'gato azul',
         passwordConfirmation,
       });
@@ -125,6 +131,8 @@ describe('ResidentFormComponent', () => {
       birthDate: '2009-05-14',
       courseId: 'course-1',
       institutionalEmail: '',
+      entryYear: null,
+      extraSemesters: 0,
       password: 'gato azul',
       passwordConfirmation: 'gato azul',
     });
@@ -142,6 +150,8 @@ describe('ResidentFormComponent', () => {
       birthDate: '1900-01-01',
       courseId: '',
       institutionalEmail: 'maria@gmail.com',
+      entryYear: null,
+      extraSemesters: 0,
       password: 'gato azul',
       passwordConfirmation: 'gato azul',
     });
@@ -205,6 +215,8 @@ describe('ResidentFormComponent', () => {
       birthDate: '',
       courseId: '',
       institutionalEmail: '',
+      entryYear: null,
+      extraSemesters: 0,
       password: 'Senha teste 123!',
       passwordConfirmation: 'Senha teste 123!',
     });

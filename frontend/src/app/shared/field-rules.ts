@@ -65,6 +65,17 @@ export const birthDateProblem: Problem = (value) => {
     : 'Confira a data de nascimento.';
 };
 
+/** Opcional; de 1990 até o ano seguinte, como FieldRules.validEntryYear. */
+export const entryYearProblem: Problem = (value) => {
+  const last = Number(civilToday().slice(0, 4)) + 1;
+  return !value || (/^\d{4}$/.test(value) && Number(value) >= 1990 && Number(value) <= last)
+    ? null
+    : `Informe um ano de 1990 a ${last}.`;
+};
+
+export const extraSemestersProblem: Problem = (value) =>
+  /^(?:\d|10)$/.test(value) ? null : 'Use um número de 0 a 10.';
+
 /** Sem o +55 e sem o zero da operadora: DDD e número. */
 export function phoneDigits(value: string): string {
   const digits = value.replace(/\D/g, '').replace(/^0/, '');

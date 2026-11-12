@@ -21,6 +21,8 @@ const input: ResidentPayload = {
   birthDate: '2009-05-14',
   courseId: null,
   institutionalEmail: null,
+  entryYear: 2026,
+  extraSemesters: 1,
 };
 
 describe('ResidentApiService', () => {
