@@ -16,6 +16,7 @@ import {
   documentStateLabels,
   longExitStatusLabels,
   messageStatusLabels,
+  sendFailureText,
   signatureStatusLabels,
 } from './long-exit.utils';
 import { OperationsApiError, operationsError } from './operations-local-api.service';
@@ -236,6 +237,12 @@ const exitError = (error: unknown): string =>
                   <dt>Situação do envio</dt>
                   <dd>{{ messages[exit.messageStatus] }}</dd>
                 </div>
+                @if (session.hasRole('supervisor') && sendFailure(exit); as reason) {
+                  <div>
+                    <dt>Motivo</dt>
+                    <dd>{{ reason }}</dd>
+                  </div>
+                }
               </dl>
               @if (exit.currentDocument; as revision) {
                 <h3>Documento atual</h3>
@@ -813,6 +820,13 @@ export class LongExitDetailComponent {
       (binding) =>
         binding.verifiedAt && binding.documentVersionId === exit.currentDocument?.documentVersionId,
     );
+  }
+  sendFailure(exit: LongExit): string {
+    const code = exit.bindings.find(
+      (binding) =>
+        !binding.revokedAt && binding.documentVersionId === exit.currentDocument?.documentVersionId,
+    )?.failureCode;
+    return code ? sendFailureText(code, exit.messageStatus) : '';
   }
   hasWaitingFile(exit: LongExit): boolean {
     return exit.authorizationFiles.some(

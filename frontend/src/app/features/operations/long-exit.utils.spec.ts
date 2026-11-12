@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { LongExitInput } from './long-exit.models';
-import { longExitFormError, longPeriodError } from './long-exit.utils';
+import { longExitFormError, longPeriodError, sendFailureText } from './long-exit.utils';
 
 const now = '2026-09-30T15:59:00Z';
 const departure = '2026-09-30T16:00:00Z';
@@ -48,5 +48,26 @@ describe('Plano de saída longa', () => {
       'depois da saída',
     );
     expect(longExitFormError({ ...input, reason: '  ' }, now)).toContain('motivo');
+  });
+});
+describe('Motivo da falha no envio', () => {
+  it('explica a sessão desconectada e o número sem WhatsApp', () => {
+    expect(sendFailureText('session_not_ready', 'QUEUED')).toContain('não está conectado');
+    expect(sendFailureText('provider_not_found', 'QUEUED')).toContain('não está conectado');
+    expect(sendFailureText('recipient_not_found', 'FAILED')).toContain('não tem WhatsApp');
+  });
+  it('só promete nova tentativa enquanto ela existe', () => {
+    expect(sendFailureText('provider_read_timeout', 'QUEUED')).toContain('tenta de novo');
+    expect(sendFailureText('session_not_ready', 'FAILED')).toContain(
+      'tentativas automáticas acabaram',
+    );
+    const uncertain = sendFailureText('provider_read_timeout', 'UNCERTAIN');
+    expect(uncertain).toContain('Confira no celular');
+    expect(uncertain).not.toContain('tenta de novo');
+  });
+  it('mostra o código, sem culpar o telefone, quando a falha não é conhecida', () => {
+    const text = sendFailureText('retry_exhausted', 'FAILED');
+    expect(text).toContain('retry_exhausted');
+    expect(text).not.toContain('telefone');
   });
 });

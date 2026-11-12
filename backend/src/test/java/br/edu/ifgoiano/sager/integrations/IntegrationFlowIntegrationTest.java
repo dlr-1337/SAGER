@@ -1321,13 +1321,22 @@ class IntegrationFlowIntegrationTest {
 
     @Test
     void sessionNotReadyWaitsAndUnknownNumberFailsWithoutPosting() throws Exception {
-        try (HttpClient student = login("residente")) {
+        try (HttpClient student = login("residente");
+                HttpClient supervisor = login("supervisor")) {
             JsonNode exit = create(student, 4 * 3600);
             GATEWAY.checkStatus = 422;
             run();
             assertThat(GATEWAY.sends()).isEmpty();
             assertThat(count("sager_integration_task", "state='PENDING' AND failure_code='session_not_ready'"))
                     .isEqualTo(1);
+            // A retry is scheduled, so the request still waits; the reason reaches the screen.
+            JsonNode waiting = read(supervisor, uuid(exit, "id"));
+            assertThat(waiting.path("messageStatus").asText()).isEqualTo("QUEUED");
+            assertThat(waiting.path("bindings").get(0).path("failureCode").asText())
+                    .isEqualTo("session_not_ready");
+            // The code reveals the residence session state, so the resident never gets it.
+            JsonNode own = read(student, uuid(exit, "id"));
+            assertThat(own.path("bindings").get(0).path("failureCode").isNull()).isTrue();
             GATEWAY.checkStatus = 200;
             GATEWAY.numberExists = false;
             clock.value = clock.value.plusSeconds(60);
@@ -1335,7 +1344,10 @@ class IntegrationFlowIntegrationTest {
             assertThat(GATEWAY.sends()).isEmpty();
             assertThat(count("sager_integration_task", "state='FAILED' AND failure_code='recipient_not_found'"))
                     .isEqualTo(1);
-            assertThat(read(student, uuid(exit, "id")).path("messageStatus").asText()).isEqualTo("FAILED");
+            JsonNode failed = read(supervisor, uuid(exit, "id"));
+            assertThat(failed.path("messageStatus").asText()).isEqualTo("FAILED");
+            assertThat(failed.path("bindings").get(0).path("failureCode").asText())
+                    .isEqualTo("recipient_not_found");
         }
     }
 

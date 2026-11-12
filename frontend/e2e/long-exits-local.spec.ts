@@ -697,7 +697,9 @@ test('resultado incerto bloqueia reenvio; reenvio com limite e conflito congela 
   ).toBeDisabled();
   exit.signatureStatus = 'FAILED';
   exit.messageStatus = 'FAILED';
+  exit.bindings[0].failureCode = 'recipient_not_found';
   await page.getByRole('button', { name: 'Atualizar dados' }).click();
+  await expect(page.getByText('O telefone do responsável não tem WhatsApp.')).toBeVisible();
   state.conflict = true;
   await page.getByRole('button', { name: 'Reenviar documento ao responsável' }).click();
   await page
