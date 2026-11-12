@@ -1328,6 +1328,11 @@ class IntegrationFlowIntegrationTest {
             assertThat(GATEWAY.sends()).isEmpty();
             assertThat(count("sager_integration_task", "state='PENDING' AND failure_code='session_not_ready'"))
                     .isEqualTo(1);
+            // A retry is scheduled, so the request still waits; the reason reaches the screen.
+            JsonNode waiting = read(student, uuid(exit, "id"));
+            assertThat(waiting.path("messageStatus").asText()).isEqualTo("QUEUED");
+            assertThat(waiting.path("bindings").get(0).path("failureCode").asText())
+                    .isEqualTo("session_not_ready");
             GATEWAY.checkStatus = 200;
             GATEWAY.numberExists = false;
             clock.value = clock.value.plusSeconds(60);
@@ -1335,7 +1340,10 @@ class IntegrationFlowIntegrationTest {
             assertThat(GATEWAY.sends()).isEmpty();
             assertThat(count("sager_integration_task", "state='FAILED' AND failure_code='recipient_not_found'"))
                     .isEqualTo(1);
-            assertThat(read(student, uuid(exit, "id")).path("messageStatus").asText()).isEqualTo("FAILED");
+            JsonNode failed = read(student, uuid(exit, "id"));
+            assertThat(failed.path("messageStatus").asText()).isEqualTo("FAILED");
+            assertThat(failed.path("bindings").get(0).path("failureCode").asText())
+                    .isEqualTo("recipient_not_found");
         }
     }
 

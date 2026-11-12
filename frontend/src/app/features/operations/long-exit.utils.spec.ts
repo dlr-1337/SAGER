@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { LongExitInput } from './long-exit.models';
-import { longExitFormError, longPeriodError } from './long-exit.utils';
+import { longExitFormError, longPeriodError, sendFailureText } from './long-exit.utils';
 
 const now = '2026-09-30T15:59:00Z';
 const departure = '2026-09-30T16:00:00Z';
@@ -48,5 +48,14 @@ describe('Plano de saída longa', () => {
       'depois da saída',
     );
     expect(longExitFormError({ ...input, reason: '  ' }, now)).toContain('motivo');
+  });
+});
+describe('Motivo da falha no envio', () => {
+  it('explica a sessão desconectada e o número sem WhatsApp', () => {
+    expect(sendFailureText('session_not_ready')).toContain('não está conectado');
+    expect(sendFailureText('recipient_not_found')).toContain('não tem WhatsApp');
+  });
+  it('mostra o código quando a falha não é conhecida', () => {
+    expect(sendFailureText('provider_http_rejected')).toContain('provider_http_rejected');
   });
 });

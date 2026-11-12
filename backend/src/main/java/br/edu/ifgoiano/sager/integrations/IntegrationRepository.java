@@ -177,7 +177,9 @@ GROUP BY b.guardian_phone
                                     b.verifiedAt(),
                                     b.verifiedBy(),
                                     names ? accountName(b.verifiedBy()) : null,
-                                    b.failureCode());
+                                    b.failureCode() != null
+                                            ? b.failureCode()
+                                            : sendFailure(b.id()));
                         })
                 .toList();
     }
@@ -195,15 +197,31 @@ GROUP BY b.guardian_phone
     }
 
     public String messageStatus(UUID bindingId, boolean enabled) {
-        return jdbc
-                .query(
-                        "SELECT status FROM sager_whatsapp_attempt WHERE binding_id=? ORDER BY"
-                                + " created_at DESC,id DESC LIMIT 1",
+        String latest =
+                jdbc
+                        .query(
+                                "SELECT status FROM sager_whatsapp_attempt WHERE binding_id=?"
+                                        + " ORDER BY created_at DESC,id DESC LIMIT 1",
+                                (r, n) -> r.getString(1),
+                                bindingId)
+                        .stream()
+                        .findFirst()
+                        .orElse(null);
+        // A failed try with a retry still scheduled, such as a session not yet connected, waits.
+        if ((latest == null || "FAILED".equals(latest)) && enabled && hasQueuedTask(bindingId))
+            return "QUEUED";
+        return latest == null ? "UNAVAILABLE" : latest;
+    }
+
+    /** Why the last WhatsApp try failed; cleared once a try succeeds or the task is cancelled. */
+    private String sendFailure(UUID bindingId) {
+        List<String> codes =
+                jdbc.query(
+                        "SELECT failure_code FROM sager_integration_task WHERE binding_id=? AND"
+                                + " type='WHATSAPP' ORDER BY updated_at DESC,id DESC LIMIT 1",
                         (r, n) -> r.getString(1),
-                        bindingId)
-                .stream()
-                .findFirst()
-                .orElseGet(() -> enabled && hasQueuedTask(bindingId) ? "QUEUED" : "UNAVAILABLE");
+                        bindingId);
+        return codes.isEmpty() ? null : codes.getFirst();
     }
 
     // An anchor for a manual attachment has no task: nothing is on its way to the guardian.

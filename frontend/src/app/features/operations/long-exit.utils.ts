@@ -21,6 +21,35 @@ export const messageStatusLabels: Record<DocumentMessageStatus, string> = {
   FAILED: 'Falha no envio',
   UNCERTAIN: 'Envio aguardando verificação',
 };
+const unreachable =
+  'O serviço do WhatsApp não respondeu. O sistema tenta de novo sozinho; se continuar, fale com o suporte.';
+const sendFailures: Record<string, string> = {
+  session_not_ready:
+    'O WhatsApp da residência não está conectado. Conecte em Conversas, Conexão do WhatsApp; enquanto houver tentativa automática, o envio é refeito sozinho.',
+  recipient_not_found:
+    'O telefone do responsável não tem WhatsApp. Confira o número no cadastro do responsável e reenvie.',
+  recipient_invalid:
+    'O telefone do responsável é inválido. Corrija o cadastro do responsável e reenvie.',
+  document_unavailable:
+    'O PDF da autorização não está disponível no servidor. Fale com o suporte antes de reenviar.',
+  provider_unauthorized:
+    'O sistema não conseguiu entrar no serviço do WhatsApp. Fale com o suporte.',
+  provider_disabled: 'O envio por WhatsApp está desligado. Use o anexo manual da autorização.',
+  provider_connect_failure: unreachable,
+  provider_http_temporary: unreachable,
+  provider_rate_limited: unreachable,
+  provider_read_timeout: unreachable,
+  provider_read_failure: unreachable,
+  provider_transport_failure: unreachable,
+  interrupted_external_post:
+    'Não foi possível confirmar o envio. Confira no celular da residência antes de reenviar.',
+  provider_response_invalid:
+    'Não foi possível confirmar o envio. Confira no celular da residência antes de reenviar.',
+};
+/** Why the document did not reach the guardian, in words the supervisor can act on. */
+export const sendFailureText = (code: string): string =>
+  sendFailures[code] ??
+  `O WhatsApp recusou o envio (código ${code}). Confira o telefone e reenvie.`;
 /** Same code printed on the PDF, so the supervisor can match the returned file at a glance. */
 export const documentShortCode = (documentVersionId: string): string =>
   documentVersionId.replaceAll('-', '').slice(0, 8).toUpperCase();
