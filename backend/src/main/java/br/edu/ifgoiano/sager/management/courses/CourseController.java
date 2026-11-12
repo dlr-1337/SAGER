@@ -15,16 +15,26 @@ public class CourseController {
     public CourseController(CourseService service) { this.service = service; }
     @GetMapping public ResponseEntity<List<Course>> list() { return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.list()); }
     @PostMapping public ResponseEntity<Course> create(@RequestBody Request input) {
-        Course course = service.save(null, name(input), true, null);
+        Course course = service.save(null, name(input), true, null, level(input), durationYears(input));
         return ResponseEntity.created(URI.create("/api/v1/cursos/" + course.id())).cacheControl(CacheControl.noStore()).body(course);
     }
     @PutMapping("/{id}") public ResponseEntity<Course> update(@PathVariable UUID id, @RequestBody Request input) {
         if (input.active() == null || !input.active().isBoolean() || input.version() == null || !input.version().isIntegralNumber() || !input.version().canConvertToLong()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.save(id, name(input), input.active().asBoolean(), input.version().asLong()));
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.save(id, name(input), input.active().asBoolean(), input.version().asLong(), level(input), durationYears(input)));
     }
     private String name(Request input) {
         if (input.name() == null || !input.name().isString()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
         return input.name().stringValue();
     }
-    public record Request(JsonNode name, JsonNode active, JsonNode version) {}
+    private String level(Request input) {
+        if (input.level() == null || input.level().isNull()) return null;
+        if (!input.level().isString()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+        return input.level().stringValue();
+    }
+    private Integer durationYears(Request input) {
+        if (input.durationYears() == null || input.durationYears().isNull()) return null;
+        if (!input.durationYears().isIntegralNumber() || !input.durationYears().canConvertToInt()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+        return input.durationYears().asInt();
+    }
+    public record Request(JsonNode name, JsonNode active, JsonNode version, JsonNode level, JsonNode durationYears) {}
 }

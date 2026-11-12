@@ -49,15 +49,18 @@ public class ResidentService {
     }
 
     @Transactional
-    public Resident create(String name, String enrollment, LocalDate birthDate, UUID courseId, String institutionalEmail, String password, String passwordConfirmation) {
+    public Resident create(String name, String enrollment, LocalDate birthDate, UUID courseId, String institutionalEmail,
+            Integer entryYear, int extraSemesters, String password, String passwordConfirmation) {
         if (courseId == null) throw invalidInput("courseId é obrigatório.");
         String course = courses.selectedName(courseId, null);
         String email = checkedEmail(institutionalEmail, null);
+        checkProgress(entryYear, extraSemesters, null);
         if (password == null || !password.equals(passwordConfirmation)) throw invalidInput("As senhas devem coincidir.");
         CheckedInput checked = checked(name, enrollment, birthDate, course, null);
         UUID id = UUID.randomUUID();
         try {
-            repository.insert(id, checked.name(), checked.enrollment(), birthDate, checked.course(), courseId, email);
+            repository.insert(id, checked.name(), checked.enrollment(), birthDate, checked.course(), courseId, email,
+                    entryYear, extraSemesters);
             accounts.create(checked.enrollment(), null, checked.name(), "residente", password.toCharArray());
             accounts.linkResident(checked.enrollment(), id);
         } catch (IllegalArgumentException error) {
@@ -68,13 +71,14 @@ public class ResidentService {
             throw integrityError(error);
         }
         audit.record(AuditResource.RESIDENT, id, AuditAction.CREATE, 0,
-                Set.of("name", "enrollment", "birthDate", "courseId", "institutionalEmail"));
-        return new Resident(id, checked.name(), checked.enrollment(), birthDate, checked.course(), 0, courseId, email);
+                Set.of("name", "enrollment", "birthDate", "courseId", "institutionalEmail", "entryYear", "extraSemesters"));
+        return new Resident(id, checked.name(), checked.enrollment(), birthDate, checked.course(), 0, courseId, email,
+                entryYear, extraSemesters);
     }
 
     @Transactional
     public Resident update(UUID id, String name, String enrollment, LocalDate birthDate,
-            UUID courseId, String institutionalEmail, long version) {
+            UUID courseId, String institutionalEmail, Integer entryYear, int extraSemesters, long version) {
         if (version < 0 || version == Long.MAX_VALUE) {
             throw invalidInput("version deve ser um inteiro não negativo válido.");
         }
@@ -83,6 +87,7 @@ public class ResidentService {
         if (courseId == null) throw invalidInput("courseId é obrigatório.");
         String course = courses.selectedName(courseId, current.courseId());
         String email = checkedEmail(institutionalEmail, current.institutionalEmail());
+        checkProgress(entryYear, extraSemesters, current);
         CheckedInput checked = checked(name, enrollment, birthDate, course, current);
         if (current.version() != version) {
             throw new ResidentApiException(HttpStatus.CONFLICT, "stale_version",
@@ -91,7 +96,7 @@ public class ResidentService {
         int updated;
         try {
             updated = repository.update(id, checked.name(), checked.enrollment(), birthDate,
-                    checked.course(), courseId, email, version);
+                    checked.course(), courseId, email, entryYear, extraSemesters, version);
         } catch (DataIntegrityViolationException error) {
             throw integrityError(error);
         }
@@ -121,9 +126,22 @@ public class ResidentService {
         }
         if (!Objects.equals(current.courseId(), courseId)) changed.add("courseId");
         if (!Objects.equals(current.institutionalEmail(), email)) changed.add("institutionalEmail");
+        if (!Objects.equals(current.entryYear(), entryYear)) changed.add("entryYear");
+        if (current.extraSemesters() != extraSemesters) changed.add("extraSemesters");
         audit.record(AuditResource.RESIDENT, id, AuditAction.UPDATE, version + 1, changed);
         return new Resident(id, checked.name(), checked.enrollment(), birthDate,
-                checked.course(), version + 1, courseId, email);
+                checked.course(), version + 1, courseId, email, entryYear, extraSemesters);
+    }
+
+    /** O ano salvo não é revalidado: um cadastro antigo continua editável. */
+    private void checkProgress(Integer entryYear, int extraSemesters, Resident current) {
+        if (entryYear != null && (current == null || !entryYear.equals(current.entryYear()))
+                && !FieldRules.validEntryYear(entryYear)) {
+            throw invalidInput("Confira o ano de ingresso.");
+        }
+        if (extraSemesters < 0 || extraSemesters > 10) {
+            throw invalidInput("A prorrogação deve ficar entre 0 e 10 semestres.");
+        }
     }
 
     private String checkedEmail(String value, String saved) {

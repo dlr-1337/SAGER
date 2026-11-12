@@ -14,7 +14,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 @Profile({ "local", "production" })
 public class ResidentRepository {
-    private static final String COLUMNS = "id, name, enrollment, birth_date, COALESCE((SELECT c.name FROM sager_course c WHERE c.id=sager_resident.course_id),course) AS course, version, course_id, institutional_email";
+    private static final String COLUMNS = "id, name, enrollment, birth_date, COALESCE((SELECT c.name FROM sager_course c WHERE c.id=sager_resident.course_id),course) AS course, version, course_id, institutional_email, entry_year, extra_semesters";
     private final JdbcTemplate jdbc;
 
     public ResidentRepository(JdbcTemplate jdbc) {
@@ -37,26 +37,30 @@ public class ResidentRepository {
     }
 
     public void insert(UUID id, String name, String enrollment, LocalDate birthDate,
-            String course, UUID courseId, String institutionalEmail) {
+            String course, UUID courseId, String institutionalEmail, Integer entryYear, int extraSemesters) {
         jdbc.update("""
-                INSERT INTO sager_resident (id, name, enrollment, birth_date, course, course_id, institutional_email)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, id, name, enrollment, birthDate, course, courseId, institutionalEmail);
+                INSERT INTO sager_resident (id, name, enrollment, birth_date, course, course_id, institutional_email,
+                    entry_year, extra_semesters)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, id, name, enrollment, birthDate, course, courseId, institutionalEmail, entryYear, extraSemesters);
     }
 
     public int update(UUID id, String name, String enrollment, LocalDate birthDate,
-            String course, UUID courseId, String institutionalEmail, long version) {
+            String course, UUID courseId, String institutionalEmail, Integer entryYear, int extraSemesters,
+            long version) {
         return jdbc.update("""
                 UPDATE sager_resident
                 SET name = ?, enrollment = ?, birth_date = ?, course = ?, course_id = ?, institutional_email = ?,
-                    version = version + 1, updated_at = CURRENT_TIMESTAMP
+                    entry_year = ?, extra_semesters = ?, version = version + 1, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ? AND version = ?
-                """, name, enrollment, birthDate, course, courseId, institutionalEmail, id, version);
+                """, name, enrollment, birthDate, course, courseId, institutionalEmail, entryYear, extraSemesters,
+                id, version);
     }
 
     private Resident map(ResultSet result) throws SQLException {
         return new Resident(result.getObject("id", UUID.class), result.getString("name"),
                 result.getString("enrollment"), result.getObject("birth_date", LocalDate.class),
-                result.getString("course"), result.getLong("version"), result.getObject("course_id", UUID.class), result.getString("institutional_email"));
+                result.getString("course"), result.getLong("version"), result.getObject("course_id", UUID.class), result.getString("institutional_email"),
+                result.getObject("entry_year", Integer.class), result.getInt("extra_semesters"));
     }
 }

@@ -4,8 +4,9 @@ import java.util.Set;
 
 public enum AuditResource {
     SUPERVISOR(Set.of("name", "institutionalId", "email")),
-    RESIDENT(Set.of("name", "enrollment", "birthDate", "course", "courseId", "institutionalEmail")),
-    COURSE(Set.of("name", "active")),
+    RESIDENT(Set.of("name", "enrollment", "birthDate", "course", "courseId", "institutionalEmail", "entryYear",
+            "extraSemesters")),
+    COURSE(Set.of("name", "active", "level", "durationYears")),
     GUARDIAN(Set.of("residentId", "name", "relationship", "phone", "active")),
     ACCOMMODATION(Set.of("code", "name")),
     ACCOMMODATION_UNIT(Set.of("accommodationId", "code", "name")),

@@ -177,6 +177,51 @@ class ResidentMigrationIntegrationTest {
                 + "WHERE c.conname = 'sager_resident_birth_date_required' AND n.nspname = ?", Boolean.class, schema)).isFalse();
     }
 
+    @Test
+    void v29AddsCourseLevelAndResidentProgressWithoutBackfillOrVersionChanges() {
+        String schema = "resident_upgrade_v28";
+        migrate(schema, "28");
+        JdbcTemplate jdbc = jdbc(schema);
+        UUID course = UUID.randomUUID();
+        UUID resident = UUID.randomUUID();
+        jdbc.update("INSERT INTO sager_course (id, name, version) VALUES (?, ?, 3)", course, "Curso Sintético");
+        jdbc.update("INSERT INTO sager_resident (id, name, enrollment, birth_date, course_id, version) VALUES (?, ?, ?, ?, ?, 5)",
+                resident, "Estudante Sintético", "20261MIGRA00001", LocalDate.of(2006, 1, 2), course);
+        int audits = jdbc.queryForObject("SELECT COUNT(*) FROM sager_audit_event", Integer.class);
+
+        migrate(schema, "29");
+
+        assertThat(jdbc.queryForObject("SELECT level IS NULL AND duration_years IS NULL AND version = 3 FROM sager_course",
+                Boolean.class)).isTrue();
+        assertThat(jdbc.queryForObject("SELECT entry_year IS NULL AND extra_semesters = 0 AND version = 5 FROM sager_resident",
+                Boolean.class)).isTrue();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_audit_event", Integer.class)).isEqualTo(audits);
+        jdbc.update("UPDATE sager_course SET level = 'SUPERIOR', duration_years = 4 WHERE id = ?", course);
+        jdbc.update("UPDATE sager_resident SET entry_year = 2026, extra_semesters = 10 WHERE id = ?", resident);
+        for (String invalid : new String[] { "UPDATE sager_course SET level = 'TECNICO'",
+                "UPDATE sager_course SET duration_years = 0", "UPDATE sager_course SET duration_years = 7",
+                "UPDATE sager_resident SET entry_year = 1989", "UPDATE sager_resident SET entry_year = 2101",
+                "UPDATE sager_resident SET extra_semesters = 11", "UPDATE sager_resident SET extra_semesters = -1",
+                "UPDATE sager_resident SET extra_semesters = NULL" }) {
+            assertThatThrownBy(() -> jdbc.update(invalid)).isInstanceOf(DataIntegrityViolationException.class);
+        }
+        audit(jdbc, "COURSE", course, "{name,active,level,durationYears}");
+        audit(jdbc, "RESIDENT", resident, "{courseId,entryYear,extraSemesters}");
+        audit(jdbc, "WHATSAPP_SESSION", UUID.randomUUID(), "{ended}");
+        audit(jdbc, "ROOM", UUID.randomUUID(), "{situation}");
+        assertThatThrownBy(() -> audit(jdbc, "COURSE", course, "{entryYear}"))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> audit(jdbc, "RESIDENT", resident, "{durationYears}"))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    private void audit(JdbcTemplate jdbc, String resource, UUID id, String fields) {
+        jdbc.update("""
+                INSERT INTO sager_audit_event (origin, request_id, resource, resource_id, action, resulting_version, changed_fields)
+                VALUES ('SYSTEM_JOB', gen_random_uuid(), ?, ?, 'UPDATE', 1, ?::text[])
+                """, resource, id, fields);
+    }
+
     private void migrate(String schema, String version) {
         Flyway.configure().dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                 .schemas(schema).defaultSchema(schema).locations("classpath:db/migration")

@@ -125,6 +125,15 @@ class ApiFoundationIntegrationTest {
                 assertThat(password.path("minLength").asInt()).isEqualTo(8);
                 assertThat(password.path("maxLength").asInt()).isEqualTo(72);
             }
+            JsonNode schemas = document.path("components").path("schemas");
+            assertThat(schemas.path("ResidentUpdateRequest").path("properties").path("extraSemesters").path("maximum").asInt())
+                    .isEqualTo(10);
+            assertThat(schemas.path("ResidentCreateRequest").path("properties").path("entryYear").path("minimum").asInt())
+                    .isEqualTo(1990);
+            assertThat(schemas.path("CourseUpdateRequest").path("properties").path("level").path("enum").toString())
+                    .contains("MEDIO", "SUPERIOR");
+            assertThat(schemas.path("CourseCreateRequest").path("properties").path("durationYears").path("maximum").asInt())
+                    .isEqualTo(6);
             JsonNode supervisorCreate = document.path("components").path("schemas").path("SupervisorCreateRequest");
             assertThat(supervisorCreate.path("properties").path("password").path("minLength").asInt()).isEqualTo(8);
             assertThat(supervisorCreate.path("properties").path("passwordConfirmation").path("writeOnly").asBoolean()).isTrue();
