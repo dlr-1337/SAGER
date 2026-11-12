@@ -317,7 +317,10 @@ maiúsculas/minúsculas; valores ausentes de unidade e piso representam a mesma
 localização ausente. A unidade informada deve pertencer ao alojamento do quarto.
 
 Capacidade é editável, inteira positiva ou ausente (`null`), sem assumir zero.
-Disponível, Ocupado, Manutenção e Indisponível são situações manuais. Ocupação,
+Disponível, Ocupado, Manutenção e Indisponível eram situações manuais. Por
+decisão do responsável em 11/11/2026, só Manutenção e Indisponível continuam
+manuais: com capacidade definida, o quarto aparece Ocupado quando os vínculos
+ativos atingem a capacidade e Disponível quando há vaga (Flyway V28). Ocupação,
 vagas livres e nota de limpeza permaneceram desconhecidas (`null`) na fatia
 estrutural; a situação manual não determina essas medidas. O mapa local inicia
 vazio. A demonstração e os testes usam registros sintéticos, sem importar

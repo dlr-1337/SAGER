@@ -82,8 +82,11 @@ class RoomApiIntegrationTest {
         try (HttpClient client = browser()) {
             login(client, "gestor");
             String accommodation = accommodation(client, "DEMO-A");
+            assertError(post(client, PATH,
+                    room("DEMO-A-01", "01", accommodation, null, null, 4, "Ocupado"), csrf(client)),
+                    400, "invalid_input");
             HttpResponse<String> created = post(client, PATH,
-                    room(" DEMO-A-01 ", " 01 ", accommodation, null, null, null, "Ocupado"), csrf(client));
+                    room(" DEMO-A-01 ", " 01 ", accommodation, null, null, null, "Disponível"), csrf(client));
             assertThat(created.statusCode()).isEqualTo(201);
             assertNoStore(created);
             JsonNode value = json.readTree(created.body());
@@ -93,7 +96,7 @@ class RoomApiIntegrationTest {
             assertThat(value.path("code").asText()).isEqualTo("DEMO-A-01");
             assertThat(value.path("number").asText()).isEqualTo("01");
             assertThat(value.path("accommodationId").asText()).isEqualTo(accommodation);
-            assertThat(value.path("situation").asText()).isEqualTo("Ocupado");
+            assertThat(value.path("situation").asText()).isEqualTo("Disponível");
             assertThat(value.path("version").asLong()).isZero();
             assertThat(value.size()).isEqualTo(12);
             for (String field : new String[] { "unitId", "floor", "capacity", "vacancies", "cleaningScore" }) {
@@ -221,7 +224,7 @@ class RoomApiIntegrationTest {
                     400, "invalid_location");
             String original = createRoom(client, room("DEMO-A-01", "01", first, null, null, 4, "Disponível"));
             assertError(put(client, PATH + "/" + original,
-                    edit(room("DEMO-A-01", "01", first, secondUnit, null, 8, "Ocupado"), 0), csrf(client)),
+                    edit(room("DEMO-A-01", "01", first, secondUnit, null, 8, "Manutenção"), 0), csrf(client)),
                     400, "invalid_location");
             JsonNode value = json.readTree(get(client, PATH + "/" + original).body());
             assertThat(value.path("version").asLong()).isZero();
@@ -244,12 +247,12 @@ class RoomApiIntegrationTest {
                 assertError(put(client, PATH + "/" + id, edit(base, version), csrf(client)), 400, "invalid_input");
             }
             assertThat(put(client, PATH + "/" + id,
-                    edit(room("DEMO-01", "01", accommodation, null, null, 6, "Ocupado"), 0), csrf(client))
+                    edit(room("DEMO-01", "01", accommodation, null, null, 6, "Indisponível"), 0), csrf(client))
                     .statusCode()).isEqualTo(200);
             assertError(put(client, PATH + "/" + id, edit(base, 0), csrf(client)), 409, "stale_version");
             JsonNode value = json.readTree(get(client, PATH + "/" + id).body());
             assertThat(value.path("capacity").asInt()).isEqualTo(6);
-            assertThat(value.path("situation").asText()).isEqualTo("Ocupado");
+            assertThat(value.path("situation").asText()).isEqualTo("Indisponível");
             assertThat(value.path("version").asLong()).isEqualTo(1);
             assertError(put(client, PATH + "/" + UUID.randomUUID(), edit(base, 0), csrf(client)),
                     404, "not_found");
@@ -405,7 +408,7 @@ class RoomApiIntegrationTest {
                 String base = room("DEMO-RESTART-01", "01", accommodation, unit, null, 4, "Disponível");
                 roomId = createRoom(client, base);
                 assertThat(put(client, PATH + "/" + roomId,
-                        edit(room("DEMO-RESTART-01", "01", accommodation, unit, null, 8, "Ocupado"), 0),
+                        edit(room("DEMO-RESTART-01", "01", accommodation, unit, null, 8, "Manutenção"), 0),
                         csrf(client)).statusCode()).isEqualTo(200);
             }
             try (var restarted = application("local")) {

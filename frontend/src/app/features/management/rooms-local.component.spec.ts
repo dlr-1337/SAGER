@@ -339,6 +339,32 @@ describe('Quartos em sessão local', () => {
     );
   });
 
+  it('quarto lotado chega como Ocupado, mas o formulário só oferece situações manuais', async () => {
+    const full: RoomRecord = {
+      ...room,
+      capacity: 2,
+      occupancy: 2,
+      vacancies: 0,
+      situation: 'Ocupado',
+    };
+    api.map.mockResolvedValue({ ...structuredClone(map), rooms: [full] });
+    route.snapshot.paramMap = convertToParamMap({ id: full.id });
+    const fixture = TestBed.createComponent(RoomFormComponent);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.localForm.controls.situation.value).toBe('Disponível');
+    const options = [
+      ...fixture.nativeElement.querySelectorAll('select[formcontrolname="situation"] option'),
+    ].map((option: HTMLOptionElement) => option.value);
+    expect(options).toEqual(['', 'Disponível', 'Manutenção', 'Indisponível']);
+    expect(fixture.nativeElement.textContent).toContain('Ocupado aparece sozinho');
+    await fixture.componentInstance.save();
+    expect(api.save).toHaveBeenCalledWith(
+      expect.objectContaining({ situation: 'Disponível', capacity: 2 }),
+      { id: full.id, version: 0 },
+    );
+  });
+
   it('quarto antigo acima do limite mantém a capacidade salva, mas não aceita outra', async () => {
     const old = structuredClone(map.rooms[0]);
     old.capacity = 500;

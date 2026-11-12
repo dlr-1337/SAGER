@@ -80,6 +80,28 @@ class RoomMigrationIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_room", Integer.class)).isEqualTo(3);
     }
 
+    @Test
+    void v28KeepsOnlyManualSituationsAndAuditsTheNormalizationWithoutChangingVersions() {
+        String schema = "room_upgrade_v27";
+        migrate(schema, "27");
+        JdbcTemplate jdbc = jdbc(schema);
+        UUID accommodation = accommodation(jdbc, "DEMO-RES");
+        insertRoom(jdbc, "DEMO-OCUPADO", "01", accommodation, null, null, 4, "Ocupado");
+        insertRoom(jdbc, "DEMO-MANUT", "02", accommodation, null, null, 4, "Manutenção");
+        insertRoom(jdbc, "DEMO-SEM-CAPACIDADE", "03", accommodation, null, null, null, "Ocupado");
+        jdbc.update("UPDATE sager_room SET version = 3 WHERE code = 'DEMO-OCUPADO'");
+        migrate(schema, "28");
+        assertThat(jdbc.queryForList("SELECT code || ':' || situation || ':' || version FROM sager_room ORDER BY code",
+                String.class)).containsExactly("DEMO-MANUT:Manutenção:0", "DEMO-OCUPADO:Disponível:3",
+                        "DEMO-SEM-CAPACIDADE:Indisponível:0");
+        assertThat(jdbc.queryForList("""
+                SELECT origin || ':' || action || ':' || resulting_version || ':' || array_to_string(changed_fields, ',')
+                FROM sager_audit_event WHERE resource = 'ROOM' ORDER BY resulting_version
+                """, String.class)).containsExactly("SYSTEM_JOB:UPDATE:0:situation", "SYSTEM_JOB:UPDATE:3:situation");
+        assertThatThrownBy(() -> insertRoom(jdbc, "DEMO-NOVO", "03", accommodation, null, null, 4, "Ocupado"))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
     private UUID accommodation(JdbcTemplate jdbc, String code) {
         UUID id = UUID.randomUUID();
         jdbc.update("INSERT INTO sager_accommodation (id, code, name) VALUES (?, ?, ?)", id, code, "Sintético " + code);

@@ -116,7 +116,7 @@ import { ResidentApiService, ResidentRecord } from './resident-api.service';
               </dd>
             </div>
             <div>
-              <dt>Situação manual</dt>
+              <dt>Situação</dt>
               <dd>
                 <span class="mg-situation" [attr.data-situation]="item.situation"
                   ><span class="mg-dot" aria-hidden="true"></span>{{ item.situation }}</span
