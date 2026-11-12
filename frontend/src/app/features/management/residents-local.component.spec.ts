@@ -238,7 +238,7 @@ describe('Residentes em sessão local', () => {
       'Cada saída longa precisa da autorização do responsável, conferida por um servidor.',
     );
     expect(fixture.nativeElement.textContent).not.toContain('Mariana Ribeiro');
-    expect(fixture.nativeElement.textContent).not.toContain('Autorizado para assinatura');
+    expect(fixture.nativeElement.textContent).not.toContain('Pode autorizar saída longa');
     expect(guardianApi.list).toHaveBeenCalledOnce();
     expect(guardians).not.toHaveBeenCalled();
   });
