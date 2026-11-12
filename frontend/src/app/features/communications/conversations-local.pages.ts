@@ -937,10 +937,12 @@ export class ConversationsPage implements OnDestroy {
             <span class="material-symbols-rounded" aria-hidden="true">mic</span>
             <span class="conv-tool-label">Gravar</span>
           </button>
+          <!-- Keeps the focus, and the phone keyboard, in the message field when tapping send. -->
           <button
             class="btn conv-send"
             type="submit"
             [disabled]="sending() || recording() || !!blockedText()"
+            (mousedown)="$event.preventDefault()"
           >
             <span class="material-symbols-rounded" aria-hidden="true">send</span>
             {{ sending() ? 'Enviando…' : 'Enviar' }}
@@ -954,7 +956,20 @@ export class ConversationThreadComponent implements OnDestroy {
   private readonly api = inject(ConversationsApiService);
   private readonly page = inject(ConversationsPage);
   private readonly injector = inject(Injector);
-  @ViewChild('log') private log?: ElementRef<HTMLElement>;
+  private log?: ElementRef<HTMLElement>;
+  /** The composer and banners grow under the list; whoever was at the end stays at the end. */
+  private readonly resize =
+    typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(() => {
+          const log = this.log?.nativeElement;
+          if (log && this.stick) log.scrollTop = log.scrollHeight;
+        });
+  @ViewChild('log') private set logElement(log: ElementRef<HTMLElement> | undefined) {
+    this.log = log;
+    this.resize?.disconnect();
+    if (log) this.resize?.observe(log.nativeElement);
+  }
   @ViewChild('title') private title?: ElementRef<HTMLElement>;
   @ViewChild('linkTitle') private linkTitle?: ElementRef<HTMLElement>;
   @ViewChild('draft') private draft?: ElementRef<HTMLTextAreaElement>;
@@ -1034,6 +1049,7 @@ export class ConversationThreadComponent implements OnDestroy {
     this.destroyed = true;
     this.sequence++;
     this.page.thread = null;
+    this.resize?.disconnect();
     this.discardRecording();
     this.setPreview(null);
   }
@@ -1100,7 +1116,8 @@ export class ConversationThreadComponent implements OnDestroy {
     const added = page.items.filter((message) => !known.has(message.id));
     const stuck = this.nearBottom();
     this.merge(page.items);
-    if (added.length && stuck) this.scrollToBottom();
+    // A status that adds a note also grows the list: whoever was at the end stays there.
+    if (stuck) this.scrollToBottom();
     if (added.some((message) => message.direction === 'IN')) void this.markRead();
   }
   async loadOlder(): Promise<void> {
@@ -1166,8 +1183,11 @@ export class ConversationThreadComponent implements OnDestroy {
       );
     } finally {
       this.sending.set(false);
+      // Without preventScroll the browser scrolls the page to the field and the screen jumps.
       if (!this.destroyed)
-        afterNextRender(() => this.draft?.nativeElement.focus(), { injector: this.injector });
+        afterNextRender(() => this.draft?.nativeElement.focus({ preventScroll: true }), {
+          injector: this.injector,
+        });
     }
   }
   reuse(body: string): void {

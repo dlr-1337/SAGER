@@ -1,10 +1,18 @@
 .conv-page-header .page-header {
   margin-bottom: var(--space-4);
 }
+// A tela cabe na altura visível abaixo do cabeçalho do sistema (92 px): lista e mensagens rolam por
+// dentro e o campo de texto fica sempre à vista, sem a página subir e descer ao conversar.
+.conv-page {
+  display: flex;
+  flex-direction: column;
+  height: max(560px, calc(100dvh - 92px));
+}
 .conv-shell {
+  flex: 1 1 auto;
+  min-height: 0;
   display: grid;
   grid-template-columns: minmax(250px, 350px) minmax(0, 1fr);
-  height: clamp(520px, calc(100dvh - 292px), 900px);
   border: 1px solid var(--line);
   border-radius: var(--radius-card);
   background: #fff;
@@ -50,9 +58,13 @@ sager-conversation-thread {
   margin: 0;
 }
 @media (max-width: 800px) {
+  // Só a lista: ela segue a rolagem da página.
+  .conv-page {
+    display: block;
+    height: auto;
+  }
   .conv-shell {
     grid-template-columns: minmax(0, 1fr);
-    height: auto;
   }
   .conv-list {
     border-right: 0;

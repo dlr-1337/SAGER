@@ -911,3 +911,59 @@ test.describe('gravação de áudio', () => {
     expect(state.sent).toHaveLength(1);
   });
 });
+
+test.describe('rolagem da conversa', () => {
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 375, height: 667 },
+  ]) {
+    test(`em ${viewport.width} px a página fica parada e só as mensagens rolam`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(viewport);
+      const state = await mockApi(page);
+      await page.goto(`/conversas/${linkedId}`);
+      const log = page.getByRole('log');
+      await expect(log).toContainText('Bom dia');
+      const draft = page.getByLabel('Mensagem', { exact: true });
+      const composer = page.locator('.conv-composer');
+      const gap = () => log.evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight);
+      const composerVisible = async () => {
+        const box = (await composer.boundingBox())!;
+        return box.y + box.height <= viewport.height;
+      };
+      expect(await composerVisible()).toBe(true);
+      await expect.poll(gap).toBeLessThan(2);
+
+      await draft.fill('Mensagem nova.');
+      await page.getByRole('button', { name: 'Enviar' }).click();
+      await expect(log).toContainText('Mensagem nova.');
+      await expect(draft).toBeFocused();
+      await expect.poll(gap).toBeLessThan(2);
+      expect(await page.evaluate(() => scrollY)).toBe(0);
+
+      // A falha acrescenta aviso e botão: quem estava no fim continua no fim.
+      state.messages = state.messages.map((item) =>
+        item.body === 'Mensagem nova.' ? { ...item, deliveryStatus: 'FAILED' } : item,
+      );
+      await expect(log.getByText('Usar o texto de novo')).toHaveCount(2);
+      await expect.poll(gap).toBeLessThan(2);
+
+      // O campo cresce com o texto, a lista encolhe e o fim continua à vista.
+      await draft.fill('a\nb\nc\nd\ne\nf');
+      await expect.poll(gap).toBeLessThan(2);
+      expect(await composerVisible()).toBe(true);
+      await draft.fill('');
+
+      // Quem subiu para ler não é puxado de volta pela atualização automática.
+      await log.evaluate((el) => (el.scrollTop = 100));
+      state.messages = [
+        ...state.messages,
+        message(700, { body: 'Chegou agora.', sentAt: new Date().toISOString() }),
+      ];
+      await expect(log).toContainText('Chegou agora.');
+      expect(Math.abs((await log.evaluate((el) => el.scrollTop)) - 100)).toBeLessThan(2);
+      expect(await page.evaluate(() => scrollY)).toBe(0);
+    });
+  }
+});
