@@ -1114,10 +1114,18 @@ export class ConversationThreadComponent implements OnDestroy {
     if (sequence !== this.sequence) return;
     const known = new Set(this.messages().map((message) => message.id));
     const added = page.items.filter((message) => !known.has(message.id));
+    const log = this.log?.nativeElement;
     const stuck = this.nearBottom();
+    const height = log?.scrollHeight ?? 0;
     this.merge(page.items);
-    // A status that adds a note also grows the list: whoever was at the end stays there.
-    if (stuck) this.scrollToBottom();
+    // Follow the end only when the list grew (new message or a status note); an idle refresh never moves the reader.
+    if (stuck && log)
+      afterNextRender(
+        () => {
+          if (log.scrollHeight > height) log.scrollTop = log.scrollHeight;
+        },
+        { injector: this.injector },
+      );
     if (added.some((message) => message.direction === 'IN')) void this.markRead();
   }
   async loadOlder(): Promise<void> {

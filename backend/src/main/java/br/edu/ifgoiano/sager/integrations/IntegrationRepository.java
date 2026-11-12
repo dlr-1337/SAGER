@@ -177,9 +177,12 @@ GROUP BY b.guardian_phone
                                     b.verifiedAt(),
                                     b.verifiedBy(),
                                     names ? accountName(b.verifiedBy()) : null,
-                                    b.failureCode() != null
-                                            ? b.failureCode()
-                                            : sendFailure(b.id()));
+                                    // The code reveals the residence session state: supervisor only.
+                                    !names
+                                            ? null
+                                            : b.failureCode() != null
+                                                    ? b.failureCode()
+                                                    : sendFailure(b.id()));
                         })
                 .toList();
     }

@@ -100,6 +100,14 @@ describe('Rolagem da conversa', () => {
     expect(state.top).toBe(900);
   });
 
+  it('não puxa para o fim, numa atualização sem mudança, quem subiu um pouco para ler', async () => {
+    const { state, thread, scrollTo, settle } = await setup();
+    await scrollTo(740);
+    await thread.refresh();
+    await settle();
+    expect(state.top).toBe(740);
+  });
+
   it('preserva a posição de quem subiu para ler quando chega mensagem nova', async () => {
     const { state, thread, scrollTo, settle } = await setup();
     await scrollTo(100);

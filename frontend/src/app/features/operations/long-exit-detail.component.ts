@@ -826,7 +826,7 @@ export class LongExitDetailComponent {
       (binding) =>
         !binding.revokedAt && binding.documentVersionId === exit.currentDocument?.documentVersionId,
     )?.failureCode;
-    return code ? sendFailureText(code) : '';
+    return code ? sendFailureText(code, exit.messageStatus) : '';
   }
   hasWaitingFile(exit: LongExit): boolean {
     return exit.authorizationFiles.some(

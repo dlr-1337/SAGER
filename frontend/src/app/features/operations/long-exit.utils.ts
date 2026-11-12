@@ -21,11 +21,23 @@ export const messageStatusLabels: Record<DocumentMessageStatus, string> = {
   FAILED: 'Falha no envio',
   UNCERTAIN: 'Envio aguardando verificação',
 };
-const unreachable =
-  'O serviço do WhatsApp não respondeu. O sistema tenta de novo sozinho; se continuar, fale com o suporte.';
-const sendFailures: Record<string, string> = {
-  session_not_ready:
-    'O WhatsApp da residência não está conectado. Conecte em Conversas, Conexão do WhatsApp; enquanto houver tentativa automática, o envio é refeito sozinho.',
+const unreachable = 'O serviço do WhatsApp não respondeu.';
+const disconnected =
+  'O WhatsApp da residência não está conectado. Conecte em Conversas, Conexão do WhatsApp.';
+const unconfirmed =
+  'Não foi possível confirmar o envio. Confira no celular da residência antes de reenviar.';
+/** Problems the worker retries on its own while attempts remain. */
+const transientFailures: Record<string, string> = {
+  session_not_ready: disconnected,
+  provider_not_found: disconnected,
+  provider_connect_failure: unreachable,
+  provider_http_temporary: unreachable,
+  provider_rate_limited: unreachable,
+  provider_read_timeout: unreachable,
+  provider_read_failure: unreachable,
+  provider_transport_failure: unreachable,
+};
+const finalFailures: Record<string, string> = {
   recipient_not_found:
     'O telefone do responsável não tem WhatsApp. Confira o número no cadastro do responsável e reenvie.',
   recipient_invalid:
@@ -35,21 +47,21 @@ const sendFailures: Record<string, string> = {
   provider_unauthorized:
     'O sistema não conseguiu entrar no serviço do WhatsApp. Fale com o suporte.',
   provider_disabled: 'O envio por WhatsApp está desligado. Use o anexo manual da autorização.',
-  provider_connect_failure: unreachable,
-  provider_http_temporary: unreachable,
-  provider_rate_limited: unreachable,
-  provider_read_timeout: unreachable,
-  provider_read_failure: unreachable,
-  provider_transport_failure: unreachable,
-  interrupted_external_post:
-    'Não foi possível confirmar o envio. Confira no celular da residência antes de reenviar.',
-  provider_response_invalid:
-    'Não foi possível confirmar o envio. Confira no celular da residência antes de reenviar.',
+  interrupted_external_post: unconfirmed,
+  provider_response_invalid: unconfirmed,
 };
 /** Why the document did not reach the guardian, in words the supervisor can act on. */
-export const sendFailureText = (code: string): string =>
-  sendFailures[code] ??
-  `O WhatsApp recusou o envio (código ${code}). Confira o telefone e reenvie.`;
+export const sendFailureText = (code: string, status: DocumentMessageStatus): string => {
+  // An unconfirmed POST is never retried: the guardian may already have the file.
+  if (status === 'UNCERTAIN') return unconfirmed;
+  const final = finalFailures[code];
+  if (final) return final;
+  const reason = transientFailures[code] ?? `O envio não foi concluído (código ${code}).`;
+  if (status === 'QUEUED') return `${reason} O sistema tenta de novo sozinho.`;
+  if (status === 'FAILED')
+    return `${reason} As tentativas automáticas acabaram; reenvie depois de resolver.`;
+  return reason;
+};
 /** Same code printed on the PDF, so the supervisor can match the returned file at a glance. */
 export const documentShortCode = (documentVersionId: string): string =>
   documentVersionId.replaceAll('-', '').slice(0, 8).toUpperCase();
