@@ -79,7 +79,7 @@ class AllocationApiIntegrationTest {
         account("gestor");
         UUID resident = resident("DEMO-A");
         UUID first = room("DEMO-01", 2, "Disponível");
-        UUID second = room("DEMO-02", 1, "Ocupado");
+        UUID second = room("DEMO-02", 1, "Disponível");
         try (HttpClient client = browser()) {
             login(client, "gestor");
             assertThat(read(client, "/api/v1/quartos/" + first).path("occupancy").asInt()).isZero();
@@ -108,6 +108,8 @@ class AllocationApiIntegrationTest {
             assertThat(movedId).isNotEqualTo(id);
             assertCounts(client, first, 0, 1);
             assertCounts(client, second, 1, 0);
+            assertThat(read(client, "/api/v1/quartos/" + second).path("situation").asText())
+                    .isEqualTo("Ocupado");
             JsonNode history = read(client, PATH + "?residentId=" + resident);
             assertThat(history.size()).isEqualTo(2);
             assertThat(history.get(0).path("id").asText()).isEqualTo(movedId.toString());
@@ -123,11 +125,39 @@ class AllocationApiIntegrationTest {
             assertThat(json.readTree(ended.body()).path("endReason").asText()).isEqualTo("END");
             assertCounts(client, second, 0, 1);
             assertThat(read(client, "/api/v1/quartos/" + second).path("situation").asText())
-                    .isEqualTo("Ocupado");
+                    .isEqualTo("Disponível");
             assertThat(read(client, PATH + "?roomId=" + second + "&active=true").size()).isZero();
             assertThat(read(client, PATH + "?roomId=" + second + "&active=false").size()).isEqualTo(1);
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_room_allocation", Integer.class))
                     .isEqualTo(2);
+        }
+    }
+
+    @Test
+    void occupiedSituationFollowsActiveAllocationsWhileManualStatesPrevail() throws Exception {
+        account("gestor");
+        UUID resident = resident("DEMO-A");
+        UUID room = room("DEMO-01", 1, "Disponível");
+        try (HttpClient client = browser()) {
+            login(client, "gestor");
+            UUID allocation = create(client, resident, room);
+            assertSituation(client, room, "Ocupado");
+            assertThat(read(client, "/api/v1/quartos?situation=Ocupado").size()).isEqualTo(1);
+            assertThat(read(client, "/api/v1/quartos?situation=Dispon%C3%ADvel").size()).isZero();
+
+            assertThat(putRoom(client, room, 2, 0).statusCode()).isEqualTo(200);
+            assertSituation(client, room, "Disponível");
+            assertThat(jdbc.queryForObject("""
+                    SELECT array_to_string(changed_fields, ',') FROM sager_audit_event
+                    WHERE resource = 'ROOM' AND resource_id = ? AND resulting_version = 1
+                    """, String.class, room)).isEqualTo("capacity");
+
+            jdbc.update("UPDATE sager_room SET capacity = 1, situation = 'Manutenção' WHERE id = ?", room);
+            assertSituation(client, room, "Manutenção");
+            assertThat(read(client, "/api/v1/quartos?situation=Ocupado").size()).isZero();
+            assertThat(post(client, PATH + "/" + allocation + "/encerrar", "{\"version\":0}", csrf(client))
+                    .statusCode()).isEqualTo(200);
+            assertSituation(client, room, "Manutenção");
         }
     }
 
@@ -457,6 +487,10 @@ class AllocationApiIntegrationTest {
         body.put("situation", "Disponível");
         body.put("version", version);
         return put(client, "/api/v1/quartos/" + roomId, json.writeValueAsString(body), csrf(client));
+    }
+
+    private void assertSituation(HttpClient client, UUID room, String situation) throws Exception {
+        assertThat(read(client, "/api/v1/quartos/" + room).path("situation").asText()).isEqualTo(situation);
     }
 
     private void assertCounts(HttpClient client, UUID room, int occupancy, int vacancies) throws Exception {

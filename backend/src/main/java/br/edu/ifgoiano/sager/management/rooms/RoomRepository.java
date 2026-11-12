@@ -13,9 +13,14 @@ import org.springframework.stereotype.Repository;
 @Repository
 @Profile({ "local", "production" })
 public class RoomRepository {
+    private static final String OCCUPANCY = "(SELECT COUNT(*)::integer FROM sager_room_allocation"
+            + " WHERE room_id = sager_room.id AND ended_at IS NULL)";
+    // Only Manutenção and Indisponível are stored by hand; Disponível/Ocupado follow the live occupancy.
+    private static final String SITUATION = "CASE WHEN situation IN ('Manutenção', 'Indisponível')"
+            + " THEN situation WHEN capacity IS NOT NULL AND " + OCCUPANCY + " >= capacity"
+            + " THEN 'Ocupado' ELSE 'Disponível' END";
     private static final String COLUMNS = "id, code, number, accommodation_id, unit_id, floor,"
-            + " capacity, situation, version, (SELECT COUNT(*)::integer FROM sager_room_allocation"
-            + " WHERE room_id = sager_room.id AND ended_at IS NULL) AS occupancy";
+            + " capacity, " + SITUATION + " AS situation, version, " + OCCUPANCY + " AS occupancy";
     private final JdbcTemplate jdbc;
 
     public RoomRepository(JdbcTemplate jdbc) {
@@ -24,7 +29,7 @@ public class RoomRepository {
 
     public br.edu.ifgoiano.sager.management.ManagementSearch.Page<RoomRecord> search(java.util.Map<String,String> params) {
         return br.edu.ifgoiano.sager.management.ManagementSearch.query(jdbc, COLUMNS, "sager_room",
-                "concat_ws(' ',code,number,floor,(SELECT name FROM sager_accommodation a WHERE a.id=accommodation_id),(SELECT name FROM sager_accommodation_unit u WHERE u.id=unit_id))", "code", "accommodation_id,unit_id NULLS FIRST,number,id", java.util.Map.of("accommodationId", "accommodation_id = ?::uuid", "unitId", "unit_id = ?::uuid", "situation", "situation = ?", "vacancy", "(capacity IS NOT NULL AND capacity > (SELECT count(*) FROM sager_room_allocation a WHERE a.room_id=sager_room.id AND a.ended_at IS NULL)) = ?::boolean"), params, (r,n) -> map(r));
+                "concat_ws(' ',code,number,floor,(SELECT name FROM sager_accommodation a WHERE a.id=accommodation_id),(SELECT name FROM sager_accommodation_unit u WHERE u.id=unit_id))", "code", "accommodation_id,unit_id NULLS FIRST,number,id", java.util.Map.of("accommodationId", "accommodation_id = ?::uuid", "unitId", "unit_id = ?::uuid", "situation", SITUATION + " = ?", "vacancy", "(capacity IS NOT NULL AND capacity > (SELECT count(*) FROM sager_room_allocation a WHERE a.room_id=sager_room.id AND a.ended_at IS NULL)) = ?::boolean"), params, (r,n) -> map(r));
     }
 
     public List<RoomRecord> findAll() {

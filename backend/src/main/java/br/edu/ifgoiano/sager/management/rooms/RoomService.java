@@ -22,8 +22,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Profile({ "local", "production" })
 public class RoomService {
-    private static final Set<String> SITUATIONS =
-            Set.of("Disponível", "Ocupado", "Manutenção", "Indisponível");
+    // Ocupado is derived from capacity and active allocations (RoomRepository), never stored.
+    private static final Set<String> SITUATIONS = Set.of("Disponível", "Manutenção", "Indisponível");
     private final RoomRepository repository;
     private final AccommodationRepository accommodations;
     private final AuditService audit;
@@ -122,7 +122,8 @@ public class RoomService {
         if (!Objects.equals(current.capacity(), capacity)) {
             changed.add("capacity");
         }
-        if (!Objects.equals(current.situation(), checked.situation())) {
+        String currentSituation = "Ocupado".equals(current.situation()) ? "Disponível" : current.situation();
+        if (!Objects.equals(currentSituation, checked.situation())) {
             changed.add("situation");
         }
         audit.record(AuditResource.ROOM, id, AuditAction.UPDATE, version + 1, changed);
@@ -139,7 +140,8 @@ public class RoomService {
         }
         String checkedSituation = required(situation, "situation");
         if (!SITUATIONS.contains(checkedSituation)) {
-            throw invalidInput("situation deve ser Disponível, Ocupado, Manutenção ou Indisponível.");
+            throw invalidInput("situation deve ser Disponível, Manutenção ou Indisponível."
+                    + " Ocupado é calculado pela capacidade e pelos moradores ativos.");
         }
         if (accommodationId == null) {
             throw invalidInput("accommodationId é obrigatório.");

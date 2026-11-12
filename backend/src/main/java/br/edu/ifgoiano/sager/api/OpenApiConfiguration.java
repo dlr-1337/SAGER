@@ -91,7 +91,9 @@ public class OpenApiConfiguration {
                     .addProperty("floor", text(0, 64, true))
                     .addProperty("capacity", new IntegerSchema().minimum(BigDecimal.ONE)
                             .maximum(BigDecimal.valueOf(20)).nullable(true))
-                    .addProperty("situation", new StringSchema()._enum(List.of("Disponível", "Ocupado", "Manutenção", "Indisponível"))),
+                    .addProperty("situation", new StringSchema()._enum(List.of("Disponível", "Manutenção", "Indisponível"))
+                            .description("Situação manual. Respostas mostram Ocupado quando os moradores ativos"
+                                    + " atingem a capacidade; Manutenção e Indisponível prevalecem.")),
                     List.of("code", "number", "accommodationId", "situation"));
             request(api, "/api/v1/alocacoes", "AllocationCreateRequest", new ObjectSchema()
                     .addProperty("residentId", uuid(false)).addProperty("roomId", uuid(false))

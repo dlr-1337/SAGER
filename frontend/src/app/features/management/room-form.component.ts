@@ -266,13 +266,20 @@ import { RoomApiError, RoomApiService, roomLoadError } from './room-api.service'
                   sagerSearchable
                   formControlName="situation"
                   [attr.aria-invalid]="invalid('situation') ? 'true' : null"
-                  [attr.aria-describedby]="invalid('situation') ? 'room-situation-error' : null"
+                  [attr.aria-describedby]="
+                    invalid('situation') ? 'room-situation-error' : 'room-situation-hint'
+                  "
                 >
                   <option value="">Selecione a situação</option>
-                  @for (item of situations; track item) {
-                    <option [value]="item">{{ item }}</option>
+                  @for (item of manualSituations; track item) {
+                    <option [value]="item">
+                      {{ item === 'Disponível' ? 'Automática (Disponível ou Ocupado)' : item }}
+                    </option>
                   }
                 </select>
+                <span class="mg-muted" id="room-situation-hint"
+                  >Ocupado aparece sozinho quando os moradores atingem a capacidade.</span
+                >
                 @if (invalid('situation')) {
                   <span class="mg-field-error" id="room-situation-error"
                     >Selecione a situação atual.</span
@@ -344,6 +351,8 @@ export class RoomFormComponent {
   readonly conflict = signal(false);
   readonly saving = signal(false);
   readonly situations: RoomSituation[] = ['Disponível', 'Ocupado', 'Manutenção', 'Indisponível'];
+  // Na API, Ocupado é calculado pela capacidade e pelos moradores ativos; só estas são escolhidas.
+  readonly manualSituations: RoomSituation[] = ['Disponível', 'Manutenção', 'Indisponível'];
   readonly form = new FormGroup({
     number: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     block: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
@@ -569,7 +578,7 @@ export class RoomFormComponent {
       unitId: item.unitId ?? '',
       floor: item.floor ?? '',
       capacity: item.capacity,
-      situation: item.situation,
+      situation: item.situation === 'Ocupado' ? 'Disponível' : item.situation,
     });
     this.localForm.markAsPristine();
     this.localForm.markAsUntouched();

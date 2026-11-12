@@ -69,7 +69,9 @@ não representam o contrato atual desses dois campos.
 - Capacidade é editável, inteira positiva ou `null`. A interface mostra
   **“Capacidade não definida”** quando ausente e identifica somatórios com
   capacidades ausentes como parciais.
-- Disponível, Ocupado, Manutenção e Indisponível são situações manuais. Na
+- Desde 11/11/2026, só Manutenção e Indisponível são situações manuais. Com
+  capacidade definida, Ocupado e Disponível são calculados pelos vínculos
+  ativos; a API recusa Ocupado como entrada. Na
   entrega estrutural, a API mantinha `occupancy`, `vacancies` e `cleaningScore`
   como `null`; a interface mostrava **“Ocupação ainda não integrada”** e
   **“Sem avaliação”**. A quinta fatia passou a contar vínculos ativos e a
@@ -228,8 +230,9 @@ Esta é uma **regra técnica provisória de desenvolvimento**, autorizada em
 29/09/2026: cada residente ocupa no máximo um quarto ativo. Uma nova entrada
 exige capacidade definida e vaga, e é recusada em Manutenção ou Indisponível.
 Uma edição não pode reduzir a capacidade abaixo da ocupação ativa nem apagá-la
-enquanto houver ocupantes. A situação Disponível/Ocupado continua manual,
-independente da contagem. Ocupação é o número de vínculos ativos, inclusive
+enquanto houver ocupantes. Desde 11/11/2026, a situação Disponível/Ocupado
+segue a contagem: Ocupado quando os vínculos ativos atingem a capacidade.
+Ocupação é o número de vínculos ativos, inclusive
 zero; vagas livres são `capacidade - ocupação` somente quando a capacidade é
 conhecida. Nota de limpeza permanece sem avaliação. O acesso local mostra
 quarto atual, histórico e ocupantes; a demonstração conserva os dados próprios
