@@ -9,6 +9,8 @@ export interface ResidentRecord {
   version: number;
   courseId?: string | null;
   institutionalEmail?: string | null;
+  entryYear?: number | null;
+  extraSemesters?: number;
 }
 
 export type ResidentPayload = Pick<
@@ -16,6 +18,8 @@ export type ResidentPayload = Pick<
   'name' | 'enrollment' | 'courseId' | 'institutionalEmail'
 > & {
   birthDate: string;
+  entryYear: number | null;
+  extraSemesters: number;
   password?: string;
   passwordConfirmation?: string;
 };
@@ -40,6 +44,8 @@ function isResident(value: unknown): value is ResidentRecord {
     typeof item.enrollment === 'string' &&
     (item.birthDate === null || typeof item.birthDate === 'string') &&
     (item.course === null || typeof item.course === 'string') &&
+    (item.entryYear == null || Number.isInteger(item.entryYear)) &&
+    (item.extraSemesters === undefined || Number.isInteger(item.extraSemesters)) &&
     typeof item.version === 'number'
   );
 }

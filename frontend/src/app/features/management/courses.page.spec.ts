@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FilterState } from '../../core/filter-state';
-import { Course, CourseApiService } from './course-api.service';
+import { Course, CourseApiService, CourseInput } from './course-api.service';
 import { CoursesPage } from './courses.page';
 
 describe('Página válida após atualizar o catálogo de cursos', () => {
@@ -22,7 +22,7 @@ describe('Página válida após atualizar o catálogo de cursos', () => {
           provide: CourseApiService,
           useValue: {
             list,
-            save: vi.fn(async (name: string, current: Course, active: boolean) => {
+            save: vi.fn(async ({ name }: CourseInput, current: Course, active: boolean) => {
               if (records.find((item) => item.id === current.id)?.version !== current.version)
                 throw new Error('Versão desatualizada.');
               const saved = { ...current, name, active, version: current.version + 1 };
@@ -54,6 +54,46 @@ describe('Página válida após atualizar o catálogo de cursos', () => {
     expect(save).not.toHaveBeenCalled();
     expect(fixture.nativeElement.querySelector('.mg-field-error')?.textContent).toContain(
       'Informe um nome',
+    );
+  });
+
+  it('envia nível e duração, mostra na lista e recusa duração fora de 1 a 6', async () => {
+    const component = await create(0);
+    const save = vi.mocked(TestBed.inject(CourseApiService).save);
+    const current = component.items()[0];
+    await component.edit(current);
+    component.form.controls.durationYears.setValue(7);
+    await component.save();
+    fixture.detectChanges();
+    expect(save).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('#course-duration-error')?.textContent).toContain(
+      'Use um número de 1 a 6 anos.',
+    );
+    component.form.controls.level.setValue('SUPERIOR');
+    component.form.controls.durationYears.setValue(4);
+    await component.save();
+    expect(save).toHaveBeenCalledWith(
+      { name: current.name, level: 'SUPERIOR', durationYears: 4 },
+      current,
+      true,
+    );
+    expect(component.details({ ...current, level: 'MEDIO', durationYears: 1 })).toBe(
+      'Ensino médio · 1 ano',
+    );
+    expect(component.details({ ...current, level: 'SUPERIOR', durationYears: 4 })).toBe(
+      'Superior · 4 anos',
+    );
+    expect(component.details(current)).toBe('');
+  });
+
+  it('desativar mantém nível e duração salvos do curso', async () => {
+    records[0] = { ...records[0], level: 'MEDIO', durationYears: 3 };
+    const component = await create(0);
+    await component.toggle(component.items()[0]);
+    expect(vi.mocked(TestBed.inject(CourseApiService).save)).toHaveBeenCalledWith(
+      expect.objectContaining({ level: 'MEDIO', durationYears: 3 }),
+      expect.objectContaining({ id: records[0].id }),
+      false,
     );
   });
 

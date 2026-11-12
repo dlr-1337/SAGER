@@ -2,12 +2,17 @@ import { ERROR_GENERIC } from '../../core/error-messages';
 import { Injectable, inject, signal } from '@angular/core';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { ManagementDemoService } from './management-demo.service';
+export const COURSE_LEVELS = { MEDIO: 'Ensino médio', SUPERIOR: 'Superior' } as const;
+export type CourseLevel = keyof typeof COURSE_LEVELS;
 export interface Course {
   id: string;
   name: string;
   active: boolean;
   version: number;
+  level?: CourseLevel | null;
+  durationYears?: number | null;
 }
+export type CourseInput = Pick<Course, 'name' | 'level' | 'durationYears'>;
 @Injectable({ providedIn: 'root' })
 export class CourseApiService {
   private readonly session = inject(DemoSessionService);
@@ -23,7 +28,8 @@ export class CourseApiService {
   async list(): Promise<Course[]> {
     return this.session.active() ? this.demoCourses() : this.request<Course[]>('/api/v1/cursos');
   }
-  async save(name: string, current?: Course, active = true): Promise<Course> {
+  async save(input: CourseInput, current?: Course, active = true): Promise<Course> {
+    const { name, level = null, durationYears = null } = input;
     if (this.session.active()) {
       const checked = name.trim().replace(/\s+/g, ' ');
       if (!checked || checked.length > 200)
@@ -39,6 +45,8 @@ export class CourseApiService {
         name: checked,
         active,
         version: (current?.version ?? -1) + 1,
+        level,
+        durationYears,
       };
       this.demoCourses.update((items) =>
         current ? items.map((c) => (c.id === current.id ? saved : c)) : [...items, saved],
@@ -48,7 +56,7 @@ export class CourseApiService {
     }
     return this.request<Course>(
       current ? `/api/v1/cursos/${encodeURIComponent(current.id)}` : '/api/v1/cursos',
-      { name, active, ...(current ? { version: current.version } : {}) },
+      { name, active, level, durationYears, ...(current ? { version: current.version } : {}) },
     );
   }
   private async request<T extends Course | Course[]>(url: string, body?: object): Promise<T> {
@@ -88,7 +96,11 @@ export class CourseApiService {
       'active' in c &&
       typeof c.active === 'boolean' &&
       'version' in c &&
-      typeof c.version === 'number';
+      typeof c.version === 'number' &&
+      (!('level' in c) ||
+        c.level === null ||
+        (typeof c.level === 'string' && c.level in COURSE_LEVELS)) &&
+      (!('durationYears' in c) || c.durationYears === null || Number.isInteger(c.durationYears));
     if (!(Array.isArray(result) ? result.every(valid) : valid(result)))
       throw new Error(ERROR_GENERIC);
     return result as T;

@@ -12,6 +12,8 @@ import { PASSWORD_HELP, PASSWORD_MISMATCH, passwordRules } from '../../shared/pa
 import {
   birthDateProblem,
   civilToday,
+  entryYearProblem,
+  extraSemestersProblem,
   fieldRule,
   nameProblem,
   normalizeEnrollment,
@@ -250,6 +252,48 @@ import {
                 </button>
               }
             </div>
+            <label class="field mg-field"
+              >Ano de ingresso <small>Opcional</small>
+              <input
+                type="number"
+                formControlName="entryYear"
+                min="1990"
+                step="1"
+                [attr.aria-invalid]="
+                  form.controls.entryYear.invalid && form.controls.entryYear.touched ? 'true' : null
+                "
+                aria-describedby="resident-entry-year-error"
+              />
+              @if (form.controls.entryYear.invalid && form.controls.entryYear.touched) {
+                <span class="mg-field-error" id="resident-entry-year-error">{{
+                  form.controls.entryYear.errors?.['fieldRule']
+                }}</span>
+              }
+            </label>
+            <label class="field mg-field"
+              >Prorrogação (semestres)
+              <input
+                type="number"
+                formControlName="extraSemesters"
+                min="0"
+                max="10"
+                step="1"
+                [attr.aria-invalid]="
+                  form.controls.extraSemesters.invalid && form.controls.extraSemesters.touched
+                    ? 'true'
+                    : null
+                "
+                aria-describedby="resident-extra-semesters-help resident-extra-semesters-error"
+              />
+              <small class="field-hint" id="resident-extra-semesters-help"
+                >Cada semestre adiciona 6 meses à previsão de formatura.</small
+              >
+              @if (form.controls.extraSemesters.invalid && form.controls.extraSemesters.touched) {
+                <span class="mg-field-error" id="resident-extra-semesters-error">{{
+                  form.controls.extraSemesters.errors?.['fieldRule']
+                }}</span>
+              }
+            </label>
             @if (!editId) {
               <div class="mg-field">
                 <label for="resident-password">Senha escolhida pelo residente *</label>
@@ -356,7 +400,7 @@ export class ResidentFormComponent {
     this.courseSaving.set(true);
     this.coursesError.set('');
     try {
-      const course = await this.coursesApi.save(this.newCourse.value);
+      const course = await this.coursesApi.save({ name: this.newCourse.value });
       if (this.destroyRef.destroyed) return;
       this.courses.update((items) => [...items, course]);
       this.form.controls.courseId.setValue(course.id);
@@ -414,6 +458,18 @@ export class ResidentFormComponent {
         fieldRule(residentEmailProblem, () => this.resident()?.institutionalEmail),
         Validators.maxLength(320),
       ],
+    }),
+    entryYear: new FormControl<number | null>(null, {
+      validators: [
+        fieldRule(entryYearProblem, () => {
+          const saved = this.localResident()?.entryYear;
+          return saved == null ? null : String(saved);
+        }),
+      ],
+    }),
+    extraSemesters: new FormControl(0, {
+      nonNullable: true,
+      validators: [fieldRule(extraSemestersProblem)],
     }),
     password: new FormControl('', { nonNullable: true }),
     passwordConfirmation: new FormControl('', { nonNullable: true }),
@@ -517,6 +573,8 @@ export class ResidentFormComponent {
       birthDate,
       courseId,
       institutionalEmail,
+      entryYear,
+      extraSemesters,
       password,
       passwordConfirmation,
     } = this.form.getRawValue();
@@ -526,6 +584,8 @@ export class ResidentFormComponent {
       birthDate,
       courseId,
       institutionalEmail: institutionalEmail || null,
+      entryYear,
+      extraSemesters,
       ...(!this.editId ? { password, passwordConfirmation } : {}),
     };
     this.saving.set(true);
@@ -569,6 +629,8 @@ export class ResidentFormComponent {
     course: string | null;
     courseId?: string | null;
     institutionalEmail?: string | null;
+    entryYear?: number | null;
+    extraSemesters?: number;
   }): void {
     this.form.reset({
       name: item.name,
@@ -579,6 +641,8 @@ export class ResidentFormComponent {
         this.coursesApi.demoCourses().find((c) => c.name === item.course)?.id ??
         '',
       institutionalEmail: item.institutionalEmail ?? '',
+      entryYear: item.entryYear ?? null,
+      extraSemesters: item.extraSemesters ?? 0,
       password: '',
       passwordConfirmation: '',
     });

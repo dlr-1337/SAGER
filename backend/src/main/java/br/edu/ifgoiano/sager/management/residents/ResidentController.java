@@ -45,6 +45,7 @@ public class ResidentController {
         Resident created = service.create(text(request.name(), "name"),
                 text(request.enrollment(), "enrollment"), birthDate(request.birthDate()),
                 courseId(request.courseId()), text(request.institutionalEmail(), "institutionalEmail"),
+                integer(request.entryYear(), "entryYear"), extraSemesters(request.extraSemesters()),
                 text(request.password(), "password"), text(request.passwordConfirmation(), "passwordConfirmation"));
         return ResponseEntity.created(URI.create("/api/v1/residentes/" + created.id()))
                 .cacheControl(CacheControl.noStore()).body(created);
@@ -55,7 +56,23 @@ public class ResidentController {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.update(id,
                 text(request.name(), "name"), text(request.enrollment(), "enrollment"),
                 birthDate(request.birthDate()), courseId(request.courseId()), text(request.institutionalEmail(), "institutionalEmail"),
+                integer(request.entryYear(), "entryYear"), extraSemesters(request.extraSemesters()),
                 version(request.version())));
+    }
+
+    private Integer integer(JsonNode value, String field) {
+        if (value == null || value.isNull()) {
+            return null;
+        }
+        if (!value.isIntegralNumber() || !value.canConvertToInt()) {
+            throw invalidInput(field + " deve ser um inteiro JSON.");
+        }
+        return value.asInt();
+    }
+
+    private int extraSemesters(JsonNode value) {
+        Integer semesters = integer(value, "extraSemesters");
+        return semesters == null ? 0 : semesters;
     }
 
     private String text(JsonNode value, String field) {
@@ -100,11 +117,13 @@ public class ResidentController {
     }
 
     public record CreateRequest(JsonNode name, JsonNode enrollment, JsonNode birthDate,
-            JsonNode courseId, JsonNode institutionalEmail, JsonNode password, JsonNode passwordConfirmation) {
+            JsonNode courseId, JsonNode institutionalEmail, JsonNode entryYear, JsonNode extraSemesters,
+            JsonNode password, JsonNode passwordConfirmation) {
     }
 
     public record UpdateRequest(JsonNode name, JsonNode enrollment, JsonNode birthDate,
-            JsonNode courseId, JsonNode institutionalEmail, JsonNode version) {
+            JsonNode courseId, JsonNode institutionalEmail, JsonNode entryYear, JsonNode extraSemesters,
+            JsonNode version) {
     }
 
 }

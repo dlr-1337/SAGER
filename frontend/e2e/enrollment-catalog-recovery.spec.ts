@@ -81,9 +81,10 @@ for (const demo of [false, true]) {
       await expect(page.getByRole('alert')).toHaveCount(0);
       await expect(page.getByRole('alertdialog')).toHaveCount(0);
       if (!demo) {
+        const empty = { level: null, durationYears: null };
         expect(writes).toEqual([
-          { name: 'Informática', active: !initiallyActive, version: 0 },
-          { name: 'Informática revisada', active: !initiallyActive, version: 1 },
+          { name: 'Informática', active: !initiallyActive, version: 0, ...empty },
+          { name: 'Informática revisada', active: !initiallyActive, version: 1, ...empty },
         ]);
         expect(course.version).toBe(2);
       }

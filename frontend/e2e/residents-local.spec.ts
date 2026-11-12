@@ -164,7 +164,7 @@ test('cadastro local cria, consulta, busca e edita após recarga, sem dados inve
   await page.getByRole('button', { name: 'Salvar residente' }).click();
   await expect(page.getByRole('heading', { name: 'Estudante Sintético' })).toBeVisible();
   await expect(page.getByRole('status')).toContainText('Cadastro salvo.');
-  await expect(page.getByText('Não informado')).toHaveCount(1);
+  await expect(page.getByText('Não informado')).toHaveCount(2);
   await expect(
     page.getByText('A ausência da data de nascimento não indica maioridade'),
   ).toHaveCount(0);
@@ -191,6 +191,8 @@ test('cadastro local cria, consulta, busca e edita após recarga, sem dados inve
         birthDate: '2009-05-14',
         courseId: '00000000-0000-0000-0000-000000000201',
         institutionalEmail: null,
+        entryYear: null,
+        extraSemesters: 0,
         password: 'Senha teste 123!',
         passwordConfirmation: 'Senha teste 123!',
       },
@@ -203,6 +205,8 @@ test('cadastro local cria, consulta, busca e edita após recarga, sem dados inve
         birthDate: '2009-05-14',
         courseId: '00000000-0000-0000-0000-000000000201',
         institutionalEmail: null,
+        entryYear: null,
+        extraSemesters: 0,
         version: 0,
       },
     },

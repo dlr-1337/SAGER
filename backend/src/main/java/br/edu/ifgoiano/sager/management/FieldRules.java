@@ -68,4 +68,8 @@ public final class FieldRules {
     public static boolean validCapacity(int capacity) {
         return capacity >= 1 && capacity <= 20;
     }
+
+    public static boolean validEntryYear(int year) {
+        return year >= 1990 && year <= LocalDate.now(CIVIL_ZONE).getYear() + 1;
+    }
 }

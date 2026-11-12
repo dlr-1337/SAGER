@@ -102,7 +102,7 @@ class ResidentApiIntegrationTest {
             assertThat(UUID.fromString(id)).isNotNull();
             assertThat(created.headers().firstValue("Location").orElseThrow())
                     .isEqualTo(PATH + "/" + id);
-            assertThat(value.size()).isEqualTo(8);
+            assertThat(value.size()).isEqualTo(10);
             assertThat(value.path("name").asText()).isEqualTo("Estudante Sintético");
             assertThat(value.path("enrollment").asText()).isEqualTo("20261DEMO00000A");
             assertThat(value.path("birthDate").asText()).isEqualTo(BIRTH_DATE);
@@ -317,7 +317,8 @@ class ResidentApiIntegrationTest {
             assertThat(first.resource()).isEqualTo("RESIDENT");
             assertThat(first.action()).isEqualTo("CREATE");
             assertThat(first.version()).isZero();
-            assertThat(first.fields()).containsExactlyInAnyOrder("name", "enrollment", "birthDate", "courseId", "institutionalEmail");
+            assertThat(first.fields()).containsExactlyInAnyOrder("name", "enrollment", "birthDate", "courseId", "institutionalEmail",
+                    "entryYear", "extraSemesters");
             assertThat(first.actorId()).isEqualTo(actor);
             assertThat(first.profile()).isEqualTo("gestor");
             assertThat(first.requestId()).isNotNull();
@@ -693,6 +694,101 @@ class ResidentApiIntegrationTest {
             assertThat(post(manager,PATH,json.writeValueAsString(input),csrf(manager)).statusCode()).isEqualTo(400);
             assertThat(put(manager,"/api/v1/cursos/"+course,json.writeValueAsString(Map.of("name","Curso Sintético","active",true,"version",0)),csrf(manager)).statusCode()).isEqualTo(409);
         }
+    }
+
+    @Test
+    void courseLevelAndDurationAreOptionalStrictAndAudited() throws Exception {
+        account("supervisor");
+        try (HttpClient client = browser()) {
+            login(client, "supervisor");
+            JsonNode legacy = json.readTree(post(client, "/api/v1/cursos",
+                    json.writeValueAsString(Map.of("name", "Curso Sem Nível")), csrf(client)).body());
+            assertThat(legacy.path("level").isNull()).isTrue();
+            assertThat(legacy.path("durationYears").isNull()).isTrue();
+            var created = post(client, "/api/v1/cursos", json.writeValueAsString(Map.of("name", "Sistemas Sintéticos",
+                    "level", "SUPERIOR", "durationYears", 4)), csrf(client));
+            assertThat(created.statusCode()).isEqualTo(201);
+            UUID id = UUID.fromString(json.readTree(created.body()).path("id").asText());
+            assertThat(json.readTree(created.body()).path("level").asText()).isEqualTo("SUPERIOR");
+            assertThat(auditRows(id).getFirst().fields()).containsExactlyInAnyOrder("name", "active", "level", "durationYears");
+            for (Map<String, Object> invalid : List.<Map<String, Object>>of(Map.of("level", "TECNICO"), Map.of("level", 1),
+                    Map.of("durationYears", 0), Map.of("durationYears", 7), Map.of("durationYears", "3"),
+                    Map.of("durationYears", 3.5))) {
+                var input = new LinkedHashMap<String, Object>(Map.of("name", "Curso Inválido", "active", true, "version", 0));
+                input.putAll(invalid);
+                assertThat(post(client, "/api/v1/cursos", json.writeValueAsString(input), csrf(client)).statusCode())
+                        .as(invalid.toString()).isEqualTo(400);
+                assertThat(put(client, "/api/v1/cursos/" + id, json.writeValueAsString(input), csrf(client)).statusCode())
+                        .as(invalid.toString()).isEqualTo(400);
+            }
+            var changed = put(client, "/api/v1/cursos/" + id, json.writeValueAsString(Map.of("name", "Sistemas Sintéticos",
+                    "active", true, "version", 0, "level", "MEDIO", "durationYears", 4)), csrf(client));
+            assertThat(changed.statusCode()).isEqualTo(200);
+            assertThat(auditRows(id).getLast().fields()).containsExactly("level");
+            assertThat(put(client, "/api/v1/cursos/" + id, json.writeValueAsString(Map.of("name", "Sistemas Sintéticos",
+                    "active", true, "version", 1)), csrf(client)).statusCode()).isEqualTo(200);
+            assertThat(auditRows(id).getLast().fields()).containsExactlyInAnyOrder("level", "durationYears");
+            assertThat(jdbc.queryForObject("SELECT level IS NULL AND duration_years IS NULL FROM sager_course WHERE id = ?",
+                    Boolean.class, id)).isTrue();
+        }
+    }
+
+    @Test
+    void entryYearAndExtensionAreValidatedOnlyWhenChangedAndAudited() throws Exception {
+        account("supervisor");
+        int nextYear = LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo")).getYear() + 1;
+        try (HttpClient client = browser()) {
+            login(client, "supervisor");
+            for (Object[] invalid : new Object[][] { { 1989, 0 }, { nextYear + 1, 0 }, { "2026", 0 }, { 2026.5, 0 },
+                    { 2026, 11 }, { 2026, -1 }, { 2026, "1" }, { 2026, true } }) {
+                assertError(post(client, PATH, progress(body("Pessoa Sintética", "20261PROG000001", BIRTH_DATE, null, null),
+                        invalid[0], invalid[1]), csrf(client)), 400, "invalid_input");
+            }
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_resident", Integer.class)).isZero();
+
+            HttpResponse<String> created = post(client, PATH, progress(body("Pessoa Sintética", "20261PROG000001",
+                    BIRTH_DATE, null, null), nextYear, 2), csrf(client));
+            assertThat(created.statusCode()).isEqualTo(201);
+            JsonNode value = json.readTree(created.body());
+            UUID id = UUID.fromString(value.path("id").asText());
+            assertThat(value.path("entryYear").asInt()).isEqualTo(nextYear);
+            assertThat(value.path("extraSemesters").asInt()).isEqualTo(2);
+
+            String unchanged = body("Pessoa Sintética", "20261PROG000001", BIRTH_DATE, null, 0);
+            assertThat(put(client, PATH + "/" + id, progress(unchanged, 2024, 3), csrf(client)).statusCode()).isEqualTo(200);
+            assertThat(auditRows(id).getLast().fields()).containsExactlyInAnyOrder("entryYear", "extraSemesters");
+            JsonNode read = json.readTree(get(client, PATH + "/" + id).body());
+            assertThat(read.path("entryYear").asInt()).isEqualTo(2024);
+            assertThat(read.path("extraSemesters").asInt()).isEqualTo(3);
+
+            jdbc.update("UPDATE sager_resident SET entry_year = 2100 WHERE id = ?", id);
+            String legacy = body("Pessoa Sintética", "20261PROG000001", BIRTH_DATE, null, 1);
+            assertThat(put(client, PATH + "/" + id, progress(legacy, 2100, 3), csrf(client)).statusCode()).isEqualTo(200);
+            assertThat(auditRows(id).getLast().fields()).isEmpty();
+            assertError(put(client, PATH + "/" + id, progress(body("Pessoa Sintética", "20261PROG000001", BIRTH_DATE, null, 2),
+                    2099, 3), csrf(client)), 400, "invalid_input");
+
+            HttpResponse<String> cleared = put(client, PATH + "/" + id, legacy.replace("\"version\":1", "\"version\":2"),
+                    csrf(client));
+            assertThat(cleared.statusCode()).isEqualTo(200);
+            assertThat(json.readTree(cleared.body()).path("entryYear").isNull()).isTrue();
+            assertThat(json.readTree(cleared.body()).path("extraSemesters").asInt()).isZero();
+            assertThat(auditRows(id).getLast().fields()).containsExactlyInAnyOrder("entryYear", "extraSemesters");
+
+            UUID old = UUID.randomUUID();
+            jdbc.update("INSERT INTO sager_resident(id,name,enrollment,birth_date) VALUES (?,?,?,?::date)", old,
+                    "Pessoa Antiga", "20251PROG000002", BIRTH_DATE);
+            JsonNode legacyRead = json.readTree(get(client, PATH + "/" + old).body());
+            assertThat(legacyRead.path("entryYear").isNull()).isTrue();
+            assertThat(legacyRead.path("extraSemesters").asInt()).isZero();
+        }
+    }
+
+    private String progress(String body, Object entryYear, Object extraSemesters) {
+        var fields = (tools.jackson.databind.node.ObjectNode) json.readTree(body);
+        fields.set("entryYear", json.valueToTree(entryYear));
+        fields.set("extraSemesters", json.valueToTree(extraSemesters));
+        return json.writeValueAsString(fields);
     }
 
     @Test

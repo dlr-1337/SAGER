@@ -2,9 +2,9 @@ import { readableError } from '../../core/error-messages';
 import { rememberValue } from '../../core/filter-state';
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
-import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { trimmedLength } from '../../shared/field-rules';
-import { Course, CourseApiService } from './course-api.service';
+import { COURSE_LEVELS, Course, CourseApiService, CourseLevel } from './course-api.service';
 import { normalizeSearch } from '../../shared/search';
 import { UnsavedFormDirective, UnsavedForms } from '../../shared/unsaved-form';
 @Component({
@@ -30,6 +30,32 @@ import { UnsavedFormDirective, UnsavedForms } from '../../shared/unsaved-form';
       /></label>
       @if (form.controls.name.invalid && form.controls.name.touched) {
         <p class="mg-field-error">Informe um nome de até 200 caracteres.</p>
+      }
+      <div class="course-fields">
+        <label class="mg-field"
+          >Nível<select sagerSearchable formControlName="level">
+            <option value="">Não informado</option>
+            <option value="MEDIO">Ensino médio</option>
+            <option value="SUPERIOR">Superior</option>
+          </select></label
+        >
+        <label class="mg-field"
+          >Duração (anos)<input
+            type="number"
+            formControlName="durationYears"
+            min="1"
+            max="6"
+            step="1"
+            aria-describedby="course-duration-error"
+            [attr.aria-invalid]="
+              form.controls.durationYears.invalid && form.controls.durationYears.touched
+                ? 'true'
+                : null
+            "
+        /></label>
+      </div>
+      @if (form.controls.durationYears.invalid && form.controls.durationYears.touched) {
+        <p class="mg-field-error" id="course-duration-error">Use um número de 1 a 6 anos.</p>
       }
       <div class="action-row">
         @if (editing()) {
@@ -85,6 +111,9 @@ import { UnsavedFormDirective, UnsavedForms } from '../../shared/unsaved-form';
           <div class="course-row">
             <div>
               <strong>{{ course.name }}</strong>
+              @if (details(course); as text) {
+                <p>{{ text }}</p>
+              }
               <p>
                 <span class="mg-status" [attr.data-tone]="course.active ? null : 'neutral'"
                   ><span class="material-symbols-rounded" aria-hidden="true">{{
@@ -144,6 +173,12 @@ import { UnsavedFormDirective, UnsavedForms } from '../../shared/unsaved-form';
       form {
         margin-bottom: 24px;
       }
+      .course-fields {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-top: 16px;
+      }
       form .action-row,
       nav.action-row {
         margin-top: 16px;
@@ -172,7 +207,20 @@ export class CoursesPage {
       nonNullable: true,
       validators: [trimmedLength(1, 200)],
     }),
+    level: new FormControl<CourseLevel | ''>('', { nonNullable: true }),
+    durationYears: new FormControl<number | null>(null, {
+      validators: [Validators.min(1), Validators.max(6), Validators.pattern(/^\d+$/)],
+    }),
   });
+  readonly details = (course: Course) =>
+    [
+      course.level ? COURSE_LEVELS[course.level] : '',
+      course.durationYears
+        ? `${course.durationYears} ${course.durationYears === 1 ? 'ano' : 'anos'}`
+        : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
   readonly filtered = computed(() =>
     this.items()
       .filter(
@@ -209,7 +257,11 @@ export class CoursesPage {
   async edit(course: Course): Promise<void> {
     if (!(await this.guard.canLeave())) return;
     this.editing.set(course);
-    this.form.reset({ name: course.name });
+    this.form.reset({
+      name: course.name,
+      level: course.level ?? '',
+      durationYears: course.durationYears ?? null,
+    });
   }
   async cancel(): Promise<void> {
     if (!(await this.guard.canLeave())) return;
@@ -226,8 +278,9 @@ export class CoursesPage {
     }
     this.saving.set(true);
     try {
+      const { name, level, durationYears } = this.form.getRawValue();
       await this.api.save(
-        this.form.controls.name.value,
+        { name, level: level || null, durationYears },
         this.editing() ?? undefined,
         this.editing()?.active ?? true,
       );
@@ -247,7 +300,7 @@ export class CoursesPage {
     this.saving.set(true);
     this.error.set('');
     try {
-      const saved = await this.api.save(course.name, course, !course.active);
+      const saved = await this.api.save(course, course, !course.active);
       if (this.destroy.destroyed) return;
       this.editing.update((current) => (current?.id === saved.id ? saved : current));
       await this.load();
