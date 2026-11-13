@@ -35,8 +35,8 @@ Nas verificações, "verificador de links" é o comando Python da decisão 11 de
 
 ## 5. Remoção do histórico
 
-- [ ] 5.1 Remover com `git rm -r docs/fase-0 docs/fase-1 docs/fase-2 docs/fase-3 docs/fase-4 docs/fase-5 docs/fase-6 docs/fase-7 docs/ROADMAP_IMPLEMENTACAO.md docs/QA-2026-10-16.md docs/QA-RELEASE-2026-10-17.md docs/whatsapp/PESQUISA.md docs/DOCKER.md docs/CI.md SAGER_PRD_v2.0_Angular_SpringBoot.md SAGER_Especificacao_Tecnica_v2.0.md`. Verificar: `find docs -type f` lista só `docs/ARQUITETURA.md`, `docs/OPERACAO.md` e `docs/whatsapp/OPERACAO.md`, e `git show 7d22855:docs/fase-3/README.md | head -3` ainda devolve o contrato.
-- [ ] 5.2 Verificar: a busca de links mortos não acha nada, o verificador de links imprime `ok`, e `git grep -n -i -E 'demonstra|saúde|saude' -- '*.md' ':!openspec' ':!docs/ARQUITETURA.md' ':!.agents' ':!.claude'` só acha a "saúde de backend" do healthcheck em `infra/coolify/README.md` e os assuntos de saúde na conversa em `docs/whatsapp/OPERACAO.md`.
+- [x] 5.1 Remover com `git rm -r docs/fase-0 docs/fase-1 docs/fase-2 docs/fase-3 docs/fase-4 docs/fase-5 docs/fase-6 docs/fase-7 docs/ROADMAP_IMPLEMENTACAO.md docs/QA-2026-10-16.md docs/QA-RELEASE-2026-10-17.md docs/whatsapp/PESQUISA.md docs/DOCKER.md docs/CI.md SAGER_PRD_v2.0_Angular_SpringBoot.md SAGER_Especificacao_Tecnica_v2.0.md`. Verificar: `find docs -type f` lista só `docs/ARQUITETURA.md`, `docs/OPERACAO.md` e `docs/whatsapp/OPERACAO.md`, e `git show 7d22855:docs/fase-3/README.md | head -3` ainda devolve o contrato.
+- [x] 5.2 Verificar: a busca de links mortos não acha nada, o verificador de links imprime `ok`, e `git grep -n -i -E 'demonstra|saúde|saude' -- '*.md' ':!openspec' ':!docs/ARQUITETURA.md' ':!.agents' ':!.claude'` só acha a "saúde de backend" do healthcheck em `infra/coolify/README.md` e os assuntos de saúde na conversa em `docs/whatsapp/OPERACAO.md`.
 
 ## 6. Verificação final
 

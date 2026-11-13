@@ -158,16 +158,15 @@ Cada decisão traz o contexto, a escolha, o que foi descartado e a consequência
 
 As specs de cada capacidade ficam em [`openspec/specs`](../openspec/specs/). O fluxo de mudança está na seção [OpenSpec workflow do AGENTS.md](../AGENTS.md#openspec-workflow).
 
-As regras de chamada, saídas, disciplina, limpeza e relatórios ainda não viraram spec. Até lá, o resumo canônico fica no AGENTS.md, e os contratos completos podem ser lidos no histórico do git, na revisão `7d22855`:
+As regras de chamada, saídas, disciplina, limpeza e relatórios ainda não viraram spec. Até lá, o resumo canônico fica no AGENTS.md. Os contratos completos continuam no histórico do git, nas pastas de fase de `docs/` da revisão `7d22855`:
 
 ```bash
-git show 7d22855:docs/fase-3/README.md
-git show 7d22855:docs/fase-4/CONTRATO.md
-git show 7d22855:docs/fase-5/CONTRATO.md
-git show 7d22855:docs/fase-6/CONTRATO.md
+git show 7d22855:docs/                      # lista as pastas de fase
+git show 7d22855:docs/<pasta>/README.md     # fase 3: chamada e saída curta
+git show 7d22855:docs/<pasta>/CONTRATO.md   # fases 4, 5 e 6
 ```
 
-Use `git show 7d22855:docs/fase-4/` (e `fase-5/`, `fase-6/`) para listar os demais arquivos de cada fase.
+A fase 4 trata da saída longa e da autorização do responsável; a fase 5, de comunicação e disciplina; a fase 6, de limpeza e relatórios.
 
 ## Pendências institucionais
 
