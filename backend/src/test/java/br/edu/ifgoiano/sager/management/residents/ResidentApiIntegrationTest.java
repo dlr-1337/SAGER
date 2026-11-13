@@ -680,33 +680,36 @@ class ResidentApiIntegrationTest {
         account("gestor");
         try(HttpClient manager=browser()) {
             login(manager,"gestor");
-            var response=post(manager,"/api/v1/cursos",json.writeValueAsString(Map.of("name","Curso   Sintético")),csrf(manager));
+            var response=post(manager,"/api/v1/cursos",json.writeValueAsString(Map.of("name","Curso   Sintético","level","MEDIO","durationYears",3)),csrf(manager));
             assertThat(response.statusCode()).isEqualTo(201);
             String course=json.readTree(response.body()).path("id").asText();
-            assertThat(post(manager,"/api/v1/cursos",json.writeValueAsString(Map.of("name"," curso sintético ")),csrf(manager)).statusCode()).isEqualTo(409);
+            assertThat(post(manager,"/api/v1/cursos",json.writeValueAsString(Map.of("name"," curso sintético ","level","MEDIO","durationYears",3)),csrf(manager)).statusCode()).isEqualTo(409);
             var input=new LinkedHashMap<String,Object>(Map.of("name","Pessoa Sintética","enrollment","2026100000000003","birthDate",BIRTH_DATE,"courseId",course,"institutionalEmail","Pessoa@estudante.ifgoiano.edu.br","password",PASSWORD,"passwordConfirmation",PASSWORD,"entryYear",2026));
             var created=post(manager,PATH,json.writeValueAsString(input),csrf(manager));
             assertThat(created.statusCode()).isEqualTo(201);
             String resident=json.readTree(created.body()).path("id").asText();
             assertThat(json.readTree(created.body()).path("institutionalEmail").asText()).isEqualTo("pessoa@estudante.ifgoiano.edu.br");
-            assertThat(put(manager,"/api/v1/cursos/"+course,json.writeValueAsString(Map.of("name","Curso Sintético","active",false,"version",0)),csrf(manager)).statusCode()).isEqualTo(200);
+            assertThat(put(manager,"/api/v1/cursos/"+course,json.writeValueAsString(Map.of("name","Curso Sintético","active",false,"version",0,"level","MEDIO","durationYears",3)),csrf(manager)).statusCode()).isEqualTo(200);
             input.put("version",0);input.remove("password");input.remove("passwordConfirmation");input.put("name","Pessoa Atualizada");
             assertThat(put(manager,PATH+"/"+resident,json.writeValueAsString(input),csrf(manager)).statusCode()).isEqualTo(200);
             input.remove("version"); input.put("enrollment","2026100000000004");input.put("password",PASSWORD);input.put("passwordConfirmation",PASSWORD);
             assertThat(post(manager,PATH,json.writeValueAsString(input),csrf(manager)).statusCode()).isEqualTo(400);
-            assertThat(put(manager,"/api/v1/cursos/"+course,json.writeValueAsString(Map.of("name","Curso Sintético","active",true,"version",0)),csrf(manager)).statusCode()).isEqualTo(409);
+            assertThat(put(manager,"/api/v1/cursos/"+course,json.writeValueAsString(Map.of("name","Curso Sintético","active",true,"version",0,"level","MEDIO","durationYears",3)),csrf(manager)).statusCode()).isEqualTo(409);
         }
     }
 
     @Test
-    void courseLevelAndDurationAreOptionalStrictAndAudited() throws Exception {
+    void courseLevelAndDurationAreRequiredStrictAndAudited() throws Exception {
         account("supervisor");
         try (HttpClient client = browser()) {
             login(client, "supervisor");
-            JsonNode legacy = json.readTree(post(client, "/api/v1/cursos",
-                    json.writeValueAsString(Map.of("name", "Curso Sem Nível")), csrf(client)).body());
-            assertThat(legacy.path("level").isNull()).isTrue();
-            assertThat(legacy.path("durationYears").isNull()).isTrue();
+            for (Map<String, Object> missing : List.<Map<String, Object>>of(Map.of("name", "Curso Sem Nível"),
+                    Map.of("name", "Curso Sem Duração", "level", "SUPERIOR"),
+                    Map.of("name", "Curso Sem Nível", "durationYears", 4))) {
+                assertError(post(client, "/api/v1/cursos", json.writeValueAsString(missing), csrf(client)),
+                        400, "invalid_input");
+            }
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_course", Integer.class)).isZero();
             var created = post(client, "/api/v1/cursos", json.writeValueAsString(Map.of("name", "Sistemas Sintéticos",
                     "level", "SUPERIOR", "durationYears", 4)), csrf(client));
             assertThat(created.statusCode()).isEqualTo(201);
@@ -728,10 +731,19 @@ class ResidentApiIntegrationTest {
             assertThat(changed.statusCode()).isEqualTo(200);
             assertThat(auditRows(id).getLast().fields()).containsExactly("level");
             assertThat(put(client, "/api/v1/cursos/" + id, json.writeValueAsString(Map.of("name", "Sistemas Sintéticos",
-                    "active", true, "version", 1)), csrf(client)).statusCode()).isEqualTo(200);
-            assertThat(auditRows(id).getLast().fields()).containsExactlyInAnyOrder("level", "durationYears");
-            assertThat(jdbc.queryForObject("SELECT level IS NULL AND duration_years IS NULL FROM sager_course WHERE id = ?",
+                    "active", true, "version", 1)), csrf(client)).statusCode()).isEqualTo(400);
+            assertThat(jdbc.queryForObject("SELECT level = 'MEDIO' AND duration_years = 4 FROM sager_course WHERE id = ?",
                     Boolean.class, id)).isTrue();
+
+            UUID legacy = UUID.randomUUID();
+            jdbc.update("INSERT INTO sager_course(id,name) VALUES (?,'Curso Antigo')", legacy);
+            assertThat(put(client, "/api/v1/cursos/" + legacy, json.writeValueAsString(Map.of("name", "Curso Antigo",
+                    "active", false, "version", 0)), csrf(client)).statusCode()).isEqualTo(200);
+            assertThat(put(client, "/api/v1/cursos/" + legacy, json.writeValueAsString(Map.of("name", "Curso Renomeado",
+                    "active", false, "version", 1)), csrf(client)).statusCode()).isEqualTo(400);
+            assertThat(put(client, "/api/v1/cursos/" + legacy, json.writeValueAsString(Map.of("name", "Curso Renomeado",
+                    "active", false, "version", 1, "level", "MEDIO", "durationYears", 3)), csrf(client)).statusCode())
+                    .isEqualTo(200);
         }
     }
 

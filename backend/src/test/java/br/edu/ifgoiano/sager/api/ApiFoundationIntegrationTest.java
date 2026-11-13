@@ -139,6 +139,8 @@ class ApiFoundationIntegrationTest {
                     .contains("MEDIO", "SUPERIOR");
             assertThat(schemas.path("CourseCreateRequest").path("properties").path("durationYears").path("maximum").asInt())
                     .isEqualTo(6);
+            assertThat(schemas.path("CourseCreateRequest").path("required").toString()).contains("\"level\"", "\"durationYears\"");
+            assertThat(schemas.path("CourseUpdateRequest").path("required").toString()).doesNotContain("level");
             JsonNode supervisorCreate = document.path("components").path("schemas").path("SupervisorCreateRequest");
             assertThat(supervisorCreate.path("properties").path("password").path("minLength").asInt()).isEqualTo(8);
             assertThat(supervisorCreate.path("properties").path("passwordConfirmation").path("writeOnly").asBoolean()).isTrue();

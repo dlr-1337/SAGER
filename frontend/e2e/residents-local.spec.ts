@@ -160,6 +160,10 @@ test('cadastro local cria, consulta, busca e edita após recarga, sem dados inve
   await page.getByRole('button', { name: 'Novo curso', exact: true }).click();
   await page.getByLabel('Nome do novo curso').fill('Curso de Teste');
   await page.getByRole('button', { name: 'Cadastrar e selecionar' }).click();
+  await expect(page.getByText('Escolha o nível.')).toBeVisible();
+  await page.getByLabel('Nível do novo curso').selectOption('SUPERIOR');
+  await page.getByLabel('Duração do novo curso (anos)').fill('4');
+  await page.getByRole('button', { name: 'Cadastrar e selecionar' }).click();
   await expect(page.getByRole('combobox', { name: 'Curso *' })).toHaveValue(
     '00000000-0000-0000-0000-000000000201',
   );
@@ -242,7 +246,11 @@ test('aguarda o curso pendente e só salva o residente com seu vínculo após co
   let courseWrites = 0;
   await page.route('**/api/v1/cursos**', async (route) => {
     if (route.request().method() === 'GET') return route.fulfill({ json: [] });
-    expect(route.request().postDataJSON().name).toBe(course.name);
+    expect(route.request().postDataJSON()).toMatchObject({
+      name: course.name,
+      level: 'MEDIO',
+      durationYears: 3,
+    });
     courseWrites++;
     await pending;
     return route.fulfill({ status: 201, json: course });
@@ -250,6 +258,8 @@ test('aguarda o curso pendente e só salva o residente com seu vínculo após co
   await page.goto(`/residentes/${id}/editar`);
   await page.getByRole('button', { name: 'Novo curso', exact: true }).click();
   await page.getByLabel('Nome do novo curso').fill(course.name);
+  await page.getByLabel('Nível do novo curso').selectOption('MEDIO');
+  await page.getByLabel('Duração do novo curso (anos)').fill('3');
   await page.getByRole('button', { name: 'Cadastrar e selecionar', exact: true }).click();
   await expect.poll(() => courseWrites).toBe(1);
   const save = page.getByRole('button', { name: 'Salvar residente', exact: true });

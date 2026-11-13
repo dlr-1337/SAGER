@@ -140,14 +140,17 @@ class AuditApiIntegrationTest {
         try (HttpClient client = browser()) {
             login(client);
             String name = "Curso Sintético " + UUID.randomUUID();
-            HttpResponse<String> created = write(client, "POST", "/api/v1/cursos", Map.of("name", name));
+            HttpResponse<String> created = write(client, "POST", "/api/v1/cursos",
+                    Map.of("name", name, "level", "SUPERIOR", "durationYears", 4));
             assertThat(created.statusCode()).isEqualTo(201);
             String id = json.readTree(created.body()).path("id").asText();
             assertThat(write(client, "PUT", "/api/v1/cursos/" + id,
-                    Map.of("name", name + " Editado", "active", true, "version", 0)).statusCode())
+                    Map.of("name", name + " Editado", "active", true, "version", 0, "level", "SUPERIOR",
+                            "durationYears", 4)).statusCode())
                     .isEqualTo(200);
             assertThat(write(client, "PUT", "/api/v1/cursos/" + id,
-                    Map.of("name", name + " Editado", "active", false, "version", 1)).statusCode())
+                    Map.of("name", name + " Editado", "active", false, "version", 1, "level", "SUPERIOR",
+                            "durationYears", 4)).statusCode())
                     .isEqualTo(200);
 
             for (String resourceFilter : new String[] { "", "&resource=COURSE" }) {

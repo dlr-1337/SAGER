@@ -31,7 +31,7 @@ import {
 } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Course, CourseApiService } from './course-api.service';
+import { Course, CourseApiService, CourseLevel } from './course-api.service';
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { ManagementDemoService } from './management-demo.service';
@@ -242,6 +242,40 @@ import {
                     >Informe um nome de até 200 caracteres.</span
                   >
                 }
+                <label for="new-course-level">Nível do novo curso</label
+                ><select
+                  id="new-course-level"
+                  [formControl]="newCourseLevel"
+                  [attr.aria-invalid]="
+                    newCourseLevel.invalid && newCourseLevel.touched ? 'true' : null
+                  "
+                  aria-describedby="new-course-level-error"
+                >
+                  <option value="">Selecione o nível</option>
+                  <option value="MEDIO">Ensino médio</option>
+                  <option value="SUPERIOR">Superior</option>
+                </select>
+                @if (newCourseLevel.invalid && newCourseLevel.touched) {
+                  <span class="mg-field-error" id="new-course-level-error">Escolha o nível.</span>
+                }
+                <label for="new-course-duration">Duração do novo curso (anos)</label
+                ><input
+                  id="new-course-duration"
+                  type="number"
+                  min="1"
+                  max="6"
+                  step="1"
+                  [formControl]="newCourseDuration"
+                  [attr.aria-invalid]="
+                    newCourseDuration.invalid && newCourseDuration.touched ? 'true' : null
+                  "
+                  aria-describedby="new-course-duration-error"
+                />
+                @if (newCourseDuration.invalid && newCourseDuration.touched) {
+                  <span class="mg-field-error" id="new-course-duration-error"
+                    >Use um número de 1 a 6 anos.</span
+                  >
+                }
                 <button
                   type="button"
                   class="btn"
@@ -378,6 +412,18 @@ export class ResidentFormComponent {
     nonNullable: true,
     validators: [trimmedLength(1, 200)],
   });
+  readonly newCourseLevel = new FormControl<CourseLevel | ''>('', {
+    nonNullable: true,
+    validators: [Validators.required],
+  });
+  readonly newCourseDuration = new FormControl<number | null>(null, {
+    validators: [
+      Validators.required,
+      Validators.min(1),
+      Validators.max(6),
+      Validators.pattern(/^\d+$/),
+    ],
+  });
   readonly visibleCourses = computed(() =>
     this.courses().filter((c) => c.id === this.form.controls.courseId.value || c.active),
   );
@@ -393,19 +439,24 @@ export class ResidentFormComponent {
   }
   async createCourse(): Promise<void> {
     if (this.saving() || this.courseSaving()) return;
-    if (this.newCourse.invalid) {
-      this.newCourse.markAsTouched();
+    const fields = [this.newCourse, this.newCourseLevel, this.newCourseDuration];
+    if (fields.some((field) => field.invalid)) {
+      fields.forEach((field) => field.markAsTouched());
       return;
     }
     this.courseSaving.set(true);
     this.coursesError.set('');
     try {
-      const course = await this.coursesApi.save({ name: this.newCourse.value });
+      const course = await this.coursesApi.save({
+        name: this.newCourse.value,
+        level: this.newCourseLevel.value || null,
+        durationYears: this.newCourseDuration.value,
+      });
       if (this.destroyRef.destroyed) return;
       this.courses.update((items) => [...items, course]);
       this.form.controls.courseId.setValue(course.id);
       this.form.markAsDirty();
-      this.newCourse.reset();
+      fields.forEach((field) => field.reset());
       this.addingCourse.set(false);
     } catch (error) {
       if (!this.destroyRef.destroyed) this.coursesError.set(readableError(error));

@@ -61,6 +61,8 @@ for (const demo of [false, true]) {
       const name = page.getByLabel('Nome do curso', { exact: true });
       await expect(name).toHaveValue('Informática');
       await name.fill('Informática revisada');
+      await page.getByLabel('Nível').selectOption('SUPERIOR');
+      await page.getByLabel('Duração (anos)').fill('4');
       await row
         .getByRole('button', { name: initiallyActive ? 'Desativar' : 'Reativar', exact: true })
         .click();
@@ -81,10 +83,21 @@ for (const demo of [false, true]) {
       await expect(page.getByRole('alert')).toHaveCount(0);
       await expect(page.getByRole('alertdialog')).toHaveCount(0);
       if (!demo) {
-        const empty = { level: null, durationYears: null };
         expect(writes).toEqual([
-          { name: 'Informática', active: !initiallyActive, version: 0, ...empty },
-          { name: 'Informática revisada', active: !initiallyActive, version: 1, ...empty },
+          {
+            name: 'Informática',
+            active: !initiallyActive,
+            version: 0,
+            level: null,
+            durationYears: null,
+          },
+          {
+            name: 'Informática revisada',
+            active: !initiallyActive,
+            version: 1,
+            level: 'SUPERIOR',
+            durationYears: 4,
+          },
         ]);
         expect(course.version).toBe(2);
       }
@@ -177,6 +190,8 @@ for (const action of ['desativar', 'renomear'] as const) {
       name: `Curso Sintético ${String(index + 1).padStart(2, '0')}`,
       active: true,
       version: 0,
+      level: 'MEDIO',
+      durationYears: 3,
     }));
     let writes = 0;
     await page.route('**/api/v1/auth/**', (route) =>
@@ -256,6 +271,11 @@ test('gestor cadastra e desativa curso, e pode continuar uma edição não salva
   });
   await page.goto('/cursos');
   await page.getByLabel('Nome do curso', { exact: true }).fill('Curso Sintético');
+  await page.getByRole('button', { name: 'Salvar curso' }).click();
+  await expect(page.getByText('Escolha o nível.')).toBeVisible();
+  expect(courses).toHaveLength(0);
+  await page.getByLabel('Nível').selectOption('MEDIO');
+  await page.getByLabel('Duração (anos)').fill('3');
   await page.getByRole('button', { name: 'Salvar curso' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Curso salvo' })).toBeVisible();
   await expect(page.getByText('Curso Sintético', { exact: true })).toBeVisible();

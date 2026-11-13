@@ -65,9 +65,12 @@ public class OpenApiConfiguration {
             residentCreate.addProperty("passwordConfirmation", new StringSchema().format("password").minLength(8).maxLength(72).writeOnly(true));
             residentCreate.setRequired(List.of("name","enrollment","birthDate","courseId","entryYear","password","passwordConfirmation"));
             crud(api, "/api/v1/cursos", "Course", new ObjectSchema().addProperty("name", text(1,200,false))
-                    .addProperty("level", new StringSchema()._enum(List.of("MEDIO", "SUPERIOR")).nullable(true))
-                    .addProperty("durationYears", new IntegerSchema().minimum(BigDecimal.ONE).maximum(BigDecimal.valueOf(6)).nullable(true)),
+                    .addProperty("level", new StringSchema()._enum(List.of("MEDIO", "SUPERIOR")).nullable(true)
+                            .description("Obrigatório em curso novo ou com nome, nível ou duração alterados."))
+                    .addProperty("durationYears", new IntegerSchema().minimum(BigDecimal.ONE).maximum(BigDecimal.valueOf(6)).nullable(true)
+                            .description("Obrigatório em curso novo ou com nome, nível ou duração alterados.")),
                     List.of("name"));
+            api.getComponents().getSchemas().get("CourseCreateRequest").setRequired(List.of("name", "level", "durationYears"));
             var courseUpdate=api.getComponents().getSchemas().get("CourseUpdateRequest");
             courseUpdate.addProperty("active",new BooleanSchema()); courseUpdate.setRequired(List.of("name","active","version"));
             crud(api, "/api/v1/supervisores", "Supervisor", new ObjectSchema()

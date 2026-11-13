@@ -104,7 +104,7 @@ describe('ResidentFormComponent', () => {
     expect(service.residents().length).toBe(before);
   });
 
-  it('marks the new course field and does not call the server when it is blank', async () => {
+  it('marks the new course fields and does not call the server when they are blank', async () => {
     const save = vi.spyOn(TestBed.inject(CourseApiService), 'save');
     const fixture = TestBed.createComponent(ResidentFormComponent);
     await fixture.whenStable();
@@ -113,9 +113,26 @@ describe('ResidentFormComponent', () => {
     component.newCourse.setValue('   ');
     await component.createCourse();
     fixture.detectChanges();
+    const native = fixture.nativeElement as HTMLElement;
     expect(save).not.toHaveBeenCalled();
-    expect(fixture.nativeElement.querySelector('#new-course-error')?.textContent).toContain(
-      'Informe um nome',
+    expect(native.querySelector('#new-course-error')?.textContent).toContain('Informe um nome');
+    expect(native.querySelector('#new-course-level-error')?.textContent).toBe('Escolha o nível.');
+    expect(native.querySelector('#new-course-duration-error')?.textContent).toContain(
+      'Use um número de 1 a 6 anos.',
+    );
+    component.newCourse.setValue('Curso Demonstrativo');
+    component.newCourseLevel.setValue('SUPERIOR');
+    await component.createCourse();
+    expect(save).not.toHaveBeenCalled();
+    component.newCourseDuration.setValue(4);
+    await component.createCourse();
+    expect(save).toHaveBeenCalledWith({
+      name: 'Curso Demonstrativo',
+      level: 'SUPERIOR',
+      durationYears: 4,
+    });
+    expect(component.form.controls.courseId.value).toBe(
+      component.courses().find((course) => course.name === 'Curso Demonstrativo')?.id,
     );
   });
 

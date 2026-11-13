@@ -427,6 +427,8 @@ describe('Residentes em sessão local', () => {
       });
       component.form.markAsDirty();
       component.newCourse.setValue(course.name);
+      component.newCourseLevel.setValue('SUPERIOR');
+      component.newCourseDuration.setValue(4);
       const creating = component.createCourse();
       fixture.detectChanges();
       const submit: HTMLButtonElement =
@@ -493,6 +495,8 @@ describe('Residentes em sessão local', () => {
       });
       component.addingCourse.set(true);
       component.newCourse.setValue('Curso Sintético');
+      component.newCourseLevel.setValue('SUPERIOR');
+      component.newCourseDuration.setValue(4);
       const saving = component.save();
       fixture.detectChanges();
       const create: HTMLButtonElement = Array.from(

@@ -33,8 +33,16 @@ import { UnsavedFormDirective, UnsavedForms } from '../../shared/unsaved-form';
       }
       <div class="course-fields">
         <label class="mg-field"
-          >Nível<select sagerSearchable formControlName="level">
-            <option value="">Não informado</option>
+          >Nível<select
+            sagerSearchable
+            formControlName="level"
+            required
+            aria-describedby="course-level-error"
+            [attr.aria-invalid]="
+              form.controls.level.invalid && form.controls.level.touched ? 'true' : null
+            "
+          >
+            <option value="">Selecione o nível</option>
             <option value="MEDIO">Ensino médio</option>
             <option value="SUPERIOR">Superior</option>
           </select></label
@@ -46,6 +54,7 @@ import { UnsavedFormDirective, UnsavedForms } from '../../shared/unsaved-form';
             min="1"
             max="6"
             step="1"
+            required
             aria-describedby="course-duration-error"
             [attr.aria-invalid]="
               form.controls.durationYears.invalid && form.controls.durationYears.touched
@@ -54,6 +63,9 @@ import { UnsavedFormDirective, UnsavedForms } from '../../shared/unsaved-form';
             "
         /></label>
       </div>
+      @if (form.controls.level.invalid && form.controls.level.touched) {
+        <p class="mg-field-error" id="course-level-error">Escolha o nível.</p>
+      }
       @if (form.controls.durationYears.invalid && form.controls.durationYears.touched) {
         <p class="mg-field-error" id="course-duration-error">Use um número de 1 a 6 anos.</p>
       }
@@ -207,9 +219,17 @@ export class CoursesPage {
       nonNullable: true,
       validators: [trimmedLength(1, 200)],
     }),
-    level: new FormControl<CourseLevel | ''>('', { nonNullable: true }),
+    level: new FormControl<CourseLevel | ''>('', {
+      nonNullable: true,
+      validators: [Validators.required],
+    }),
     durationYears: new FormControl<number | null>(null, {
-      validators: [Validators.min(1), Validators.max(6), Validators.pattern(/^\d+$/)],
+      validators: [
+        Validators.required,
+        Validators.min(1),
+        Validators.max(6),
+        Validators.pattern(/^\d+$/),
+      ],
     }),
   });
   readonly details = (course: Course) =>
