@@ -1,6 +1,6 @@
 # Operação do WhatsApp no SAGER
 
-Guia para quem opera o número e o servidor. Regras de negócio estão em [`docs/fase-4/CONTRATO.md`](../fase-4/CONTRATO.md), e os motivos e as fontes em [`PESQUISA.md`](PESQUISA.md).
+Guia para quem opera o número e o servidor. As regras de negócio estão nas specs de [autorização do responsável](../../openspec/specs/guardian-authorization/spec.md) e do [gateway de WhatsApp](../../openspec/specs/whatsapp-gateway/spec.md), e os motivos da escolha na [decisão sobre o WhatsApp](../ARQUITETURA.md#7-whatsapp-auto-hospedado-e-desligado-por-padrão).
 
 **Antes de tudo:**
 
@@ -116,7 +116,7 @@ Mensagens perdidas: a cada 2 minutos, o SAGER busca as mensagens recebidas que f
 5. Continue a operação com **anexo manual**: o documento pode ser entregue em mãos ou por outro canal autorizado. O histórico já recebido continua no SAGER, e no celular fica inacessível durante o banimento.
 6. Desligue o perfil `whatsapp` até haver decisão.
 
-A saída de longo prazo é a Cloud API por provedor oficial, que exige contratação e novo adaptador, e tem limites próprios para número banido (ver a [seção 1 da pesquisa](PESQUISA.md#1-recomendação)).
+A saída de longo prazo é a Cloud API por provedor oficial, que exige contratação e novo adaptador, e tem limites próprios para número banido (ver a [decisão sobre o WhatsApp](../ARQUITETURA.md#7-whatsapp-auto-hospedado-e-desligado-por-padrão)).
 
 ## 7. Cuidados para reduzir o risco
 
