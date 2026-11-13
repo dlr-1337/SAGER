@@ -40,7 +40,8 @@ public class AccommodationController {
 
     @PostMapping
     public ResponseEntity<Accommodation> create(@RequestBody CreateRequest request) {
-        Accommodation created = service.create(text(request.code(), "code"), text(request.name(), "name"));
+        Accommodation created = service.create(text(request.code(), "code"), text(request.name(), "name"),
+                ageGroup(request.ageGroup()));
         return ResponseEntity.created(URI.create("/api/v1/alojamentos/" + created.id()))
                 .cacheControl(CacheControl.noStore()).body(created);
     }
@@ -49,7 +50,8 @@ public class AccommodationController {
     public ResponseEntity<Accommodation> update(@PathVariable UUID id,
             @RequestBody UpdateRequest request) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.update(id,
-                text(request.code(), "code"), text(request.name(), "name"), version(request.version())));
+                text(request.code(), "code"), text(request.name(), "name"), ageGroup(request.ageGroup()),
+                version(request.version())));
     }
 
     @GetMapping("/{id}/unidades")
@@ -88,6 +90,16 @@ public class AccommodationController {
         return value.stringValue();
     }
 
+    /** Ausente ou null é "sem faixa"; o PUT substitui o cadastro inteiro. */
+    private String ageGroup(JsonNode value) {
+        if (value == null || value.isNull()) return null;
+        if (value.isString() && (value.stringValue().equals("MENORES") || value.stringValue().equals("MAIORES"))) {
+            return value.stringValue();
+        }
+        throw new AccommodationApiException(HttpStatus.BAD_REQUEST, "invalid_input",
+                "ageGroup deve ser MENORES, MAIORES ou null.");
+    }
+
     private long version(JsonNode value) {
         if (value == null || !value.isIntegralNumber() || !value.canConvertToLong()
                 || value.asLong() < 0 || value.asLong() == Long.MAX_VALUE) {
@@ -97,10 +109,11 @@ public class AccommodationController {
         return value.asLong();
     }
 
-    public record CreateRequest(JsonNode code, JsonNode name) {
+    /** ageGroup vale só para o alojamento; as unidades o ignoram. */
+    public record CreateRequest(JsonNode code, JsonNode name, JsonNode ageGroup) {
     }
 
-    public record UpdateRequest(JsonNode code, JsonNode name, JsonNode version) {
+    public record UpdateRequest(JsonNode code, JsonNode name, JsonNode ageGroup, JsonNode version) {
     }
 
 }

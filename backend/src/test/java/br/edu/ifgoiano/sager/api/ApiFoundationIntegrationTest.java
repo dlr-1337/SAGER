@@ -146,6 +146,12 @@ class ApiFoundationIntegrationTest {
                     .isEqualTo(6);
             assertThat(schemas.path("CourseCreateRequest").path("required").toString()).contains("\"level\"", "\"durationYears\"");
             assertThat(schemas.path("CourseUpdateRequest").path("required").toString()).doesNotContain("level");
+            for (String schema : List.of("AccommodationCreateRequest", "AccommodationUpdateRequest", "Accommodation")) {
+                assertThat(schemas.path(schema).path("properties").path("ageGroup").path("enum").toString())
+                        .as(schema).contains("MENORES", "MAIORES");
+                assertThat(schemas.path(schema).path("required").toString()).as(schema).doesNotContain("ageGroup");
+            }
+            assertThat(schemas.path("AccommodationUnitCreateRequest").path("properties").has("ageGroup")).isFalse();
             JsonNode supervisorCreate = document.path("components").path("schemas").path("SupervisorCreateRequest");
             assertThat(supervisorCreate.path("properties").path("password").path("minLength").asInt()).isEqualTo(8);
             assertThat(supervisorCreate.path("properties").path("passwordConfirmation").path("writeOnly").asBoolean()).isTrue();

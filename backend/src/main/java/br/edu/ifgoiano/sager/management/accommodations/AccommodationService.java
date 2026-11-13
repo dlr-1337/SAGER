@@ -40,21 +40,22 @@ public class AccommodationService {
     }
 
     @Transactional
-    public Accommodation create(String code, String name) {
+    public Accommodation create(String code, String name, String ageGroup) {
         String checkedCode = required(code, "code", 64);
         String checkedName = required(name, "name", 200);
         UUID id = UUID.randomUUID();
         try {
-            repository.insert(id, checkedCode, checkedName);
+            repository.insert(id, checkedCode, checkedName, ageGroup);
         } catch (DataIntegrityViolationException error) {
             throw integrityError(error);
         }
-        audit.record(AuditResource.ACCOMMODATION, id, AuditAction.CREATE, 0, Set.of("code", "name"));
-        return new Accommodation(id, checkedCode, checkedName, 0);
+        audit.record(AuditResource.ACCOMMODATION, id, AuditAction.CREATE, 0,
+                ageGroup == null ? Set.of("code", "name") : Set.of("code", "name", "ageGroup"));
+        return new Accommodation(id, checkedCode, checkedName, ageGroup, 0);
     }
 
     @Transactional
-    public Accommodation update(UUID id, String code, String name, long version) {
+    public Accommodation update(UUID id, String code, String name, String ageGroup, long version) {
         String checkedCode = required(code, "code", 64);
         String checkedName = required(name, "name", 200);
         validVersion(version);
@@ -64,7 +65,7 @@ public class AccommodationService {
         }
         int updated;
         try {
-            updated = repository.update(id, checkedCode, checkedName, version);
+            updated = repository.update(id, checkedCode, checkedName, ageGroup, version);
         } catch (DataIntegrityViolationException error) {
             throw integrityError(error);
         }
@@ -79,8 +80,9 @@ public class AccommodationService {
         if (!Objects.equals(current.name(), checkedName)) {
             changed.add("name");
         }
+        if (!Objects.equals(current.ageGroup(), ageGroup)) changed.add("ageGroup");
         audit.record(AuditResource.ACCOMMODATION, id, AuditAction.UPDATE, version + 1, changed);
-        return new Accommodation(id, checkedCode, checkedName, version + 1);
+        return new Accommodation(id, checkedCode, checkedName, ageGroup, version + 1);
     }
 
     public List<AccommodationUnit> listUnits(UUID accommodationId) {

@@ -91,8 +91,10 @@ public class OpenApiConfiguration {
             supervisorCreate.addProperty("passwordConfirmation", new StringSchema().format("password").minLength(8).maxLength(72).writeOnly(true));
             supervisorCreate.setRequired(List.of("name","institutionalId","email","password","passwordConfirmation"));
             crud(api, "/api/v1/alojamentos", "Accommodation", new ObjectSchema()
-                    .addProperty("code", text(1, 64, false)).addProperty("name", text(1, 200, false)),
+                    .addProperty("code", text(1, 64, false)).addProperty("name", text(1, 200, false))
+                    .addProperty("ageGroup", ageGroup()),
                     List.of("code", "name"));
+            api.getComponents().getSchemas().get("Accommodation").addProperty("ageGroup", ageGroup());
             crud(api, "/api/v1/alojamentos/{id}/unidades", "AccommodationUnit", new ObjectSchema()
                     .addProperty("code", text(1, 64, false)).addProperty("name", text(1, 200, false)),
                     List.of("code", "name"));
@@ -160,6 +162,11 @@ public class OpenApiConfiguration {
                 }
             });
         };
+    }
+
+    private Schema<?> ageGroup() {
+        return new StringSchema()._enum(List.of("MENORES", "MAIORES")).nullable(true)
+                .description("Faixa etária do alojamento, herdada pelos quartos; ausente ou nula é sem faixa.");
     }
 
     private void crud(OpenAPI api, String path, String name, Schema<?> schema, List<String> required) {

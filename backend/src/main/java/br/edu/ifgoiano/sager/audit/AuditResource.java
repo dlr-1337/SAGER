@@ -8,7 +8,7 @@ public enum AuditResource {
             "extraSemesters")),
     COURSE(Set.of("name", "active", "level", "durationYears")),
     GUARDIAN(Set.of("residentId", "name", "relationship", "phone", "active")),
-    ACCOMMODATION(Set.of("code", "name")),
+    ACCOMMODATION(Set.of("code", "name", "ageGroup")),
     ACCOMMODATION_UNIT(Set.of("accommodationId", "code", "name")),
     ROOM(Set.of("code", "number", "accommodationId", "unitId", "floor", "capacity", "situation")),
     ALLOCATION(Set.of("residentId", "roomId", "startedAt", "endedAt", "endReason")),
