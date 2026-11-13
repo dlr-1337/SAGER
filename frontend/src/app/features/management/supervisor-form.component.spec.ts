@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { describe, expect, it, vi } from 'vitest';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { ManagementDemoService } from './management-demo.service';
 import { SupervisorApiService } from './supervisor-api.service';
 import { SupervisorFormComponent } from './supervisor-form.component';
@@ -27,7 +27,7 @@ async function setup(options: { demo?: boolean; role?: string; id?: string } = {
         useValue: { saveSupervisor, supervisor: () => saved },
       },
       {
-        provide: DemoSessionService,
+        provide: SessionService,
         useValue: {
           active: signal(!!options.demo),
           hasRole: (...roles: string[]) => roles.includes(options.role ?? 'gestor'),

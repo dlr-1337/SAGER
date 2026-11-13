@@ -15,7 +15,7 @@ import { BreakpointObserver } from '@angular/cdk/layout';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet, NavigationEnd } from '@angular/router';
 import { filter } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { DemoSessionService, type DemoScenario, type Role } from './core/demo-session.service';
+import { SessionService, type DemoScenario, type Role } from './core/session.service';
 import { LocalAuthService } from './core/local-auth.service';
 
 interface NavItem {
@@ -120,7 +120,7 @@ const navByRole: Record<Role, NavItem[]> = {
 export class App implements OnDestroy {
   @ViewChild('menuButton') private menuButton?: ElementRef<HTMLButtonElement>;
   @ViewChild('closeButton') private closeButton?: ElementRef<HTMLButtonElement>;
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly auth = inject(LocalAuthService);
   private readonly drafts = inject(UnsavedForms);
   private readonly router = inject(Router);

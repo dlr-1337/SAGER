@@ -5,7 +5,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { OperationsDemoService } from './operations-demo.service';
 
 import { ExitsLocalComponent } from './exits-local.component';
@@ -162,7 +162,7 @@ import { ExitsLocalComponent } from './exits-local.component';
   `,
 })
 export class ExitsComponent {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   readonly service = inject(OperationsDemoService);
   readonly filters = new FormGroup({
     query: new FormControl('', { nonNullable: true }),

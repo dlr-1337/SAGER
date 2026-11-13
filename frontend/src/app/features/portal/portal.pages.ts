@@ -2,7 +2,7 @@ import { ERROR_GENERIC, readableError } from '../../core/error-messages';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { LocalAuthService } from '../../core/local-auth.service';
 import { PasswordFieldComponent } from '../../shared/password-field.component';
 import { OperationsDemoService } from '../operations/operations-demo.service';
@@ -254,7 +254,7 @@ import { LocalHomePage } from './local-home.page';
 })
 export class AccessPage {
   private readonly auth = inject(LocalAuthService);
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly router = inject(Router);
   readonly demo = inject(DemoEntry);
   readonly busy = signal(false);
@@ -1005,7 +1005,7 @@ export class DemoSelectorPage {
   ],
 })
 export class HomePage {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly operations = inject(OperationsDemoService);
   readonly countsAvailable = computed(() => this.session.scenario() === 'padrao');
   readonly pendingExitCount = computed(
@@ -1293,7 +1293,7 @@ export class HomePage {
   ],
 })
 export class HelpPage {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
 }
 
 @Component({
@@ -1446,7 +1446,7 @@ export class HelpPage {
   ],
 })
 export class ProfilePage {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   readonly auth = inject(LocalAuthService);
   readonly localRoleLabel = computed(
     () =>
@@ -1540,7 +1540,7 @@ const statusPageStyles = `
   styles: [statusPageStyles],
 })
 export class DeniedPage {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
 }
 
 @Component({

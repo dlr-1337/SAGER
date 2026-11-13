@@ -2,7 +2,7 @@ import { signal, Type } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { describe, expect, it, vi } from 'vitest';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { ResidentApiService } from '../management/resident-api.service';
 import { CommunicationsLocalApiService } from './communications-local-api.service';
 import { NoticesManagementLocalPage } from './notices-local.pages';
@@ -45,7 +45,7 @@ for (const component of [
             useValue: { notices: page, warnings: page, ownList: page, notifications: page },
           },
           { provide: ResidentApiService, useValue: { list: vi.fn().mockResolvedValue([]) } },
-          { provide: DemoSessionService, useValue: { active: signal(false), hasRole: () => true } },
+          { provide: SessionService, useValue: { active: signal(false), hasRole: () => true } },
         ],
       });
       const Component: Type<List> = component;

@@ -7,7 +7,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { HousingMap, roomOptionLabel } from '../management/housing.models';
 import { RoomApiService } from '../management/room-api.service';
 import {
@@ -422,7 +422,7 @@ import {
   ],
 })
 export class NightCallLocalComponent {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly api = inject(OperationsLocalApiService);
   private readonly roomApi = inject(RoomApiService);
   private readonly dialog = inject(MatDialog);

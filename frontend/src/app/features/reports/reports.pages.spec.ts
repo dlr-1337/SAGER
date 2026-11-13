@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { ReportsDemoApiService } from './reports-demo-api.service';
 import { ReportsLocalPage } from './reports-local.pages';
 
@@ -19,10 +19,10 @@ describe('Relatórios na demonstração', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', fetchSpy);
     TestBed.configureTestingModule({ providers: [provideRouter([])] });
-    TestBed.inject(DemoSessionService).activate('gestor');
+    TestBed.inject(SessionService).activate('gestor');
   });
   afterEach(() => {
-    TestBed.inject(DemoSessionService).deactivate();
+    TestBed.inject(SessionService).deactivate();
     vi.unstubAllGlobals();
   });
 
@@ -89,7 +89,7 @@ describe('Relatórios na demonstração', () => {
   });
 
   it('cenário de erro mostra a falha e "Tentar novamente" volta ao padrão', async () => {
-    const session = TestBed.inject(DemoSessionService);
+    const session = TestBed.inject(SessionService);
     session.setScenario('erro');
     const fixture = TestBed.createComponent(ReportsLocalPage);
     await settle(fixture);

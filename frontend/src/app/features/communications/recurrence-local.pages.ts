@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, OnDestroy, inject, signal } from '@
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { ResidentApiService, ResidentRecord } from '../management/resident-api.service';
 import {
   CommunicationsApiError,
@@ -163,7 +163,7 @@ import {
   styleUrl: './communications-local.scss',
 })
 export class RecurrenceLocalPage {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly api = inject(CommunicationsLocalApiService);
   private readonly registry = inject(ResidentApiService);
   private readonly route = inject(ActivatedRoute);
@@ -435,7 +435,7 @@ export class RecurrenceLocalPage {
   styleUrl: './communications-local.scss',
 })
 export class TermDetailLocalPage implements OnDestroy {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly api = inject(CommunicationsLocalApiService);
   private readonly route = inject(ActivatedRoute);
   private readonly dialogs = inject(MatDialog);

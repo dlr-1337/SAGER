@@ -4,7 +4,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { longPeriodError } from './long-exit.utils';
 import { ExitKind, OperationsDemoService } from './operations-demo.service';
 import { nextReturn, periodHint, shortPeriodError } from './operations-local.utils';
@@ -186,7 +186,7 @@ import { ExitFormLocalComponent } from './exit-form-local.component';
   `,
 })
 export class ExitFormComponent {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly service = inject(OperationsDemoService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);

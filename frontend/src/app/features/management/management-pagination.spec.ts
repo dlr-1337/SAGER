@@ -2,7 +2,7 @@ import { signal, Type } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { describe, expect, it, vi } from 'vitest';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { FilterState } from '../../core/filter-state';
 import { AccommodationApiService } from './accommodation-api.service';
 import { AccommodationsComponent } from './accommodations.component';
@@ -54,7 +54,7 @@ for (const config of [
             },
           },
           {
-            provide: DemoSessionService,
+            provide: SessionService,
             useValue: { active: signal(false), scenario: signal('padrao'), hasRole: () => true },
           },
         ],

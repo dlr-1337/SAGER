@@ -6,7 +6,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { ResidentApiService, ResidentRecord } from '../management/resident-api.service';
 import {
   CommunicationsApiError,
@@ -133,7 +133,7 @@ export class NoticesManagementLocalPage {
   searchFilters: Record<string, string> = {};
   private appliedSearch: Record<string, string> = {};
 
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly api = inject(CommunicationsLocalApiService);
   readonly items = signal<PublishedNotice[]>([]);
   readonly nextCursor = signal<number | null>(null);
@@ -286,7 +286,7 @@ export class NoticesManagementLocalPage {
   styleUrl: './communications-local.scss',
 })
 export class NoticeFormLocalPage {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly api = inject(CommunicationsLocalApiService);
   private readonly registry = inject(ResidentApiService);
   private readonly router = inject(Router);
@@ -532,7 +532,7 @@ export class NoticeFormLocalPage {
   styleUrl: './communications-local.scss',
 })
 export class NoticeDetailLocalPage {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly api = inject(CommunicationsLocalApiService);
   private readonly registry = inject(ResidentApiService);
   private readonly route = inject(ActivatedRoute);

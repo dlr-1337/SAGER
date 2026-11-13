@@ -28,7 +28,7 @@ function storedRole(): Role {
 
 /** Sessão exclusivamente local e temporária para navegar pelo protótipo. */
 @Injectable({ providedIn: 'root' })
-export class DemoSessionService {
+export class SessionService {
   private readonly auth = inject(LocalAuthService);
   readonly production =
     inject(DOCUMENT).querySelector('meta[name="sager-environment"]')?.getAttribute('content') ===

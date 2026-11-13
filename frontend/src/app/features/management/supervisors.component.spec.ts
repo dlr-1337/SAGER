@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { describe, expect, it, vi } from 'vitest';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { ManagementDemoService } from './management-demo.service';
 import { SupervisorApiService } from './supervisor-api.service';
 import { SupervisorsComponent } from './supervisors.component';
@@ -30,7 +30,7 @@ describe('Paginação autorizada de supervisores', () => {
         { provide: SupervisorApiService, useValue: { page } },
         { provide: ManagementDemoService, useValue: { supervisors: signal(records) } },
         {
-          provide: DemoSessionService,
+          provide: SessionService,
           useValue: {
             active: signal(demo),
             scenario: signal('padrao'),
@@ -72,7 +72,7 @@ describe('Paginação autorizada de supervisores', () => {
           { provide: SupervisorApiService, useValue: { page } },
           { provide: ManagementDemoService, useValue: { supervisors: signal(records) } },
           {
-            provide: DemoSessionService,
+            provide: SessionService,
             useValue: {
               active: signal(demo),
               scenario: signal('padrao'),
@@ -107,7 +107,7 @@ describe('Paginação autorizada de supervisores', () => {
         { provide: SupervisorApiService, useValue: { page } },
         { provide: ManagementDemoService, useValue: { supervisors: signal([]) } },
         {
-          provide: DemoSessionService,
+          provide: SessionService,
           useValue: {
             active: signal(false),
             scenario: signal('padrao'),

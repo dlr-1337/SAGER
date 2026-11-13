@@ -7,7 +7,7 @@ import { rememberFilters, rememberValue } from '../../core/filter-state';
 import { PaginationComponent } from '../../shared/pagination.component';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { accommodationErrorMessage } from './accommodation-api.service';
 import { AccommodationDataService } from './accommodation-data.service';
 import { Accommodation } from './housing.models';
@@ -99,7 +99,7 @@ export class AccommodationsComponent {
   private readonly api = inject(AccommodationApiService);
   readonly remoteTotal = signal(0);
   readonly total = computed(() => (this.isDemo() ? this.filtered().length : this.remoteTotal()));
-  private readonly session = inject(DemoSessionService);
+  private readonly session = inject(SessionService);
   readonly canEdit = computed(() => this.session.hasRole('gestor', 'supervisor'));
   readonly isDemo = this.session.active;
   readonly items = signal<Accommodation[]>([]);

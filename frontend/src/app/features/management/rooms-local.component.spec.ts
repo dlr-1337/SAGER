@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DemoScenario, DemoSessionService, Role } from '../../core/demo-session.service';
+import { DemoScenario, SessionService, Role } from '../../core/session.service';
 import { FilterState } from '../../core/filter-state';
 import { AllocationApiService } from './allocation-api.service';
 import { HousingMap, RoomRecord } from './housing.models';
@@ -95,7 +95,7 @@ describe('Quartos em sessão local', () => {
         { provide: ResidentApiService, useValue: residentApi },
         { provide: CourseApiService, useValue: courseApi },
         {
-          provide: DemoSessionService,
+          provide: SessionService,
           useValue: {
             active,
             scenario,

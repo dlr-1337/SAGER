@@ -21,7 +21,7 @@ Os caminhos são relativos à raiz do repositório. Os comandos `npm` e `npx` ro
 
 ## 2. Sessão com nome próprio
 
-- [ ] 2.1 Renomear com `git mv` `frontend/src/app/core/demo-session.service.ts` para `core/session.service.ts` e `core/demo-session.service.spec.ts` para `core/session.service.spec.ts`, e a classe para `SessionService`, sem mudar os membros. Trocar o import e o nome em todos os arquivos de `frontend/src`, inclusive o tipo `Role` em `core/local-auth.service.ts` e os stubs `{ provide: DemoSessionService, … }` dos specs. Verificar que `git grep -n -E "DemoSessionService|demo-session\.service" -- frontend/src` não acha nada e que `npm test -- --watch=false` e `npm run build` passam.
+- [x] 2.1 Renomear com `git mv` `frontend/src/app/core/demo-session.service.ts` para `core/session.service.ts` e `core/demo-session.service.spec.ts` para `core/session.service.spec.ts`, e a classe para `SessionService`, sem mudar os membros. Trocar o import e o nome em todos os arquivos de `frontend/src`, inclusive o tipo `Role` em `core/local-auth.service.ts` e os stubs `{ provide: DemoSessionService, … }` dos specs. Verificar que `git grep -n -E "DemoSessionService|demo-session\.service" -- frontend/src` não acha nada e que `npm test -- --watch=false` e `npm run build` passam.
 
 ## 3. Entrada, portal e shell sem demonstração
 

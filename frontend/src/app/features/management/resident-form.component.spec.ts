@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { vi } from 'vitest';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { CourseApiService } from './course-api.service';
 import { ManagementDemoService } from './management-demo.service';
 import { ResidentFormComponent } from './resident-form.component';
@@ -12,7 +12,7 @@ describe('ResidentFormComponent', () => {
       imports: [ResidentFormComponent],
       providers: [provideRouter([])],
     }).compileComponents();
-    TestBed.inject(DemoSessionService).activate('gestor');
+    TestBed.inject(SessionService).activate('gestor');
   });
 
   it('keeps the resident list unchanged when required enrollment is missing', () => {

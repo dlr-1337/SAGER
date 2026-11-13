@@ -2,7 +2,7 @@ import { ERROR_CONFLICT } from '../../core/error-messages';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import {
   OperationsApiError,
   OperationsLocalApiService,
@@ -302,7 +302,7 @@ import {
   ],
 })
 export class ExitDetailLocalComponent {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly api = inject(OperationsLocalApiService);
   private readonly dialog = inject(MatDialog);
   private readonly route = inject(ActivatedRoute);

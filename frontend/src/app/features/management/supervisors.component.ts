@@ -8,7 +8,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { ManagementDemoService } from './management-demo.service';
 import { Supervisor } from './management.models';
 import { SupervisorApiError, SupervisorApiService } from './supervisor-api.service';
@@ -170,7 +170,7 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
 export class SupervisorsComponent {
   readonly service = inject(ManagementDemoService);
   private readonly api = inject(SupervisorApiService);
-  private readonly session = inject(DemoSessionService);
+  private readonly session = inject(SessionService);
   readonly isDemo = this.session.active;
   readonly canEdit = computed(() => this.session.hasRole('gestor'));
   readonly scenario = this.session.scenario;

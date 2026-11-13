@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { ReportsLocalApiService } from './reports-local-api.service';
 import {
   ReportCatalog,
@@ -22,7 +22,7 @@ export type ReportsApi = Pick<
 >;
 /** Same screen in both modes. The real mode never falls back to this data after an API error. */
 export function reportsApi(): ReportsApi {
-  return inject(DemoSessionService).active()
+  return inject(SessionService).active()
     ? inject(ReportsDemoApiService)
     : inject(ReportsLocalApiService);
 }
@@ -130,7 +130,7 @@ function summaryOf(rows: ReportRow[]): ReportSummary {
 /** In-memory reports of the demonstration. It has no download method on purpose. */
 @Injectable({ providedIn: 'root' })
 export class ReportsDemoApiService implements ReportsApi {
-  private readonly session = inject(DemoSessionService);
+  private readonly session = inject(SessionService);
   private readonly reports = new Map<
     string,
     { snapshot: ReportSnapshot; rows: ReportRow[]; jobs: ReportExport[] }

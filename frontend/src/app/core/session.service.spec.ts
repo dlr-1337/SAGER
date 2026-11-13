@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
-import { DemoSessionService } from './demo-session.service';
+import { SessionService } from './session.service';
 import { DOCUMENT } from '@angular/common';
 
-describe('DemoSessionService', () => {
+describe('SessionService', () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it('restaura somente o papel de demonstração na mesma aba', () => {
@@ -13,12 +13,12 @@ describe('DemoSessionService', () => {
       setItem: (key: string, value: string) => values.set(key, value),
     });
 
-    const session = TestBed.runInInjectionContext(() => new DemoSessionService());
+    const session = TestBed.runInInjectionContext(() => new SessionService());
     expect(session.role()).toBe('supervisor');
     session.setRole('residente');
     session.setScenario('erro');
 
-    const reloaded = TestBed.runInInjectionContext(() => new DemoSessionService());
+    const reloaded = TestBed.runInInjectionContext(() => new SessionService());
     expect(reloaded.role()).toBe('residente');
     expect(reloaded.scenario()).toBe('padrao');
     expect([...values.keys()]).toEqual(['sager.demo.role']);
@@ -31,7 +31,7 @@ describe('DemoSessionService', () => {
         throw new Error('armazenamento indisponível');
       },
     });
-    const session = TestBed.runInInjectionContext(() => new DemoSessionService());
+    const session = TestBed.runInInjectionContext(() => new SessionService());
     expect(session.role()).toBe('supervisor');
     expect(() => session.setRole('gestor')).not.toThrow();
     expect(session.role()).toBe('gestor');
@@ -45,14 +45,14 @@ describe('DemoSessionService', () => {
       removeItem: (key: string) => values.delete(key),
     });
 
-    const session = TestBed.runInInjectionContext(() => new DemoSessionService());
+    const session = TestBed.runInInjectionContext(() => new SessionService());
     expect(session.active()).toBe(false);
     session.activate('gestor');
     expect(session.active()).toBe(true);
     expect(session.role()).toBe('gestor');
     expect(values.get('sager.demo.active')).toBe('true');
 
-    const reloaded = TestBed.runInInjectionContext(() => new DemoSessionService());
+    const reloaded = TestBed.runInInjectionContext(() => new SessionService());
     expect(reloaded.active()).toBe(true);
     expect(reloaded.role()).toBe('gestor');
     reloaded.deactivate();
@@ -73,7 +73,7 @@ describe('DemoSessionService', () => {
     meta.content = 'production';
     document.head.append(meta);
     try {
-      const session = TestBed.runInInjectionContext(() => new DemoSessionService());
+      const session = TestBed.runInInjectionContext(() => new SessionService());
       expect(session.production).toBe(true);
       expect(session.demoAvailable).toBe(false);
       expect(session.active()).toBe(false);

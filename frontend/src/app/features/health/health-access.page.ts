@@ -13,7 +13,7 @@ import { DatePipe } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { ResidentApiService, ResidentRecord } from '../management/resident-api.service';
 import { HealthApiService, healthErrorMessage } from './health-api.service';
 import {
@@ -524,7 +524,7 @@ type EndAction = {
 export class HealthAccessPage {
   private readonly api = inject(HealthApiService);
   private readonly residentApi = inject(ResidentApiService);
-  private readonly session = inject(DemoSessionService);
+  private readonly session = inject(SessionService);
   private readonly destroy = inject(DestroyRef);
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
   readonly loading = signal(false);

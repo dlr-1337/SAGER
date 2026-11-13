@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { Subject } from 'rxjs';
 import { beforeEach, describe, expect, it, vi, MockInstance } from 'vitest';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { ReviewDialogService } from '../../shared/review-dialog.component';
 import { UnsavedForms } from '../../shared/unsaved-form';
 import { GuardianApiService, GuardianRecord } from './guardian-api.service';
@@ -54,7 +54,7 @@ describe.each([false, true])('Envio de responsável (demo=%s)', (demo) => {
           },
         },
         {
-          provide: DemoSessionService,
+          provide: SessionService,
           useValue: { active: signal(demo), hasRole: () => true },
         },
         {
@@ -213,7 +213,7 @@ describe('Responsável antigo em sessão local', () => {
             },
           },
         },
-        { provide: DemoSessionService, useValue: { active: signal(false), hasRole: () => true } },
+        { provide: SessionService, useValue: { active: signal(false), hasRole: () => true } },
         { provide: ManagementDemoService, useValue: {} },
         { provide: GuardianApiService, useValue: { save, get: async () => old } },
         { provide: ResidentApiService, useValue: { list: async () => [] } },
@@ -265,7 +265,7 @@ describe('Paginação de responsáveis na demonstração', () => {
       providers: [
         provideRouter([]),
         {
-          provide: DemoSessionService,
+          provide: SessionService,
           useValue: { active: signal(true), scenario: signal('padrao'), hasRole: () => true },
         },
         {
@@ -334,7 +334,7 @@ describe('Concorrência das buscas de responsáveis', () => {
         { provide: GuardianApiService, useValue: { page } },
         { provide: ResidentApiService, useValue: { list: vi.fn().mockResolvedValue([resident]) } },
         {
-          provide: DemoSessionService,
+          provide: SessionService,
           useValue: { active: signal(false), scenario: signal('padrao'), hasRole: () => true },
         },
       ],

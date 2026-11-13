@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { ResidentApiService } from '../management/resident-api.service';
 import { HealthAccessPage } from './health-access.page';
 import { HealthApiService } from './health-api.service';
@@ -30,7 +30,7 @@ describe('Estado dos formulários após gravar acessos de saúde', () => {
         provideRouter([]),
         { provide: HealthApiService, useValue: api },
         { provide: ResidentApiService, useValue: { list: vi.fn().mockResolvedValue([]) } },
-        { provide: DemoSessionService, useValue: { active: signal(false) } },
+        { provide: SessionService, useValue: { active: signal(false) } },
       ],
     });
     fixture = TestBed.createComponent(HealthAccessPage);

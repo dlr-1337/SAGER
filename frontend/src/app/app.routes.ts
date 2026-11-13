@@ -1,7 +1,7 @@
 import { unsavedFormGuard } from './shared/unsaved-form';
 import { Injector, inject } from '@angular/core';
 import { CanActivateFn, Router, Routes } from '@angular/router';
-import { DemoSessionService, Role } from './core/demo-session.service';
+import { SessionService, Role } from './core/session.service';
 import { LocalAuthService } from './core/local-auth.service';
 import { firstValueFrom } from 'rxjs';
 import { MANAGEMENT_ROUTES } from './features/management/management.routes';
@@ -9,7 +9,7 @@ import { OPERATIONS_ROUTES } from './features/operations/operations.routes';
 import { COMMUNICATION_ROUTES } from './features/communications/communications.routes';
 
 const accessGuard: CanActivateFn = async (route) => {
-  const session = inject(DemoSessionService);
+  const session = inject(SessionService);
   const auth = inject(LocalAuthService);
   const router = inject(Router);
   if (!session.active() && !(await auth.refresh())) return router.createUrlTree(['/acesso']);
@@ -29,7 +29,7 @@ const managementRoutes: Routes = MANAGEMENT_ROUTES.map((route) => ({
 }));
 
 const healthGuard: CanActivateFn = async (route) => {
-  const session = inject(DemoSessionService);
+  const session = inject(SessionService);
   const auth = inject(LocalAuthService);
   const injector = inject(Injector);
   const router = inject(Router);
@@ -134,7 +134,7 @@ const appRoutes: Routes = [
   {
     path: 'demonstracao',
     canActivate: [
-      () => inject(DemoSessionService).demoAvailable || inject(Router).createUrlTree(['/acesso']),
+      () => inject(SessionService).demoAvailable || inject(Router).createUrlTree(['/acesso']),
     ],
     data: { public: true },
     loadComponent: () => import('./features/portal/portal.pages').then((m) => m.DemoSelectorPage),

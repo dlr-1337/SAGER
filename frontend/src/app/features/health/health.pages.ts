@@ -15,7 +15,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { ApiError, HealthApiService, healthErrorMessage } from './health-api.service';
 import {
   HealthCapabilities,
@@ -36,7 +36,7 @@ export { HealthAccessPage } from './health-access.page';
 abstract class LocalHealthState {
   protected readonly api = inject(HealthApiService);
   protected readonly destroy = inject(DestroyRef);
-  protected readonly session = inject(DemoSessionService);
+  protected readonly session = inject(SessionService);
   readonly loading = signal(false);
   readonly error = signal('');
   readonly success = signal('');

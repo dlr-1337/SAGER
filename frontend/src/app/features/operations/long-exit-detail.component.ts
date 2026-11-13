@@ -2,7 +2,7 @@ import { ERROR_CONFLICT } from '../../core/error-messages';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { LongExitApiService } from './long-exit-api.service';
 import { downloadExitDocument } from './long-exit-document.utils';
 import {
@@ -741,7 +741,7 @@ const exitError = (error: unknown): string =>
   ],
 })
 export class LongExitDetailComponent {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly api = inject(LongExitApiService);
   private readonly dialog = inject(MatDialog);
   private readonly route = inject(ActivatedRoute);

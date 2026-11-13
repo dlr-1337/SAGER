@@ -5,7 +5,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { OperationsDemoService } from './operations-demo.service';
 import { OperationsReviewDialogComponent, ReviewDialogResult } from './review-dialog.component';
 import { NotificationDetailLocalPage } from '../communications/notifications-local.pages';
@@ -188,7 +188,7 @@ import { NotificationDetailLocalPage } from '../communications/notifications-loc
   `,
 })
 export class NotificationDetailComponent {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   readonly service = inject(OperationsDemoService);
   private readonly route = inject(ActivatedRoute);
   private readonly dialog = inject(MatDialog);

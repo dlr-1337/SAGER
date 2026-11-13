@@ -19,7 +19,7 @@ import {
 } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import {
   AllocationApiError,
   AllocationApiService,
@@ -765,7 +765,7 @@ export class ResidentDetailComponent {
   private readonly allocationApi = inject(AllocationApiService);
   private readonly roomApi = inject(RoomApiService);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly session = inject(DemoSessionService);
+  private readonly session = inject(SessionService);
   private readonly route = inject(ActivatedRoute);
   readonly id = this.route.snapshot.paramMap.get('id') ?? '';
   readonly isDemo = this.session.active;

@@ -6,7 +6,7 @@ import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import {
   CommunicationReviewDialogComponent,
   CommunicationReviewResult,
@@ -189,7 +189,7 @@ import { ReportingApiError, reportingError } from './reporting-local.transport';
   styleUrl: './cleaning-local.scss',
 })
 export class CleaningFormLocalPage {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly api = inject(CleaningLocalApiService);
   private readonly roomApi = inject(RoomApiService);
   private readonly dialog = inject(MatDialog);

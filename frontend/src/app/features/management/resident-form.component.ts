@@ -33,7 +33,7 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Course, CourseApiService } from './course-api.service';
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { ManagementDemoService } from './management-demo.service';
 import {
   ResidentApiError,
@@ -414,7 +414,7 @@ export class ResidentFormComponent {
     }
   }
   private readonly api = inject(ResidentApiService);
-  private readonly session = inject(DemoSessionService);
+  private readonly session = inject(SessionService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);

@@ -2,7 +2,7 @@ import { UnsavedFormDirective, UnsavedForms } from '../../shared/unsaved-form';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { AccommodationApiError, accommodationErrorMessage } from './accommodation-api.service';
 import { AccommodationDataService } from './accommodation-data.service';
 import { Accommodation, AccommodationUnit } from './housing.models';
@@ -180,7 +180,7 @@ import { Accommodation, AccommodationUnit } from './housing.models';
 export class AccommodationDetailComponent {
   private readonly drafts = inject(UnsavedForms);
   private readonly data = inject(AccommodationDataService);
-  private readonly session = inject(DemoSessionService);
+  private readonly session = inject(SessionService);
   private readonly route = inject(ActivatedRoute);
   readonly id = this.route.snapshot.paramMap.get('id') ?? '';
   readonly item = signal<Accommodation | null>(null);

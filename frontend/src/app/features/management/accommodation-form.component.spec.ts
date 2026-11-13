@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { describe, expect, it, vi } from 'vitest';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { AccommodationDataService } from './accommodation-data.service';
 import { AccommodationFormComponent } from './accommodation-form.component';
 import { Accommodation } from './housing.models';
@@ -21,7 +21,7 @@ describe('AccommodationFormComponent', () => {
           provide: ActivatedRoute,
           useValue: { snapshot: { paramMap: convertToParamMap({}) } },
         },
-        { provide: DemoSessionService, useValue: { hasRole: () => true } },
+        { provide: SessionService, useValue: { hasRole: () => true } },
         { provide: AccommodationDataService, useValue: { save } },
       ],
     });

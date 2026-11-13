@@ -4,7 +4,7 @@ import { trimmedLength } from '../../shared/field-rules';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { OperationsApiError, operationsError } from './operations-local-api.service';
 import {
   eligibilityBlocker,
@@ -267,7 +267,7 @@ import { guardianBlocker, longExitFormError, longPeriodError } from './long-exit
   ],
 })
 export class LongExitFormComponent {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly api = inject(LongExitApiService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);

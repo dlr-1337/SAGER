@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { LocalAuthService } from '../../core/local-auth.service';
 import { OperationsDemoService } from '../operations/operations-demo.service';
 import { HelpPage, HomePage, ProfilePage } from './portal.pages';
@@ -8,7 +8,7 @@ import { HelpPage, HomePage, ProfilePage } from './portal.pages';
 describe('HomePage', () => {
   it('na conta local usa atividades autorizadas sem contagens demonstrativas', async () => {
     TestBed.configureTestingModule({ providers: [provideRouter([])] });
-    const session = TestBed.inject(DemoSessionService);
+    const session = TestBed.inject(SessionService);
     const auth = TestBed.inject(LocalAuthService);
     session.deactivate();
     auth.principal.set({
@@ -39,7 +39,7 @@ describe('HomePage', () => {
 
   it('apresenta a jornada de saúde sem ações pessoais de residente', async () => {
     TestBed.configureTestingModule({ providers: [provideRouter([])] });
-    TestBed.inject(DemoSessionService).deactivate();
+    TestBed.inject(SessionService).deactivate();
     TestBed.inject(LocalAuthService).principal.set({
       id: '00000000-0000-0000-0000-000000000001',
       nome: 'Profissional Sintética',
@@ -60,7 +60,7 @@ describe('HomePage', () => {
   it('mostra contagens que acompanham os registros e não antecipa a análise de saída longa', () => {
     const home = TestBed.runInInjectionContext(() => new HomePage());
     const operations = TestBed.inject(OperationsDemoService);
-    const session = TestBed.inject(DemoSessionService);
+    const session = TestBed.inject(SessionService);
 
     expect(home.pendingExitCount()).toBe(1);
     expect(home.shortReturnCount()).toBe(1);
@@ -94,7 +94,7 @@ describe('HomePage', () => {
 describe('ProfilePage', () => {
   it('explica a habilitação separada para a conta de saúde', async () => {
     TestBed.configureTestingModule({ providers: [provideRouter([])] });
-    TestBed.inject(DemoSessionService).deactivate();
+    TestBed.inject(SessionService).deactivate();
     TestBed.inject(LocalAuthService).principal.set({
       id: '00000000-0000-0000-0000-000000000001',
       nome: 'Profissional Sintética',
@@ -112,7 +112,7 @@ describe('ProfilePage', () => {
   });
   it('apresenta o vínculo explícito da conta residente e informa quando ele está ausente', async () => {
     TestBed.configureTestingModule({ providers: [provideRouter([])] });
-    TestBed.inject(DemoSessionService).deactivate();
+    TestBed.inject(SessionService).deactivate();
     const auth = TestBed.inject(LocalAuthService);
     const linked = {
       id: '00000000-0000-0000-0000-000000000001',
@@ -140,7 +140,7 @@ describe('ProfilePage', () => {
 describe('HelpPage', () => {
   it('orienta a conta autenticada e limita os guias às tarefas do perfil', async () => {
     TestBed.configureTestingModule({ providers: [provideRouter([])] });
-    TestBed.inject(DemoSessionService).deactivate();
+    TestBed.inject(SessionService).deactivate();
     const auth = TestBed.inject(LocalAuthService);
     auth.principal.set({
       id: '00000000-0000-0000-0000-000000000001',

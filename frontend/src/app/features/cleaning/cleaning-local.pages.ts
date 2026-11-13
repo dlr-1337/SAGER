@@ -11,7 +11,7 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { CommunicationsStateComponent } from '../communications/communications-local.shared';
 import {
   formatCivilDate,
@@ -57,7 +57,7 @@ import { reportingError } from './reporting-local.transport';
     }`,
 })
 export class CleaningPage {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
 }
 
 @Component({
@@ -209,7 +209,7 @@ export class CleaningPage {
   styleUrl: './cleaning-local.scss',
 })
 export class CleaningListLocalPage {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(CleaningLocalApiService);
   private readonly roomApi = inject(RoomApiService);
@@ -489,7 +489,7 @@ export class CleaningListLocalPage {
   styleUrl: './cleaning-local.scss',
 })
 export class CleaningDetailLocalPage {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(CleaningLocalApiService);
   private readonly id = this.route.snapshot.paramMap.get('id') ?? '';
@@ -542,7 +542,7 @@ export class CleaningDetailLocalPage {
     }`,
 })
 export class RankingPage {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
 }
 
 @Component({
@@ -645,7 +645,7 @@ export class RankingPage {
   styleUrl: './cleaning-local.scss',
 })
 export class RankingLocalPage {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly api = inject(CleaningLocalApiService);
   private readonly route = inject(ActivatedRoute);
   readonly form = new FormGroup({

@@ -1,6 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { LocalAuthService } from '../../core/local-auth.service';
 
 export type DemoRole = 'gestor' | 'supervisor' | 'residente';
@@ -8,7 +8,7 @@ export type DemoRole = 'gestor' | 'supervisor' | 'residente';
 // Fornecido por página (providers do componente): cada tela tem o próprio estado de envio e erro.
 @Injectable()
 export class DemoEntry {
-  private readonly session = inject(DemoSessionService);
+  private readonly session = inject(SessionService);
   private readonly auth = inject(LocalAuthService);
   private readonly router = inject(Router);
   readonly busy = signal(false);

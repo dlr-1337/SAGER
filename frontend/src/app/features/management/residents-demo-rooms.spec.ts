@@ -1,14 +1,14 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { describe, expect, it, vi } from 'vitest';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { CourseApiService } from './course-api.service';
 import { ResidentsComponent } from './residents.component';
 
 describe('Quarto dependente do bloco nos residentes da demonstração', () => {
   it('oferece só quartos do bloco escolhido e limpa o quarto ao trocar', async () => {
     TestBed.configureTestingModule({ providers: [provideRouter([])] });
-    TestBed.inject(DemoSessionService).activate('gestor');
+    TestBed.inject(SessionService).activate('gestor');
     vi.spyOn(TestBed.inject(CourseApiService), 'list').mockResolvedValue([]);
     const fixture = TestBed.createComponent(ResidentsComponent);
     await fixture.whenStable();

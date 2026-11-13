@@ -1,6 +1,6 @@
 import { FilterState } from './filter-state';
 import { Injectable, inject, signal } from '@angular/core';
-import type { Role } from './demo-session.service';
+import type { Role } from './session.service';
 
 export interface LocalPrincipal {
   id: string;

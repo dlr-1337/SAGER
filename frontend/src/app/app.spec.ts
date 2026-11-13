@@ -3,7 +3,7 @@ import { UnsavedForms } from './shared/unsaved-form';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { App } from './app';
-import { DemoSessionService } from './core/demo-session.service';
+import { SessionService } from './core/session.service';
 import { LocalAuthService } from './core/local-auth.service';
 
 describe('App', () => {
@@ -21,7 +21,7 @@ describe('App', () => {
   });
 
   it('mantém a navegação de saúde sem recursos de gestão ou de residente', async () => {
-    TestBed.inject(DemoSessionService).deactivate();
+    TestBed.inject(SessionService).deactivate();
     TestBed.inject(LocalAuthService).principal.set({
       id: '00000000-0000-0000-0000-000000000001',
       nome: 'Profissional Sintética',
@@ -43,7 +43,7 @@ describe('App', () => {
   });
 
   it('agrupa o menu em rotina, cadastros e apoio, com separador no início de cada grupo', async () => {
-    TestBed.inject(DemoSessionService).deactivate();
+    TestBed.inject(SessionService).deactivate();
     TestBed.inject(LocalAuthService).principal.set({
       id: '00000000-0000-0000-0000-000000000001',
       nome: 'Supervisora Sintética',
@@ -85,7 +85,7 @@ describe('App', () => {
   });
 
   it('oferece análise e avisos somente ao supervisor no acesso local', async () => {
-    TestBed.inject(DemoSessionService).deactivate();
+    TestBed.inject(SessionService).deactivate();
     const auth = TestBed.inject(LocalAuthService);
     const account = {
       id: '00000000-0000-0000-0000-000000000001',
@@ -129,7 +129,7 @@ describe('App', () => {
     expect(ownItems.map((item) => item.path)).not.toContain('/comunicacoes/avisos');
   });
   it('confirma alterações antes de encerrar a sessão', async () => {
-    TestBed.inject(DemoSessionService).deactivate();
+    TestBed.inject(SessionService).deactivate();
     const logout = vi.spyOn(TestBed.inject(LocalAuthService), 'logout').mockResolvedValue();
     vi.spyOn(TestBed.inject(UnsavedForms), 'canLeave').mockResolvedValue(false);
     const fixture = TestBed.createComponent(App);

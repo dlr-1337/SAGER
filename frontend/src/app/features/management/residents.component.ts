@@ -12,7 +12,7 @@ import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { debounceTime } from 'rxjs';
 import { RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { FilterState, rememberFilters } from '../../core/filter-state';
 import { normalizeSearch } from '../../shared/search';
 import { PaginationComponent } from '../../shared/pagination.component';
@@ -213,7 +213,7 @@ export class ResidentsComponent {
   private readonly api = inject(ResidentApiService);
   private readonly courseApi = inject(CourseApiService);
   private readonly roomApi = inject(RoomApiService);
-  private readonly session = inject(DemoSessionService);
+  private readonly session = inject(SessionService);
   private readonly destroy = inject(DestroyRef);
   private readonly memory = inject(FilterState);
   readonly isDemo = this.session.active;

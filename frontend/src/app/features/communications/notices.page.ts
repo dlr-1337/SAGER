@@ -1,6 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { DatePipe, DOCUMENT } from '@angular/common';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { NoticesDemoService, NoticeKind } from './notices-demo.service';
 import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
 
@@ -427,7 +427,7 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
 export class NoticesPage {
   private readonly document = inject(DOCUMENT);
   readonly data = inject(NoticesDemoService);
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   readonly tab = signal<NoticeKind>('aviso');
   readonly selectedId = signal<string | null>(null);
   readonly reviewing = signal(false);

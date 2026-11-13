@@ -24,7 +24,7 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { GuardianApiError, GuardianApiService, GuardianRecord } from './guardian-api.service';
 import { ManagementDemoService } from './management-demo.service';
 import { ResidentApiService, ResidentRecord } from './resident-api.service';
@@ -191,7 +191,7 @@ export class GuardiansPage {
   readonly service = inject(ManagementDemoService);
   private readonly api = inject(GuardianApiService);
   private readonly residentApi = inject(ResidentApiService);
-  private readonly session = inject(DemoSessionService);
+  private readonly session = inject(SessionService);
   private readonly destroyRef = inject(DestroyRef);
   readonly isDemo = this.session.active;
   readonly canEdit = computed(() => this.session.hasRole('gestor', 'supervisor'));
@@ -416,7 +416,7 @@ export class GuardianDetailPage {
   private readonly service = inject(ManagementDemoService);
   private readonly api = inject(GuardianApiService);
   private readonly residentApi = inject(ResidentApiService);
-  private readonly session = inject(DemoSessionService);
+  private readonly session = inject(SessionService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly route = inject(ActivatedRoute);
   readonly id = this.route.snapshot.paramMap.get('id') ?? '';
@@ -652,7 +652,7 @@ export class GuardianFormPage {
   private readonly service = inject(ManagementDemoService);
   private readonly api = inject(GuardianApiService);
   private readonly residentApi = inject(ResidentApiService);
-  private readonly session = inject(DemoSessionService);
+  private readonly session = inject(SessionService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);

@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { FilterState } from '../../core/filter-state';
 import { HousingMap } from '../management/housing.models';
 import { RoomApiService } from '../management/room-api.service';
@@ -87,7 +87,7 @@ describe('Critérios restaurados da lista de saídas', () => {
           },
         },
         {
-          provide: DemoSessionService,
+          provide: SessionService,
           useValue: {
             active: signal(false),
             hasRole: (...roles: string[]) => roles.includes(role),

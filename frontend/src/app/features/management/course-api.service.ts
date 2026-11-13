@@ -1,6 +1,6 @@
 import { ERROR_GENERIC } from '../../core/error-messages';
 import { Injectable, inject, signal } from '@angular/core';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { ManagementDemoService } from './management-demo.service';
 export const COURSE_LEVELS = { MEDIO: 'Ensino médio', SUPERIOR: 'Superior' } as const;
 export type CourseLevel = keyof typeof COURSE_LEVELS;
@@ -15,7 +15,7 @@ export interface Course {
 export type CourseInput = Pick<Course, 'name' | 'level' | 'durationYears'>;
 @Injectable({ providedIn: 'root' })
 export class CourseApiService {
-  private readonly session = inject(DemoSessionService);
+  private readonly session = inject(SessionService);
   private readonly demo = inject(ManagementDemoService);
   readonly demoCourses = signal<Course[]>(
     ['Agropecuária', 'Informática', 'Alimentos'].map((name, i) => ({

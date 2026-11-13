@@ -22,7 +22,7 @@ import {
   RouterOutlet,
 } from '@angular/router';
 import { debounceTime } from 'rxjs';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { PageHeaderComponent } from '../../shared/page-header.component';
 import { UnsavedForms, UnsavedFormDirective } from '../../shared/unsaved-form';
 import { GuardianApiService, GuardianRecord } from '../management/guardian-api.service';
@@ -448,7 +448,7 @@ export const conversationDraftGuard: CanDeactivateFn<unknown> = async () => {
   `,
 })
 export class ConversationsPage implements OnDestroy {
-  readonly demo = inject(DemoSessionService);
+  readonly demo = inject(SessionService);
   private readonly api = inject(ConversationsApiService);
   private readonly guardianApi = inject(GuardianApiService);
   private readonly router = inject(Router);
@@ -1544,7 +1544,7 @@ export class ConversationThreadComponent implements OnDestroy {
   `,
 })
 export class ConversationConnectionPage implements OnDestroy {
-  readonly demo = inject(DemoSessionService);
+  readonly demo = inject(SessionService);
   private readonly api = inject(ConversationsApiService);
   readonly session = signal<SessionView | null>(null);
   readonly error = signal('');

@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { FilterState } from '../../core/filter-state';
 import { HousingMap } from '../management/housing.models';
 import { RoomApiService } from '../management/room-api.service';
@@ -81,7 +81,7 @@ describe('Filtros de casa ou bloco e quarto na chamada noturna', () => {
         provideRouter([]),
         { provide: RoomApiService, useValue: { map } },
         {
-          provide: DemoSessionService,
+          provide: SessionService,
           useValue: { active: signal(false), hasRole: (role: string) => role === 'supervisor' },
         },
         {

@@ -1,5 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { AccommodationApiError, AccommodationApiService } from './accommodation-api.service';
 import { Accommodation, AccommodationInput, AccommodationUnit } from './housing.models';
 
@@ -7,7 +7,7 @@ import { Accommodation, AccommodationInput, AccommodationUnit } from './housing.
 @Injectable({ providedIn: 'root' })
 export class AccommodationDataService {
   private readonly api = inject(AccommodationApiService);
-  private readonly session = inject(DemoSessionService);
+  private readonly session = inject(SessionService);
   private readonly demoAccommodations = signal<Accommodation[]>([]);
   private readonly demoUnits = signal<AccommodationUnit[]>([]);
 

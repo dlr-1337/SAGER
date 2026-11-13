@@ -2,7 +2,7 @@ import { SearchableSelectDirective } from '../../shared/searchable-select.direct
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { CommunicationsStateComponent } from '../communications/communications-local.shared';
 import { ResidentApiService, ResidentRecord } from '../management/resident-api.service';
 import { periodError } from '../reports/reports-local.utils';
@@ -69,7 +69,7 @@ import { reportingError } from './reporting-local.transport';
   styleUrl: './cleaning-local.scss',
 })
 export class CleaningIndicatorsLocalPage {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly api = inject(CleaningLocalApiService);
   private readonly residentApi = inject(ResidentApiService);
   private readonly route = inject(ActivatedRoute);

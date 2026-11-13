@@ -9,7 +9,7 @@ import {
 } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { AccommodationApiError, accommodationErrorMessage } from './accommodation-api.service';
 import { AccommodationDataService } from './accommodation-data.service';
 import { Accommodation } from './housing.models';
@@ -128,7 +128,7 @@ import { Accommodation } from './housing.models';
 })
 export class AccommodationFormComponent {
   private readonly data = inject(AccommodationDataService);
-  private readonly session = inject(DemoSessionService);
+  private readonly session = inject(SessionService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   readonly editId = inject(ActivatedRoute).snapshot.paramMap.get('id');

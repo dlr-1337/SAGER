@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { describe, expect, it, vi } from 'vitest';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { AccommodationApiError, AccommodationApiService } from './accommodation-api.service';
 import { AccommodationDataService } from './accommodation-data.service';
 
@@ -10,7 +10,7 @@ function setup(demo: boolean) {
   const api = { list: vi.fn(), save: vi.fn(), listUnits: vi.fn(), saveUnit: vi.fn() };
   TestBed.configureTestingModule({
     providers: [
-      { provide: DemoSessionService, useValue: { active } },
+      { provide: SessionService, useValue: { active } },
       { provide: AccommodationApiService, useValue: api },
     ],
   });

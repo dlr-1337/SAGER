@@ -2,7 +2,7 @@ import { CommunicationFiltersComponent } from './communication-filters.component
 import { ChangeDetectionStrategy, Component, OnDestroy, inject, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import {
   CommunicationsApiError,
   CommunicationsLocalApiService,
@@ -130,7 +130,7 @@ export class OwnCommunicationsLocalPage {
   searchFilters: Record<string, string> = {};
   private appliedSearch: Record<string, string> = {};
 
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly api = inject(CommunicationsLocalApiService);
   private readonly route = inject(ActivatedRoute);
   readonly tab = signal<OwnTab>(this.initialTab());
@@ -333,7 +333,7 @@ export class OwnCommunicationsLocalPage {
   styleUrl: './communications-local.scss',
 })
 export class OwnCommunicationDetailLocalPage implements OnDestroy {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly api = inject(CommunicationsLocalApiService);
   private readonly route = inject(ActivatedRoute);
   private readonly dialogs = inject(MatDialog);

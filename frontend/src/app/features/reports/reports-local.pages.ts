@@ -17,7 +17,7 @@ import {
 } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { CommunicationsStateComponent } from '../communications/communications-local.shared';
 import {
   CommunicationIntent,
@@ -120,7 +120,7 @@ export class ReportCardComponent implements OnDestroy {
   readonly slow = input(false);
   readonly linkToDetail = input(true);
   readonly changed = output<void>();
-  private readonly session = inject(DemoSessionService);
+  private readonly session = inject(SessionService);
   private readonly api = reportsApi();
   private readonly files = inject(ReportsLocalApiService);
   private readonly downloads = new ReportDownloads();
@@ -405,7 +405,7 @@ type FilterKey = 'accommodationId' | 'unitId' | 'roomId' | 'residentId' | 'statu
   styleUrl: './reports-local.scss',
 })
 export class ReportsLocalPage implements OnDestroy {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly api = reportsApi();
   private readonly injector = inject(Injector);
   readonly form = new FormGroup({
@@ -778,7 +778,7 @@ export class ReportsLocalPage implements OnDestroy {
   styleUrl: './reports-local.scss',
 })
 export class ReportSnapshotLocalPage implements OnDestroy {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly api = reportsApi();
   private readonly route = inject(ActivatedRoute);
   private readonly id = this.route.snapshot.paramMap.get('id') ?? '';

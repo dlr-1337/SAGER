@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { FilterState } from '../../core/filter-state';
 import { HousingMap } from '../management/housing.models';
 import { ResidentApiService } from '../management/resident-api.service';
@@ -57,7 +57,7 @@ describe('Filtro de alojamento na lista de limpeza', () => {
           },
         },
         {
-          provide: DemoSessionService,
+          provide: SessionService,
           useValue: {
             active: signal(false),
             hasRole: (...roles: string[]) => roles.includes(own ? 'residente' : 'supervisor'),

@@ -18,7 +18,7 @@ import {
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { ManagementDemoService } from './management-demo.service';
 import { Supervisor } from './management.models';
 import { SupervisorApiError, SupervisorApiService } from './supervisor-api.service';
@@ -218,7 +218,7 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
 export class SupervisorFormComponent {
   private readonly demo = inject(ManagementDemoService);
   private readonly api = inject(SupervisorApiService);
-  private readonly session = inject(DemoSessionService);
+  private readonly session = inject(SessionService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   readonly editId = this.route.snapshot.paramMap.get('id');

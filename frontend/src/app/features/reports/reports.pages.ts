@@ -9,7 +9,7 @@ import {
   LinearScale,
   Tooltip,
 } from 'chart.js';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { CleaningIndicatorsLocalPage } from '../cleaning/cleaning-indicators-local.page';
 
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip, Legend);
@@ -180,7 +180,7 @@ Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip, L
   styleUrl: './individual-report.scss',
 })
 export class IndividualReportPage implements OnDestroy {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   @ViewChild('occurrenceChart') set chartCanvas(ref: ElementRef<HTMLCanvasElement> | undefined) {
     this.chart?.destroy();
     this.chart = undefined;

@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { ExitFormLocalComponent } from './exit-form-local.component';
 import { OperationsApiError, OperationsLocalApiService } from './operations-local-api.service';
 
@@ -51,7 +51,7 @@ describe('Formulário local de saída curta', () => {
           useValue: { snapshot: { paramMap: convertToParamMap(id ? { id } : {}) } },
         },
         {
-          provide: DemoSessionService,
+          provide: SessionService,
           useValue: { hasRole: (role: string) => role === 'residente' },
         },
         { provide: OperationsLocalApiService, useValue: api },

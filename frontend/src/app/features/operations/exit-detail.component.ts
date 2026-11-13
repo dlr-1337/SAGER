@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { ExitRequest, OperationsDemoService } from './operations-demo.service';
 import {
   OperationsReviewDialogComponent,
@@ -287,7 +287,7 @@ import { ExitDetailLocalComponent } from './exit-detail-local.component';
 })
 export class ExitDetailComponent {
   readonly service = inject(OperationsDemoService);
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly route = inject(ActivatedRoute);
   private readonly dialog = inject(MatDialog);
   private readonly id = this.route.snapshot.paramMap.get('id') ?? '';

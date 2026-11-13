@@ -6,7 +6,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { HousingMap } from './housing.models';
 import { ManagementDemoService } from './management-demo.service';
 import { RoomSituation } from './management.models';
@@ -323,7 +323,7 @@ interface RoomGroup {
 export class RoomsComponent {
   private readonly demo = inject(ManagementDemoService);
   private readonly api = inject(RoomApiService);
-  private readonly session = inject(DemoSessionService);
+  private readonly session = inject(SessionService);
   readonly isDemo = this.session.active;
   readonly canView = computed(() => this.session.hasRole('gestor', 'supervisor'));
   readonly canEdit = computed(() => this.session.hasRole('gestor', 'supervisor'));

@@ -1,6 +1,6 @@
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { LocalAuthService } from '../../core/local-auth.service';
 
 const todayFormat = new Intl.DateTimeFormat('pt-BR', {
@@ -218,7 +218,7 @@ const staffTasks: HomeTask[] = [
   `,
 })
 export class LocalHomePage {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   readonly auth = inject(LocalAuthService);
   // A página pode ficar aberta durante o turno da noite; a data acompanha a virada do dia.
   private readonly now = signal(new Date());

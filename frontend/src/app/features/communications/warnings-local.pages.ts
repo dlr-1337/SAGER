@@ -5,7 +5,7 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { ResidentApiService, ResidentRecord } from '../management/resident-api.service';
 import {
   CommunicationsApiError,
@@ -149,7 +149,7 @@ export class WarningsLocalPage {
   searchFilters: Record<string, string> = {};
   private appliedSearch: Record<string, string> = {};
 
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly api = inject(CommunicationsLocalApiService);
   private readonly registry = inject(ResidentApiService);
   private readonly route = inject(ActivatedRoute);
@@ -301,7 +301,7 @@ export class WarningsLocalPage {
   styleUrl: './communications-local.scss',
 })
 export class WarningFormLocalPage {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly api = inject(CommunicationsLocalApiService);
   private readonly registry = inject(ResidentApiService);
   private readonly router = inject(Router);
@@ -553,7 +553,7 @@ export class WarningFormLocalPage {
   styleUrl: './communications-local.scss',
 })
 export class WarningDetailLocalPage {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly api = inject(CommunicationsLocalApiService);
   private readonly route = inject(ActivatedRoute);
   private readonly dialogs = inject(MatDialog);

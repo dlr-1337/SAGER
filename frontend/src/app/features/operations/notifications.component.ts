@@ -5,7 +5,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { OperationsDemoService } from './operations-demo.service';
 import { NotificationsLocalPage } from '../communications/notifications-local.pages';
 
@@ -136,7 +136,7 @@ import { NotificationsLocalPage } from '../communications/notifications-local.pa
   `,
 })
 export class NotificationsComponent {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   readonly service = inject(OperationsDemoService);
   readonly filters = new FormGroup({
     query: new FormControl('', { nonNullable: true }),

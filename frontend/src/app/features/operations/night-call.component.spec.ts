@@ -1,13 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { NightCallComponent } from './night-call.component';
 
 describe('Filtro de quarto na chamada da demonstração', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({ providers: [provideRouter([])] });
-    TestBed.inject(DemoSessionService).activate('supervisor');
+    TestBed.inject(SessionService).activate('supervisor');
   });
 
   it('mostra a marcação do sistema com a saída e o aviso, e some ao corrigir', async () => {

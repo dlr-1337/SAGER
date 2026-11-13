@@ -6,7 +6,7 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { AttendanceMark, OperationsDemoService } from './operations-demo.service';
 import { OperationsReviewDialogComponent, ReviewDialogResult } from './review-dialog.component';
 
@@ -238,7 +238,7 @@ import { NightCallLocalComponent } from './night-call-local.component';
 })
 export class NightCallComponent {
   readonly service = inject(OperationsDemoService);
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly dialog = inject(MatDialog);
   readonly search = new FormControl('', { nonNullable: true });
   readonly block = new FormControl('', { nonNullable: true });

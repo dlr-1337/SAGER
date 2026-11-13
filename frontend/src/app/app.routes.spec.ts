@@ -9,7 +9,7 @@ import {
 import { of, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { routes } from './app.routes';
-import { DemoSessionService } from './core/demo-session.service';
+import { SessionService } from './core/session.service';
 import { LocalAuthService } from './core/local-auth.service';
 import { HealthApiService } from './features/health/health-api.service';
 import { HealthCapabilities, ProfessionalGrant } from './features/health/health.models';
@@ -32,7 +32,7 @@ describe('Rotas de saúde locais', () => {
     TestBed.configureTestingModule({
       providers: [
         provideRouter(routes),
-        { provide: DemoSessionService, useValue: session },
+        { provide: SessionService, useValue: session },
         { provide: LocalAuthService, useValue: auth },
         { provide: HealthApiService, useValue: api },
       ],

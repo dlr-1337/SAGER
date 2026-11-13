@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { LongExitApiService } from './long-exit-api.service';
 import { LongExitFormComponent } from './long-exit-form.component';
 import { OperationsApiError } from './operations-local-api.service';
@@ -54,7 +54,7 @@ describe('Formulário de saída longa', () => {
           useValue: { snapshot: { paramMap: convertToParamMap(id ? { id } : {}) } },
         },
         {
-          provide: DemoSessionService,
+          provide: SessionService,
           useValue: { active: signal(false), hasRole: (role: string) => role === 'residente' },
         },
         { provide: LongExitApiService, useValue: api },

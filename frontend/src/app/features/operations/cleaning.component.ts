@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { OperationsDemoService } from './operations-demo.service';
 
 @Component({
@@ -119,7 +119,7 @@ import { OperationsDemoService } from './operations-demo.service';
 })
 export class CleaningComponent {
   readonly service = inject(OperationsDemoService);
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   readonly room = new FormControl('', { nonNullable: true });
   readonly error = signal('');
   save(): void {

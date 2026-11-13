@@ -18,7 +18,7 @@ import {
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { HousingMap, RoomRecord, RoomRecordInput } from './housing.models';
 import { ManagementDemoService } from './management-demo.service';
 import { RoomSituation } from './management.models';
@@ -330,7 +330,7 @@ import { RoomApiError, RoomApiService, roomLoadError } from './room-api.service'
 export class RoomFormComponent {
   private readonly demo = inject(ManagementDemoService);
   private readonly api = inject(RoomApiService);
-  private readonly session = inject(DemoSessionService);
+  private readonly session = inject(SessionService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);

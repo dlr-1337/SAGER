@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { describe, expect, it } from 'vitest';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { ExitFormComponent } from './exit-form.component';
 
 describe('Formulário de saída da demonstração', () => {
@@ -18,7 +18,7 @@ describe('Formulário de saída da demonstração', () => {
           },
         },
         {
-          provide: DemoSessionService,
+          provide: SessionService,
           useValue: { active: signal(true), hasRole: (role: string) => role === 'residente' },
         },
       ],

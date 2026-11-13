@@ -6,7 +6,7 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { ResidentApiService, ResidentRecord } from '../management/resident-api.service';
 import {
   CommunicationsApiError,
@@ -161,7 +161,7 @@ export class NotificationsLocalPage {
   searchFilters: Record<string, string> = {};
   private appliedSearch: Record<string, string> = {};
 
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly api = inject(CommunicationsLocalApiService);
   private readonly registry = inject(ResidentApiService);
   readonly residents = signal<ResidentRecord[]>([]);
@@ -433,7 +433,7 @@ export class NotificationsLocalPage {
   styleUrl: './communications-local.scss',
 })
 export class NotificationDetailLocalPage {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly api = inject(CommunicationsLocalApiService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);

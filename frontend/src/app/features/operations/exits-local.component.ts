@@ -25,7 +25,7 @@ import {
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { OperationsLocalApiService, operationsError } from './operations-local-api.service';
 import { ShortExit } from './operations-local.models';
 import { exitStatusLabels, formatOperationsTime } from './operations-local.utils';
@@ -230,7 +230,7 @@ import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
   ],
 })
 export class ExitsLocalComponent {
-  readonly session = inject(DemoSessionService);
+  readonly session = inject(SessionService);
   private readonly api = inject(OperationsLocalApiService);
   private readonly longApi = inject(LongExitApiService);
   private readonly route = inject(ActivatedRoute);

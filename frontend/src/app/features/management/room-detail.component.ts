@@ -7,7 +7,7 @@ import {
   signal,
 } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import {
   AllocationApiService,
   AllocationRecord,
@@ -293,7 +293,7 @@ export class RoomDetailComponent {
   private readonly allocationApi = inject(AllocationApiService);
   private readonly residentApi = inject(ResidentApiService);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly session = inject(DemoSessionService);
+  private readonly session = inject(SessionService);
   private readonly route = inject(ActivatedRoute);
   readonly id = this.route.snapshot.paramMap.get('id') ?? '';
   readonly isDemo = this.session.active;

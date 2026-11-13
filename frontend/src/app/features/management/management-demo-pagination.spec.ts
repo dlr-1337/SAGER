@@ -2,7 +2,7 @@ import { Type } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { describe, expect, it, vi } from 'vitest';
-import { DemoSessionService } from '../../core/demo-session.service';
+import { SessionService } from '../../core/session.service';
 import { FilterState } from '../../core/filter-state';
 import { AccommodationApiService } from './accommodation-api.service';
 import { AccommodationDataService } from './accommodation-data.service';
@@ -46,7 +46,7 @@ for (const config of configs) {
   describe(`Página restaurada na demonstração de ${config.key}`, () => {
     async function setup(total: number, initialPage = 1, delayed = false) {
       TestBed.configureTestingModule({ providers: [provideRouter([])] });
-      TestBed.inject(DemoSessionService).activate('gestor');
+      TestBed.inject(SessionService).activate('gestor');
       const demo = TestBed.inject(ManagementDemoService);
       const housing = TestBed.inject(AccommodationDataService);
       const memory = TestBed.inject(FilterState);
