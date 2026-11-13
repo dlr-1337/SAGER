@@ -511,8 +511,20 @@ export class NightCallLocalComponent {
         'Marcação',
         mark && (mark === 'PENDENTE' ? 'Pendente' : callMarkLabels[mark as CallMark]),
       ],
-      ['unit', 'Casa ou bloco', this.unitOptions().find((u) => u.id === this.unitValue())?.name],
-      ['room', 'Quarto', this.rosterRooms().find((r) => r.id === this.roomValue())?.label],
+      [
+        'unit',
+        'Casa ou bloco',
+        this.unitValue() &&
+          (this.unitOptions().find((u) => u.id === this.unitValue())?.name ??
+            'Casa ou bloco selecionada'),
+      ],
+      [
+        'room',
+        'Quarto',
+        this.roomValue() &&
+          (this.rosterRooms().find((r) => r.id === this.roomValue())?.label ??
+            'Quarto selecionado'),
+      ],
     ];
     return chips
       .filter((chip): chip is [string, string, string] => !!chip[2])

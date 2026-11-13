@@ -338,6 +338,47 @@ describe('Opções de residente dos responsáveis', () => {
     component.removeFilter('resident');
     expect(component.residentFilter.value).toBe('');
   });
+
+  it('mostra só o vínculo enquanto os residentes faltam e recarrega as opções após a falha', async () => {
+    const resident = { id: 'residente-teste', name: 'Estudante Sintético', enrollment: 'T-1' };
+    const guardian = {
+      id: 'responsavel-teste',
+      residentId: resident.id,
+      name: 'Responsável Sintético',
+      relationship: 'Mãe',
+      phone: null,
+      active: true,
+      version: 1,
+    };
+    const list = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Falha sintética'))
+      .mockResolvedValueOnce([resident]);
+    const page = vi.fn().mockResolvedValue({ items: [guardian], total: 1 });
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        { provide: GuardianApiService, useValue: { page } },
+        { provide: ResidentApiService, useValue: { list } },
+        {
+          provide: DemoSessionService,
+          useValue: { active: signal(false), scenario: signal('padrao'), hasRole: () => true },
+        },
+      ],
+    });
+    const fixture = TestBed.createComponent(GuardiansPage);
+    await fixture.whenStable();
+    const native = fixture.nativeElement as HTMLElement;
+    expect(native.querySelector('.mg-row-main p')!.textContent).toBe('Mãe');
+    const reload = [...native.querySelectorAll('button')].find(
+      (button) => button.textContent!.trim() === 'Recarregar opções',
+    )!;
+    reload.click();
+    await fixture.whenStable();
+    expect(list).toHaveBeenCalledTimes(2);
+    expect(native.querySelector('.mg-row-main p')!.textContent).toBe('Mãe de Estudante Sintético');
+    expect(fixture.componentInstance.optionsError()).toBe('');
+  });
 });
 
 describe('Concorrência das buscas de responsáveis', () => {

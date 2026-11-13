@@ -264,11 +264,24 @@ export class CleaningListLocalPage {
       [
         'accommodationId',
         'Alojamento',
-        housing.accommodations.find((item) => item.id === value.accommodationId)?.name,
+        value.accommodationId &&
+          (housing.accommodations.find((item) => item.id === value.accommodationId)?.name ??
+            'Alojamento selecionado'),
       ],
-      ['unitId', 'Casa ou bloco', housing.units.find((item) => item.id === value.unitId)?.name],
-      ['roomId', 'Quarto', room && this.roomLabel(room)],
-      ['residentId', 'Residente', resident && `${resident.name} · ${resident.enrollment}`],
+      [
+        'unitId',
+        'Casa ou bloco',
+        value.unitId &&
+          (housing.units.find((item) => item.id === value.unitId)?.name ??
+            'Casa ou bloco selecionada'),
+      ],
+      ['roomId', 'Quarto', value.roomId && (room ? this.roomLabel(room) : 'Quarto selecionado')],
+      [
+        'residentId',
+        'Residente',
+        value.residentId &&
+          (resident ? `${resident.name} · ${resident.enrollment}` : 'Residente selecionado'),
+      ],
     ];
     return chips
       .filter((chip): chip is [string, string, string] => !!chip[2])

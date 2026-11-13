@@ -200,6 +200,35 @@ describe('Filtro de alojamento na lista de limpeza', () => {
     expect(element.querySelector('.filter-chips')?.textContent).not.toContain('a1');
   });
 
+  it('mantém à vista e removíveis os filtros lembrados quando as opções falham', async () => {
+    map.mockRejectedValue(new Error('Falha sintética'));
+    residents.mockRejectedValue(new Error('Falha sintética'));
+    TestBed.inject(FilterState).values.set('cleaning-local.pages', {
+      from: '',
+      to: '',
+      accommodationId: 'a1',
+      unitId: 'u1',
+      roomId: 'r1',
+      residentId: 'p1',
+    });
+    const fixture = await create();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.chips().map((chip) => `${chip.label}: ${chip.value}`)).toEqual(
+      [
+        'Alojamento: Alojamento selecionado',
+        'Casa ou bloco: Casa ou bloco selecionada',
+        'Quarto: Quarto selecionado',
+        'Residente: Residente selecionado',
+      ],
+    );
+    const element: HTMLElement = fixture.nativeElement;
+    expect(
+      [...element.querySelectorAll('button')].some(
+        (button) => button.textContent?.trim() === 'Limpar filtros',
+      ),
+    ).toBe(true);
+  });
+
   it('mantém o painel na tela enquanto a lista carrega', async () => {
     const fixture = await create();
     list.mockReturnValueOnce(new Promise(() => undefined));

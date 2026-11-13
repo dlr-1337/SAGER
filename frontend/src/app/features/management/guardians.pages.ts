@@ -98,6 +98,9 @@ import { ResidentApiService, ResidentRecord } from './resident-api.service';
       </sager-filter-panel>
       @if (optionsError()) {
         <p role="alert">{{ optionsError() }}</p>
+        <button class="btn mg-secondary" type="button" (click)="loadResidents()">
+          Recarregar opções
+        </button>
       }
       <section class="mg-section" aria-labelledby="guardian-results-title">
         <div class="mg-section-heading">
@@ -156,7 +159,7 @@ import { ResidentApiService, ResidentRecord } from './resident-api.service';
                 <div class="mg-avatar" aria-hidden="true">{{ item.name.slice(0, 1) }}</div>
                 <div class="mg-row-main">
                   <h3>{{ item.name }}</h3>
-                  <p>{{ item.relationship }} de {{ residentName(item.residentId) }}</p>
+                  <p>{{ relationLine(item) }}</p>
                 </div>
                 <div class="mg-row-detail">
                   <strong>{{ item.active ? 'Ativo' : 'Inativo' }}</strong>
@@ -218,6 +221,7 @@ export class GuardiansPage {
   private readonly residentQuery = toSignal(this.residentFilter.valueChanges, { initialValue: '' });
   readonly localGuardians = signal<GuardianRecord[]>([]);
   readonly residents = signal<ResidentRecord[]>([]);
+  readonly residentsReady = signal(false);
   readonly loading = signal(false);
   readonly loadError = signal(false);
   readonly optionsError = signal('');
@@ -301,16 +305,24 @@ export class GuardiansPage {
   }
 
   // Os residentes saem uma vez, separados da lista: mudar filtro ou página não os pede de novo.
-  private async loadResidents(): Promise<void> {
+  async loadResidents(): Promise<void> {
+    this.optionsError.set('');
     try {
       const residents = await this.residentApi.list();
-      if (!this.destroyRef.destroyed) this.residents.set(residents);
+      if (this.destroyRef.destroyed) return;
+      this.residents.set(residents);
+      this.residentsReady.set(true);
     } catch {
       if (!this.destroyRef.destroyed)
-        this.optionsError.set(
-          'Não foi possível carregar a lista de residentes. Recarregue a página para tentar novamente.',
-        );
+        this.optionsError.set('Não foi possível carregar a lista de residentes.');
     }
+  }
+
+  // Sem a lista de residentes, a linha mostra só o vínculo em vez de "residente não encontrado".
+  relationLine(item: GuardianRecord): string {
+    return this.isDemo() || this.residentsReady()
+      ? `${item.relationship} de ${this.residentName(item.residentId)}`
+      : item.relationship;
   }
 
   residentName(id: string): string {

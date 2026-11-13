@@ -293,10 +293,18 @@ export class ExitsLocalComponent {
       [
         'accommodationId',
         'Alojamento',
-        housing.accommodations.find((item) => item.id === value.accommodationId)?.name,
+        value.accommodationId &&
+          (housing.accommodations.find((item) => item.id === value.accommodationId)?.name ??
+            'Alojamento selecionado'),
       ],
-      ['unitId', 'Casa ou bloco', housing.units.find((item) => item.id === value.unitId)?.name],
-      ['roomId', 'Quarto', room && this.roomLabel(room)],
+      [
+        'unitId',
+        'Casa ou bloco',
+        value.unitId &&
+          (housing.units.find((item) => item.id === value.unitId)?.name ??
+            'Casa ou bloco selecionada'),
+      ],
+      ['roomId', 'Quarto', value.roomId && (room ? this.roomLabel(room) : 'Quarto selecionado')],
     ];
     return chips
       .filter((chip): chip is [string, string, string] => !!chip[2])

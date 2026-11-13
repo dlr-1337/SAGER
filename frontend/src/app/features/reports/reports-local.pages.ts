@@ -472,16 +472,29 @@ export class ReportsLocalPage implements OnDestroy {
     const filters: { key: FilterKey; label: string | undefined }[] = [
       {
         key: 'accommodationId',
-        label: accommodations.find((item) => item.id === value.accommodationId)?.name,
+        label:
+          value.accommodationId &&
+          (accommodations.find((item) => item.id === value.accommodationId)?.name ??
+            'Alojamento selecionado'),
       },
-      { key: 'unitId', label: units.find((item) => item.id === value.unitId)?.name },
+      {
+        key: 'unitId',
+        label:
+          value.unitId &&
+          (units.find((item) => item.id === value.unitId)?.name ?? 'Casa ou bloco selecionada'),
+      },
       {
         key: 'roomId',
-        label: rooms.find((item) => item.id === value.roomId)?.code,
+        label:
+          value.roomId &&
+          (rooms.find((item) => item.id === value.roomId)?.code ?? 'Quarto selecionado'),
       },
       {
         key: 'residentId',
-        label: this.residents().find((item) => item.id === value.residentId)?.name,
+        label:
+          value.residentId &&
+          (this.residents().find((item) => item.id === value.residentId)?.name ??
+            'Residente selecionado'),
       },
       {
         key: 'status',
@@ -839,14 +852,17 @@ export class ReportSnapshotLocalPage implements OnDestroy {
   // A página substitui as linhas; uma resposta de página pedida antes é descartada.
   async go(page: number): Promise<void> {
     const generation = ++this.generation;
-    this.page.set(page);
     this.rowsLoading.set(true);
     this.rowsError.set('');
     try {
       const result = await this.api.rows(this.id, page * 25);
       if (result.total !== this.snapshot()?.rowCount)
         throw new Error('O total de registros mudou.');
-      if (generation === this.generation) this.rows.set(result.items);
+      // A página só avança com as linhas dela: após uma falha, a faixa mostrada continua certa.
+      if (generation === this.generation) {
+        this.rows.set(result.items);
+        this.page.set(page);
+      }
     } catch (error) {
       if (generation === this.generation) this.rowsError.set(reportingError(error));
     } finally {
