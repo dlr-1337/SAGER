@@ -45,7 +45,7 @@ Os caminhos do frontend são relativos a `frontend/`, e os do backend, a `backen
 
 ## 6. Demonstração: limpeza e ranking com a regra adotada (RF010, RF012, RN11, RN14; D6)
 
-- [ ] 6.1 Aplicar os textos e os formatos da D6 em `src/app/features/operations/cleaning.component.ts`, `ranking.component.ts` e `operations-demo.service.ts:257`. Os dois componentes usam o `decimal()` de `features/cleaning/cleaning-local.utils.ts`, não o pipe `number`. Este grupo é só da demonstração. Verificar com um teste novo em `e2e/journeys.spec.ts`, com perfil supervisor:
+- [x] 6.1 Aplicar os textos e os formatos da D6 em `src/app/features/operations/cleaning.component.ts`, `ranking.component.ts` e `operations-demo.service.ts:257`. Os dois componentes usam o `decimal()` de `features/cleaning/cleaning-local.utils.ts`, não o pipe `number`. Este grupo é só da demonstração. Verificar com um teste novo em `e2e/journeys.spec.ts`, com perfil supervisor:
   - em `/limpeza`, aparece "Regras da avaliação" e "Critérios pendentes da AE" tem contagem 0;
   - simular A-102 mostra "7,50", "8,00" e "0,50 ponto(s)";
   - em `/ranking`, aparece "Como o ranking é calculado" e "Fórmula pendente da AE" tem contagem 0.

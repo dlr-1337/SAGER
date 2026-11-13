@@ -254,7 +254,7 @@ export class OperationsDemoService {
       source: 'Limpeza',
       at: offset(-36),
       reason: 'Avaliação sinalizada para revisão humana',
-      evidence: 'Critério institucional de alerta ainda pendente de definição.',
+      evidence: 'Nota de limpeza abaixo de 6,00.',
       status: 'Em análise',
       timeline: [
         { label: 'Notificação interna gerada', at: offset(-36) },

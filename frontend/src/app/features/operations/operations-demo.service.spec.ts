@@ -131,6 +131,12 @@ describe('OperationsDemoService: critical operation rules', () => {
     expect(service.warnings()).toHaveLength(0);
   });
 
+  it('describes the cleaning notification with the adopted 6.00 threshold', () => {
+    expect(new OperationsDemoService().getNotification('N-200')?.evidence).toBe(
+      'Nota de limpeza abaixo de 6,00.',
+    );
+  });
+
   it('keeps internal notification distinct from a manually registered warning', () => {
     const service = new OperationsDemoService();
     expect(service.warnings()).toHaveLength(0);
