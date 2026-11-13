@@ -165,7 +165,7 @@ describe('Página válida após atualizar o catálogo de cursos', () => {
     expect(component.page()).toBe(0);
     expect(component.filtered()).toEqual([]);
     expect(component.visible()).toEqual([]);
-    expect(fixture.nativeElement.textContent).toContain('Página 1');
+    expect(fixture.nativeElement.querySelector('sager-pagination nav')).toBeNull();
   });
 
   it('mantém a segunda página quando ela continua válida após editar', async () => {

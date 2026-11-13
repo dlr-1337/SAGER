@@ -260,6 +260,7 @@ describe('Paginação de responsáveis na demonstração', () => {
       enrollment: 'TESTE-001',
     };
     const remotePage = vi.fn();
+    const residentList = vi.fn();
     TestBed.configureTestingModule({
       imports: [GuardiansPage],
       providers: [
@@ -278,7 +279,7 @@ describe('Paginação de responsáveis na demonstração', () => {
           },
         },
         { provide: GuardianApiService, useValue: { page: remotePage } },
-        { provide: ResidentApiService, useValue: { list: vi.fn() } },
+        { provide: ResidentApiService, useValue: { list: residentList } },
       ],
     });
     const fixture = TestBed.createComponent(GuardiansPage);
@@ -297,7 +298,45 @@ describe('Paginação de responsáveis na demonstração', () => {
     expect(names()).toEqual(['Responsável 26', 'Responsável 27', 'Responsável 28']);
     expect(fixture.nativeElement.textContent).toContain('26–28 de 28');
     expect(next.disabled).toBe(true);
+    fixture.componentInstance.activeFilter.setValue('true');
+    await new Promise((resolve) => setTimeout(resolve, 300));
     expect(remotePage).not.toHaveBeenCalled();
+    expect(residentList).not.toHaveBeenCalled();
+  });
+});
+
+describe('Opções de residente dos responsáveis', () => {
+  it('pede os residentes uma vez, mesmo depois de trocar de página e de filtro', async () => {
+    const resident = {
+      id: 'residente-teste',
+      name: 'Estudante Sintético',
+      enrollment: 'TESTE-001',
+    };
+    const list = vi.fn().mockResolvedValue([resident]);
+    const page = vi.fn().mockResolvedValue({ items: [], total: 60 });
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        { provide: GuardianApiService, useValue: { page } },
+        { provide: ResidentApiService, useValue: { list } },
+        {
+          provide: DemoSessionService,
+          useValue: { active: signal(false), scenario: signal('padrao'), hasRole: () => true },
+        },
+      ],
+    });
+    const fixture = TestBed.createComponent(GuardiansPage);
+    await fixture.whenStable();
+    const component = fixture.componentInstance;
+    component.changePage(1);
+    component.residentFilter.setValue(resident.id);
+    await vi.waitFor(() => expect(page).toHaveBeenCalledTimes(3));
+    expect(list).toHaveBeenCalledOnce();
+    expect(component.chips()).toEqual([
+      { key: 'resident', label: 'Residente', value: 'Estudante Sintético · TESTE-001' },
+    ]);
+    component.removeFilter('resident');
+    expect(component.residentFilter.value).toBe('');
   });
 });
 

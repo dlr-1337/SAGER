@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
 for (const config of [
@@ -125,3 +126,58 @@ for (const config of [
     }
   });
 }
+
+test('residentes no celular de 320 px: filtros extras recolhidos e foco no título ao paginar', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  const residents = Array.from({ length: 30 }, (_, index) => ({
+    id: `00000000-0000-0000-0000-${String(index + 301).padStart(12, '0')}`,
+    name: `Residente Sintético ${String(index + 1).padStart(2, '0')}`,
+    enrollment: `2026101${String(index + 1).padStart(4, '0')}`,
+    birthDate: '2009-05-14',
+    course: null,
+    version: 0,
+  }));
+  await page.route('**/api/v1/auth/**', (route) =>
+    route.fulfill({
+      json: route.request().url().endsWith('/me')
+        ? {
+            id: '00000000-0000-0000-0000-000000000001',
+            nome: 'Gestor Sintético',
+            matricula: 'TESTE-GESTOR',
+            email: null,
+            fotoUrl: null,
+            perfis: ['gestor'],
+            residenteId: null,
+            supervisorId: null,
+          }
+        : { headerName: 'X-CSRF-TOKEN', token: 'synthetic' },
+    }),
+  );
+  await page.route('**/api/v1/cursos**', (route) => route.fulfill({ json: [] }));
+  await page.route('**/api/v1/quartos/mapa', (route) =>
+    route.fulfill({ json: { accommodations: [], units: [], rooms: [] } }),
+  );
+  await page.route('**/api/v1/residentes**', (route) => {
+    const url = new URL(route.request().url());
+    const offset = Number(url.searchParams.get('offset') ?? 0);
+    return route.fulfill({
+      headers: { 'X-Total-Count': String(residents.length) },
+      json: residents.slice(offset, offset + Number(url.searchParams.get('limit') ?? 30)),
+    });
+  });
+  await page.goto('/residentes');
+  await expect(page.locator('sager-filter-panel details')).not.toHaveAttribute('open');
+  await expect(page.getByRole('searchbox', { name: 'Nome, matrícula ou e-mail' })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Curso', exact: true })).toBeHidden();
+  await expect(page.getByText('30 residentes encontrados', { exact: true })).toBeInViewport();
+  await page.getByRole('button', { name: 'Próxima', exact: true }).click();
+  await expect(page.getByText('26–30 de 30', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Cadastros', exact: true })).toBeFocused();
+  await expect(page.locator('article.mg-row')).toHaveCount(5);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+});

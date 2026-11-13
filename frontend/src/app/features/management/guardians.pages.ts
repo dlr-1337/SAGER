@@ -3,6 +3,7 @@ import { debounceTime, merge } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import { PaginationComponent } from '../../shared/pagination.component';
+import { FilterChip, FilterPanelComponent } from '../../shared/filter-panel.component';
 import { normalizeSearch } from '../../shared/search';
 import { rememberFilters, rememberValue } from '../../core/filter-state';
 import { UnsavedFormDirective } from '../../shared/unsaved-form';
@@ -32,7 +33,13 @@ import { ResidentApiService, ResidentRecord } from './resident-api.service';
 @Component({
   selector: 'app-guardians',
   standalone: true,
-  imports: [SearchableSelectDirective, PaginationComponent, ReactiveFormsModule, RouterLink],
+  imports: [
+    SearchableSelectDirective,
+    PaginationComponent,
+    FilterPanelComponent,
+    ReactiveFormsModule,
+    RouterLink,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page mg-page">
@@ -58,9 +65,14 @@ import { ResidentApiService, ResidentRecord } from './resident-api.service';
           >
         }
       </header>
-      <section class="panel mg-panel" aria-labelledby="guardian-search-title">
-        <h2 id="guardian-search-title">Buscar responsáveis</h2>
-        <label class="field mg-field"
+      <sager-filter-panel
+        heading="Buscar responsáveis"
+        key="guardians"
+        [chips]="chips()"
+        (remove)="removeFilter($event)"
+        (clear)="clearFilters()"
+      >
+        <label filterMain class="field mg-field"
           >Nome do responsável ou residente
           <input
             type="search"
@@ -83,17 +95,13 @@ import { ResidentApiService, ResidentRecord } from './resident-api.service';
             }
           </select></label
         >
-        <button
-          type="button"
-          class="btn mg-secondary"
-          (click)="search.setValue(''); activeFilter.setValue(''); residentFilter.setValue('')"
-        >
-          Limpar filtros
-        </button>
-      </section>
+      </sager-filter-panel>
+      @if (optionsError()) {
+        <p role="alert">{{ optionsError() }}</p>
+      }
       <section class="mg-section" aria-labelledby="guardian-results-title">
         <div class="mg-section-heading">
-          <h2 id="guardian-results-title">Responsáveis cadastrados</h2>
+          <h2 id="guardian-results-title" tabindex="-1">Responsáveis cadastrados</h2>
           <p aria-live="polite">
             {{
               isDemo() && scenario() !== 'padrao' ? 'Cenário demonstrativo' : total() + ' registros'
@@ -128,7 +136,7 @@ import { ResidentApiService, ResidentRecord } from './resident-api.service';
             <button class="btn mg-primary" type="button" (click)="retry()">Tentar novamente</button>
           </div>
         } @else if (
-          (isDemo() && scenario() === 'vazio') || (!filtered().length && !query().trim())
+          (isDemo() && scenario() === 'vazio') || (!filtered().length && !chips().length)
         ) {
           <div class="mg-empty" role="status">
             <h3>Nenhum responsável cadastrado</h3>
@@ -166,13 +174,19 @@ import { ResidentApiService, ResidentRecord } from './resident-api.service';
         } @else {
           <div class="mg-empty" role="status">
             <h3>Nenhum responsável encontrado</h3>
-            <p>Confira a busca ou limpe o campo.</p>
-            <button class="btn mg-secondary" type="button" (click)="search.setValue('')">
-              Limpar busca
+            <p>Confira a busca ou limpe os filtros.</p>
+            <button class="btn mg-secondary" type="button" (click)="clearFilters()">
+              Limpar filtros
             </button>
           </div>
         }
-        <sager-pagination [page]="page()" [total]="total()" (pageChange)="changePage($event)" />
+        <sager-pagination
+          [page]="page()"
+          [total]="total()"
+          [busy]="!isDemo() && loading()"
+          anchor="guardian-results-title"
+          (pageChange)="changePage($event)"
+        />
       </section>
       <div class="mg-note">
         <span class="material-symbols-rounded" aria-hidden="true">info</span>
@@ -206,6 +220,27 @@ export class GuardiansPage {
   readonly residents = signal<ResidentRecord[]>([]);
   readonly loading = signal(false);
   readonly loadError = signal(false);
+  readonly optionsError = signal('');
+  readonly chips = computed<FilterChip[]>(() => {
+    const residentId = this.residentQuery();
+    const resident = this.isDemo()
+      ? this.service.resident(residentId)
+      : this.residents().find((item) => item.id === residentId);
+    const active = this.activeQuery();
+    const chips: [string, string, string][] = [
+      ['search', 'Busca', this.query().trim()],
+      ['active', 'Situação', active && (active === 'true' ? 'Ativo' : 'Inativo')],
+      [
+        'resident',
+        'Residente',
+        residentId &&
+          (resident ? `${resident.name} · ${resident.enrollment}` : 'Residente selecionado'),
+      ],
+    ];
+    return chips
+      .filter(([, , value]) => value)
+      .map(([key, label, value]) => ({ key, label, value }));
+  });
   readonly filtered = computed(() => {
     if (!this.isDemo()) return this.localGuardians();
     const query = normalizeSearch(this.query());
@@ -247,7 +282,35 @@ export class GuardiansPage {
     if (this.isDemo()) {
       const lastPage = Math.max(0, Math.ceil(this.filtered().length / 25) - 1);
       this.page.update((page) => Math.max(0, Math.min(page, lastPage)));
-    } else void this.load();
+    } else {
+      void this.loadResidents();
+      void this.load();
+    }
+  }
+
+  removeFilter(key: string): void {
+    if (key === 'search') this.search.setValue('');
+    if (key === 'active') this.activeFilter.setValue('');
+    if (key === 'resident') this.residentFilter.setValue('');
+  }
+
+  clearFilters(): void {
+    this.search.setValue('');
+    this.activeFilter.setValue('');
+    this.residentFilter.setValue('');
+  }
+
+  // Os residentes saem uma vez, separados da lista: mudar filtro ou página não os pede de novo.
+  private async loadResidents(): Promise<void> {
+    try {
+      const residents = await this.residentApi.list();
+      if (!this.destroyRef.destroyed) this.residents.set(residents);
+    } catch {
+      if (!this.destroyRef.destroyed)
+        this.optionsError.set(
+          'Não foi possível carregar a lista de residentes. Recarregue a página para tentar novamente.',
+        );
+    }
   }
 
   residentName(id: string): string {
@@ -278,28 +341,23 @@ export class GuardiansPage {
     this.loading.set(true);
     this.loadError.set(false);
     try {
-      const [guardians, residents] = await Promise.all([
-        this.api.page({
-          search: this.search.value,
-          active: this.activeFilter.value,
-          residentId: this.residentFilter.value,
-          limit: '25',
-          offset: String(this.page() * 25),
-        }),
-        this.residentApi.list(),
-      ]);
+      const guardians = await this.api.page({
+        search: this.search.value,
+        active: this.activeFilter.value,
+        residentId: this.residentFilter.value,
+        limit: '25',
+        offset: String(this.page() * 25),
+      });
       if (this.destroyRef.destroyed) return;
       if (generation !== this.generation) return;
       this.localGuardians.set(guardians.items);
       this.remoteTotal.set(guardians.total);
-      this.residents.set(residents);
       if (this.page() && this.page() * 25 >= guardians.total) {
         this.changePage(Math.max(0, Math.ceil(guardians.total / 25) - 1));
       }
     } catch {
       if (this.destroyRef.destroyed || generation !== this.generation) return;
       this.localGuardians.set([]);
-      this.residents.set([]);
       this.loadError.set(true);
     } finally {
       if (!this.destroyRef.destroyed && generation === this.generation) this.loading.set(false);
