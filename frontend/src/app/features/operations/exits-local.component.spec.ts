@@ -22,7 +22,6 @@ const room = (id: string, code: string, accommodationId: string, unitId: string 
   situation: 'Ocupado' as const,
   occupancy: 1,
   vacancies: 3,
-  cleaningScore: null,
   version: 0,
 });
 const housing: HousingMap = {

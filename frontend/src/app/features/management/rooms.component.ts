@@ -26,7 +26,6 @@ interface MapRoom {
   occupancy: number | null;
   vacancies: number | null;
   occupancyLabel: string;
-  cleaningLabel: string;
 }
 
 interface RoomGroup {
@@ -274,8 +273,7 @@ interface RoomGroup {
                         @if (!isDemo()) {
                           {{ capacityLabel(room.capacity) }}<br />
                         }
-                        {{ room.occupancyLabel }}<br />{{ isDemo() ? 'Limpeza: ' : ''
-                        }}{{ room.cleaningLabel }}</span
+                        {{ room.occupancyLabel }}</span
                       >
                     </a>
                   }
@@ -366,10 +364,6 @@ export class RoomsComponent {
         occupancy: null,
         vacancies: null,
         occupancyLabel: this.demo.occupancyLabel(item.id),
-        cleaningLabel:
-          item.cleaningScore === null
-            ? 'sem avaliação'
-            : `nota ${item.cleaningScore.toLocaleString('pt-BR')}`,
       }));
     const map = this.localMap();
     return map.rooms.map((item) => ({
@@ -378,7 +372,6 @@ export class RoomsComponent {
         map.accommodations.find((value) => value.id === item.accommodationId)?.name ?? '',
       unitName: map.units.find((value) => value.id === item.unitId)?.name ?? null,
       occupancyLabel: `${item.occupancy} ${item.occupancy === 1 ? 'morador' : 'moradores'}${item.vacancies === null ? ' · vagas não definidas' : ` · ${item.vacancies} ${item.vacancies === 1 ? 'vaga livre' : 'vagas livres'}`}`,
-      cleaningLabel: 'Sem avaliação',
     }));
   });
   readonly blocks = computed(() =>
@@ -485,7 +478,7 @@ export class RoomsComponent {
       : `Capacidade: ${capacity} ${capacity === 1 ? 'vaga' : 'vagas'}`;
   }
   roomLabel(room: MapRoom): string {
-    return `Quarto ${room.number}, ${room.code ? `código ${room.code}, ` : ''}${room.accommodationName}${room.unitName ? `, ${room.unitName}` : ''}, ${room.floor ?? 'piso não informado'}, ${room.situation}, ${!this.isDemo() ? `${this.capacityLabel(room.capacity)}, ` : ''}${room.occupancyLabel}, ${room.cleaningLabel}`;
+    return `Quarto ${room.number}, ${room.code ? `código ${room.code}, ` : ''}${room.accommodationName}${room.unitName ? `, ${room.unitName}` : ''}, ${room.floor ?? 'piso não informado'}, ${room.situation}, ${!this.isDemo() ? `${this.capacityLabel(room.capacity)}, ` : ''}${room.occupancyLabel}`;
   }
   clearFilters(): void {
     this.page.set(0);

@@ -39,7 +39,6 @@ const room = {
   situation: 'Ocupado',
   occupancy: 1,
   vacancies: 1,
-  cleaningScore: null,
   version: 0,
 };
 const criteria: CleaningCriteria = { PISO: 6, SUPERFICIES: 6, RESIDUOS: 6, ORGANIZACAO: 6 };

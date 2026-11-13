@@ -79,6 +79,6 @@ public class RoomRepository {
                 result.getString("number"), result.getObject("accommodation_id", UUID.class),
                 result.getObject("unit_id", UUID.class), result.getString("floor"),
                 capacity, result.getString("situation"), occupancy,
-                capacity == null ? null : capacity - occupancy, null, result.getLong("version"));
+                capacity == null ? null : capacity - occupancy, result.getLong("version"));
     }
 }

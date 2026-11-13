@@ -40,7 +40,6 @@ export interface RoomRecord {
   situation: RoomSituation;
   occupancy: number;
   vacancies: number | null;
-  cleaningScore: null;
   version: number;
 }
 

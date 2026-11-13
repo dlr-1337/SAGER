@@ -24,7 +24,6 @@ const room: RoomRecord = {
   situation: 'Disponível',
   occupancy: 0,
   vacancies: null,
-  cleaningScore: null,
   version: 0,
 };
 const map: HousingMap = {
@@ -63,7 +62,6 @@ describe('Quartos em sessão local', () => {
   };
   let api: {
     map: ReturnType<typeof vi.fn>;
-    get: ReturnType<typeof vi.fn>;
     save: ReturnType<typeof vi.fn>;
   };
   let allocationApi: { activeInRoom: ReturnType<typeof vi.fn> };
@@ -79,7 +77,6 @@ describe('Quartos em sessão local', () => {
     route.snapshot.queryParamMap = convertToParamMap({});
     api = {
       map: vi.fn().mockResolvedValue(structuredClone(map)),
-      get: vi.fn().mockResolvedValue(structuredClone(room)),
       save: vi.fn().mockResolvedValue(structuredClone(room)),
     };
     allocationApi = { activeInRoom: vi.fn().mockResolvedValue([]) };
@@ -115,7 +112,7 @@ describe('Quartos em sessão local', () => {
     expect(text).toContain('Capacidade não definida');
     expect(text).toContain('0 moradores');
     expect(text).toContain('4 vagas livres');
-    expect(text).toContain('Sem avaliação');
+    expect(text).not.toContain('Sem avaliação');
     expect(text).not.toContain('Bloco A');
     expect(fixture.componentInstance.groups()).toHaveLength(2);
     expect(fixture.componentInstance.totals()).toEqual({
@@ -201,7 +198,18 @@ describe('Quartos em sessão local', () => {
     const fixture = TestBed.createComponent(RoomDetailComponent);
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Ana Luísa Ribeiro');
-    expect(api.get).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).not.toContain('Última nota de limpeza');
+    expect(api.map).not.toHaveBeenCalled();
+  });
+
+  it('demonstração não mostra nota de limpeza nos cartões dos quartos', () => {
+    active.set(true);
+    const fixture = TestBed.createComponent(RoomsComponent);
+    fixture.detectChanges();
+    const grid = fixture.nativeElement.querySelector('.mg-room-grid') as HTMLElement;
+    expect(grid.textContent).toContain('Quarto 102');
+    expect(grid.textContent).not.toContain('Limpeza:');
+    expect(grid.textContent).not.toContain('nota');
     expect(api.map).not.toHaveBeenCalled();
   });
 
@@ -264,6 +272,7 @@ describe('Quartos em sessão local', () => {
     expect(fixture.nativeElement.textContent).toContain('Morador Sintético');
     expect(fixture.nativeElement.textContent).toContain('Entrou em 29/09/2026');
     expect(fixture.nativeElement.textContent).not.toContain('saída prevista');
+    expect(fixture.nativeElement.textContent).not.toContain('Última nota de limpeza');
     expect(allocationApi.activeInRoom).toHaveBeenCalledWith(room.id);
     expect(residentApi.page).toHaveBeenCalledWith({ roomId: room.id });
   });
@@ -330,8 +339,6 @@ describe('Quartos em sessão local', () => {
       ],
       rooms: [movedRoom],
     });
-    api.get.mockResolvedValue({ ...room, version: 0 });
-
     const detail = TestBed.createComponent(RoomDetailComponent);
     await detail.whenStable();
     detail.detectChanges();
@@ -349,7 +356,6 @@ describe('Quartos em sessão local', () => {
       expect.objectContaining({ unitId: 'unidade-2', capacity: 6 }),
       { id: room.id, version: 1 },
     );
-    expect(api.get).not.toHaveBeenCalled();
   });
 
   it('supervisor acessa mapa e formulário de quarto', async () => {

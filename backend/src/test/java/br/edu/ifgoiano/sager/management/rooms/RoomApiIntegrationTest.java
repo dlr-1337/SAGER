@@ -98,8 +98,8 @@ class RoomApiIntegrationTest {
             assertThat(value.path("accommodationId").asText()).isEqualTo(accommodation);
             assertThat(value.path("situation").asText()).isEqualTo("Disponível");
             assertThat(value.path("version").asLong()).isZero();
-            assertThat(value.size()).isEqualTo(12);
-            for (String field : new String[] { "unitId", "floor", "capacity", "vacancies", "cleaningScore" }) {
+            assertThat(value.size()).isEqualTo(11);
+            for (String field : new String[] { "unitId", "floor", "capacity", "vacancies" }) {
                 assertThat(value.path(field).isNull()).as(field).isTrue();
             }
             assertThat(value.path("occupancy").asInt()).isZero();
@@ -288,7 +288,7 @@ class RoomApiIntegrationTest {
             assertThat(value.path("capacity").isNull()).isTrue();
             assertThat(value.path("occupancy").asInt()).isZero();
             assertThat(value.path("vacancies").isNull()).isTrue();
-            assertThat(value.path("cleaningScore").isNull()).isTrue();
+            assertThat(value.has("cleaningScore")).isFalse();
         }
     }
 

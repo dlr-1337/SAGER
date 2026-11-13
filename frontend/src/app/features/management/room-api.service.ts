@@ -1,5 +1,4 @@
 import { ERROR_FORBIDDEN, ERROR_GENERIC, ERROR_SESSION } from '../../core/error-messages';
-import { readArrayPage } from '../../core/list-page';
 import { Injectable } from '@angular/core';
 import { api, cached } from '../../core/api';
 import {
@@ -63,7 +62,6 @@ function isRoom(value: unknown): value is RoomRecord {
     (item.capacity === null
       ? item.vacancies === null
       : item.vacancies === Math.max(0, Number(item.capacity) - Number(item.occupancy))) &&
-    item.cleaningScore === null &&
     Number.isInteger(item.version) &&
     (item.version ?? -1) >= 0
   );
@@ -71,32 +69,6 @@ function isRoom(value: unknown): value is RoomRecord {
 
 @Injectable({ providedIn: 'root' })
 export class RoomApiService {
-  async page(
-    params: Record<string, string>,
-    signal?: AbortSignal,
-  ): Promise<{ items: RoomRecord[]; total: number }> {
-    return readArrayPage(
-      baseUrl,
-      params,
-      isRoom,
-      (response) => this.responseError(response),
-      signal,
-    );
-  }
-  async list(): Promise<RoomRecord[]> {
-    const value = await this.read(baseUrl);
-    if (!Array.isArray(value) || !value.every(isRoom)) {
-      throw new Error('A lista de quartos recebida é inválida.');
-    }
-    return value;
-  }
-
-  async get(id: string): Promise<RoomRecord> {
-    const value = await this.read(`${baseUrl}/${encodeURIComponent(id)}`);
-    if (!isRoom(value)) throw new Error('O quarto recebido é inválido.');
-    return value;
-  }
-
   /** Mapa em cópia de 60 s compartilhada pelas telas; não altere o objeto devolvido. */
   map(): Promise<HousingMap> {
     return cached('quartos/mapa', () => this.fetchMap());

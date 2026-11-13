@@ -12,7 +12,6 @@ interface RoomRecord {
   situation: string;
   occupancy: number;
   vacancies: number | null;
-  cleaningScore: null;
   version: number;
 }
 
@@ -37,7 +36,6 @@ const original: RoomRecord = {
   situation: 'Disponível',
   occupancy: 0,
   vacancies: null,
-  cleaningScore: null,
   version: 0,
 };
 
@@ -113,7 +111,6 @@ async function mockRooms(context: BrowserContext, records: RoomRecord[]) {
       id: `00000000-0000-0000-0000-${(records.length + 310).toString().padStart(12, '0')}`,
       occupancy: 0,
       vacancies: body['capacity'] === null ? null : body['capacity'],
-      cleaningScore: null,
       version: 0,
     } as RoomRecord;
     records.push(record);

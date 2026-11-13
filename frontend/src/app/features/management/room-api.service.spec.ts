@@ -15,7 +15,6 @@ const room: RoomRecord = {
   situation: 'Disponível',
   occupancy: 0,
   vacancies: null,
-  cleaningScore: null,
   version: 0,
 };
 const input: RoomRecordInput = {
@@ -147,11 +146,21 @@ describe('RoomApiService', () => {
     { ...room, number: 1 },
     { ...room, version: -1 },
   ])('rejeita contrato inválido sem sucesso falso: %j', async (record) => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(record))));
-    await expect(TestBed.inject(RoomApiService).get(room.id)).rejects.toThrow(
-      'O quarto recebido é inválido.',
+    const invalid = { ...map, rooms: [record] };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(invalid))));
+    await expect(TestBed.inject(RoomApiService).map()).rejects.toThrow(
+      'O mapa recebido é inválido.',
     );
   });
+
+  it.each([[{}], [{ cleaningScore: null }]])(
+    'aceita quarto com e sem cleaningScore: %j',
+    async (extra) => {
+      const withExtra = { ...map, rooms: [{ ...room, ...extra }] };
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(withExtra))));
+      expect((await TestBed.inject(RoomApiService).map()).rooms[0].id).toBe(room.id);
+    },
+  );
 
   it('rejeita mapa com unidade pertencente a outro alojamento', async () => {
     vi.stubGlobal(

@@ -62,7 +62,6 @@ const map: HousingMap = {
     situation: 'Disponível',
     occupancy: index,
     vacancies: 2 - index,
-    cleaningScore: null,
     version: 0,
   })),
 };

@@ -49,7 +49,6 @@ async function mockLocal(
     floor: null,
     capacity: 1,
     situation: 'Disponível',
-    cleaningScore: null,
     version: 0,
     get occupancy() {
       return allocations.filter((item) => item.roomId === id && item.endedAt === null).length;

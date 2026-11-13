@@ -202,7 +202,6 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
           situation: 'Ocupado',
           occupancy: 1,
           vacancies: 3,
-          cleaningScore: null,
           version: 0,
         });
         return ok({

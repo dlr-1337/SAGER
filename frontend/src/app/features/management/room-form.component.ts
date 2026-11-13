@@ -138,8 +138,8 @@ import { RoomApiError, RoomApiService, roomLoadError } from './room-api.service'
             <div class="mg-note">
               <span class="material-symbols-rounded" aria-hidden="true">info</span>
               <p>
-                O número precisa ser único em toda a demonstração. A ocupação e a nota de limpeza
-                são mostradas no mapa e não são alteradas neste formulário.
+                O número precisa ser único em toda a demonstração. A ocupação é mostrada no mapa e
+                não é alterada neste formulário.
               </p>
             </div>
             @if (error()) {

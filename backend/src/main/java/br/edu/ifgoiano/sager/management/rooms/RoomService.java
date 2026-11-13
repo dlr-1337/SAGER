@@ -2,7 +2,6 @@ package br.edu.ifgoiano.sager.management.rooms;
 
 import java.sql.SQLException;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -37,10 +36,6 @@ public class RoomService {
 
     public br.edu.ifgoiano.sager.management.ManagementSearch.Page<RoomRecord> list(java.util.Map<String,String> params) {
         return repository.search(params);
-    }
-
-    public List<RoomRecord> list() {
-        return repository.findAll();
     }
 
     public RoomRecord get(UUID id) {
