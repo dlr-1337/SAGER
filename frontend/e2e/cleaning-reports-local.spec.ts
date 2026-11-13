@@ -209,6 +209,7 @@ interface State {
   failResidents: boolean;
   leakRanking: boolean;
   paged: boolean;
+  rankingRooms: number;
   jobs: Map<string, ReportExport>;
   writes: { path: string; body: Record<string, any>; csrf: string | undefined }[];
   gets: string[];
@@ -232,6 +233,7 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
     failResidents: false,
     leakRanking: false,
     paged: false,
+    rankingRooms: 0,
     jobs: new Map(),
     writes: [],
     gets: [],
@@ -301,47 +303,63 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
         return ok({ items: state.exists ? [ownAssessment(state.item)] : [], nextCursor: null });
       if (path === '/limpeza/avaliacoes/' + assessmentId) return ok(state.item);
       if (path === '/me/limpeza/avaliacoes/' + assessmentId) return ok(ownAssessment(state.item));
-      if (path === '/limpeza/ranking')
+      if (path === '/limpeza/ranking') {
+        const resident = state.role === 'residente';
+        const items = [
+          {
+            roomId,
+            roomCode: room.code,
+            mean: 6,
+            position: 1,
+            assessmentCount: 1,
+            own: state.role === 'residente',
+          },
+          {
+            roomId: state.role === 'residente' ? null : uuid(112),
+            roomCode: 'T-102',
+            mean: state.role === 'residente' && !state.leakRanking ? null : 6,
+            position: 1,
+            assessmentCount: state.role === 'residente' ? null : 1,
+            own: false,
+          },
+          {
+            roomId: state.role === 'residente' ? null : uuid(113),
+            roomCode: 'T-103',
+            mean: state.role === 'residente' ? null : 4,
+            position: 3,
+            assessmentCount: state.role === 'residente' ? null : 1,
+            own: false,
+          },
+          {
+            roomId: state.role === 'residente' ? null : uuid(114),
+            roomCode: 'T-104',
+            mean: null,
+            position: null,
+            assessmentCount: state.role === 'residente' ? null : 0,
+            own: false,
+          },
+        ];
+        // Com quartos extras, o quarto do residente vai para o fim da lista (página 2).
+        if (state.rankingRooms)
+          items.push(
+            ...Array.from({ length: state.rankingRooms }, (_, i) => ({
+              roomId: resident ? null : uuid(200 + i),
+              roomCode: `T-${200 + i}`,
+              mean: resident ? null : 5,
+              position: 4 + i,
+              assessmentCount: resident ? null : 1,
+              own: false,
+            })),
+            { ...items.shift()!, position: 4 + state.rankingRooms },
+          );
         return ok({
           period: url.searchParams.get('period'),
           referenceDate: url.searchParams.get('referenceDate'),
           from: '2026-09-01',
           to: '2026-09-30',
-          items: [
-            {
-              roomId,
-              roomCode: room.code,
-              mean: 6,
-              position: 1,
-              assessmentCount: 1,
-              own: state.role === 'residente',
-            },
-            {
-              roomId: state.role === 'residente' ? null : uuid(112),
-              roomCode: 'T-102',
-              mean: state.role === 'residente' && !state.leakRanking ? null : 6,
-              position: 1,
-              assessmentCount: state.role === 'residente' ? null : 1,
-              own: false,
-            },
-            {
-              roomId: state.role === 'residente' ? null : uuid(113),
-              roomCode: 'T-103',
-              mean: state.role === 'residente' ? null : 4,
-              position: 3,
-              assessmentCount: state.role === 'residente' ? null : 1,
-              own: false,
-            },
-            {
-              roomId: state.role === 'residente' ? null : uuid(114),
-              roomCode: 'T-104',
-              mean: null,
-              position: null,
-              assessmentCount: state.role === 'residente' ? null : 0,
-              own: false,
-            },
-          ],
+          items,
         });
+      }
       if (path === '/limpeza/indicadores')
         return ok([
           { month: '2026-08', unjustifiedAbsences: 0, confirmedLateReturns: 2, activeWarnings: 1 },
@@ -754,6 +772,31 @@ test('ranking usa posições e nulos do servidor, empates 1 1 3 e período expl�
   ).toBeVisible();
   await expect(page.getByText('Fórmula pendente da AE')).toHaveCount(0);
   await expect(page.getByText('db-password-secret')).toHaveCount(0);
+});
+test('ranking mostra 25 quartos por página e repete o quarto do residente no topo', async ({
+  page,
+}) => {
+  const state = await mockApi(page, { role: 'gestor', rankingRooms: 26 });
+  await page.goto('/ranking');
+  const ranks = page.getByLabel('Posições dos quartos').locator('article.cleaning-rank');
+  await expect(ranks).toHaveCount(25);
+  await expect(page.getByText('1–25 de 30', { exact: true })).toBeVisible();
+  await expect(page.getByText('Seu quarto neste período')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Próxima', exact: true }).click();
+  await expect(page.getByText('26–30 de 30', { exact: true })).toBeVisible();
+  await expect(ranks).toHaveCount(5);
+  await expect(ranks.last()).toContainText('Quarto T-101');
+  await expect(page.getByRole('heading', { name: 'Mês · 01/09/2026 a 30/09/2026' })).toBeFocused();
+  state.role = 'residente';
+  await page.goto('/ranking');
+  const own = page.getByRole('region', { name: 'Seu quarto neste período' });
+  await expect(own.locator('article.cleaning-rank')).toHaveCount(1);
+  await expect(own).toContainText('Quarto T-101');
+  await expect(own).toContainText('30º');
+  await expect(own.locator('.cleaning-score')).toHaveText('6,00');
+  await expect(ranks.first()).toContainText('Quarto T-102');
+  await expect(page.getByText('1–25 de 30', { exact: true })).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });
 const ready = (state: State) => {
   for (const job of state.jobs.values()) {

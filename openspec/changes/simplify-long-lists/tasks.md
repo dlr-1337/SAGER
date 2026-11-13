@@ -15,7 +15,7 @@
 
 ## 3. Ranking
 
-- [ ] 3.1 Em `RankingLocalPage` (`frontend/src/app/features/cleaning/cleaning-local.pages.ts`), paginar `result.items` no cliente, com `sager-pagination [total]` de 25 e `anchor` no título do período, e repetir as linhas `own` num bloco "Seu quarto neste período" acima da lista. "Ver período" continua (D6). A troca para `app-ranking` com a demonstração ativa fica igual, e `operations/ranking.component.ts` não muda. Verificar no teste de ranking de `frontend/e2e/cleaning-reports-local.spec.ts` (698), ampliado para 30 quartos com o do residente na página 2: linha própria no topo, "1–25 de 30" para o gestor, e Próxima mostrando 26–30. Comandos: `npx playwright test cleaning-reports-local` e `npm test -- --watch=false`.
+- [x] 3.1 Em `RankingLocalPage` (`frontend/src/app/features/cleaning/cleaning-local.pages.ts`), paginar `result.items` no cliente, com `sager-pagination [total]` de 25 e `anchor` no título do período, e repetir as linhas `own` num bloco "Seu quarto neste período" acima da lista. "Ver período" continua (D6). A troca para `app-ranking` com a demonstração ativa fica igual, e `operations/ranking.component.ts` não muda. Verificar no teste de ranking de `frontend/e2e/cleaning-reports-local.spec.ts` (698), ampliado para 30 quartos com o do residente na página 2: linha própria no topo, "1–25 de 30" para o gestor, e Próxima mostrando 26–30. Comandos: `npx playwright test cleaning-reports-local` e `npm test -- --watch=false`.
 
 ## 4. Comunicações
 

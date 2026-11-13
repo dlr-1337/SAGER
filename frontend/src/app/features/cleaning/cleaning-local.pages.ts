@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import { rememberFilters } from '../../core/filter-state';
 import { cursorPages } from '../../core/list-page';
@@ -560,6 +561,8 @@ export class RankingPage {
     RouterLink,
     ReactiveFormsModule,
     CommunicationsStateComponent,
+    NgTemplateOutlet,
+    PaginationComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -595,7 +598,7 @@ export class RankingPage {
             <p class="comm-error" role="alert">{{ filterError() }}</p>
           }
           @if (ranking(); as result) {
-            <h3>
+            <h3 id="ranking-period-title" tabindex="-1">
               {{ periods[result.period] }} · {{ civil(result.from) }} a {{ civil(result.to) }}
             </h3>
             <p class="comm-help">
@@ -608,37 +611,54 @@ export class RankingPage {
                 quarto em uma avaliação deste período.
               </p>
             }
+            <ng-template #rankRow let-row>
+              <article class="cleaning-rank">
+                <strong>{{ row.position === null ? 'Sem posição' : row.position + 'º' }}</strong>
+                <div>
+                  <strong>Quarto {{ row.roomCode }}</strong>
+                  @if (row.own) {
+                    <p>Sua participação registrada neste período</p>
+                  }
+                </div>
+                <div>
+                  @if (!session.hasRole('residente') || row.own) {
+                    <span class="cleaning-score">{{ decimal(row.mean) }}</span>
+                    <p>
+                      {{
+                        row.assessmentCount === 0
+                          ? 'Sem avaliações no período'
+                          : row.assessmentCount === 1
+                            ? '1 avaliação'
+                            : row.assessmentCount + ' avaliações'
+                      }}
+                    </p>
+                  } @else {
+                    <span>Nota privada do quarto</span>
+                  }
+                </div>
+              </article>
+            </ng-template>
+            @if (ownRows().length) {
+              <section class="cleaning-own" aria-labelledby="ranking-own-title">
+                <h4 id="ranking-own-title">Seu quarto neste período</h4>
+                @for (row of ownRows(); track row.roomCode) {
+                  <ng-container *ngTemplateOutlet="rankRow; context: { $implicit: row }" />
+                }
+              </section>
+            }
             <div aria-label="Posições dos quartos">
-              @for (row of result.items; track row.roomCode) {
-                <article class="cleaning-rank">
-                  <strong>{{ row.position === null ? 'Sem posição' : row.position + 'º' }}</strong>
-                  <div>
-                    <strong>Quarto {{ row.roomCode }}</strong>
-                    @if (row.own) {
-                      <p>Sua participação registrada neste período</p>
-                    }
-                  </div>
-                  <div>
-                    @if (!session.hasRole('residente') || row.own) {
-                      <span class="cleaning-score">{{ decimal(row.mean) }}</span>
-                      <p>
-                        {{
-                          row.assessmentCount === 0
-                            ? 'Sem avaliações no período'
-                            : row.assessmentCount === 1
-                              ? '1 avaliação'
-                              : row.assessmentCount + ' avaliações'
-                        }}
-                      </p>
-                    } @else {
-                      <span>Nota privada do quarto</span>
-                    }
-                  </div>
-                </article>
+              @for (row of pageRows(); track row.roomCode) {
+                <ng-container *ngTemplateOutlet="rankRow; context: { $implicit: row }" />
               } @empty {
                 <p>Nenhum quarto disponível neste período.</p>
               }
             </div>
+            <sager-pagination
+              [page]="rankingPage()"
+              [total]="result.items.length"
+              anchor="ranking-period-title"
+              (pageChange)="rankingPage.set($event)"
+            />
           }
         </section>
         <nav class="comm-links" aria-label="Avaliações">
@@ -662,6 +682,14 @@ export class RankingLocalPage {
     }),
   });
   readonly ranking = signal<CleaningRanking | null>(null);
+  readonly rankingPage = signal(0);
+  readonly pageRows = computed(() =>
+    (this.ranking()?.items ?? []).slice(this.rankingPage() * 25, (this.rankingPage() + 1) * 25),
+  );
+  // O residente vê a linha do próprio quarto no topo, em qualquer página.
+  readonly ownRows = computed(() =>
+    this.session.hasRole('residente') ? (this.ranking()?.items ?? []).filter((row) => row.own) : [],
+  );
   readonly policy = signal<CleaningPolicy | null>(null);
   readonly loading = signal(false);
   readonly error = signal('');
@@ -699,6 +727,7 @@ export class RankingLocalPage {
       );
       this.policy.set(policy);
       this.form.controls.referenceDate.setValue(referenceDate);
+      this.rankingPage.set(0);
       this.ranking.set(ranking);
     } catch (error) {
       this.ranking.set(null);
