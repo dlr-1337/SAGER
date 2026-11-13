@@ -67,6 +67,28 @@ const map: HousingMap = {
   })),
 };
 
+const ageMap: HousingMap = {
+  accommodations: [
+    { id: 'am', code: 'AM', name: 'Residência Menores', ageGroup: 'MENORES', version: 0 },
+    { id: 'aM', code: 'AX', name: 'Residência Maiores', ageGroup: 'MAIORES', version: 0 },
+    { id: 'a0', code: 'A0', name: 'Residência Livre', version: 0 },
+  ],
+  units: [],
+  rooms: ['am', 'aM', 'a0'].map((accommodationId, index) => ({
+    ...map.rooms[0],
+    id: `q-${accommodationId}`,
+    code: `QF${index}`,
+    number: `F${index}`,
+    accommodationId,
+    occupancy: 0,
+    vacancies: 2,
+  })),
+};
+
+function bornYearsAgo(years: number): string {
+  return `${Number(civilToday().slice(0, 4)) - years}-01-01`;
+}
+
 describe('Residentes em sessão local', () => {
   const active = signal(false);
   const role = signal<Role>('gestor');
@@ -312,6 +334,60 @@ describe('Residentes em sessão local', () => {
     expect(fixture.nativeElement.textContent).toContain('Térreo');
     expect(fixture.nativeElement.textContent).toContain('Q2');
     expect(fixture.nativeElement.textContent).toContain('1º piso');
+  });
+
+  it.each([
+    [15, ['q-am', 'q-a0'], false],
+    [19, ['q-aM', 'q-a0'], false],
+    [null, ['q-a0'], true],
+  ])(
+    'residente de %s anos vê só os quartos da sua faixa e os sem faixa',
+    async (age, rooms, note) => {
+      route.snapshot.paramMap = convertToParamMap({ id: resident.id });
+      api.get.mockResolvedValue({
+        ...structuredClone(resident),
+        birthDate: age === null ? null : bornYearsAgo(age),
+      });
+      roomApi.map.mockResolvedValue(structuredClone(ageMap));
+      const fixture = TestBed.createComponent(ResidentDetailComponent);
+      await fixture.whenStable();
+      fixture.detectChanges();
+      const offered = [...fixture.nativeElement.querySelectorAll('select option')]
+        .map((option: HTMLOptionElement) => option.value)
+        .filter(Boolean);
+      expect(offered).toEqual(rooms);
+      expect(
+        fixture.nativeElement.textContent.includes('Informe a data de nascimento para ver'),
+      ).toBe(note);
+    },
+  );
+
+  it('morador que fez 18 anos num quarto de menores vê o quarto atual, mas não como opção', async () => {
+    route.snapshot.paramMap = convertToParamMap({ id: resident.id });
+    api.get.mockResolvedValue({ ...structuredClone(resident), birthDate: bornYearsAgo(18) });
+    roomApi.map.mockResolvedValue(structuredClone(ageMap));
+    allocationApi.byResident.mockResolvedValue([
+      { ...structuredClone(allocation), roomId: 'q-am' },
+    ]);
+    const fixture = TestBed.createComponent(ResidentDetailComponent);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain(
+      'Quarto F0 (código QF0) · Residência Menores',
+    );
+    expect(fixture.nativeElement.querySelector('option[value="q-am"]')).toBeNull();
+  });
+
+  it('recusa de faixa etária na alocação mostra o motivo, sem sucesso', async () => {
+    route.snapshot.paramMap = convertToParamMap({ id: resident.id });
+    allocationApi.create.mockRejectedValue(new AllocationApiError(409, 'age_group_mismatch'));
+    const fixture = TestBed.createComponent(ResidentDetailComponent);
+    await fixture.whenStable();
+    fixture.componentInstance.selectedRoom.setValue(roomId);
+    await fixture.componentInstance.saveAllocation();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Este quarto é de outra faixa etária.');
+    expect(fixture.componentInstance.activeAllocation()).toBeNull();
   });
 
   it('mostra no histórico o vínculo encerrado pela conclusão do curso', async () => {

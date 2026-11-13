@@ -87,6 +87,15 @@ describe('AllocationApiService', () => {
     );
   });
 
+  it('explica as recusas de faixa etária', () => {
+    expect(allocationErrorMessage(new AllocationApiError(409, 'age_group_mismatch'))).toBe(
+      'Este quarto é de outra faixa etária. Escolha um quarto da faixa do residente.',
+    );
+    expect(allocationErrorMessage(new AllocationApiError(409, 'birth_date_required'))).toBe(
+      'Informe a data de nascimento do residente antes de colocá-lo neste quarto.',
+    );
+  });
+
   it('não envia gravação quando CSRF é recusado', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response('Negado', { status: 403 }));
     vi.stubGlobal('fetch', fetchMock);

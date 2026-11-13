@@ -2,6 +2,7 @@ import { ERROR_GENERIC } from '../../core/error-messages';
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import { UnsavedFormDirective, UnsavedForms } from '../../shared/unsaved-form';
 import {
+  civilToday,
   fieldRule,
   nameProblem,
   phoneMask,
@@ -221,7 +222,7 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
                         >{{ activeAllocation() ? 'Mudar para' : 'Colocar no quarto' }}
                         <select sagerSearchable [formControl]="selectedRoom" required>
                           <option value="">Selecione um quarto</option>
-                          @for (room of allocationMap().rooms; track room.id) {
+                          @for (room of roomOptions(); track room.id) {
                             <option
                               [value]="room.id"
                               [disabled]="
@@ -233,6 +234,11 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
                           }
                         </select>
                       </label>
+                      @if (needsBirthDate()) {
+                        <p class="mg-muted">
+                          Informe a data de nascimento para ver os quartos com faixa etária.
+                        </p>
+                      }
                       <div class="action-row mg-actions">
                         <button
                           type="submit"
@@ -790,6 +796,27 @@ export class ResidentDetailComponent {
   readonly allocationSaving = signal(false);
   readonly confirmEnd = signal(false);
   readonly selectedRoom = new FormControl('', { nonNullable: true });
+  /** Quartos sem faixa, mais os da faixa do residente; o servidor confere de novo. */
+  readonly roomOptions = computed(() => {
+    const map = this.allocationMap();
+    const birth = this.localResident()?.birthDate;
+    const [year, month, day] = civilToday().split('-').map(Number);
+    const group = birth
+      ? ageFromBirthDate(birth, new Date(year, month - 1, day)) < 18
+        ? 'MENORES'
+        : 'MAIORES'
+      : null;
+    const groups = new Map(map.accommodations.map((item) => [item.id, item.ageGroup ?? null]));
+    return map.rooms.filter((room) => {
+      const roomGroup = groups.get(room.accommodationId) ?? null;
+      return roomGroup === null || roomGroup === group;
+    });
+  });
+  readonly needsBirthDate = computed(
+    () =>
+      !this.localResident()?.birthDate &&
+      this.allocationMap().accommodations.some((item) => item.ageGroup),
+  );
   readonly activeAllocation = computed(
     () => this.allocations().find((item) => item.endedAt === null) ?? null,
   );

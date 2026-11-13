@@ -23,14 +23,28 @@ type Allocation = {
   version: number;
 };
 
-async function mockLocal(context: BrowserContext, role: 'gestor' | 'supervisor' = 'gestor') {
+// Com faixas: o residente tem 15 anos, o 1º quarto é de menores e o 2º, de maiores.
+async function mockLocal(
+  context: BrowserContext,
+  role: 'gestor' | 'supervisor' = 'gestor',
+  ageGroups = false,
+) {
+  const subject = ageGroups
+    ? { ...resident, birthDate: `${new Date().getFullYear() - 15}-01-01` }
+    : resident;
+  const accommodations = ageGroups
+    ? [
+        { ...accommodation, ageGroup: 'MENORES' },
+        { id: 'a2', code: 'A2', name: 'Alojamento Maiores', ageGroup: 'MAIORES', version: 0 },
+      ]
+    : [accommodation];
   const allocations: Allocation[] = [];
   const writes: { path: string; csrf: string | undefined; body: Record<string, unknown> }[] = [];
   const rooms = [firstRoomId, secondRoomId].map((id, index) => ({
     id,
     code: `TESTE-Q0${index + 1}`,
     number: `0${index + 1}`,
-    accommodationId: accommodation.id,
+    accommodationId: ageGroups && index === 1 ? 'a2' : accommodation.id,
     unitId: null,
     floor: null,
     capacity: 1,
@@ -65,13 +79,13 @@ async function mockLocal(context: BrowserContext, role: 'gestor' | 'supervisor' 
   });
   await context.route('**/api/v1/residentes**', (route) => {
     const path = new URL(route.request().url()).pathname;
-    return route.fulfill({ json: path.endsWith('/residentes') ? [resident] : resident });
+    return route.fulfill({ json: path.endsWith('/residentes') ? [subject] : subject });
   });
   await context.route('**/api/v1/responsaveis**', (route) => route.fulfill({ json: [] }));
   await context.route('**/api/v1/quartos**', (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path.endsWith('/mapa'))
-      return route.fulfill({ json: { accommodations: [accommodation], units: [], rooms } });
+      return route.fulfill({ json: { accommodations, units: [], rooms } });
     if (path.endsWith('/quartos')) return route.fulfill({ json: rooms });
     return route.fulfill({ json: rooms.find((room) => room.id === path.split('/').at(-1)) });
   });
@@ -206,4 +220,22 @@ test('duas abas exibem conflito de versão e recarregam o vínculo atual', async
   await expect(second.getByRole('alert')).toContainText('Outra pessoa alterou');
   await expect(second.getByRole('link', { name: /Quarto 02/ })).toBeVisible();
   await second.close();
+});
+
+test('residente menor só vê quartos da sua faixa e é colocado no de menores', async ({
+  page,
+  context,
+}) => {
+  const state = await mockLocal(context, 'gestor', true);
+  await page.goto(`/residentes/${residentId}`);
+  const select = page.getByRole('combobox', { name: 'Colocar no quarto' });
+  await expect(select.locator(`option[value="${firstRoomId}"]`)).toHaveCount(1);
+  await expect(select.locator(`option[value="${secondRoomId}"]`)).toHaveCount(0);
+  const axe = await new AxeBuilder({ page }).analyze();
+  expect(axe.violations).toEqual([]);
+  await select.selectOption(firstRoomId);
+  await page.getByRole('button', { name: 'Colocar no quarto' }).click();
+  await expect.poll(() => state.writes.length).toBe(1);
+  expect(state.writes[0].body).toMatchObject({ residentId, roomId: firstRoomId });
+  await expect(page.getByRole('link', { name: /Quarto 01/ })).toBeVisible();
 });
