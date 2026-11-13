@@ -250,9 +250,8 @@ import {
                 </div>
               }
               @if (
-                !exit.capabilities.canEdit &&
+                (adult() || (!exit.capabilities.canEdit && !exit.capabilities.canCancel)) &&
                 !exit.capabilities.canDecide &&
-                !exit.capabilities.canCancel &&
                 !exit.capabilities.canDepart &&
                 !exit.capabilities.canReturn
               ) {

@@ -613,6 +613,7 @@ test('residente maior de idade consulta as saídas sem pedir, mudar nem cancelar
   await expect(page.getByText('Aguardando análise', { exact: true }).first()).toBeVisible();
   await expect(page.getByRole('link', { name: 'Mudar pedido' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Cancelar pedido' })).toHaveCount(0);
+  await expect(page.getByText('Nenhuma ação disponível para este pedido.')).toBeVisible();
   expect(state.writes).toEqual([]);
 });
 
