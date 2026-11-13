@@ -35,9 +35,9 @@ Pré-requisito: `simplify-long-lists` (painel de filtros e paginação compartil
 
 ## 5. Verificação integrada
 
-- [ ] 5.1 Formatar os arquivos de frontend tocados com `npx prettier --write <arquivo>` e rodar `npm run build`, `npm test -- --watch=false` e `npm run test:e2e` em `frontend/` e `.\mvnw.cmd -B -ntp verify` em `backend/`; tudo verde. As suítes inteiras incluem os testes da demonstração; se algum falhar, isolar com os comandos de 4.8.
-- [ ] 5.2 Conferir no navegador, em 390 e 1366 px, os três níveis, o painel de filtros e a legenda contra `DESIGN.md` (foco em anel duplo, alvo de 44 px, sem rolagem horizontal), e em `/demonstracao`, como gestor e como supervisor, que Quartos abre direto na grade com o filtro Bloco recolhível, sem nota de limpeza, e que cadastrar e editar quarto continuam funcionando. Guardar as capturas de antes e depois para o PR.
-- [ ] 5.3 Rodar `openspec validate simplify-room-browsing --strict` e confirmar que passa.
+- [x] 5.1 Formatar os arquivos de frontend tocados com `npx prettier --write <arquivo>` e rodar `npm run build`, `npm test -- --watch=false` e `npm run test:e2e` em `frontend/` e `.\mvnw.cmd -B -ntp verify` em `backend/`; tudo verde. As suítes inteiras incluem os testes da demonstração; se algum falhar, isolar com os comandos de 4.8.
+- [x] 5.2 Conferir no navegador, em 390 e 1366 px, os três níveis, o painel de filtros e a legenda contra `DESIGN.md` (foco em anel duplo, alvo de 44 px, sem rolagem horizontal), e em `/demonstracao`, como gestor e como supervisor, que Quartos abre direto na grade com o filtro Bloco recolhível, sem nota de limpeza, e que cadastrar e editar quarto continuam funcionando. Guardar as capturas de antes e depois para o PR.
+- [x] 5.3 Rodar `openspec validate simplify-room-browsing --strict` e confirmar que passa.
 
 ## Workflow follow-up
 
