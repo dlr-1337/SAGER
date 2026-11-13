@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetSession } from '../../core/api';
 import {
   ResidentApiError,
   ResidentApiService,
@@ -26,17 +27,21 @@ const input: ResidentPayload = {
 };
 
 describe('ResidentApiService', () => {
+  beforeEach(() => resetSession());
   afterEach(() => vi.unstubAllGlobals());
 
   it('consulta a coleção apenas pela API com a sessão local', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify([record])));
     vi.stubGlobal('fetch', fetchMock);
     expect(await TestBed.inject(ResidentApiService).list()).toEqual([record]);
-    expect(fetchMock).toHaveBeenCalledWith('/api/v1/residentes', {
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
-    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/residentes',
+      expect.objectContaining({
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
+      }),
+    );
   });
 
   it('envia campos opcionais nulos e CSRF, adicionando versão somente na edição', async () => {
@@ -81,5 +86,28 @@ describe('ResidentApiService', () => {
     await expect(TestBed.inject(ResidentApiService).list()).rejects.toThrow(
       'A lista de residentes recebida é inválida.',
     );
+  });
+
+  it('reaproveita a lista por 60 s e pede de novo depois de gravar ou de trocar a sessão', async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === '/api/v1/auth/csrf')
+        return new Response(JSON.stringify({ headerName: 'X-CSRF-TOKEN', token: 'synthetic' }));
+      return new Response(JSON.stringify(init?.method === 'GET' ? [record] : record));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const service = TestBed.inject(ResidentApiService);
+    const reads = () =>
+      fetchMock.mock.calls.filter(
+        ([url, init]) => url === '/api/v1/residentes' && init?.method === 'GET',
+      ).length;
+    expect(await service.list()).toEqual([record]);
+    expect(await service.list()).toEqual([record]);
+    expect(reads()).toBe(1);
+    await service.save(input);
+    await service.list();
+    expect(reads()).toBe(2);
+    resetSession();
+    await service.list();
+    expect(reads()).toBe(3);
   });
 });

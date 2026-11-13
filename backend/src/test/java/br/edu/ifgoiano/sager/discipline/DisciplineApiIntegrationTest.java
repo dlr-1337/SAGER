@@ -61,7 +61,6 @@ class DisciplineApiIntegrationTest {
     @BeforeEach void fixtures() {
         clock.set(START);
         jdbc.update("DELETE FROM spring_session");
-        // Do not truncate identity/domain parents: their CASCADE would reach protected health history.
         jdbc.execute("TRUNCATE sager_occurrence,sager_warning,sager_notice,sager_commitment_term,sager_communication,sager_discipline_idempotency,sager_night_call,sager_short_exit RESTART IDENTITY CASCADE");
         jdbc.update("DELETE FROM sager_local_account");
         resident=UUID.randomUUID();other=UUID.randomUUID();accommodation=UUID.randomUUID();room=UUID.randomUUID();

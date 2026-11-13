@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Profile({ "local", "production" })
 public class LocalAccountProvisioningService {
-    private static final Set<String> PROFILES = Set.of("gestor", "supervisor", "residente", "saude");
+    private static final Set<String> PROFILES = Set.of("gestor", "supervisor", "residente");
     // Mantenha igual a frontend/src/app/shared/password-rules.ts.
     private static final Set<String> COMMON_PASSWORDS = Set.of("senha123", "password", "qwertyui", "ifgoiano",
             "sager123", "1234567890", "0987654321");
@@ -38,7 +38,7 @@ public class LocalAccountProvisioningService {
         String normalizedEmail = email == null || email.isBlank() ? null : normalizeEmail(email);
         String normalizedName = requireName(name);
         if (!PROFILES.contains(profile)) {
-            throw new IllegalArgumentException("Perfil deve ser gestor, supervisor, residente ou saude.");
+            throw new IllegalArgumentException("Perfil deve ser gestor, supervisor ou residente.");
         }
         String hash = hashAndClear(password, normalizedEnrollment);
         try {

@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetSession } from '../../core/api';
 import { HousingMap, RoomRecord, RoomRecordInput } from './housing.models';
 import { RoomApiError, RoomApiService } from './room-api.service';
 
@@ -44,17 +45,21 @@ const map: HousingMap = {
 const csrf = { headerName: 'X-CSRF-TOKEN', token: 'csrf-test' };
 
 describe('RoomApiService', () => {
+  beforeEach(() => resetSession());
   afterEach(() => vi.unstubAllGlobals());
 
   it('aceita mapa inicial com versão zero de alojamento, unidade e quarto', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(map)));
     vi.stubGlobal('fetch', fetchMock);
     expect(await TestBed.inject(RoomApiService).map()).toEqual(map);
-    expect(fetchMock).toHaveBeenCalledWith('/api/v1/quartos/mapa', {
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
-    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/quartos/mapa',
+      expect.objectContaining({
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
+      }),
+    );
   });
 
   it('aceita criação na versão zero, preservando número textual e nulos com CSRF', async () => {
@@ -166,5 +171,25 @@ describe('RoomApiService', () => {
     await expect(TestBed.inject(RoomApiService).map()).rejects.toThrow(
       'O mapa recebido é inválido.',
     );
+  });
+
+  it('reaproveita o mapa por 60 s e pede de novo depois de gravar ou de trocar a sessão', async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === '/api/v1/auth/csrf') return new Response(JSON.stringify(csrf));
+      return new Response(JSON.stringify(url === '/api/v1/quartos/mapa' ? map : room));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const service = TestBed.inject(RoomApiService);
+    const reads = () =>
+      fetchMock.mock.calls.filter(([url]) => url === '/api/v1/quartos/mapa').length;
+    expect(await service.map()).toEqual(map);
+    expect(await service.map()).toEqual(map);
+    expect(reads()).toBe(1);
+    await service.save(input);
+    await service.map();
+    expect(reads()).toBe(2);
+    resetSession();
+    await service.map();
+    expect(reads()).toBe(3);
   });
 });

@@ -1,7 +1,16 @@
 import { vi } from 'vitest';
 import { UnsavedForms } from './shared/unsaved-form';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import {
+  Event as RouterEvent,
+  NavigationCancel,
+  NavigationEnd,
+  NavigationError,
+  NavigationStart,
+  provideRouter,
+  Router,
+} from '@angular/router';
+import { Subject } from 'rxjs';
 import { App } from './app';
 import { DemoSessionService } from './core/demo-session.service';
 import { LocalAuthService } from './core/local-auth.service';
@@ -18,28 +27,6 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
     const app = fixture.componentInstance;
     expect(app).toBeTruthy();
-  });
-
-  it('mantém a navegação de saúde sem recursos de gestão ou de residente', async () => {
-    TestBed.inject(DemoSessionService).deactivate();
-    TestBed.inject(LocalAuthService).principal.set({
-      id: '00000000-0000-0000-0000-000000000001',
-      nome: 'Profissional Sintética',
-      email: 'saude@example.test',
-      matricula: 'TESTE-LOGIN',
-      fotoUrl: null,
-      perfis: ['saude'],
-      residenteId: null,
-      supervisorId: null,
-    });
-    const fixture = TestBed.createComponent(App);
-    await fixture.whenStable();
-    expect(fixture.componentInstance.navItems().map((item) => item.path)).toEqual([
-      '/inicio',
-      '/saude',
-      '/perfil',
-      '/ajuda',
-    ]);
   });
 
   it('agrupa o menu em rotina, cadastros e apoio, com separador no início de cada grupo', async () => {
@@ -65,13 +52,6 @@ describe('App', () => {
       '/ajuda',
     ]);
     expect(fixture.componentInstance.userName()).toBe('Supervisora Sintética');
-    // Saúde fica fora do menu da gestão; só a habilitação profissional mostra /saude.
-    expect(paths).not.toContain('/saude');
-    expect(paths).not.toContain('/saude/acessos');
-    TestBed.inject(LocalAuthService).principal.update((account) =>
-      account ? { ...account, perfis: ['supervisor', 'saude'] } : account,
-    );
-    expect(fixture.componentInstance.navItems().map((item) => item.path)).toContain('/saude');
   });
 
   it('identifica a demonstração e a marca no shell', async () => {
@@ -135,5 +115,31 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
     await fixture.componentInstance.signOut();
     expect(logout).not.toHaveBeenCalled();
+  });
+
+  it('mostra a barra e marca o conteúdo como ocupado enquanto a tela carrega', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const events = TestBed.inject(Router).events as Subject<RouterEvent>;
+    const element = fixture.nativeElement as HTMLElement;
+    const state = () => {
+      fixture.detectChanges();
+      return [
+        !!element.querySelector('.navigation-bar[aria-hidden="true"]'),
+        element.querySelector('#conteudo-principal')?.getAttribute('aria-busy') ?? null,
+      ];
+    };
+    expect(state()).toEqual([false, null]);
+    const ends = [
+      new NavigationEnd(1, '/residentes', '/residentes'),
+      new NavigationCancel(2, '/residentes', 'guarda'),
+      new NavigationError(3, '/residentes', new Error('falhou')),
+    ];
+    for (const end of ends) {
+      events.next(new NavigationStart(end.id, '/residentes'));
+      expect(state()).toEqual([true, 'true']);
+      events.next(end);
+      expect(state()).toEqual([false, null]);
+    }
   });
 });

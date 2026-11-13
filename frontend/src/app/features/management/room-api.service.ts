@@ -1,6 +1,7 @@
 import { ERROR_FORBIDDEN, ERROR_GENERIC, ERROR_SESSION } from '../../core/error-messages';
 import { readArrayPage } from '../../core/list-page';
 import { Injectable } from '@angular/core';
+import { api, cached } from '../../core/api';
 import {
   Accommodation,
   AccommodationUnit,
@@ -94,7 +95,12 @@ export class RoomApiService {
     return value;
   }
 
-  async map(): Promise<HousingMap> {
+  /** Mapa em cópia de 60 s compartilhada pelas telas; não altere o objeto devolvido. */
+  map(): Promise<HousingMap> {
+    return cached('quartos/mapa', () => this.fetchMap());
+  }
+
+  private async fetchMap(): Promise<HousingMap> {
     const value = await this.read(`${baseUrl}/mapa`);
     if (!value || typeof value !== 'object') throw new Error('O mapa recebido é inválido.');
     const map = value as Partial<HousingMap>;
@@ -128,46 +134,21 @@ export class RoomApiService {
     input: RoomRecordInput,
     existing?: Pick<RoomRecord, 'id' | 'version'>,
   ): Promise<RoomRecord> {
-    const csrfResponse = await fetch('/api/v1/auth/csrf', {
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
-    });
-    if (!csrfResponse.ok) throw await this.responseError(csrfResponse);
-    const csrf: unknown = await csrfResponse.json();
-    if (!csrf || typeof csrf !== 'object') throw new Error('Resposta CSRF inválida.');
-    const { headerName, token } = csrf as Record<string, unknown>;
-    if (typeof headerName !== 'string' || !headerName || typeof token !== 'string' || !token) {
-      throw new Error('Resposta CSRF inválida.');
-    }
-    const response = await fetch(
+    const response = await api(
       existing ? `${baseUrl}/${encodeURIComponent(existing.id)}` : baseUrl,
       {
         method: existing ? 'PUT' : 'POST',
-        credentials: 'same-origin',
-        cache: 'no-store',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          [headerName]: token,
-        },
-        body: JSON.stringify(existing ? { ...input, version: existing.version } : input),
+        body: existing ? { ...input, version: existing.version } : input,
+        error: (response) => this.responseError(response),
       },
     );
-    if (!response.ok) throw await this.responseError(response);
     const value: unknown = await response.json();
     if (!isRoom(value)) throw new Error('O quarto salvo não pôde ser confirmado.');
     return value;
   }
 
   private async read(url: string): Promise<unknown> {
-    const response = await fetch(url, {
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
-    });
-    if (!response.ok) throw await this.responseError(response);
-    return response.json();
+    return (await api(url, { error: (response) => this.responseError(response) })).json();
   }
 
   private async responseError(response: Response): Promise<RoomApiError> {

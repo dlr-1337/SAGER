@@ -9,7 +9,7 @@ const resident = {
   name: 'Estudante Sintético',
   enrollment: 'TESTE-01',
   birthDate: null,
-  course: null,
+  course: 'Curso Sintético',
   version: 0,
 };
 const accommodation = { id: 'a1', code: 'A1', name: 'Alojamento Sintético', version: 0 };
@@ -63,9 +63,20 @@ async function mockLocal(context: BrowserContext, role: 'gestor' | 'supervisor' 
       return route.fulfill({ json: { headerName: 'X-CSRF-TOKEN', token: 'csrf-test' } });
     return route.fulfill({ status: 404 });
   });
+  const residentQueries: URLSearchParams[] = [];
   await context.route('**/api/v1/residentes**', (route) => {
-    const path = new URL(route.request().url()).pathname;
-    return route.fulfill({ json: path.endsWith('/residentes') ? [resident] : resident });
+    const url = new URL(route.request().url());
+    if (!url.pathname.endsWith('/residentes')) return route.fulfill({ json: resident });
+    residentQueries.push(url.searchParams);
+    // O detalhe do quarto pede só os moradores dele (roomId), como a API real.
+    const roomId = url.searchParams.get('roomId');
+    const inRoom =
+      !roomId ||
+      allocations.some(
+        (item) =>
+          item.residentId === resident.id && item.roomId === roomId && item.endedAt === null,
+      );
+    return route.fulfill({ json: inRoom ? [resident] : [] });
   });
   await context.route('**/api/v1/responsaveis**', (route) => route.fulfill({ json: [] }));
   await context.route('**/api/v1/quartos**', (route) => {
@@ -115,7 +126,7 @@ async function mockLocal(context: BrowserContext, role: 'gestor' | 'supervisor' 
     allocations.unshift(allocation);
     return route.fulfill({ status: 201, json: allocation });
   });
-  return { allocations, writes };
+  return { allocations, writes, residentQueries };
 }
 
 test('gestor aloca, transfere e encerra com histórico persistido na interface', async ({
@@ -137,7 +148,11 @@ test('gestor aloca, transfere e encerra com histórico persistido na interface',
     csrf: 'csrf-test',
     body: { residentId, roomId: firstRoomId },
   });
-  await page.reload();
+  await page.goto(`/quartos/${firstRoomId}`);
+  await expect(page.getByText(resident.name, { exact: true })).toBeVisible();
+  await expect(page.getByText(resident.course, { exact: false }).first()).toBeVisible();
+  expect(state.residentQueries.map((query) => query.get('roomId'))).toContain(firstRoomId);
+  await page.goto(`/residentes/${residentId}`);
   await expect(page.getByRole('link', { name: /Quarto 01/ })).toBeVisible();
   await page.getByRole('combobox', { name: 'Mudar para' }).selectOption(secondRoomId);
   await page.getByRole('button', { name: 'Mudar de quarto' }).click();

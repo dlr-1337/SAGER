@@ -1,6 +1,7 @@
 import { FilterState } from './filter-state';
 import { Injectable, inject, signal } from '@angular/core';
 import type { Role } from './demo-session.service';
+import { api, resetSession } from './api';
 
 export interface LocalPrincipal {
   id: string;
@@ -13,12 +14,7 @@ export interface LocalPrincipal {
   supervisorId: string | null;
 }
 
-interface CsrfToken {
-  headerName: string;
-  token: string;
-}
-
-const roles: Role[] = ['gestor', 'supervisor', 'residente', 'saude'];
+const roles: Role[] = ['gestor', 'supervisor', 'residente'];
 
 function nullableRecordId(value: unknown): value is string | null {
   return (
@@ -48,6 +44,19 @@ function validPrincipal(value: unknown): value is LocalPrincipal {
   );
 }
 
+class InvalidLogin extends Error {}
+
+/** Chave do localStorage que avisa as outras abas, que dividem o cookie, de uma entrada ou saída. */
+export const SESSION_SIGNAL = 'sager.session';
+
+function announce(): void {
+  try {
+    localStorage.setItem(SESSION_SIGNAL, String(Date.now()));
+  } catch {
+    // Sem armazenamento, a repetição por CSRF ainda confere a conta (core/api.ts).
+  }
+}
+
 /** Sessão local em memória. O cookie HttpOnly e a autorização pertencem ao servidor. */
 @Injectable({ providedIn: 'root' })
 export class LocalAuthService {
@@ -56,16 +65,7 @@ export class LocalAuthService {
 
   async refresh(): Promise<LocalPrincipal | null> {
     try {
-      const response = await fetch('/api/v1/auth/me', {
-        credentials: 'same-origin',
-        cache: 'no-store',
-        headers: { Accept: 'application/json' },
-      });
-      if (!response.ok) {
-        this.clearPrincipal();
-        return null;
-      }
-      const value: unknown = await response.json();
+      const value: unknown = await (await api('/api/v1/auth/me')).json();
       if (!validPrincipal(value)) {
         this.clearPrincipal();
         return null;
@@ -80,82 +80,58 @@ export class LocalAuthService {
   }
 
   async login(matricula: string, password: string): Promise<'success' | 'invalid'> {
-    const csrf = await this.csrfToken();
-    const response = await fetch('/api/v1/auth/login', {
-      method: 'POST',
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        [csrf.headerName]: csrf.token,
-      },
-      body: new URLSearchParams({ matricula, password }),
-    });
-    if (response.status === 401) {
+    try {
+      await api('/api/v1/auth/login', {
+        method: 'POST',
+        body: new URLSearchParams({ matricula, password }),
+        error: (response) =>
+          response.status === 401
+            ? new InvalidLogin()
+            : new Error(
+                response.status === 429
+                  ? 'Muitas tentativas. Aguarde 15 minutos e tente novamente.'
+                  : 'Não foi possível entrar. Verifique a internet e tente de novo.',
+              ),
+      });
+    } catch (error) {
+      if (!(error instanceof InvalidLogin)) throw error;
       this.clearPrincipal();
       return 'invalid';
     }
-    if (response.status === 429)
-      throw new Error('Muitas tentativas. Aguarde 15 minutos e tente novamente.');
-    if (!response.ok)
-      throw new Error('Não foi possível entrar. Verifique a internet e tente de novo.');
+    // O servidor troca a sessão e o token CSRF ao entrar.
+    resetSession();
     if (!(await this.refresh()))
       throw new Error('Não foi possível entrar. Verifique a internet e tente de novo.');
+    announce();
     return 'success';
   }
 
   async recover(input: Record<string, string>): Promise<void> {
-    const csrf = await this.csrfToken();
-    const response = await fetch('/api/v1/auth/recover', {
+    await api('/api/v1/auth/recover', {
       method: 'POST',
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        [csrf.headerName]: csrf.token,
-      },
       body: new URLSearchParams(input),
+      error: (response) =>
+        new Error(
+          response.status === 429
+            ? 'Muitas tentativas. Aguarde 15 minutos e tente novamente.'
+            : 'Confira os dados e a senha e tente de novo.',
+        ),
     });
-    if (response.status === 429)
-      throw new Error('Muitas tentativas. Aguarde 15 minutos e tente novamente.');
-    if (!response.ok) throw new Error('Confira os dados e a senha e tente de novo.');
   }
 
   async logout(): Promise<void> {
-    const csrf = await this.csrfToken();
-    const response = await fetch('/api/v1/auth/logout', {
+    await api('/api/v1/auth/logout', {
       method: 'POST',
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: { [csrf.headerName]: csrf.token },
+      error: () => new Error('Não foi possível sair. Verifique a internet e tente de novo.'),
     });
-    if (!response.ok)
-      throw new Error('Não foi possível sair. Verifique a internet e tente de novo.');
-    this.principal.set(null);
-    this.filters.setUser(null);
-    this.filters.clear();
+    this.clearPrincipal();
+    announce();
   }
 
   clearPrincipal(): void {
     this.principal.set(null);
     this.filters.setUser(null);
     this.filters.clear();
-  }
-
-  private async csrfToken(): Promise<CsrfToken> {
-    const response = await fetch('/api/v1/auth/csrf', {
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
-    });
-    if (!response.ok) throw new Error('Não deu certo. Verifique a internet e tente de novo.');
-    const value: unknown = await response.json();
-    if (!value || typeof value !== 'object')
-      throw new Error('Não deu certo. Verifique a internet e tente de novo.');
-    const token = value as Partial<CsrfToken>;
-    if (typeof token.headerName !== 'string' || typeof token.token !== 'string') {
-      throw new Error('Não deu certo. Verifique a internet e tente de novo.');
-    }
-    return { headerName: token.headerName, token: token.token };
+    resetSession();
   }
 }

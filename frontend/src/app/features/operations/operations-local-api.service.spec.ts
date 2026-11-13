@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { OperationsApiError, OperationsLocalApiService } from './operations-local-api.service';
 import { NightCall, ShortExit } from './operations-local.models';
+import { resetSession } from '../../core/api';
 
 const exit = {
   id: '00000000-0000-0000-0000-000000000801',
@@ -76,7 +77,10 @@ const json = (value: unknown, status = 200) => new Response(JSON.stringify(value
 const csrf = { headerName: 'X-CSRF-TOKEN', token: 'synthetic-token' };
 
 describe('OperationsLocalApiService', () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    resetSession();
+  });
   it('consulta registros pela API com sessão e sem cache, respeitando busca e situação', async () => {
     const fetch = vi.fn().mockResolvedValue(json([exit]));
     vi.stubGlobal('fetch', fetch);
@@ -120,7 +124,6 @@ describe('OperationsLocalApiService', () => {
       .fn()
       .mockResolvedValueOnce(json(csrf))
       .mockResolvedValueOnce(json(call))
-      .mockResolvedValueOnce(json(csrf))
       .mockResolvedValueOnce(json({ ...call, status: 'FECHADA' }));
     vi.stubGlobal('fetch', fetch);
     const api = TestBed.inject(OperationsLocalApiService);
@@ -132,8 +135,9 @@ describe('OperationsLocalApiService', () => {
       'AUSENTE',
       'Correção conferida presencialmente.',
     );
-    expect(fetch.mock.calls[3][0]).toContain('/correcoes/');
-    expect(JSON.parse(fetch.mock.calls[3][1].body)).toEqual({
+    // O token CSRF da primeira gravação serve para a segunda.
+    expect(fetch.mock.calls[2][0]).toContain('/correcoes/');
+    expect(JSON.parse(fetch.mock.calls[2][1].body)).toEqual({
       version: 7,
       mark: 'AUSENTE',
       justification: 'Correção conferida presencialmente.',

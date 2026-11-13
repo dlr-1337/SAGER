@@ -740,7 +740,7 @@ test.describe('desktop', () => {
     const state = await mockApi(page);
     await page.goto('/inicio');
     await expect(page.getByRole('link', { name: 'Conversas', exact: true })).toBeVisible();
-    for (const role of ['gestor', 'residente', 'saude']) {
+    for (const role of ['gestor', 'residente']) {
       state.role = role;
       for (const path of ['/conversas', `/conversas/${linkedId}`, '/conversas/conexao']) {
         await page.goto(path);

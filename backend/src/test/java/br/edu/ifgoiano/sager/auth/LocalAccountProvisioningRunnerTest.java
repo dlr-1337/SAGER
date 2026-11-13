@@ -56,6 +56,16 @@ class LocalAccountProvisioningRunnerTest {
     }
 
     @Test
+    void createsOnlyGestorAccountsFromTheTerminalWithoutAskingForAPassword(CapturedOutput output) {
+        runner.run(new DefaultApplicationArguments("--sager-account=create", "--matricula=TESTE-RESIDENTE",
+                "--name=Residente", "--profile=residente"));
+        assertThat(runner.getExitCode()).isEqualTo(2);
+        assertThat(output.getErr()).contains("Pelo terminal só se criam contas de gestor; "
+                + "residentes e supervisores recebem a conta no próprio cadastro.");
+        verifyNoInteractions(accounts);
+    }
+
+    @Test
     void refusesMixedProfilesBeforeChangingAccounts() {
         environment.setActiveProfiles("local", "production");
         assertThatCode(() -> runner.run(new DefaultApplicationArguments(

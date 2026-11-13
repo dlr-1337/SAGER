@@ -472,8 +472,48 @@ app-root {
   }
 }
 
+// Só aparece se a troca de tela passar de 150 ms, para não piscar nas rápidas.
+.navigation-bar {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 1000;
+  height: 3px;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  animation: navigation-bar-show 0s linear 150ms forwards;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 40%;
+    background: var(--green-700);
+    animation: navigation-bar-slide 1.2s ease-in-out infinite;
+  }
+}
+
+@keyframes navigation-bar-show {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes navigation-bar-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sidebar {
     transition: none;
+  }
+  .navigation-bar::before {
+    width: 100%;
+    animation: none;
   }
 }

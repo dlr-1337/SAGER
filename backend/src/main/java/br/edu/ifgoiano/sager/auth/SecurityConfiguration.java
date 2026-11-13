@@ -105,8 +105,6 @@ public class SecurityConfiguration {
                         .hasAnyRole("SUPERVISOR", "RESIDENTE")
                         .requestMatchers("/api/v1/saidas-longas", "/api/v1/saidas-longas/**")
                         .hasAnyRole("SUPERVISOR", "RESIDENTE")
-                        .requestMatchers("/api/v1/saude/**", "/api/v1/minha-saude/**")
-                        .authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auditoria", "/api/v1/openapi",
                                 "/api/v1/openapi.yaml", "/actuator/health", "/actuator/metrics",
                                 "/actuator/metrics/**")

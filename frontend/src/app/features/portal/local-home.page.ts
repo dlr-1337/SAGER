@@ -82,15 +82,6 @@ const residentTasks: HomeTask[] = [
   },
 ];
 
-const healthTasks: HomeTask[] = [
-  {
-    title: 'Atendimento de saúde',
-    text: 'Veja os residentes que você atende e os registros deles.',
-    icon: 'health_and_safety',
-    links: [{ label: 'Abrir área de saúde', to: '/saude' }],
-  },
-];
-
 const staffTasks: HomeTask[] = [
   {
     title: 'Avaliações de limpeza',
@@ -231,14 +222,7 @@ export class LocalHomePage {
   );
   readonly tasks = computed(() => {
     const role = this.session.role();
-    const own =
-      role === 'supervisor'
-        ? supervisorTasks
-        : role === 'residente'
-          ? residentTasks
-          : role === 'saude'
-            ? healthTasks
-            : [];
+    const own = role === 'supervisor' ? supervisorTasks : role === 'residente' ? residentTasks : [];
     return role === 'gestor' || role === 'supervisor' ? [...own, ...staffTasks] : own;
   });
 

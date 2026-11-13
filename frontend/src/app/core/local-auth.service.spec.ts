@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { LocalAuthService } from './local-auth.service';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { api, resetSession } from './api';
+import { LocalAuthService, SESSION_SIGNAL } from './local-auth.service';
 
 const principal = {
   id: '00000000-0000-0000-0000-000000000001',
@@ -14,6 +15,7 @@ const principal = {
 };
 
 describe('LocalAuthService', () => {
+  beforeEach(() => resetSession());
   afterEach(() => vi.unstubAllGlobals());
 
   it('envia formulário com CSRF e aceita o perfil devolvido por /me', async () => {
@@ -100,29 +102,16 @@ describe('LocalAuthService', () => {
     }
   });
 
-  it('aceita o perfil de saúde sem atribuir vínculo de residente ou supervisor', async () => {
-    const healthPrincipal = { ...principal, perfis: ['saude'] };
+  it('trata como sessão ausente um principal com o perfil de saúde removido', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(new Response(JSON.stringify(healthPrincipal))),
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ ...principal, perfis: ['saude'] }))),
     );
     const auth = TestBed.inject(LocalAuthService);
+    auth.principal.set(principal);
 
-    expect(await auth.refresh()).toEqual(healthPrincipal);
-    expect(auth.principal()?.residenteId).toBeNull();
-    expect(auth.principal()?.supervisorId).toBeNull();
-  });
-
-  it('recusa vínculos cadastrais no perfil de saúde mesmo com UUID válido', async () => {
-    const auth = TestBed.inject(LocalAuthService);
-    for (const value of [
-      { ...principal, perfis: ['saude'], residenteId: '00000000-0000-0000-0000-000000000002' },
-      { ...principal, perfis: ['saude'], supervisorId: '00000000-0000-0000-0000-000000000003' },
-    ]) {
-      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(value))));
-      expect(await auth.refresh()).toBeNull();
-      expect(auth.principal()).toBeNull();
-    }
+    expect(await auth.refresh()).toBeNull();
+    expect(auth.principal()).toBeNull();
   });
 
   it('encerra a sessão com CSRF e limpa o principal após resposta bem-sucedida', async () => {
@@ -142,5 +131,52 @@ describe('LocalAuthService', () => {
     expect(auth.principal()).toBeNull();
     expect(fetchMock.mock.calls[1][0]).toBe('/api/v1/auth/logout');
     expect(fetchMock.mock.calls[1][1].headers).toMatchObject({ 'X-CSRF-TOKEN': 'csrf-test' });
+  });
+
+  it('avisa as outras abas ao entrar e ao sair, mesmo sem armazenamento', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) =>
+        url === '/api/v1/auth/csrf'
+          ? new Response(JSON.stringify({ headerName: 'X-CSRF-TOKEN', token: 't' }))
+          : new Response(url === '/api/v1/auth/me' ? JSON.stringify(principal) : null),
+      ),
+    );
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('bloqueado', 'SecurityError');
+    });
+    const auth = TestBed.inject(LocalAuthService);
+
+    expect(await auth.login(principal.matricula, 'senha de teste')).toBe('success');
+    await auth.logout();
+    expect(setItem.mock.calls.map(([key]) => key)).toEqual([SESSION_SIGNAL, SESSION_SIGNAL]);
+    setItem.mockRestore();
+  });
+
+  it('descarta o token CSRF ao entrar, ao sair e ao esquecer o usuário', async () => {
+    let issued = 0;
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === '/api/v1/auth/csrf')
+        return new Response(JSON.stringify({ headerName: 'X-CSRF-TOKEN', token: `t${++issued}` }));
+      if (url === '/api/v1/auth/me') return new Response(JSON.stringify(principal));
+      return new Response(url === '/api/v1/gravacao' ? '{}' : null, { status: 200 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const auth = TestBed.inject(LocalAuthService);
+    const write = async () => {
+      await api('/api/v1/gravacao', { method: 'POST', body: {} });
+      const [, init] = fetchMock.mock.calls.at(-1) as unknown as [string, RequestInit];
+      return (init.headers as Record<string, string>)['X-CSRF-TOKEN'];
+    };
+
+    expect(await write()).toBe('t1');
+    expect(await write()).toBe('t1');
+    expect(await auth.login(principal.matricula, 'senha de teste')).toBe('success');
+    expect(await write()).toBe('t2');
+    await auth.logout();
+    expect(await write()).toBe('t3');
+    auth.clearPrincipal();
+    expect(await write()).toBe('t4');
+    expect(fetchMock.mock.calls.filter(([url]) => url === '/api/v1/auth/csrf')).toHaveLength(4);
   });
 });

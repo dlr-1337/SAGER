@@ -1,3 +1,4 @@
+import { api } from '../../core/api';
 import {
   ERROR_CONFLICT,
   ERROR_FORBIDDEN,
@@ -380,38 +381,17 @@ export class CommunicationsLocalApiService {
     input?: unknown,
     accept = 'application/json',
   ): Promise<Response> {
-    const headers: Record<string, string> = { Accept: accept };
-    if (method !== 'GET') {
-      const csrf: unknown = await (await this.response('/auth/csrf')).json();
-      if (
-        !record(csrf) ||
-        typeof csrf['headerName'] !== 'string' ||
-        !/^X-CSRF-TOKEN$/i.test(csrf['headerName']) ||
-        typeof csrf['token'] !== 'string'
-      )
-        throw new Error('A proteção da sessão não foi confirmada.');
-      headers[csrf['headerName']] = csrf['token'];
-      headers['Content-Type'] = 'application/json';
-    }
-    const response = await fetch('/api/v1' + path, {
+    return api('/api/v1' + path, {
       method,
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers,
-      ...(input === undefined ? {} : { body: JSON.stringify(input) }),
+      body: input,
+      headers: { Accept: accept },
+      error: async (response) => {
+        const value: unknown = await response.json().catch(() => null);
+        return new CommunicationsApiError(
+          response.status,
+          record(value) && typeof value['code'] === 'string' ? value['code'] : undefined,
+        );
+      },
     });
-    if (!response.ok) {
-      let value: unknown;
-      try {
-        value = await response.json();
-      } catch {
-        value = null;
-      }
-      throw new CommunicationsApiError(
-        response.status,
-        record(value) && typeof value['code'] === 'string' ? value['code'] : undefined,
-      );
-    }
-    return response;
   }
 }

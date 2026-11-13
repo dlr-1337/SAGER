@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetSession } from '../../core/api';
 import { AccommodationApiError, AccommodationApiService } from './accommodation-api.service';
 
 const accommodation = { id: 'a-test', code: 'TESTE-A', name: 'Alojamento Fictício', version: 0 };
@@ -13,6 +14,7 @@ const unit = {
 const csrf = { headerName: 'X-CSRF-TOKEN', token: 'synthetic-csrf' };
 
 describe('AccommodationApiService', () => {
+  beforeEach(() => resetSession());
   afterEach(() => vi.unstubAllGlobals());
 
   it('consulta o cadastro vazio sem inserir dados demonstrativos', async () => {

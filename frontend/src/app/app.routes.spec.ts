@@ -3,101 +3,111 @@ import {
   ActivatedRouteSnapshot,
   CanActivateFn,
   provideRouter,
+  Route,
   RouterStateSnapshot,
   UrlTree,
 } from '@angular/router';
-import { of, throwError } from 'rxjs';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { routes } from './app.routes';
+import { firstValueFrom, of } from 'rxjs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { routes, SagerPreloading } from './app.routes';
+import { resetSession } from './core/api';
 import { DemoSessionService } from './core/demo-session.service';
 import { LocalAuthService } from './core/local-auth.service';
-import { HealthApiService } from './features/health/health-api.service';
-import { HealthCapabilities, ProfessionalGrant } from './features/health/health.models';
 
-describe('Rotas de saúde locais', () => {
-  const session = { active: vi.fn(() => false) };
-  const auth = { refresh: vi.fn(), clearPrincipal: vi.fn() };
-  const api = { getMe: vi.fn() };
-  const capabilities: HealthCapabilities = {
-    professionalGrant: { id: 'grant-current' } as ProfessionalGrant,
-    canAdministerAccess: false,
-    canAccessOwnRecord: false,
-  };
+const principal = (perfil: 'gestor' | 'residente') => ({
+  id: '00000000-0000-0000-0000-000000000001',
+  nome: 'Pessoa Exemplo',
+  email: null,
+  matricula: 'TESTE-ROTAS',
+  fotoUrl: null,
+  perfis: [perfil],
+  residenteId: perfil === 'residente' ? '00000000-0000-0000-0000-000000000002' : null,
+  supervisorId: null,
+});
+
+function allRoutes(list: Route[]): Route[] {
+  return list.flatMap((route) => [route, ...allRoutes(route.children ?? [])]);
+}
+
+async function enter(path: string): Promise<string | boolean> {
+  const route = routes.find((entry) => entry.path === path)!;
+  const guard = route.canActivate![0] as CanActivateFn;
+  const result = await TestBed.runInInjectionContext(() =>
+    guard({ data: route.data ?? {} } as ActivatedRouteSnapshot, {} as RouterStateSnapshot),
+  );
+  return result instanceof UrlTree ? result.toString() : (result as boolean);
+}
+
+describe('accessGuard', () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    session.active.mockReturnValue(false);
-    auth.refresh.mockResolvedValue({ perfis: ['saude'] });
-    api.getMe.mockReturnValue(of(capabilities));
-    TestBed.configureTestingModule({
-      providers: [
-        provideRouter(routes),
-        { provide: DemoSessionService, useValue: session },
-        { provide: LocalAuthService, useValue: auth },
-        { provide: HealthApiService, useValue: api },
-      ],
-    });
+    resetSession();
+    sessionStorage.clear();
+    fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    TestBed.configureTestingModule({ providers: [provideRouter(routes)] });
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    sessionStorage.clear();
   });
 
-  async function enter(path: string): Promise<string | boolean> {
-    const route = routes.find((entry) => entry.path === path)!;
-    const guard = route.canActivate![0] as CanActivateFn;
-    const result = await TestBed.runInInjectionContext(() =>
-      guard({ data: route.data } as ActivatedRouteSnapshot, {} as RouterStateSnapshot),
-    );
-    return result instanceof UrlTree ? result.toString() : (result as boolean);
-  }
-
-  it('confere novamente habilitação e sessão ao voltar para uma nota após revogação', async () => {
-    expect(await enter('saude/notas/:id')).toBe(true);
-    api.getMe.mockReturnValue(of({ ...capabilities, professionalGrant: null }));
-    expect(await enter('saude/notas/:id')).toBe('/acesso-negado');
-    expect(auth.refresh).toHaveBeenCalledTimes(2);
-    expect(api.getMe).toHaveBeenCalledTimes(2);
+  it('na conta, pergunta /auth/me só na primeira navegação', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify(principal('gestor'))));
+    expect(await enter('inicio')).toBe(true);
+    expect(await enter('residentes')).toBe(true);
+    expect(await enter('quartos')).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/auth/me');
   });
 
-  it('permite administrar acessos sem conceder conteúdo assistencial ao gestor', async () => {
-    auth.refresh.mockResolvedValue({ perfis: ['gestor'] });
-    api.getMe.mockReturnValue(
-      of({ ...capabilities, professionalGrant: null, canAdministerAccess: true }),
-    );
-    expect(await enter('saude/acessos')).toBe(true);
-    expect(await enter('saude')).toBe('/acesso-negado');
+  it('nega a um residente conhecido a lista de residentes sem ir ao servidor', async () => {
+    TestBed.inject(LocalAuthService).principal.set(principal('residente'));
+    expect(await enter('residentes')).toBe('/acesso-negado');
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('usa a capacidade própria no caminho do paciente', async () => {
-    expect(await enter('minha-saude')).toBe('/acesso-negado');
-    api.getMe.mockReturnValue(
-      of({ ...capabilities, professionalGrant: null, canAccessOwnRecord: true }),
-    );
-    expect(await enter('minha-saude')).toBe(true);
-    expect(await enter('saude/acessos')).toBe('/acesso-negado');
+  it('sem conta e sem demonstração, manda para /acesso', async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 401 }));
+    expect(await enter('inicio')).toBe('/acesso');
   });
 
-  it('recusa a demonstração antes de consultar permissões locais', async () => {
-    session.active.mockReturnValue(true);
-    expect(await enter('saude')).toBe('/acesso-negado');
-    expect(auth.refresh).not.toHaveBeenCalled();
-    expect(api.getMe).not.toHaveBeenCalled();
+  it('na demonstração, o gestor navega sem pedir nada ao servidor', async () => {
+    TestBed.inject(DemoSessionService).activate('gestor');
+    expect(TestBed.inject(LocalAuthService).principal()).toBeNull();
+    for (const path of ['inicio', 'residentes', 'quartos']) expect(await enter(path)).toBe(true);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('exige login quando a sessão deixa de existir', async () => {
-    auth.refresh.mockResolvedValue(null);
-    expect(await enter('saude')).toBe('/acesso');
-    expect(api.getMe).not.toHaveBeenCalled();
+  it('na demonstração, o residente não abre a lista de residentes', async () => {
+    TestBed.inject(DemoSessionService).activate('residente');
+    expect(await enter('residentes')).toBe('/acesso-negado');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('SagerPreloading', () => {
+  const strategy = new SagerPreloading();
+
+  it('não carrega a rota marcada com preload: false', async () => {
+    const load = vi.fn(() => of('carregada'));
+    expect(await firstValueFrom(strategy.preload({ data: { preload: false } }, load))).toBeNull();
+    expect(load).not.toHaveBeenCalled();
   });
 
-  it('limpa a sessão em 401 e recusa a capacidade em 403', async () => {
-    api.getMe.mockReturnValue(throwError(() => ({ status: 401 })));
-    expect(await enter('saude')).toBe('/acesso');
-    expect(auth.clearPrincipal).toHaveBeenCalledOnce();
-    api.getMe.mockReturnValue(throwError(() => ({ status: 403 })));
-    expect(await enter('saude')).toBe('/acesso-negado');
+  it('carrega as demais rotas', async () => {
+    const load = vi.fn(() => of('carregada'));
+    expect(await firstValueFrom(strategy.preload({ path: 'quartos' }, load))).toBe('carregada');
+    expect(await firstValueFrom(strategy.preload({ data: { roles: [] } }, load))).toBe('carregada');
+    expect(load).toHaveBeenCalledTimes(2);
   });
 
-  it('permite mostrar o estado de falha de transporte sem inventar uma habilitação', async () => {
-    api.getMe.mockReturnValue(throwError(() => ({ status: 503 })));
-    expect(await enter('saude')).toBe(true);
-    expect(auth.clearPrincipal).not.toHaveBeenCalled();
+  it('deixa fora do pré-carregamento só o relatório individual', () => {
+    expect(
+      allRoutes(routes)
+        .filter((route) => route.data?.['preload'] === false)
+        .map((route) => route.path),
+    ).toEqual(['relatorios/individual/:id']);
   });
 });

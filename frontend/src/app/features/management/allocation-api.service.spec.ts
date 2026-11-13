@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetSession } from '../../core/api';
 import {
   AllocationApiError,
   AllocationApiService,
@@ -18,6 +19,7 @@ const record: AllocationRecord = {
 const csrf = { headerName: 'X-CSRF-TOKEN', token: 'csrf-test' };
 
 describe('AllocationApiService', () => {
+  beforeEach(() => resetSession());
   afterEach(() => vi.unstubAllGlobals());
 
   it('filtra histórico por residente e ocupantes ativos por quarto', async () => {

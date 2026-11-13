@@ -11,7 +11,6 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
-import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 class OperationsMigrationIntegrationTest {
@@ -24,9 +23,7 @@ class OperationsMigrationIntegrationTest {
     @Test
     void extendsInstalledAuditChecksWithoutReplacingPriorResourcesOrEvents() throws Exception {
         String schema = "ops_upgrade_prior";
-        boolean hasHealthMigration = new PathMatchingResourcePatternResolver()
-                .getResources("classpath*:db/migration/V13__*.sql").length > 0;
-        migrate(schema, hasHealthMigration ? "13" : "12");
+        migrate(schema, "13");
         JdbcTemplate jdbc = jdbc(schema);
         String resourceCheck = check(jdbc, "sager_audit_event_resource_allowed");
         String fieldsCheck = check(jdbc, "sager_audit_event_changed_fields_allowed");

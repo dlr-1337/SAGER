@@ -355,9 +355,10 @@ export class RoomDetailComponent {
     this.occupantsLoading.set(true);
     this.occupantsError.set('');
     try {
-      const [allocations, residents, courses] = await Promise.all([
+      const [allocations, { items: residents }, courses] = await Promise.all([
         this.allocationApi.activeInRoom(this.id),
-        this.residentApi.list(),
+        // Só os moradores deste quarto, em vez da lista inteira de residentes.
+        this.residentApi.page({ roomId: this.id }),
         // Sem a lista de cursos, os moradores aparecem sem etapa e previsão.
         this.courseApi.list().catch((): Course[] => []),
       ]);

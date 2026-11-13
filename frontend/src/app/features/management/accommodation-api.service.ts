@@ -1,3 +1,4 @@
+import { api } from '../../core/api';
 import {
   ERROR_CONFLICT,
   ERROR_FORBIDDEN,
@@ -118,32 +119,11 @@ export class AccommodationApiService {
     input?: AccommodationInput,
     version?: number,
   ): Promise<unknown> {
-    const headers: Record<string, string> = { Accept: 'application/json' };
-    if (input) {
-      const response = await fetch('/api/v1/auth/csrf', {
-        credentials: 'same-origin',
-        cache: 'no-store',
-        headers,
-      });
-      if (!response.ok) throw await this.responseError(response);
-      const token: unknown = await response.json();
-      if (!token || typeof token !== 'object') throw new Error('Resposta CSRF inválida.');
-      const { headerName, token: value } = token as Record<string, unknown>;
-      if (typeof headerName !== 'string' || typeof value !== 'string')
-        throw new Error('Resposta CSRF inválida.');
-      headers['Content-Type'] = 'application/json';
-      headers[headerName] = value;
-    }
-    const response = await fetch(url, {
+    const response = await api(url, {
       method: input ? (version === undefined ? 'POST' : 'PUT') : 'GET',
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers,
-      ...(input
-        ? { body: JSON.stringify(version === undefined ? input : { ...input, version }) }
-        : {}),
+      body: input && (version === undefined ? input : { ...input, version }),
+      error: (response) => this.responseError(response),
     });
-    if (!response.ok) throw await this.responseError(response);
     return response.json();
   }
 

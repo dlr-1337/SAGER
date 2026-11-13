@@ -29,7 +29,7 @@ import tools.jackson.databind.ObjectMapper;
 
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("local")
-class AuditHealthPrivacyApiIntegrationTest {
+class AuditLegacyEventsApiIntegrationTest {
     private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17.11");
     static { POSTGRES.start(); }
 
@@ -45,52 +45,65 @@ class AuditHealthPrivacyApiIntegrationTest {
     @Autowired private ObjectMapper json;
     @LocalServerPort private int port;
 
+     private static final List<String> LEGACY_RESOURCES = List.of("HEALTH_GRANT", "CARE_ASSIGNMENT",
+            "HEALTH_CUSTODY", "HEALTH_NOTE", "HEALTH_SHARE", "HEALTH_EXPORT");
+
     @Test
-    void protectedEventsNeverOccupyAdministrativePagesOrAffectTheirCursor() throws Exception {
+    void legacyHealthEventsStayStoredButNeverOccupyPagesOrAffectTheCursor() throws Exception {
         UUID actor = UUID.randomUUID();
-        UUID first = event(actor, "HEALTH_GRANT", "CREATE");
-        event(actor, "HEALTH_NOTE", "READ");
-        event(actor, "HEALTH_SHARE", "CREATE");
-        event(actor, "HEALTH_EXPORT", "EXPORT");
-        UUID second = event(actor, "CARE_ASSIGNMENT", "CREATE");
-        event(actor, "HEALTH_NOTE", "EXPORT");
+        event(actor, "saude", "HEALTH_GRANT", "CREATE");
+        UUID first = event(actor, "gestor", "RESIDENT", "CREATE");
+        event(actor, "saude", "HEALTH_NOTE", "READ");
+        event(actor, "saude", "HEALTH_SHARE", "CREATE");
+        UUID second = event(actor, "gestor", "COURSE", "CREATE");
+        event(actor, "saude", "CARE_ASSIGNMENT", "CREATE");
+        event(actor, "saude", "HEALTH_CUSTODY", "CREATE");
+        event(actor, "saude", "HEALTH_EXPORT", "EXPORT");
         try (HttpClient browser = browser()) {
             login(browser);
             JsonNode page = json.readTree(get(browser, "/api/v1/auditoria?actorId=" + actor + "&limit=1").body());
+            assertThat(page.path("items").size()).isEqualTo(1);
             assertThat(page.path("items").get(0).path("id").asText()).isEqualTo(second.toString());
             long cursor = page.path("nextCursor").asLong();
             JsonNode remaining = json.readTree(get(browser, "/api/v1/auditoria?actorId=" + actor
                     + "&limit=1&beforeSequence=" + cursor).body());
+            assertThat(remaining.path("items").size()).isEqualTo(1);
             assertThat(remaining.path("items").get(0).path("id").asText()).isEqualTo(first.toString());
             assertThat(remaining.path("nextCursor").isNull()).isTrue();
+            JsonNode all = json.readTree(get(browser, "/api/v1/auditoria?actorId=" + actor + "&limit=100").body());
+            assertThat(all.path("items").size()).isEqualTo(2);
         }
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_audit_event WHERE actor_id = ?",
+                Integer.class, actor)).isEqualTo(8);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_audit_event WHERE actor_id = ? AND actor_profile = 'saude'",
+                Integer.class, actor)).isEqualTo(6);
     }
 
     @Test
-    void explicitProtectedFiltersAreForbiddenEvenWithoutMatchingEvents() throws Exception {
+    void removedHealthResourceFiltersAreInvalidInput() throws Exception {
         try (HttpClient browser = browser()) {
             login(browser);
-            for (String resource : List.of("HEALTH_NOTE", "HEALTH_SHARE", "HEALTH_EXPORT")) {
+            for (String resource : LEGACY_RESOURCES) {
                 HttpResponse<String> response = get(browser, "/api/v1/auditoria?resource=" + resource
                         + "&resourceId=" + UUID.randomUUID());
-                assertThat(response.statusCode()).isEqualTo(403);
+                assertThat(response.statusCode()).as(resource).isEqualTo(400);
                 assertThat(json.readTree(response.body()).path("requestId").asText())
                         .isEqualTo(response.headers().firstValue("X-Request-Id").orElseThrow());
             }
         }
     }
 
-    private UUID event(UUID actor, String resource, String action) {
+    private UUID event(UUID actor, String profile, String resource, String action) {
         UUID id = UUID.randomUUID();
         jdbc.update("""
                 INSERT INTO sager_audit_event
                   (id,actor_id,actor_profile,origin,request_id,resource,resource_id,action,resulting_version,changed_fields)
-                VALUES (?,?,'saude','LOCAL_API',?,?,?,?,0,ARRAY[]::text[])
-                """, id, actor, UUID.randomUUID(), resource, UUID.randomUUID(), action);
+                VALUES (?,?,?,'LOCAL_API',?,?,?,?,0,ARRAY[]::text[])
+                """, id, actor, profile, UUID.randomUUID(), resource, UUID.randomUUID(), action);
         return id;
     }
 
-    private void login(HttpClient browser) throws Exception {
+   private void login(HttpClient browser) throws Exception {
         String email = UUID.randomUUID() + "@example.invalid";
         String password = "Senha local sintetica 123!";
         provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(email), email, "Gestor Sintetico", "gestor", password.toCharArray());
