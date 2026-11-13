@@ -336,17 +336,21 @@ describe('Residentes em sessão local', () => {
     expect(fixture.nativeElement.textContent).toContain('1º piso');
   });
 
+  // A menoridade vem do servidor: com 17 anos pelo aparelho e `minor: false`, valem os quartos de maiores.
   it.each([
-    [15, ['q-am', 'q-a0'], false],
-    [19, ['q-aM', 'q-a0'], false],
-    [null, ['q-a0'], true],
+    [15, true, ['q-am', 'q-a0'], false],
+    [19, false, ['q-aM', 'q-a0'], false],
+    [17, false, ['q-aM', 'q-a0'], false],
+    [15, undefined, ['q-a0'], false],
+    [null, false, ['q-a0'], true],
   ])(
-    'residente de %s anos vê só os quartos da sua faixa e os sem faixa',
-    async (age, rooms, note) => {
+    'residente de %s anos (menor no servidor: %s) vê só os quartos da sua faixa e os sem faixa',
+    async (age, minor, rooms, note) => {
       route.snapshot.paramMap = convertToParamMap({ id: resident.id });
       api.get.mockResolvedValue({
         ...structuredClone(resident),
         birthDate: age === null ? null : bornYearsAgo(age),
+        minor,
       });
       roomApi.map.mockResolvedValue(structuredClone(ageMap));
       const fixture = TestBed.createComponent(ResidentDetailComponent);
@@ -364,7 +368,11 @@ describe('Residentes em sessão local', () => {
 
   it('morador que fez 18 anos num quarto de menores vê o quarto atual, mas não como opção', async () => {
     route.snapshot.paramMap = convertToParamMap({ id: resident.id });
-    api.get.mockResolvedValue({ ...structuredClone(resident), birthDate: bornYearsAgo(18) });
+    api.get.mockResolvedValue({
+      ...structuredClone(resident),
+      birthDate: bornYearsAgo(18),
+      minor: false,
+    });
     roomApi.map.mockResolvedValue(structuredClone(ageMap));
     allocationApi.byResident.mockResolvedValue([
       { ...structuredClone(allocation), roomId: 'q-am' },

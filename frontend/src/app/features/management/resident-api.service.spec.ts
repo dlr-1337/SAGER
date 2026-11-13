@@ -79,12 +79,13 @@ describe('ResidentApiService', () => {
       stage: 'Concluinte',
       expectedExit: '2026-06-30',
       concluded: true,
+      minor: false,
     };
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify([computed]))));
     expect(await TestBed.inject(ResidentApiService).list()).toEqual([computed]);
   });
 
-  it.each([{ concluded: 'sim' }, { expectedExit: 31 }, { stage: 2 }])(
+  it.each([{ concluded: 'sim' }, { expectedExit: 31 }, { stage: 2 }, { minor: 'não' }])(
     'recusa campo calculado com tipo errado (%o)',
     async (wrong) => {
       vi.stubGlobal(

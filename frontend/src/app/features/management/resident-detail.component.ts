@@ -2,7 +2,6 @@ import { ERROR_GENERIC } from '../../core/error-messages';
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import { UnsavedFormDirective, UnsavedForms } from '../../shared/unsaved-form';
 import {
-  civilToday,
   fieldRule,
   nameProblem,
   phoneMask,
@@ -796,16 +795,12 @@ export class ResidentDetailComponent {
   readonly allocationSaving = signal(false);
   readonly confirmEnd = signal(false);
   readonly selectedRoom = new FormControl('', { nonNullable: true });
-  /** Quartos sem faixa, mais os da faixa do residente; o servidor confere de novo. */
+  /** Quartos sem faixa, mais os da faixa que o servidor calculou (cap4.tex:218). */
   readonly roomOptions = computed(() => {
     const map = this.allocationMap();
-    const birth = this.localResident()?.birthDate;
-    const [year, month, day] = civilToday().split('-').map(Number);
-    const group = birth
-      ? ageFromBirthDate(birth, new Date(year, month - 1, day)) < 18
-        ? 'MENORES'
-        : 'MAIORES'
-      : null;
+    const resident = this.localResident();
+    const minor = resident?.birthDate ? resident.minor : undefined;
+    const group = minor === undefined ? null : minor ? 'MENORES' : 'MAIORES';
     const groups = new Map(map.accommodations.map((item) => [item.id, item.ageGroup ?? null]));
     return map.rooms.filter((room) => {
       const roomGroup = groups.get(room.accommodationId) ?? null;

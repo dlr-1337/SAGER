@@ -15,6 +15,7 @@ export interface ResidentRecord {
   stage?: string | null;
   expectedExit?: string | null;
   concluded?: boolean;
+  minor?: boolean;
 }
 
 export type ResidentPayload = Pick<
@@ -53,6 +54,7 @@ function isResident(value: unknown): value is ResidentRecord {
     (item.stage == null || typeof item.stage === 'string') &&
     (item.expectedExit == null || typeof item.expectedExit === 'string') &&
     (item.concluded === undefined || typeof item.concluded === 'boolean') &&
+    (item.minor === undefined || typeof item.minor === 'boolean') &&
     typeof item.version === 'number'
   );
 }

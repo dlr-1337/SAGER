@@ -30,7 +30,7 @@ async function mockLocal(
   ageGroups = false,
 ) {
   const subject = ageGroups
-    ? { ...resident, birthDate: `${new Date().getFullYear() - 15}-01-01` }
+    ? { ...resident, birthDate: `${new Date().getFullYear() - 15}-01-01`, minor: true }
     : resident;
   const accommodations = ageGroups
     ? [
