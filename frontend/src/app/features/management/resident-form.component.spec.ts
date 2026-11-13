@@ -183,6 +183,8 @@ describe('ResidentFormComponent', () => {
     form.controls.enrollment.setValue('20251ABCD000123');
     expect(form.controls.entryYear.value).toBe(2024);
     form.controls.entryYear.setValue(null);
+    form.controls.enrollment.setValue('20151PAG0000001');
+    expect(form.controls.entryYear.value).toBe(2015);
     form.controls.enrollment.setValue('20261PAG0000001');
     expect(form.controls.entryYear.value).toBe(2026);
     await fixture.componentInstance.save();

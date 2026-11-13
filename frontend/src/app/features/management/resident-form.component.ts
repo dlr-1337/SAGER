@@ -526,6 +526,8 @@ export class ResidentFormComponent {
     passwordConfirmation: new FormControl('', { nonNullable: true }),
   });
 
+  private suggestedYear: number | null = null;
+
   constructor() {
     this.newCourse.valueChanges.pipe(takeUntilDestroyed()).subscribe((value) => {
       if (value) this.form.markAsDirty();
@@ -533,8 +535,11 @@ export class ResidentFormComponent {
     void this.loadCourses();
     this.form.controls.enrollment.valueChanges.pipe(takeUntilDestroyed()).subscribe((value) => {
       const year = yearFromEnrollment(value);
-      if (year && this.form.controls.entryYear.value == null) {
+      const current = this.form.controls.entryYear.value;
+      // Corrigir a matrícula refaz a sugestão; ano digitado ou salvo não é tocado.
+      if (year && (current == null || current === this.suggestedYear)) {
         this.form.controls.entryYear.setValue(year);
+        this.suggestedYear = year;
       }
     });
     if (!this.editId) {
@@ -703,6 +708,7 @@ export class ResidentFormComponent {
       password: '',
       passwordConfirmation: '',
     });
+    this.suggestedYear = item.entryYear == null ? yearFromEnrollment(item.enrollment) : null;
   }
 }
 
