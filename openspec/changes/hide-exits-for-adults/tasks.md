@@ -1,0 +1,38 @@
+Pré-requisito: remove-demo-mode, remove-health-module e speed-up-navigation já aplicadas. Os caminhos abaixo são relativos à raiz do repositório; comandos Maven rodam em `backend/` (`.\mvnw.cmd` no Windows) e comandos npm em `frontend/`.
+
+## 1. Regra única de menoridade e recusa do servidor
+
+- [ ] 1.1 Criar `public static boolean minor(LocalDate birth, Instant at)` em `backend/src/main/java/br/edu/ifgoiano/sager/management/FieldRules.java`, usando o `CIVIL_ZONE` existente (verdadeiro só com data presente, não futura e menos de 18 anos completos), e cobrir em `backend/src/test/java/br/edu/ifgoiano/sager/management/FieldRulesTest.java` os casos com `2026-10-01T01:00:00Z`: nascimento 30/09/2008 é falso, 01/10/2008 é verdadeiro, data nula é falso e data futura é falso; verificar com `.\mvnw.cmd -B -ntp -Dtest=FieldRulesTest test`.
+- [ ] 1.2 Trocar a conta própria de `backend/src/main/java/br/edu/ifgoiano/sager/operations/OperationResidents.java` (bloqueio `not_minor`) e o método privado `minor` de `backend/src/main/java/br/edu/ifgoiano/sager/operations/nightcalls/NightCallService.java` pelo helper da 1.1, sem mudar respostas; verificar com `.\mvnw.cmd -B -ntp -Dtest=OperationsApiIntegrationTest test` (elegibilidade, recusa de adulto e chamada noturna continuam verdes).
+- [ ] 1.3 Em `backend/src/test/java/br/edu/ifgoiano/sager/operations/OperationsApiIntegrationTest.java`, acrescentar o caso da véspera: residente nascido em 01/10/2008, no `START` (22h de 30/09 em Brasília), recebe `eligible` verdadeiro em `GET /api/v1/saidas-curtas/elegibilidade`, e o teste existente `rejectsAdultUnallocatedAndUnlinkedResidents` passa a conferir que nenhuma linha de `sager_short_exit` foi gravada; verificar com `.\mvnw.cmd -B -ntp -Dtest=OperationsApiIntegrationTest test`.
+- [ ] 1.4 Em `backend/src/test/java/br/edu/ifgoiano/sager/operations/longexits/LongExitApiIntegrationTest.java`, acrescentar um teste sobre o fixture existente: com nascimento 30/09/2008, `GET /api/v1/saidas-longas/elegibilidade` traz `eligible` falso e `blockers` com `not_minor`, `POST /api/v1/saidas-longas` responde 409 `not_eligible` e a contagem de `sager_long_exit` não muda; com nascimento 01/10/2008, a elegibilidade traz `eligible` verdadeiro; verificar com `.\mvnw.cmd -B -ntp -Dtest=LongExitApiIntegrationTest test`.
+- [ ] 1.5 Em `AGENTS.md`, trocar "except the resident's own linked exit requests" por "except the minor resident's own linked exit requests" (se a clean-up-documentation já não o tiver feito); verificar com `git grep -n "minor resident's own linked exit requests" -- AGENTS.md`.
+
+## 2. Maioridade em `/api/v1/auth/me`
+
+- [ ] 2.1 Em `backend/src/main/java/br/edu/ifgoiano/sager/auth/LocalAccountRepository.java`, criar a consulta por chave primária da data de nascimento de um residente (`Optional<LocalDate>`); em `backend/src/main/java/br/edu/ifgoiano/sager/auth/AuthController.java`, injetar o `Clock` e acrescentar `boolean maiorDeIdade` ao fim de `MeResponse`, verdadeiro só com `residentId`, data presente e `!FieldRules.minor(data, clock.instant())`; verificar com `.\mvnw.cmd -B -ntp -Dtest=AuthFlowIntegrationTest,LocalAccountLinksIntegrationTest test` (as respostas antigas continuam iguais).
+- [ ] 2.2 Em `backend/src/test/java/br/edu/ifgoiano/sager/auth/LocalAccountLinksIntegrationTest.java`, cobrir: residente vinculado nascido em 02/01/2006 recebe `maiorDeIdade` verdadeiro; com a data trocada para hoje em America/Sao_Paulo menos 15 anos, falso; sem data (técnica de linha legada de `OperationsApiIntegrationTest.missingLegacyBirthDateBlocksOpeningWithoutPartialRecords`), falso; conta sem vínculo, falso; verificar com `.\mvnw.cmd -B -ntp -Dtest=LocalAccountLinksIntegrationTest test`.
+- [ ] 2.3 Acrescentar `maiorDeIdade` à linha de `GET /api/v1/auth/me` em `backend/README.md` (ou no documento para onde a clean-up-documentation tiver levado a tabela de autenticação); verificar com `git grep -n "maiorDeIdade" -- backend/README.md docs`.
+
+## 3. Frontend: principal, menu e rotas de saída
+
+- [ ] 3.1 Em `frontend/src/app/core/local-auth.service.ts`, acrescentar `maiorDeIdade?: boolean` a `LocalPrincipal` e fazer `validPrincipal` aceitar ausente ou booleano e recusar outro tipo; cobrir em `frontend/src/app/core/local-auth.service.spec.ts` (aceita `true`, aceita ausente, recusa `'sim'`); verificar com `npm test -- --watch=false --include=src/app/core/local-auth.service.spec.ts`.
+- [ ] 3.2 Em `frontend/src/app/app.routes.ts`, marcar com `minorResident: true` nos `data` toda rota de operações cujo caminho começa com `saidas` e fazer o guarda de acesso devolver `/acesso-negado` quando a rota tiver a marca e o principal tiver `maiorDeIdade` verdadeiro; cobrir em `frontend/src/app/app.routes.spec.ts` (criar o arquivo se a remove-health-module o tiver apagado): adulto em `saidas`, `saidas/nova`, `saidas/:id` e `saidas/longas/nova` vai para `/acesso-negado`, menor e supervisor entram; verificar com `npm test -- --watch=false --include=src/app/app.routes.spec.ts`.
+- [ ] 3.3 Em `frontend/src/app/app.ts`, tirar o item `/saidas` do menu do residente quando `maiorDeIdade` for verdadeiro; cobrir em `frontend/src/app/app.spec.ts` (adulto sem link `/saidas`, menor com o link); verificar com `npm test -- --watch=false --include=src/app/app.spec.ts`.
+
+## 4. Frontend: início e ajuda do adulto
+
+- [ ] 4.1 Em `frontend/src/app/features/portal/local-home.page.ts`, para o residente com `maiorDeIdade`, tirar o cartão "Minhas saídas" e acrescentar no fim o cartão sem link "Horário de saída e volta" com o texto "Maiores de idade podem sair do IF até 23h e devem voltar até 5h." e o ícone `schedule`, com o comentário `shortcut:` do design (D6), sem renderizar a área de ações vazia; cobrir em `frontend/src/app/features/portal/local-home.page.spec.ts` com um teste de componente (adulto vê o aviso e nenhum `a[href="/saidas"]`; menor vê o link e não vê o aviso); verificar com `npm test -- --watch=false --include=src/app/features/portal/local-home.page.spec.ts`.
+- [ ] 4.2 Em `HelpPage` de `frontend/src/app/features/portal/portal.pages.ts`, injetar `LocalAuthService` e esconder o guia "Acompanhar saídas" quando `maiorDeIdade` for verdadeiro, mantendo o guia de comunicações; cobrir no `describe('HelpPage')` de `frontend/src/app/features/portal/portal.pages.spec.ts` (adulto sem `a[href="/saidas"]` e com o link de avisos; o caso do menor continua com `/saidas`); verificar com `npm test -- --watch=false --include=src/app/features/portal/portal.pages.spec.ts`.
+- [ ] 4.3 Em `frontend/e2e/operations-local.spec.ts`, permitir `maiorDeIdade` no estado de `mockApi` e acrescentar um teste: residente adulto não vê "Minhas saídas" no menu, `/inicio` mostra o aviso de horário sem violações do axe, e `/saidas`, `/saidas/nova` e `/saidas/longas/nova` levam a `/acesso-negado` sem nenhuma escrita; verificar com `npx playwright test e2e/operations-local.spec.ts`.
+- [ ] 4.4 Formatar os arquivos tocados do frontend com `npx prettier --write <arquivos>`; verificar com `npx prettier --check <arquivos>`.
+
+## 5. Verificação integrada
+
+- [ ] 5.1 Rodar a suíte completa e o build: `.\mvnw.cmd -B -ntp verify` em `backend/`, `npm run build`, `npm test -- --watch=false` e `npm run test:e2e` em `frontend/`; verificar que todos passam.
+- [ ] 5.2 Rodar `openspec validate hide-exits-for-adults --strict` na raiz; verificar que passa.
+
+## Workflow follow-up
+
+- Arquivar a change depois da revisão do dono, com `openspec validate hide-exits-for-adults --strict` antes do arquivamento.
+- Levar à AE as pendências listadas em design.md (texto e origem da regra 23h/5h, histórico de saídas do adulto, pedidos de quem faz 18 anos).
