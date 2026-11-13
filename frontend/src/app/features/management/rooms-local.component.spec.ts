@@ -215,6 +215,22 @@ describe('Quartos em sessão local', () => {
     expect(residents).not.toHaveBeenCalled();
   });
 
+  it('detalhe mostra a faixa etária herdada do alojamento', async () => {
+    route.snapshot.paramMap = convertToParamMap({ id: room.id });
+    const fixture = TestBed.createComponent(RoomDetailComponent);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Faixa etáriaSem faixa definida');
+
+    const minors = structuredClone(map);
+    minors.accommodations[0].ageGroup = 'MENORES';
+    api.map.mockResolvedValue(minors);
+    const withGroup = TestBed.createComponent(RoomDetailComponent);
+    await withGroup.whenStable();
+    withGroup.detectChanges();
+    expect(withGroup.nativeElement.textContent).toContain('Faixa etáriaMenores de 18 anos');
+  });
+
   it('detalhe local mostra moradores vinculados pela API', async () => {
     route.snapshot.paramMap = convertToParamMap({ id: room.id });
     const residentId = '00000000-0000-0000-0000-000000000041';

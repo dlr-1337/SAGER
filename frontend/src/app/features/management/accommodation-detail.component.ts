@@ -5,7 +5,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { AccommodationApiError, accommodationErrorMessage } from './accommodation-api.service';
 import { AccommodationDataService } from './accommodation-data.service';
-import { Accommodation, AccommodationUnit } from './housing.models';
+import { Accommodation, AccommodationUnit, ageGroupLabel } from './housing.models';
 
 @Component({
   selector: 'app-accommodation-detail',
@@ -39,6 +39,7 @@ import { Accommodation, AccommodationUnit } from './housing.models';
             >
             <h1>{{ accommodation.name }}</h1>
             <p>Código {{ accommodation.code }}</p>
+            <p>Faixa etária: {{ ageGroupLabel(accommodation.ageGroup) }}</p>
           </div>
           @if (canEdit()) {
             <a class="btn mg-primary" [routerLink]="['/alojamentos', accommodation.id, 'editar']"
@@ -178,6 +179,7 @@ import { Accommodation, AccommodationUnit } from './housing.models';
   `,
 })
 export class AccommodationDetailComponent {
+  readonly ageGroupLabel = ageGroupLabel;
   private readonly drafts = inject(UnsavedForms);
   private readonly data = inject(AccommodationDataService);
   private readonly session = inject(DemoSessionService);

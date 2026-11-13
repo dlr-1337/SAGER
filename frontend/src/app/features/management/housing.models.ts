@@ -2,14 +2,28 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl } from '@angular/forms';
 import { RoomSituation } from './management.models';
 
+export type AgeGroup = 'MENORES' | 'MAIORES';
+
 export interface Accommodation {
   id: string;
   code: string;
   name: string;
+  ageGroup?: AgeGroup | null;
   version: number;
 }
 
-export type AccommodationInput = Pick<Accommodation, 'code' | 'name'>;
+export type AccommodationInput = Pick<Accommodation, 'code' | 'name' | 'ageGroup'>;
+
+export function ageGroupLabel(group: AgeGroup | null | undefined): string {
+  if (group === 'MENORES') return 'Menores de 18 anos';
+  if (group === 'MAIORES') return 'Maiores de 18 anos';
+  return 'Sem faixa definida';
+}
+
+// Ausente vem de servidor antigo e de fixtures; vale como sem faixa.
+export function validAgeGroup(value: unknown): boolean {
+  return value === undefined || value === null || value === 'MENORES' || value === 'MAIORES';
+}
 
 export interface AccommodationUnit extends Accommodation {
   accommodationId: string;

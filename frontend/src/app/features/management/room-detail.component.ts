@@ -13,7 +13,7 @@ import {
   AllocationRecord,
   allocationErrorMessage,
 } from './allocation-api.service';
-import { HousingMap, RoomRecord } from './housing.models';
+import { HousingMap, RoomRecord, ageGroupLabel } from './housing.models';
 import { ManagementDemoService } from './management-demo.service';
 import { RoomApiError, RoomApiService, roomLoadError } from './room-api.service';
 import { ResidentApiService, ResidentRecord } from './resident-api.service';
@@ -97,6 +97,10 @@ import { formattedDate } from './management.utils';
             <div>
               <dt>Alojamento</dt>
               <dd>{{ accommodationName() }}</dd>
+            </div>
+            <div>
+              <dt>Faixa etária</dt>
+              <dd>{{ ageGroup() }}</dd>
             </div>
             <div>
               <dt>Casa ou bloco</dt>
@@ -311,6 +315,12 @@ export class RoomDetailComponent {
   readonly loadError = signal('');
   readonly missing = signal(false);
   readonly sessionRequired = signal(false);
+  readonly ageGroup = computed(() =>
+    ageGroupLabel(
+      this.localMap().accommodations.find((item) => item.id === this.localRoom()?.accommodationId)
+        ?.ageGroup,
+    ),
+  );
   readonly accommodationName = computed(
     () =>
       this.localMap().accommodations.find((item) => item.id === this.localRoom()?.accommodationId)

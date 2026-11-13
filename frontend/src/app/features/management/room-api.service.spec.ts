@@ -57,6 +57,25 @@ describe('RoomApiService', () => {
     });
   });
 
+  it.each([['MENORES'], ['MAIORES'], [null], [undefined]])(
+    'aceita alojamento do mapa com faixa %s',
+    async (ageGroup) => {
+      const withGroup = { ...map, accommodations: [{ ...map.accommodations[0], ageGroup }] };
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(withGroup))));
+      expect((await TestBed.inject(RoomApiService).map()).accommodations[0].ageGroup ?? null).toBe(
+        ageGroup ?? null,
+      );
+    },
+  );
+
+  it('rejeita mapa com faixa etária desconhecida', async () => {
+    const invalid = { ...map, accommodations: [{ ...map.accommodations[0], ageGroup: 'ADULTOS' }] };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(invalid))));
+    await expect(TestBed.inject(RoomApiService).map()).rejects.toThrow(
+      'O mapa recebido é inválido.',
+    );
+  });
+
   it('aceita criação na versão zero, preservando número textual e nulos com CSRF', async () => {
     const fetchMock = vi
       .fn()

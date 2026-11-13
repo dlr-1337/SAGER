@@ -5,6 +5,7 @@ interface Accommodation {
   id: string;
   code: string;
   name: string;
+  ageGroup?: string | null;
   version: number;
 }
 interface Unit extends Accommodation {
@@ -81,8 +82,13 @@ test('cadastro de alojamento e casa, edição e recarga com CSRF e versão', asy
   await page.getByRole('link', { name: 'Cadastrar alojamento' }).click();
   await page.getByRole('textbox', { name: /Código do alojamento/ }).fill('TESTE-A');
   await page.getByRole('textbox', { name: /Nome do alojamento/ }).fill('Alojamento Sintético');
+  await page.getByRole('combobox', { name: /Faixa etária/ }).selectOption({
+    label: 'Menores de 18 anos',
+  });
   await page.getByRole('button', { name: 'Salvar alojamento' }).click();
   await expect(page.getByRole('heading', { name: 'Alojamento Sintético' })).toBeVisible();
+  expect(registry.accommodations[0].ageGroup).toBe('MENORES');
+  await expect(page.getByText('Faixa etária: Menores de 18 anos')).toBeVisible();
   await page.getByRole('button', { name: 'Adicionar casa ou bloco' }).click();
   await page.getByRole('textbox', { name: /Código da casa ou bloco/ }).fill('CASA-01');
   await page.getByRole('textbox', { name: /Nome da casa ou bloco/ }).fill('Casa Sintética');

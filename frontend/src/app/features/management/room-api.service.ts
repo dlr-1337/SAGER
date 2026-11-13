@@ -7,6 +7,7 @@ import {
   HousingMap,
   RoomRecord,
   RoomRecordInput,
+  validAgeGroup,
 } from './housing.models';
 import { RoomSituation } from './management.models';
 
@@ -29,6 +30,7 @@ function isAccommodation(value: unknown): value is Accommodation {
     typeof item.id === 'string' &&
     typeof item.code === 'string' &&
     typeof item.name === 'string' &&
+    validAgeGroup(item.ageGroup) &&
     Number.isInteger(item.version) &&
     (item.version ?? -1) >= 0
   );
