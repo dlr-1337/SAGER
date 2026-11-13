@@ -68,6 +68,17 @@ describe('OperationsDemoService: critical operation rules', () => {
     expect(service.getExit('S-1048')?.status).toBe('Aprovada');
   });
 
+  it('rejects a long exit before the confirmation only with 10 to 2,000 characters', () => {
+    const service = new OperationsDemoService();
+    expect(service.decideExit('S-1048', 'reject', 'a'.repeat(9))).toBe(false);
+    expect(service.decideExit('S-1048', 'reject', 'a'.repeat(2001))).toBe(false);
+    expect(service.getExit('S-1048')?.status).toBe('Aguardando autorização');
+    expect(service.decideExit('S-1048', 'approve')).toBe(false);
+    expect(service.decideExit('S-1048', 'reject', 'Sem vaga.!')).toBe(true);
+    expect(service.getExit('S-1048')?.status).toBe('Rejeitada');
+    expect(service.getExit('S-1048')?.timeline.at(-1)?.detail).toBe('Sem vaga.!');
+  });
+
   it('offers resend only after a simulated delivery failure', () => {
     const service = new OperationsDemoService();
     expect(service.resendLongExit('S-1048', 'Tentativa adicional')).toBe(false);

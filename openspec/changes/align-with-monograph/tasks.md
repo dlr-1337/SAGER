@@ -31,13 +31,13 @@ Os caminhos do frontend são relativos a `frontend/`, e os do backend, a `backen
 
 ## 5. Demonstração: rejeição antes da conferência (RN05, UC07 alternativo; D5)
 
-- [ ] 5.1 Em `src/app/features/operations/operations-demo.service.ts`, `decideExit` deixa de recusar a rejeição de saída longa sem conferência e recusa a rejeição cujo motivo, depois do `trim()`, tenha menos de 10 ou mais de 2.000 caracteres. Este grupo é só da demonstração. Verificar com um caso novo em `operations-demo.service.spec.ts`. Em S-1048, antes da conferência:
+- [x] 5.1 Em `src/app/features/operations/operations-demo.service.ts`, `decideExit` deixa de recusar a rejeição de saída longa sem conferência e recusa a rejeição cujo motivo, depois do `trim()`, tenha menos de 10 ou mais de 2.000 caracteres. Este grupo é só da demonstração. Verificar com um caso novo em `operations-demo.service.spec.ts`. Em S-1048, antes da conferência:
   - 9 caracteres e 2.001 caracteres devolvem `false`, e a situação continua "Aguardando autorização";
   - 10 caracteres devolvem `true`, a situação passa a "Rejeitada" e a linha do tempo traz o motivo;
   - `decideExit('S-1048', 'approve')` continua `false`.
 
   Rodar `npm test -- --watch=false --include=src/app/features/operations/operations-demo.service.spec.ts`.
-- [ ] 5.2 Em `src/app/features/operations/review-dialog.component.ts`, acrescentar `minReason?: number` a `ReviewDialogData`. Com ele, `confirm()` recusa um texto mais curto, o campo limita a 2.000 caracteres e a mensagem é "Escreva de 10 a 2.000 caracteres.". Em `exit-detail.component.ts`, tirar o `[disabled]` de "Rejeitar", passar `minReason: 10` só em `decide(…, 'reject')` e trocar o aviso pelo texto da D5. Verificar em `e2e/journeys.spec.ts`:
+- [x] 5.2 Em `src/app/features/operations/review-dialog.component.ts`, acrescentar `minReason?: number` a `ReviewDialogData`. Com ele, `confirm()` recusa um texto mais curto, o campo limita a 2.000 caracteres e a mensagem é "Escreva de 10 a 2.000 caracteres.". Em `exit-detail.component.ts`, tirar o `[disabled]` de "Rejeitar", passar `minReason: 10` só em `decide(…, 'reject')` e trocar o aviso pelo texto da D5. Verificar em `e2e/journeys.spec.ts`:
   - no teste "aprovação longa bloqueada…", "Rejeitar" está habilitado antes da conferência;
   - num teste novo em S-1048, sem conferência, 9 caracteres mostram o erro e 10 caracteres levam a "Rejeitada".
 

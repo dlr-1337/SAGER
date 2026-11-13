@@ -222,7 +222,6 @@ import { ExitDetailLocalComponent } from './exit-detail-local.component';
                         <button
                           class="btn op-secondary"
                           type="button"
-                          [disabled]="exit.kind === 'Longa' && !exit.signed"
                           (click)="decide(exit, 'reject')"
                         >
                           Rejeitar
@@ -250,8 +249,8 @@ import { ExitDetailLocalComponent } from './exit-detail-local.component';
                       }
                       @if (exit.kind === 'Longa' && !exit.signed) {
                         <p class="op-help">
-                          Aprovação indisponível até a conferência simulada. Rejeição antes da
-                          conferência depende de decisão da AE.
+                          Aprovação indisponível até a conferência simulada. Você pode rejeitar
+                          antes da conferência, com justificativa de 10 a 2.000 caracteres.
                         </p>
                       }
                     } @else if (exit.kind === 'Curta' && exit.status === 'Em andamento') {
@@ -348,6 +347,7 @@ export class ExitDetailComponent {
         title: decision === 'approve' ? 'Revisar aprovação' : 'Revisar rejeição',
         action: decision === 'approve' ? 'Confirmar aprovação' : 'Confirmar rejeição',
         mode: decision === 'reject' ? 'reason' : 'simple',
+        minReason: decision === 'reject' ? 10 : undefined,
         lines: this.summary(item),
       },
       (result) => this.service.decideExit(item.id, decision, result.reason),

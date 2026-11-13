@@ -468,8 +468,8 @@ export class OperationsDemoService {
     )
       return false;
     if (decision === 'approve' && item.kind === 'Longa' && !item.signed) return false;
-    if (decision === 'reject' && item.kind === 'Longa' && !item.signed) return false;
-    if (decision === 'reject' && !justification.trim()) return false;
+    const reason = justification.trim().length;
+    if (decision === 'reject' && (reason < 10 || reason > 2000)) return false;
     this.replaceExit({
       ...item,
       status: decision === 'approve' ? 'Aprovada' : 'Rejeitada',

@@ -12,6 +12,8 @@ export interface ReviewDialogData {
   mode?: 'simple' | 'reason' | 'return';
   expectedReturn?: string;
   warning?: string;
+  /** Mínimo de caracteres da justificativa; com ele, o campo limita a 2.000. */
+  minReason?: number;
 }
 
 export interface ReviewDialogResult {
@@ -69,14 +71,19 @@ function localDateTime(date: Date): string {
             <textarea
               rows="3"
               [formControl]="reason"
+              [attr.maxlength]="data.minReason ? 2000 : null"
               (blur)="reason.markAsTouched()"
-              [attr.aria-invalid]="reason.touched && !reason.value.trim() ? 'true' : null"
+              [attr.aria-invalid]="reason.touched && reasonInvalid ? 'true' : null"
               aria-describedby="review-reason-error"
             ></textarea>
           </label>
-          @if (reason.touched && !reason.value.trim()) {
+          @if (reason.touched && reasonInvalid) {
             <p class="field-error" id="review-reason-error">
-              Preencha a justificativa para continuar.
+              {{
+                data.minReason
+                  ? 'Escreva de ' + data.minReason + ' a 2.000 caracteres.'
+                  : 'Preencha a justificativa para continuar.'
+              }}
             </p>
           }
         }
@@ -169,12 +176,16 @@ export class OperationsReviewDialogComponent {
     );
   }
 
+  get reasonInvalid(): boolean {
+    return this.reason.value.trim().length < (this.data.minReason ?? 1);
+  }
+
   confirm(): void {
     if (this.data.mode === 'return' && this.actualReturn.invalid) {
       this.actualReturn.markAsTouched();
       return;
     }
-    if ((this.data.mode === 'reason' || this.delayed) && !this.reason.value.trim()) {
+    if ((this.data.mode === 'reason' || this.delayed) && this.reasonInvalid) {
       this.reason.markAsTouched();
       return;
     }
