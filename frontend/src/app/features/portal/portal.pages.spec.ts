@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { routes } from '../../app.routes';
 import { provideRouter } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { LocalAuthService } from '../../core/local-auth.service';
@@ -144,6 +145,30 @@ describe('HelpPage', () => {
     await fixture.whenStable();
     expect(page.textContent).toContain('Esta demonstração usa dados reais?');
     expect(page.querySelector('a[href="/recuperar-senha"]')).toBeNull();
+    session.deactivate();
+  });
+
+  it('na demonstração, cada guia leva a uma rota do perfil em uso', async () => {
+    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    const session = TestBed.inject(DemoSessionService);
+    const fixture = TestBed.createComponent(HelpPage);
+    const page = fixture.nativeElement as HTMLElement;
+    const shown: Record<string, string[]> = {};
+    for (const role of ['gestor', 'supervisor', 'residente'] as const) {
+      session.activate(role);
+      await fixture.whenStable();
+      shown[role] = [...page.querySelectorAll('.guide-grid a')].map((a) => a.getAttribute('href')!);
+      for (const href of shown[role]) {
+        const route = routes.find((item) => `/${item.path}` === href);
+        const allowed = route?.data?.['roles'] as string[] | undefined;
+        expect(route && (!allowed || allowed.includes(role)), `${role} ${href}`).toBe(true);
+      }
+    }
+    expect(shown).toEqual({
+      gestor: ['/relatorios'],
+      supervisor: ['/chamada', '/saidas', '/comunicacoes/avisos', '/relatorios'],
+      residente: ['/saidas', '/avisos', '/ranking'],
+    });
     session.deactivate();
   });
 

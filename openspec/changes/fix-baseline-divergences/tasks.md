@@ -18,8 +18,8 @@ Os caminhos do frontend são relativos a `frontend/`, e os do backend, a `backen
 
 ## 4. Guias da ajuda na demonstração (item 15; D4)
 
-- [ ] 4.1 Em `src/app/features/portal/portal.pages.ts` (HelpPage), o guia Comunicações leva o residente a `/avisos` e os outros perfis a `/comunicacoes/avisos`, nos dois modos. Verificar com um caso novo em `src/app/features/portal/portal.pages.spec.ts`: para cada perfil na demonstração, cada link de `.guide-grid` corresponde a uma rota de `app.routes.ts` cujos perfis incluem o perfil em uso, e o supervisor tem `/comunicacoes/avisos`. Rodar `npm test -- --watch=false --include=src/app/features/portal/portal.pages.spec.ts`.
-- [ ] 4.2 Em `e2e/route-audit.spec.ts`, um teste novo: para cada perfil da demonstração, abrir `/ajuda`, seguir cada guia e conferir que a URL não é `/acesso-negado`. Rodar `SAGER_E2E_PORT=4326 CI=1 npx playwright test route-audit`.
+- [x] 4.1 Em `src/app/features/portal/portal.pages.ts` (HelpPage), o guia Comunicações leva o residente a `/avisos` e os outros perfis a `/comunicacoes/avisos`, nos dois modos. Verificar com um caso novo em `src/app/features/portal/portal.pages.spec.ts`: para cada perfil na demonstração, cada link de `.guide-grid` corresponde a uma rota de `app.routes.ts` cujos perfis incluem o perfil em uso, e o supervisor tem `/comunicacoes/avisos`. Rodar `npm test -- --watch=false --include=src/app/features/portal/portal.pages.spec.ts`.
+- [x] 4.2 Em `e2e/route-audit.spec.ts`, um teste novo: para cada perfil da demonstração, abrir `/ajuda`, seguir cada guia e conferir que a URL não é `/acesso-negado`. Rodar `SAGER_E2E_PORT=4326 CI=1 npx playwright test route-audit`.
 
 ## 5. Verificação final
 

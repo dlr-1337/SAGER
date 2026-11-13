@@ -97,6 +97,26 @@ test('rotas dos três perfis renderizam sem erro e sem violações axe', async (
   expect(violations).toEqual([]);
 });
 
+test('guias da ajuda na demonstração não levam ao acesso negado', async ({ page }) => {
+  for (const profile of ['Gestor', 'Supervisor', 'Residente'] as const) {
+    await enterDemo(page, profile);
+    await page.goto('/ajuda');
+    const guides = page.locator('.guide-grid a');
+    await expect(guides.first()).toBeVisible();
+    const count = await guides.count();
+    for (let index = 0; index < count; index++) {
+      await page.goto('/ajuda');
+      const guide = guides.nth(index);
+      const href = await guide.getAttribute('href');
+      await guide.click();
+      await expect(page, `${profile} ${href}`).toHaveURL(new RegExp(`${href}$`));
+      await expect(page.locator('main h1').first(), `${profile} ${href}`).not.toHaveText(
+        /acesso não disponível|página não encontrada/i,
+      );
+    }
+  }
+});
+
 test('supervisor não entra nas rotas de supervisores nem as vê no menu', async ({ page }) => {
   await enterDemo(page, 'Supervisor');
   await expect(page.getByRole('link', { name: 'Residentes', exact: true }).first()).toBeVisible();
