@@ -66,25 +66,25 @@ Os caminhos do frontend são relativos a `frontend/`, e os do backend, a `backen
 
 ## 9. Auditoria das contas (RN16, RN17, RF025; D9)
 
-- [ ] 9.1 Pré-condição: `remove-health-module` aplicada, e `V30__*.sql`, `V31__*.sql` e `V32__*.sql` presentes em `src/main/resources/db/migration/`. A demonstração não acompanha, porque nunca chama a API. Verificar com `ls src/main/resources/db/migration/V3*`; se faltar alguma, parar o grupo.
-- [ ] 9.2 Criar `src/main/resources/db/migration/V33__local_account_audit.sql` como na D9. Verificar com um teste novo em `src/test/java/br/edu/ifgoiano/sager/audit/AuditMigrationIntegrationTest.java`, que migra até `32`, grava um evento antigo e migra até `33`. Ele confere que:
+- [x] 9.1 Pré-condição: `remove-health-module` aplicada, e `V30__*.sql`, `V31__*.sql` e `V32__*.sql` presentes em `src/main/resources/db/migration/`. A demonstração não acompanha, porque nunca chama a API. Verificar com `ls src/main/resources/db/migration/V3*`; se faltar alguma, parar o grupo.
+- [x] 9.2 Criar `src/main/resources/db/migration/V33__local_account_audit.sql` como na D9. Verificar com um teste novo em `src/test/java/br/edu/ifgoiano/sager/audit/AuditMigrationIntegrationTest.java`, que migra até `32`, grava um evento antigo e migra até `33`. Ele confere que:
   - o evento antigo continua igual;
   - o banco aceita `LOCAL_ACCOUNT`/`UPDATE`/`{password}` com `LOCAL_API` e ator, e `LOCAL_ACCOUNT`/`CREATE` com `OPERATOR_CLI` sem ator;
   - o banco recusa `{passwordHash}`, `OPERATOR_CLI` com ator e `OPERATOR_CLI` com recurso `RESIDENT`.
 
   Rodar `.\mvnw.cmd -B -ntp -Dtest=AuditMigrationIntegrationTest test`.
-- [ ] 9.3 Em `audit/AuditResource.java`, acrescentar `LOCAL_ACCOUNT` com os campos da D9. Em `AuditRepository.java`, acrescentar a inserção com origem `OPERATOR_CLI` e `'LOCAL_ACCOUNT'` à lista de `find`. Em `AuditService.java`, criar dois métodos: o do terminal, que recusa rodar durante uma requisição HTTP, e o da recuperação, que recebe ator e perfil e exige a correlação da requisição. Verificar com casos novos em `AuditServiceIntegrationTest.java`: o método do terminal recusa contexto de requisição, e o da recuperação recusa a falta de correlação. Rodar `.\mvnw.cmd -B -ntp -Dtest=AuditServiceIntegrationTest test`.
-- [ ] 9.4 Em `auth/ResidentRecoveryService.java`, gravar `LOCAL_ACCOUNT`/`UPDATE`/`{password}` com a própria conta como ator e o perfil `residente`, depois de `updatePassword` devolver 1. Verificar em `management/residents/ResidentApiIntegrationTest.java`:
+- [x] 9.3 Em `audit/AuditResource.java`, acrescentar `LOCAL_ACCOUNT` com os campos da D9. Em `AuditRepository.java`, acrescentar a inserção com origem `OPERATOR_CLI` e `'LOCAL_ACCOUNT'` à lista de `find`. Em `AuditService.java`, criar dois métodos: o do terminal, que recusa rodar durante uma requisição HTTP, e o da recuperação, que recebe ator e perfil e exige a correlação da requisição. Verificar com casos novos em `AuditServiceIntegrationTest.java`: o método do terminal recusa contexto de requisição, e o da recuperação recusa a falta de correlação. Rodar `.\mvnw.cmd -B -ntp -Dtest=AuditServiceIntegrationTest test`.
+- [x] 9.4 Em `auth/ResidentRecoveryService.java`, gravar `LOCAL_ACCOUNT`/`UPDATE`/`{password}` com a própria conta como ator e o perfil `residente`, depois de `updatePassword` devolver 1. Verificar em `management/residents/ResidentApiIntegrationTest.java`:
   - em `recoversOnlyAfterMatchingRegisteredIdentityAndActiveGuardianAndRevokesSessions`, há exatamente um evento desses depois do 204 e nenhum depois dos 400;
   - em `GET /api/v1/auditoria?resource=LOCAL_ACCOUNT`, um gestor recebe o evento sem valores.
 
   Rodar `.\mvnw.cmd -B -ntp -Dtest=ResidentApiIntegrationTest test`.
-- [ ] 9.5 Em `auth/LocalAccountProvisioningService.java`, fazer `create`, `resetPassword`, `disable`, `link*`, `unlink` e `assignEnrollment` gravarem o evento de terminal da D9 quando não houver requisição HTTP. Para isso, `LocalAccountRepository.create` passa a devolver o id. Um vínculo que não muda nada não grava evento. Verificar com casos novos em `auth/LocalAccountLinksIntegrationTest.java`:
+- [x] 9.5 Em `auth/LocalAccountProvisioningService.java`, fazer `create`, `resetPassword`, `disable`, `link*`, `unlink` e `assignEnrollment` gravarem o evento de terminal da D9 quando não houver requisição HTTP. Para isso, `LocalAccountRepository.create` passa a devolver o id. Um vínculo que não muda nada não grava evento. Verificar com casos novos em `auth/LocalAccountLinksIntegrationTest.java`:
   - `provisioning.create(...)`, chamado no fio do teste sem requisição HTTP, gera `CREATE` com `OPERATOR_CLI` e sem ator. O comando `create` do runner não serve aqui, porque lê a senha de `System.console()`, que é nulo no Surefire;
   - pelos comandos do runner (`commands.run(...)`), `disable` gera `END` com `{active}`, `link-resident` gera `UPDATE` com `{residentId}` e `list` não gera evento.
 
   Rodar `.\mvnw.cmd -B -ntp -Dtest=LocalAccountLinksIntegrationTest+ResidentApiIntegrationTest+SupervisorApiIntegrationTest test`, para confirmar que as contagens do cadastro assistido não mudam.
-- [ ] 9.6 Em `docs/ARQUITETURA.md` (seção "Auditoria", :78) e `docs/OPERACAO.md` (comandos de contas), registrar que a recuperação de senha e os comandos do terminal gravam evento de conta, os do terminal com a origem `OPERATOR_CLI`. Verificar com `git grep -n "OPERATOR_CLI" docs/`.
+- [x] 9.6 Em `docs/ARQUITETURA.md` (seção "Auditoria", :78) e `docs/OPERACAO.md` (comandos de contas), registrar que a recuperação de senha e os comandos do terminal gravam evento de conta, os do terminal com a origem `OPERATOR_CLI`. Verificar com `git grep -n "OPERATOR_CLI" docs/`.
 
 ## 10. Verificação geral
 

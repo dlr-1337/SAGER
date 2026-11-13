@@ -88,12 +88,14 @@ public class LocalAccountRepository {
         revokeSessions(account);
     }
 
-    public void create(String enrollment, String email, String name, String passwordHash, String profile) {
+    public UUID create(String enrollment, String email, String name, String passwordHash, String profile) {
+        UUID id = UUID.randomUUID();
         jdbc.update("""
                 INSERT INTO sager_local_account
                     (id, enrollment, email, display_name, password_hash, profile, active)
                 VALUES (?, ?, ?, ?, ?, ?, true)
-                """, UUID.randomUUID(), enrollment, email, name, passwordHash, profile);
+                """, id, enrollment, email, name, passwordHash, profile);
+        return id;
     }
 
     public int updatePassword(LocalAccount account, String passwordHash) {

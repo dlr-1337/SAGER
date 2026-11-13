@@ -252,6 +252,39 @@ class LocalAccountLinksIntegrationTest {
                 Integer.class, record)).isEqualTo(1);
     }
 
+    @Test
+    void operatorCommandsRecordAccountEventsWithoutActorOrValues() {
+        UUID record = resident("DEMO-AUDIT");
+        String email = "audited@example.invalid";
+        // O comando create lê a senha do console, nulo no Surefire: o serviço é chamado sem requisição HTTP.
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(email), email, "Conta Sintética",
+                "residente", PASSWORD.toCharArray());
+        UUID account = accounts.findByEmail(email).orElseThrow().id();
+        command("link-resident", email, "--resident-id=" + record);
+        command("link-resident", email, "--resident-id=" + record);
+        String allAccountEvents = "SELECT COUNT(*) FROM sager_audit_event WHERE resource = 'LOCAL_ACCOUNT'";
+        int beforeList = jdbc.queryForObject(allAccountEvents, Integer.class);
+        assertThatCode(() -> commands.run(new DefaultApplicationArguments("--sager-account=list")))
+                .doesNotThrowAnyException();
+        assertThat(jdbc.queryForObject(allAccountEvents, Integer.class)).isEqualTo(beforeList);
+        assertThatCode(() -> commands.run(new DefaultApplicationArguments("--sager-account=disable",
+                "--email=" + email))).doesNotThrowAnyException();
+        assertThat(((ExitCodeGenerator) commands).getExitCode()).isZero();
+
+        assertThat(jdbc.queryForList("""
+                SELECT action || ' ' || origin || ' ' || changed_fields::text FROM sager_audit_event
+                WHERE resource = 'LOCAL_ACCOUNT' AND resource_id = ? AND actor_id IS NULL
+                    AND actor_profile IS NULL AND resulting_version = 0
+                ORDER BY sequence
+                """, String.class, account)).containsExactly(
+                        "CREATE OPERATOR_CLI {email,enrollment,name,password,profile}",
+                        "UPDATE OPERATOR_CLI {residentId}",
+                        "END OPERATOR_CLI {active}");
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(DISTINCT request_id) FROM sager_audit_event WHERE resource_id = ?
+                """, Integer.class, account)).isEqualTo(3);
+    }
+
     private int concurrentLink(String email, UUID record, CountDownLatch ready, CountDownLatch start)
             throws InterruptedException {
         MockEnvironment environment = new MockEnvironment();

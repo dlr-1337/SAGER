@@ -130,6 +130,51 @@ class AuditMigrationIntegrationTest {
                 .isZero();
     }
 
+    @Test
+    void v33AcceptsAccountEventsWithFieldNamesOnlyAndKeepsOldEvents() {
+        String schema = "audit_local_account";
+        migrate(schema, "32");
+        JdbcTemplate jdbc = jdbc(schema);
+        insert(jdbc, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
+        String events = """
+                SELECT sequence, id, occurred_at, actor_id, actor_profile, origin, request_id, resource,
+                       resource_id, action, resulting_version, changed_fields::text AS fields
+                FROM sager_audit_event ORDER BY sequence
+                """;
+        var before = jdbc.queryForList(events);
+
+        migrate(schema, "33");
+
+        assertThat(jdbc.queryForList(events)).isEqualTo(before);
+        UUID account = UUID.randomUUID();
+        accountEvent(jdbc, account, "'residente'", "'LOCAL_API'", "'LOCAL_ACCOUNT'", "ARRAY['password']");
+        accountEvent(jdbc, null, "NULL", "'OPERATOR_CLI'", "'LOCAL_ACCOUNT'",
+                "ARRAY['enrollment','name','profile','password']");
+        for (Runnable invalid : new Runnable[] {
+                () -> accountEvent(jdbc, account, "'residente'", "'LOCAL_API'", "'LOCAL_ACCOUNT'",
+                        "ARRAY['passwordHash']"),
+                () -> accountEvent(jdbc, account, "'gestor'", "'OPERATOR_CLI'", "'LOCAL_ACCOUNT'",
+                        "ARRAY['active']"),
+                () -> accountEvent(jdbc, null, "NULL", "'OPERATOR_CLI'", "'RESIDENT'", "ARRAY['name']")
+        }) {
+            assertThatThrownBy(invalid::run)
+                    .satisfies(error -> assertThat(sqlState(error)).isEqualTo("23514"));
+        }
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_audit_event", Integer.class))
+                .isEqualTo(3);
+    }
+
+    private void accountEvent(JdbcTemplate jdbc, UUID actor, String profile, String origin,
+            String resource, String fields) {
+        jdbc.update("""
+                INSERT INTO sager_audit_event
+                    (actor_id, actor_profile, origin, request_id, resource, resource_id,
+                     action, resulting_version, changed_fields)
+                VALUES (?, %s, %s, ?, %s, ?, 'UPDATE', 0, %s)
+                """.formatted(profile, origin, resource, fields), actor, UUID.randomUUID(),
+                UUID.randomUUID());
+    }
+
     private void insert(JdbcTemplate jdbc, UUID actor, UUID resource, UUID request) {
         jdbc.update("""
                 INSERT INTO sager_audit_event

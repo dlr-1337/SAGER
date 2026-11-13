@@ -607,13 +607,30 @@ class ResidentApiIntegrationTest {
             assertThat(form(resident,"/api/v1/auth/login",Map.of("matricula","2026100000000042","password",PASSWORD)).statusCode()).isEqualTo(204);
             Map<String,String> input=new LinkedHashMap<>(Map.of("matricula","2026100000000042","name"," JOAO  ANTONIO DA SILVA ","birthDate",BIRTH_DATE,"guardianName","Maria errada","password","Nova senha teste 123!","passwordConfirmation","Nova senha teste 123!"));
             assertThat(form(visitor,"/api/v1/auth/recover",input).statusCode()).isEqualTo(400);
+            UUID accountId=jdbc.queryForObject("SELECT id FROM sager_local_account WHERE enrollment='2026100000000042'",UUID.class);
+            // Os eventos são permanentes e o banco é o da classe: conta só os desta conta.
+            String accountEvents="SELECT count(*) FROM sager_audit_event WHERE resource='LOCAL_ACCOUNT' AND resource_id='"+accountId+"'";
+            assertThat(jdbc.queryForObject(accountEvents,Integer.class)).isZero();
             input.put("guardianName"," MARIA RITA DOS SANTOS ");
             input.put("matricula","2026.1000.0000.0042");
             assertThat(form(visitor,"/api/v1/auth/recover",input).statusCode()).isEqualTo(204);
+            assertThat(jdbc.queryForMap("SELECT actor_id,actor_profile,origin,resource_id,action,changed_fields::text AS fields FROM sager_audit_event WHERE resource='LOCAL_ACCOUNT' AND resource_id=?",accountId))
+                    .containsEntry("actor_id",accountId).containsEntry("actor_profile","residente").containsEntry("origin","LOCAL_API")
+                    .containsEntry("resource_id",accountId).containsEntry("action","UPDATE").containsEntry("fields","{password}");
+            var audit=get(manager,"/api/v1/auditoria?resource=LOCAL_ACCOUNT&resourceId="+accountId);
+            assertThat(audit.statusCode()).isEqualTo(200);
+            var items=json.readTree(audit.body()).path("items");
+            assertThat(items).hasSize(1);
+            assertThat(items.get(0).path("actorId").asText()).isEqualTo(accountId.toString());
+            assertThat(items.get(0).path("changedFields").toString()).isEqualTo("[\"password\"]");
+            assertThat(audit.body()).doesNotContain("Nova senha","$2","João","Maria");
             assertThat(get(resident,"/api/v1/auth/me").statusCode()).isEqualTo(401);
             assertThat(get(visitor,"/api/v1/auth/me").statusCode()).isEqualTo(401);
             assertThat(form(visitor,"/api/v1/auth/login",Map.of("matricula","2026100000000042","password",PASSWORD)).statusCode()).isEqualTo(401);
             assertThat(form(visitor,"/api/v1/auth/login",Map.of("matricula","2026100000000042","password","Nova senha teste 123!")).statusCode()).isEqualTo(204);
+            input.put("birthDate","2010-01-02");
+            assertThat(form(visitor,"/api/v1/auth/recover",input).statusCode()).isEqualTo(400);
+            assertThat(jdbc.queryForObject(accountEvents,Integer.class)).isEqualTo(1);
         }
     }
 

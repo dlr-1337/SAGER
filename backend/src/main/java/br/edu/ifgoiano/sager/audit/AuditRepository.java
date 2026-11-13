@@ -32,6 +32,12 @@ public class AuditRepository {
                 resultingVersion, changedFields);
     }
 
+    public void insertOperator(UUID requestId, AuditResource resource, UUID resourceId,
+            AuditAction action, long resultingVersion, List<String> changedFields) {
+        insert("OPERATOR_CLI", null, null, requestId, resource, resourceId, action,
+                resultingVersion, changedFields);
+    }
+
     private void insert(String origin, UUID actorId, String actorProfile, UUID requestId,
             AuditResource resource, UUID resourceId, AuditAction action, long resultingVersion,
             List<String> changedFields) {
@@ -64,7 +70,8 @@ public class AuditRepository {
                     'OCCURRENCE','DISCIPLINE_NOTIFICATION','WARNING','NOTICE','COMMUNICATION','COMMITMENT_TERM',
                     'CLEANING_ASSESSMENT','REPORT_SNAPSHOT','REPORT_EXPORT',
                     'LONG_EXIT','DOCUMENT_VERSION','SIGNATURE_BINDING','WHATSAPP_ATTEMPT','INTEGRATION_TASK',
-                    'AUTHORIZATION_FILE','WHATSAPP_CONVERSATION','WHATSAPP_MESSAGE','WHATSAPP_SESSION'
+                    'AUTHORIZATION_FILE','WHATSAPP_CONVERSATION','WHATSAPP_MESSAGE','WHATSAPP_SESSION',
+                    'LOCAL_ACCOUNT'
                 )
                 """);
         List<Object> arguments = new ArrayList<>();
