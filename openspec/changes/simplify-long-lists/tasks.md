@@ -51,9 +51,9 @@
 
 ## 10. Verificação integrada
 
-- [ ] 10.1 Confirmar que não sobrou "Carregar mais" fora da lista de conversas: `grep -rn "Carregar mais" frontend/src` deve encontrar só `conversations-local.pages.ts`.
-- [ ] 10.2 Rodar `npx prettier --check` nos arquivos tocados, além de `npm run build`, `npm test -- --watch=false` e `npm run test:e2e`, inclusive `target-audit`, `route-audit`, `navigation-mobile` e `visual-review`, todos sem falha.
-- [ ] 10.3 Rodar `openspec validate simplify-long-lists --strict` sem erros.
+- [x] 10.1 Confirmar que não sobrou "Carregar mais" fora da lista de conversas: `grep -rn "Carregar mais" frontend/src` deve encontrar só `conversations-local.pages.ts`.
+- [x] 10.2 Rodar `npx prettier --check` nos arquivos tocados, além de `npm run build`, `npm test -- --watch=false` e `npm run test:e2e`, inclusive `target-audit`, `route-audit`, `navigation-mobile` e `visual-review`, todos sem falha.
+- [x] 10.3 Rodar `openspec validate simplify-long-lists --strict` sem erros.
 
 ## Workflow follow-up
 
