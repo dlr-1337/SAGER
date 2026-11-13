@@ -31,12 +31,14 @@ Pré-requisito: remove-health-module e speed-up-navigation já aplicadas. O modo
 
 ## 5. Demonstração (RF027)
 
-- [ ] 5.1 A demonstração não acompanha a mudança (design D8): a residente fictícia é menor e a demonstração não tem principal. Conferir com `git diff --name-only` que esta change não alterou `frontend/src/app/features/operations/exits.component.ts`, `exit-detail.component.ts`, `exit-form.component.ts` nem `operations-demo.service.ts`, e que o ramo `session.active()` do `HomePage` em `portal.pages.ts` ficou igual; verificar com `npm test -- --watch=false --include=src/app/app.routes.spec.ts --include=src/app/app.spec.ts --include=src/app/features/portal/portal.pages.spec.ts --include=src/app/features/operations/operations-demo.service.spec.ts` e `npx playwright test e2e/route-audit.spec.ts e2e/journeys.spec.ts` (o residente da demonstração abre `/saidas`, `/saidas/nova`, `/saidas/S-1048` e `/saidas/S-1048/editar` sem acesso negado, como na Figura 6.6, cap7:108).
+- [x] 5.1 A demonstração não acompanha a mudança (design D8): a residente fictícia é menor e a demonstração não tem principal. Conferir com `git diff --name-only` que esta change não alterou `frontend/src/app/features/operations/exits.component.ts`, `exit-detail.component.ts`, `exit-form.component.ts` nem `operations-demo.service.ts`, e que o ramo `session.active()` do `HomePage` em `portal.pages.ts` ficou igual; verificar com `npm test -- --watch=false --include=src/app/app.routes.spec.ts --include=src/app/app.spec.ts --include=src/app/features/portal/portal.pages.spec.ts --include=src/app/features/operations/operations-demo.service.spec.ts` e `npx playwright test e2e/route-audit.spec.ts e2e/journeys.spec.ts` (o residente da demonstração abre `/saidas`, `/saidas/nova`, `/saidas/S-1048` e `/saidas/S-1048/editar` sem acesso negado, como na Figura 6.6, cap7:108).
+  - Feito em 13/11/2026: `git diff --name-only e25b2ca HEAD` não lista nenhum dos quatro arquivos da demonstração, e em `portal.pages.ts` só a `HelpPage` mudou. Os testes citados rodaram dentro das suítes inteiras da 6.1.
 
 ## 6. Verificação integrada
 
-- [ ] 6.1 Rodar a suíte completa e o build: `.\mvnw.cmd -B -ntp verify` em `backend/`, `npm run build`, `npm test -- --watch=false` e `npm run test:e2e` em `frontend/`; verificar que todos passam.
-- [ ] 6.2 Rodar `openspec validate hide-exits-for-adults --strict` na raiz; verificar que passa.
+- [x] 6.1 Rodar a suíte completa e o build: `.\mvnw.cmd -B -ntp verify` em `backend/`, `npm run build`, `npm test -- --watch=false` e `npm run test:e2e` em `frontend/`; verificar que todos passam.
+  - Feito em 13/11/2026: backend 488 testes (0 falhas, 2 ignorados); `npm run build` sem erro; `npm test -- --watch=false` 67 arquivos, 666 testes; `SAGER_E2E_PORT=4325 CI=1 npm run test:e2e` 200 testes.
+- [x] 6.2 Rodar `openspec validate hide-exits-for-adults --strict` na raiz; verificar que passa.
 
 ## Workflow follow-up
 
