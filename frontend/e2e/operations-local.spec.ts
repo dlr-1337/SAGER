@@ -105,6 +105,7 @@ function callFixture(): NightCall {
 }
 interface MockState {
   role: 'supervisor' | 'residente' | 'gestor';
+  maiorDeIdade: boolean;
   now: string;
   outsideWindow: boolean;
   missingBirthDates: boolean;
@@ -118,6 +119,7 @@ interface MockState {
 async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<MockState> {
   const state: MockState = {
     role: 'supervisor',
+    maiorDeIdade: false,
     now: initialNow,
     outsideWindow: false,
     missingBirthDates: false,
@@ -174,6 +176,7 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
         perfis: [state.role],
         residenteId: state.role === 'residente' ? residentId : null,
         supervisorId: state.role === 'supervisor' ? '00000000-0000-0000-0000-000000000101' : null,
+        maiorDeIdade: state.maiorDeIdade,
       });
     if (path === '/api/v1/auth/csrf')
       return ok({ headerName: 'X-CSRF-TOKEN', token: 'synthetic-token' });
@@ -582,6 +585,35 @@ test('data de nascimento ausente bloqueia abertura e falha da API não mostra de
   state.missingBirthDates = false;
   await page.getByRole('button', { name: 'Tentar novamente' }).click();
   await expect(page.getByRole('button', { name: 'Abrir chamada' })).toBeEnabled();
+});
+
+test('residente maior de idade consulta as saídas sem pedir, mudar nem cancelar', async ({
+  page,
+}) => {
+  const state = await mockApi(page, {
+    role: 'residente',
+    maiorDeIdade: true,
+    exits: [exitFixture()],
+  });
+  await page.goto('/inicio');
+  await expect(
+    page.getByText('Maiores de idade podem sair do IF até 23h e devem voltar até 5h.'),
+  ).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Minhas saídas' })).toHaveCount(0);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  for (const path of ['/saidas/nova', `/saidas/${exitId}/editar`]) {
+    await page.goto(path);
+    await expect(page).toHaveURL(/acesso-negado$/);
+  }
+  await page.goto('/saidas');
+  await expect(page.getByRole('link', { name: 'Ver pedido' })).toHaveCount(1);
+  await expect(page.getByRole('link', { name: /Pedir saída/ })).toHaveCount(0);
+  await page.getByRole('link', { name: 'Ver pedido' }).click();
+  await expect(page.getByRole('heading', { name: 'Pedido de saída curta' })).toBeVisible();
+  await expect(page.getByText('Aguardando análise', { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Mudar pedido' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Cancelar pedido' })).toHaveCount(0);
+  expect(state.writes).toEqual([]);
 });
 
 test('residente envia NOW sem relógio do navegador, edita e consulta depois de recarregar', async ({

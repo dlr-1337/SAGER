@@ -1082,11 +1082,13 @@ export class HomePage {
           >
         }
         @if (session.hasRole('supervisor', 'residente')) {
-          <a routerLink="/saidas"
-            ><span class="material-symbols-outlined" aria-hidden="true">directions_walk</span
-            ><strong>Acompanhar saídas</strong
-            ><span>Entenda análise, autorização e retorno.</span></a
-          >
+          @if (!adult()) {
+            <a routerLink="/saidas"
+              ><span class="material-symbols-outlined" aria-hidden="true">directions_walk</span
+              ><strong>Acompanhar saídas</strong
+              ><span>Entenda análise, autorização e retorno.</span></a
+            >
+          }
           <a
             [routerLink]="
               session.role() === 'residente' || session.active()
@@ -1273,6 +1275,8 @@ export class HomePage {
 })
 export class HelpPage {
   readonly session = inject(DemoSessionService);
+  private readonly auth = inject(LocalAuthService);
+  readonly adult = computed(() => this.auth.principal()?.maiorDeIdade === true);
 }
 
 @Component({
