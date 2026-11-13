@@ -7,7 +7,7 @@ Em produção (Coolify numa VPS, atrás do Cloudflare), cada ida ao servidor cus
 ## What Changes
 
 - Gateway (os dois templates nginx): arquivos com hash no nome (`main-`, `chunk-`, `styles-` e `media/`) passam a ter cache longo e imutável. `index.html`, arquivos sem hash e `/api` continuam `no-store`. Um arquivo com hash que não existe responde 404 sem cache longo. Os cabeçalhos de segurança passam para um arquivo incluído nas duas localizações, e o log ganha `$upstream_response_time`. Os smokes de produção e do Coolify passam a exigir as duas políticas.
-- Compose do Coolify: o banco sobe de 0,25 para 0,5 CPU e o backend de 0,65 para 1,0. O pool Hikari de produção mantém as 8 conexões abertas (`minimum-idle` igual a `maximum-pool-size`).
+- Compose do Coolify: o banco sobe de 0,25 para 1,0 CPU e o backend de 0,65 para 2,0. O pool Hikari de produção mantém as 8 conexões abertas (`minimum-idle` igual a `maximum-pool-size`).
 - Backend: a lista de avaliações de limpeza (gestão e residente) calcula o ranking de cada semana uma vez por página, com a mesma resposta de hoje.
 - Frontend: um único ponto de acesso à API em `core/api.ts` cuida de credenciais, JSON, erros, total da página, token CSRF guardado em memória e sessão encerrada (401). Todos os serviços de API passam a usá-lo. A sessão é consultada ao abrir o sistema, e não a cada troca de página. O código de todas as páginas é pré-carregado, uma barra fina mostra a navegação em andamento e o pacote de animações sai do carregamento inicial.
 - Ícones: a fonte Material Symbols é trocada por um subconjunto só com os ícones usados (de 5,4 MB para menos de 100 kB). Um teste falha quando uma tela usa um ícone que não está na fonte.

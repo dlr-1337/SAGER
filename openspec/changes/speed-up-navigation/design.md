@@ -39,7 +39,7 @@ Os dois templates ganham, antes da location genérica de estáticos (no nginx, a
 
 ### D2. Mais CPU no Coolify e pool sempre aberto
 
-Em `compose.coolify.yml`, o `database` passa a `cpus: 0.5` e o `backend` a `cpus: 1.0`. Em `application-production.yml`, `minimum-idle: 8`, igual ao `maximum-pool-size`. Com isso, uma rajada depois de um período ocioso não abre conexões novas com SCRAM e `connection-init-sql`.
+Em `compose.coolify.yml`, o `database` passa a `cpus: 1.0` e o `backend` a `cpus: 2.0` (a VPS tem 6 núcleos e 11,7 GB, conforme o painel do Coolify em 13/11/2026). Em `application-production.yml`, `minimum-idle: 8`, igual ao `maximum-pool-size`. Com isso, uma rajada depois de um período ocioso não abre conexões novas com SCRAM e `connection-init-sql`.
 
 - Rejeitado: flags de JVM (`-XX:TieredStopAtLevel=1`, SerialGC explícito). Elas trocam desempenho de pico por partida mais rápida, e o gargalo medido é CPU do banco e rede.
 - Rejeitado: reduzir o pool para 5. Nenhuma medição mostra excesso de conexões, e oito backends cabem nos 512 MB do banco.
@@ -162,7 +162,7 @@ Não foram medidos: requisições autenticadas em produção, throttling real do
 
 ## O que a instituição ou o operador ainda decide
 
-- Operador: quantos vCPUs e quanta RAM a VPS tem, e se 0,5 CPU para o banco e 1,0 para o backend cabem junto com Coolify, Traefik e WAHA. Também a região da VPS: o TTFB de 230 ms até para um favicon indica origem distante.
+- Operador: a região da VPS: o TTFB de 230 ms até para um favicon indica origem distante.
 - Operador: conferir que nenhuma regra do painel do Cloudflare força "Bypass cache" nem sobrepõe o `Cache-Control` da origem. Ajustar os limites de `infra/production/compose.yml`, se esse deploy for usado.
 - Instituição: método de medição do requisito de resposta de 2 segundos do PRD (operações, massa de dados e fronteira da medição). A confirmar com a AE e a TI.
 - Instituição: aceitar que alterações feitas por outra pessoa em residentes, cursos e mapa de quartos podem levar até 60 s para aparecer numa aba já aberta. A confirmar com a AE.
