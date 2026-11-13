@@ -59,7 +59,7 @@ export function formatCivilDate(date: string): string {
   return `${day}/${month}/${year}`;
 }
 export function validJustification(value: string): boolean {
-  return value.trim().length >= 10 && value.trim().length <= 500;
+  return value.trim().length >= 10 && value.trim().length <= 2000;
 }
 export function minutesAfter(instant: string, minutes: number): string {
   return new Date(Date.parse(instant) + minutes * 60_000).toISOString();

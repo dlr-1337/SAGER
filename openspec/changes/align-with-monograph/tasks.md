@@ -13,8 +13,8 @@ Os caminhos do frontend são relativos a `frontend/`, e os do backend, a `backen
 
 ## 3. Justificativas de 10 a 2.000 caracteres (RN05, UC05, UC07; D4)
 
-- [ ] 3.1 Em `src/app/features/operations/operations-local.utils.ts`, `validJustification` passa a aceitar até 2.000 caracteres. Em `operations-local.utils.spec.ts`, trocar `'a'.repeat(501)` por `'a'.repeat(2001)` (recusado) e acrescentar `'a'.repeat(2000)` (aceito). Verificar com `npm test -- --watch=false --include=src/app/features/operations/operations-local.utils.spec.ts`.
-- [ ] 3.2 Em `src/app/features/operations/review-dialog-local.component.ts`, usar `maxlength="2000"` nas duas textareas e "10 a 2.000 caracteres" na ajuda e nas duas mensagens de erro. A demonstração não acompanha esta tarefa, porque os diálogos dela não têm o limite de 500. Verificar com casos novos em `review-dialog-local.component.spec.ts`, que valem para saídas e chamada:
+- [x] 3.1 Em `src/app/features/operations/operations-local.utils.ts`, `validJustification` passa a aceitar até 2.000 caracteres. Em `operations-local.utils.spec.ts`, trocar `'a'.repeat(501)` por `'a'.repeat(2001)` (recusado) e acrescentar `'a'.repeat(2000)` (aceito). Verificar com `npm test -- --watch=false --include=src/app/features/operations/operations-local.utils.spec.ts`.
+- [x] 3.2 Em `src/app/features/operations/review-dialog-local.component.ts`, usar `maxlength="2000"` nas duas textareas e "10 a 2.000 caracteres" na ajuda e nas duas mensagens de erro. A demonstração não acompanha esta tarefa, porque os diálogos dela não têm o limite de 500. Verificar com casos novos em `review-dialog-local.component.spec.ts`, que valem para saídas e chamada:
   - uma justificativa de 2.000 caracteres fecha o diálogo com o texto;
   - uma de 9 caracteres mostra "Informe uma justificativa com 10 a 2.000 caracteres.";
   - a textarea tem `maxlength` 2000.
