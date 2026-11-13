@@ -1,3 +1,4 @@
+import { compareFloors, compareNatural } from './housing.models';
 import { computed, Injectable, signal } from '@angular/core';
 import {
   CommitmentTerm,
@@ -221,7 +222,15 @@ export class ManagementDemoService {
   readonly residents = computed(() => this.state().residents);
   readonly guardians = computed(() => this.state().guardians);
   readonly supervisors = computed(() => this.state().supervisors);
-  readonly rooms = computed(() => this.state().rooms);
+  // Mesma ordem natural do mapa do acesso por conta: bloco, piso e número.
+  readonly rooms = computed(() =>
+    [...this.state().rooms].sort(
+      (a, b) =>
+        compareNatural(a.block, b.block) ||
+        compareFloors(a.floor, b.floor) ||
+        compareNatural(a.number, b.number),
+    ),
+  );
 
   readonly history = signal<ResidentHistoryEntry[]>(HISTORY);
   readonly terms = signal<CommitmentTerm[]>([]);

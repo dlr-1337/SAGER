@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DemoScenario, DemoSessionService, Role } from '../../core/demo-session.service';
 import { FilterState } from '../../core/filter-state';
 import { AllocationApiService } from './allocation-api.service';
-import { HousingMap, RoomRecord } from './housing.models';
+import { HousingMap, RoomRecord, sortHousingMap } from './housing.models';
 import { ManagementDemoService } from './management-demo.service';
 import { RoomApiError, RoomApiService } from './room-api.service';
 import { ResidentApiService } from './resident-api.service';
@@ -181,6 +181,37 @@ describe('Quartos em sessão local', () => {
         expect(fixture.nativeElement.querySelector('sager-pagination nav')).toBeNull();
     },
   );
+
+  it('grade segue a ordem natural do mapa: alojamento pelo nome e quarto 2 antes do 10', async () => {
+    // O serviço real ordena o mapa; aqui ele chega já ordenado, como o RoomApiService entrega.
+    const first = { id: 'z-alojamento', code: 'TESTE-AA', name: 'Alojamento Alfa', version: 0 };
+    const second = { id: 'a-alojamento', code: 'TESTE-AB', name: 'Alojamento Beta', version: 0 };
+    const at = (id: string, accommodationId: string, number: string) => ({
+      ...room,
+      id,
+      code: `TESTE-${id}`,
+      number,
+      accommodationId,
+      unitId: null,
+    });
+    api.map.mockResolvedValue(
+      sortHousingMap({
+        accommodations: [second, first],
+        units: [],
+        rooms: [
+          at('beta-1', second.id, '1'),
+          at('alfa-10', first.id, '10'),
+          at('alfa-2', first.id, '2'),
+        ],
+      }),
+    );
+    const fixture = TestBed.createComponent(RoomsComponent);
+    await fixture.whenStable();
+    fixture.componentInstance.filters.controls.search.setValue('TESTE-');
+    const groups = fixture.componentInstance.groups();
+    expect(groups.map((group) => group.name)).toEqual(['Alojamento Alfa', 'Alojamento Beta']);
+    expect(groups[0].rooms.map((item) => item.number)).toEqual(['2', '10']);
+  });
 
   it('falha de backend nunca preenche o mapa com registros demonstrativos', async () => {
     api.map.mockRejectedValue(new Error('offline'));

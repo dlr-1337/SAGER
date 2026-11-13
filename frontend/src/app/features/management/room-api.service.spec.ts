@@ -162,6 +162,61 @@ describe('RoomApiService', () => {
     },
   );
 
+  it('devolve alojamentos, casas, pisos e quartos em ordem natural', async () => {
+    const place = (id: string, name: string, accommodationId?: string) => ({
+      id,
+      code: id,
+      name,
+      version: 0,
+      ...(accommodationId ? { accommodationId } : {}),
+    });
+    const at = (
+      id: string,
+      accommodationId: string,
+      unitId: string | null,
+      floor: string | null,
+    ) => ({
+      ...room,
+      id,
+      code: id,
+      number: id.split('-').at(-1)!,
+      accommodationId,
+      unitId,
+      floor,
+    });
+    const unsorted = {
+      accommodations: [place('a10', 'Residência 10'), place('a2', 'Residência 2')],
+      units: [place('u10', 'Casa 10', 'a2'), place('u2', 'Casa 2', 'a2')],
+      rooms: [
+        at('r10-10', 'a10', null, null),
+        at('r10-1', 'a10', null, null),
+        at('r10-2', 'a10', null, null),
+        at('c10-1', 'a2', 'u10', null),
+        at('c2-piso1-1', 'a2', 'u2', '1'),
+        at('c2-terreo-1', 'a2', 'u2', 'Térreo'),
+        at('c2-sem-1', 'a2', 'u2', null),
+        at('fora-9', 'a2', null, null),
+      ],
+    };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(unsorted))));
+    const sorted = await TestBed.inject(RoomApiService).map();
+    expect(sorted.accommodations.map((item) => item.name)).toEqual([
+      'Residência 2',
+      'Residência 10',
+    ]);
+    expect(sorted.units.map((item) => item.name)).toEqual(['Casa 2', 'Casa 10']);
+    expect(sorted.rooms.map((item) => item.id)).toEqual([
+      'fora-9',
+      'c2-sem-1',
+      'c2-terreo-1',
+      'c2-piso1-1',
+      'c10-1',
+      'r10-1',
+      'r10-2',
+      'r10-10',
+    ]);
+  });
+
   it('rejeita mapa com unidade pertencente a outro alojamento', async () => {
     vi.stubGlobal(
       'fetch',

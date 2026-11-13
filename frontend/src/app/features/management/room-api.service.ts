@@ -7,6 +7,7 @@ import {
   HousingMap,
   RoomRecord,
   RoomRecordInput,
+  sortHousingMap,
   validAgeGroup,
 } from './housing.models';
 import { RoomSituation } from './management.models';
@@ -101,7 +102,11 @@ export class RoomApiService {
     ) {
       throw new Error('Os vínculos do mapa recebido são inválidos.');
     }
-    return { accommodations: map.accommodations, units: map.units, rooms: map.rooms };
+    return sortHousingMap({
+      accommodations: map.accommodations,
+      units: map.units,
+      rooms: map.rooms,
+    });
   }
 
   async save(

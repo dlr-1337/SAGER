@@ -7,7 +7,7 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
-import { HousingMap } from './housing.models';
+import { HousingMap, compareFloors, compareNatural } from './housing.models';
 import { ManagementDemoService } from './management-demo.service';
 import { RoomSituation } from './management.models';
 import { RoomApiError, RoomApiService, roomLoadError } from './room-api.service';
@@ -375,7 +375,7 @@ export class RoomsComponent {
     }));
   });
   readonly blocks = computed(() =>
-    [...new Set(this.rooms().map((room) => room.accommodationId))].sort(),
+    [...new Set(this.rooms().map((room) => room.accommodationId))].sort(compareNatural),
   );
   readonly floors = computed(() =>
     [
@@ -384,7 +384,7 @@ export class RoomsComponent {
           .map((room) => room.floor)
           .filter((floor): floor is string => floor !== null),
       ),
-    ].sort((a, b) => floorPosition(a) - floorPosition(b) || a.localeCompare(b)),
+    ].sort(compareFloors),
   );
   readonly filteredRooms = computed(() => {
     const { search, block, accommodationId, unitId, floor, situation, occupancy } = this.criteria();
@@ -409,6 +409,7 @@ export class RoomsComponent {
   });
   readonly groups = computed<RoomGroup[]>(() => {
     const result = new Map<string, RoomGroup>();
+    // Os quartos já vêm na ordem natural do mapa; os grupos seguem a ordem de chegada.
     for (const room of this.filteredRooms().slice(this.page() * 25, (this.page() + 1) * 25)) {
       const key = JSON.stringify([room.accommodationId, room.unitId, room.floor]);
       if (!result.has(key))
@@ -421,13 +422,7 @@ export class RoomsComponent {
         });
       result.get(key)!.rooms.push(room);
     }
-    return [...result.values()].sort(
-      (a, b) =>
-        a.name.localeCompare(b.name) ||
-        (a.unit ?? '').localeCompare(b.unit ?? '') ||
-        floorPosition(a.floor) - floorPosition(b.floor) ||
-        a.floor.localeCompare(b.floor),
-    );
+    return [...result.values()];
   });
   // vacancies é null exatamente quando capacity é null (validado em room-api.service).
   readonly totals = computed(() => {
@@ -499,10 +494,4 @@ export class RoomsComponent {
     if (this.isDemo()) this.restoreScenario();
     else void this.load();
   }
-}
-
-function floorPosition(floor: string): number {
-  if (floor === 'Térreo') return 0;
-  const number = Number.parseInt(floor, 10);
-  return Number.isNaN(number) ? Number.MAX_SAFE_INTEGER : number;
 }
