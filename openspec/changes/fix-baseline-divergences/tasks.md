@@ -8,7 +8,7 @@ Os caminhos do frontend são relativos a `frontend/`, e os do backend, a `backen
 
 ## 2. 429 da recuperação com corpo padrão (item 13; D2)
 
-- [ ] 2.1 Em `auth/ResidentRecoveryController.java`, responder o limite com `ApiErrors.response(..., 429, "rate_limited", ...)` mais `Retry-After: 900`. Verificar em `ResidentApiIntegrationTest.recoveryWithoutGuardianDoesNotCreateNewRegistrationRequirementsAndIsThrottled` que o 429 tem `code` `rate_limited`, `message` não vazia, `requestId` igual ao cabeçalho `X-Request-Id`, `Retry-After` 900, `Cache-Control` com `no-store` e nenhum dado informado no corpo. Rodar o mesmo comando da 1.1.
+- [x] 2.1 Em `auth/ResidentRecoveryController.java`, responder o limite com `ApiErrors.response(..., 429, "rate_limited", ...)` mais `Retry-After: 900`. Verificar em `ResidentApiIntegrationTest.recoveryWithoutGuardianDoesNotCreateNewRegistrationRequirementsAndIsThrottled` que o 429 tem `code` `rate_limited`, `message` não vazia, `requestId` igual ao cabeçalho `X-Request-Id`, `Retry-After` 900, `Cache-Control` com `no-store` e nenhum dado informado no corpo. Rodar o mesmo comando da 1.1.
 
 ## 3. Demonstração com o servidor sem resposta (item 14; D3)
 

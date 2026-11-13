@@ -693,6 +693,9 @@ class ResidentApiIntegrationTest {
             var limited=form(visitor,"/api/v1/auth/recover",input);
             assertThat(limited.statusCode()).isEqualTo(429);
             assertThat(limited.headers().firstValue("Retry-After")).contains("900");
+            assertError(limited, 429, "rate_limited");
+            assertThat(json.readTree(limited.body()).path("requestId").asText())
+                    .isEqualTo(limited.headers().firstValue("X-Request-Id").orElseThrow());
             assertThat(limited.body()).doesNotContain("Pessoa Sintética", "gestor");
         }
     }
