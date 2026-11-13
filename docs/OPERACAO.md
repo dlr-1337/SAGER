@@ -24,11 +24,11 @@ O segundo comando pede a senha duas vezes, sem mostrar no terminal. A senha prec
 
 ### Contas
 
-`--profile` aceita `gestor`, `supervisor` e `residente`. O e-mail é opcional e só serve de contato (`--email=...`). Residentes e supervisores cadastrados pela interface já recebem a conta vinculada, com a senha escolhida no cadastro.
+`create` só cria contas de gestor (`--profile=gestor`). O e-mail é opcional e só serve de contato (`--email=...`). Residentes e supervisores cadastrados pela interface já recebem a conta vinculada, com a senha escolhida no cadastro.
 
 | Ação | Uso |
 | --- | --- |
-| `create` | Cria uma conta e pede a senha. |
+| `create` | Cria uma conta de gestor e pede a senha. |
 | `reset` | Troca a senha e encerra as sessões. |
 | `disable` | Desativa a conta e encerra as sessões. |
 | `link-resident`, `link-supervisor`, `unlink` | Liga ou desliga uma conta já existente de um cadastro, por UUID. |
@@ -85,4 +85,4 @@ O workflow [CI](../.github/workflows/ci.yml) roda em pull requests para `main`, 
 - [infra/coolify/README.md](../infra/coolify/README.md): homologação no Coolify com [compose.coolify.yml](../compose.coolify.yml).
 - [whatsapp/OPERACAO.md](whatsapp/OPERACAO.md): como ligar e operar o gateway de WhatsApp.
 
-O `compose.yaml` da raiz é só para uso local. Em produção, os três serviços permanentes têm limites de 512 MiB e 0,25 CPU para o PostgreSQL, 1.024 MiB e 0,65 CPU para o backend e 96 MiB e 0,10 CPU para o gateway HTTPS: 1.632 MiB e 1 CPU no total. Com o WhatsApp ligado, somam-se 768 MiB e 0,5 CPU do gateway de WhatsApp e 32 MiB e 0,10 CPU do seu proxy, num total de 2.432 MiB e 1,6 CPU. Nesse caso, a VPS precisa de pelo menos 2 vCPU e 4 GB de RAM, mais swap. Os containers de manutenção têm limites próprios. Esses números são configuração, não medição de desempenho na VPS.
+O `compose.yaml` da raiz é só para uso local. No stack de `infra/production`, os três serviços permanentes têm limites de 512 MiB e 0,25 CPU para o PostgreSQL, 1.024 MiB e 0,65 CPU para o backend e 96 MiB e 0,10 CPU para o gateway HTTPS: 1.632 MiB e 1 CPU no total. Com o WhatsApp ligado, somam-se 768 MiB e 0,5 CPU do gateway de WhatsApp e 32 MiB e 0,10 CPU do seu proxy, num total de 2.432 MiB e 1,6 CPU. Nesse caso, a VPS precisa de pelo menos 2 vCPU e 4 GB de RAM, mais swap. No Coolify (`compose.coolify.yml`), o PostgreSQL tem 1,0 CPU e o backend 2,0, num total de 3,1 CPU (3,7 com o WhatsApp); a memória é a mesma. Os containers de manutenção têm limites próprios. Esses números são configuração, não medição de desempenho na VPS.

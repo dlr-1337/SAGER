@@ -41,14 +41,14 @@ Não há rota HTTP para criar contas, trocar senha ou mudar perfil. O operador u
 
 ```bash
 java -jar target/sager-backend-0.1.0-SNAPSHOT.jar --spring.profiles.active=local \
-  --sager-account=create --matricula=TESTE-RESIDENTE --name='Pessoa de Teste' --profile=residente
+  --sager-account=create --matricula=TESTE-GESTOR --name='Gestor de Teste' --profile=gestor
 ```
 
 Com Docker, o mesmo comando fica `./sager account create --matricula=...`. A senha é pedida duas vezes num console com entrada oculta; sem console, o comando falha. Use só nomes e matrículas sintéticos.
 
 | Ação | Opções | Efeito |
 | --- | --- | --- |
-| `create` | `--matricula`, `--name`, `--profile`, `--email` (opcional) | Cria a conta. `--profile` aceita `gestor`, `supervisor` e `residente`. |
+| `create` | `--matricula`, `--name`, `--profile`, `--email` (opcional) | Cria uma conta de gestor. `--profile` só aceita `gestor`; residentes e supervisores recebem a conta no próprio cadastro. |
 | `reset` | conta | Troca a senha e encerra as sessões. |
 | `disable` | conta | Desativa a conta, encerra as sessões e impede novos logins. |
 | `link-resident` | conta, `--resident-id=UUID` | Liga uma conta de perfil `residente` a um cadastro de residente. |
@@ -61,7 +61,7 @@ Com Docker, o mesmo comando fica `./sager account create --matricula=...`. A sen
 "Conta" é `--account-id=UUID` ou `--matricula=...`; `--email` ainda é aceito como seletor antigo.
 
 - O login usa a matrícula. O e-mail é só contato e não entra no login.
-- Esta CLI não aplica a regra de formato do cadastro de residentes, por isso aceita matrículas como `TESTE-RESIDENTE`. A API de residentes recusa esse valor.
+- Esta CLI não aplica a regra de formato da matrícula do cadastro de residentes, por isso aceita valores como `TESTE-GESTOR`, que a API de residentes recusaria.
 - Cadastrar residente ou supervisor pela API (`password` e `passwordConfirmation`) já cria a conta vinculada na mesma transação. Editar o cadastro não troca a senha.
 - Uma conta tem no máximo um vínculo, e cada cadastro pertence a uma conta só. Vincular não muda o perfil. Não há vínculo automático por nome, e-mail ou matrícula.
 - Mudar ou remover o vínculo encerra as sessões da conta. Repetir o mesmo vínculo não muda nada.

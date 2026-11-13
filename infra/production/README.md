@@ -37,15 +37,17 @@ sem imprimir valores. Não use `config` ou `inspect` completo em logs públicos.
 4. `--profile maintenance run --rm initialize-runtime` — cria/atualiza a conta de
    execução e seus privilégios, incluindo a retirada de alteração/exclusão da
    auditoria. Repita após cada migração que criar tabelas.
-5. Provisione as contas necessárias pelo comando administrativo interativo do
-   backend, com perfil `production` explícito; nunca use senha em argumentos. Vínculos
+5. Provisione as contas de gestor pelo comando administrativo interativo do
+   backend, com perfil `production` explícito; nunca use senha em argumentos.
+   Residentes e supervisores recebem a conta no próprio cadastro. Vínculos
    continuam explícitos. Registre os operadores responsáveis. O servidor recusa iniciar
    enquanto houver conta ativa sem matrícula: `--sager-account=list` mostra as pendentes,
    e `--sager-account=assign-enrollment --account-id=UUID --matricula=...` resolve cada uma.
 6. `up -d backend gateway` — inicia a aplicação e o HTTPS. As portas públicas são
    80 e 443 por padrão; backend e PostgreSQL ficam nas redes privadas.
-7. Confira acesso, cookie seguro, integridade dos PDFs e métricas internas. Conserve
-   a versão anterior das imagens até o aceite da atualização.
+7. Confira acesso, cookie seguro, ausência de demonstração (`/demonstracao`
+   responde 404), integridade dos PDFs e métricas internas. Conserve a versão
+   anterior das imagens até o aceite da atualização.
 
 Antes de atualizar, execute o backup coordenado. Migrações são progressivas: não
 reverta o schema em uso com `clean` ou SQL destrutivo. Se a versão anterior não for

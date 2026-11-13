@@ -8,15 +8,17 @@ O SAGER substitui controles em papel por registros digitais rastreáveis. É uma
 
 | Perfil | O que faz |
 | --- | --- |
-| Gestor | Mantém os cadastros, inclusive os supervisores, aloca residentes nos quartos e consulta limpeza, ranking e relatórios. |
-| Supervisor | Mantém os cadastros, exceto supervisores, e cuida da rotina: chamada noturna, saídas e retornos, notificações, advertências, avisos, limpeza e conversas com responsáveis. |
+| Gestor | Mantém os cadastros, inclusive os supervisores, aloca residentes nos quartos, consulta limpeza e ranking, consulta e exporta relatórios e consulta a auditoria pela API. |
+| Supervisor | Mantém os cadastros, exceto supervisores, e cuida da rotina: chamada noturna, saídas e retornos, notificações, advertências, avisos, limpeza e conversas com responsáveis. Também consulta o ranking, consulta e exporta relatórios e consulta a auditoria pela API. |
 | Residente | Consulta o que é seu: comunicações, avaliações de limpeza e ranking. O residente menor de idade também pede saídas. |
 
-Não há cadastro público. O operador cria as contas pelo terminal, e o cadastro de residente ou de supervisor já cria a conta vinculada, com a senha escolhida.
+Não há cadastro público. O operador cria pelo terminal as contas iniciais de gestor, e o cadastro de residente ou de supervisor já cria a conta vinculada, com a senha escolhida por quem cadastra.
 
 ## Uso por perfil
 
 **Acesso.** Entre com a matrícula (ou SIAPE) e a senha. Se esquecer a senha, o residente usa **Esqueci minha senha**, que confere matrícula, nome, nascimento e, se houver responsável ativo, o nome de um deles; servidores procuram o operador. Muitas tentativas erradas bloqueiam o login por alguns minutos. Ao terminar, use **Sair**, principalmente em computador compartilhado.
+
+**Demonstração.** Para conhecer as telas sem conta, use a área **Explorar com um perfil fictício** da tela de acesso e escolha gestor, supervisor ou residente. Os dados são fictícios e ficam em memória, sem passar pela API, e a demonstração não existe em produção. Uma falha da API mostra erro, nunca dados de exemplo.
 
 **Gestor**
 
@@ -25,7 +27,7 @@ Não há cadastro público. O operador cria as contas pelo terminal, e o cadastr
 3. Em **Limpeza** e **Ranking**, acompanhe as avaliações por período. Nota zero e falta de avaliação são coisas diferentes.
 4. Em **Relatórios**, escolha o tipo, o período e os filtros e gere PDF e Excel. O arquivo traz o recorte daquele momento; para ver mudanças posteriores, gere outro.
 
-O gestor não registra chamada, movimento físico nem decisão disciplinar.
+O gestor não opera chamada, saídas, disciplina nem avisos.
 
 **Supervisor**
 
@@ -35,6 +37,7 @@ O gestor não registra chamada, movimento físico nem decisão disciplinar.
 4. Em **Avisos**, confira destinatários e texto antes de publicar. Editar cria nova versão, e a ciência anterior não vale para ela.
 5. Em **Limpeza**, escolha o quarto e o momento, dê nota de 0 a 10 nos quatro critérios e confira a média calculada.
 6. Em **Conversas**, troque mensagens com os responsáveis pelo WhatsApp, quando a integração estiver ligada.
+7. Em **Ranking** e **Relatórios**, consulte e exporte como o gestor.
 
 **Residente**
 

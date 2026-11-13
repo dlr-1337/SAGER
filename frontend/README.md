@@ -15,6 +15,8 @@ Abra http://localhost:4200/acesso. O `npm start` repassa `/api` para `http://127
 
 Se a API falhar, a tela mostra o erro; não há dados de exemplo no lugar.
 
+Sem backend, use a demonstração (RF027): em `/acesso`, escolha um perfil fictício ou abra **Explorar demonstração**. Ela usa perfis e dados fictícios em memória, dos serviços `*-demo`, não chama a API e não existe em produção. Nela, o relatório individual usa Chart.js 4.5.1; com a API, as barras são em HTML e CSS, com tabela.
+
 ## Testar
 
 ```bash
@@ -33,13 +35,13 @@ Formate os arquivos alterados com `npx prettier --write <caminho>`.
 
 | Pasta | Conteúdo |
 | --- | --- |
-| `src/app/core` | Sessão, mensagens de erro e estado de filtros e listas. |
+| `src/app/core` | Sessão autenticada e de demonstração, perfil ativo, mensagens de erro, estado de filtros e utilitários de listagem. |
 | `src/app/shared` | Componentes e regras reutilizados. |
 | `src/app/features/management` | Residentes, responsáveis, supervisores, cursos, alojamentos, quartos e alocações. |
-| `src/app/features/operations` | Chamada noturna e saídas curtas e longas. |
-| `src/app/features/communications` | Notificações, advertências, termos, avisos e conversas do WhatsApp. |
+| `src/app/features/operations` | Chamada noturna, saídas curtas e longas e notificações. |
+| `src/app/features/communications` | Advertências, termos, avisos e conversas do WhatsApp. |
 | `src/app/features/cleaning` | Avaliações de limpeza, indicadores e ranking. |
 | `src/app/features/reports` | Relatórios em PDF e Excel. |
-| `src/app/features/portal` | Acesso, início de cada perfil e recuperação de senha. |
+| `src/app/features/portal` | Acesso, recuperação de senha, página inicial, perfil, ajuda e entrada na demonstração. |
 
 As rotas ficam em `src/app/app.routes.ts`, os estilos globais em `src/styles.scss` e os arquivos públicos, inclusive a marca oficial do IF Goiano, em `public/`. A direção visual está em [DESIGN.md](../DESIGN.md).

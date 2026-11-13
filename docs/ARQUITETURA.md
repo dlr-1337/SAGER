@@ -15,7 +15,7 @@ flowchart LR
 
 | Camada | Tecnologia | Papel |
 | --- | --- | --- |
-| Interface | Angular 22, componentes standalone, Signals e Reactive Forms tipados | Telas por perfil, validação de formulário e navegação. Esconde o que não cabe ao perfil, mas não decide permissão. |
+| Interface | Angular 22, componentes standalone, Signals e Reactive Forms tipados | Telas por perfil, validação de formulário e navegação. Esconde o que não cabe ao perfil, mas não decide permissão. Os serviços `*-api.service` chamam a API com `fetch`, o cookie de sessão e o token CSRF; os serviços `*-demo` guardam dados em memória e só servem à demonstração. |
 | Entrada HTTPS | Nginx (produção) | Encerra TLS, serve a interface compilada, repassa `/api` ao backend e limita rajadas. |
 | API | Spring Boot 4.1, Java 21, JdbcTemplate | Regras de negócio, autorização por operação e por registro, sessão, CSRF e auditoria. |
 | Dados | PostgreSQL 17 com Flyway | Cadastros, operações, sessões, auditoria e contadores de login. |
@@ -28,14 +28,14 @@ flowchart LR
 
 | Pasta | Conteúdo |
 | --- | --- |
-| `core` | Sessão (login, `/auth/me`, saída), mensagens de erro e estado de filtros e listas. |
+| `core` | Sessão autenticada e de demonstração, perfil ativo, mensagens de erro, estado de filtros e utilitários de listagem. |
 | `shared` | Componentes e regras reutilizados: cabeçalho de página, paginação, campo e regras de senha, regras de campo. |
 | `features/management` | Residentes, responsáveis, supervisores, cursos, alojamentos, unidades, quartos e alocações. |
-| `features/operations` | Chamada noturna, saídas curtas e longas e conferência da autorização do responsável. |
-| `features/communications` | Notificações, advertências, termos, avisos, comunicações do residente e conversas do WhatsApp. |
+| `features/operations` | Chamada noturna, saídas curtas e longas, conferência da autorização do responsável e notificações. |
+| `features/communications` | Advertências, termos, avisos, comunicações do residente e conversas do WhatsApp. |
 | `features/cleaning` | Avaliações de limpeza, indicadores e ranking. |
 | `features/reports` | Catálogo de relatórios, consulta e exportação em PDF e Excel. |
-| `features/portal` | Acesso, início de cada perfil e recuperação de senha. |
+| `features/portal` | Acesso, recuperação de senha, página inicial, perfil, ajuda e entrada na demonstração. |
 
 As rotas ficam em `frontend/src/app/app.routes.ts`. Os testes unitários ficam ao lado do código (`*.spec.ts`) e as jornadas de navegador em `frontend/e2e/`.
 
@@ -70,7 +70,7 @@ As migrações ficam em `backend/src/main/resources/db/migration/` e os testes e
 
 ## Segurança
 
-- **Contas e login.** Login por matrícula e senha. Não há cadastro público: o operador cria contas pelo terminal, e o cadastro de residente ou de supervisor cria a conta vinculada na mesma transação. A senha tem pelo menos 8 caracteres e até 72 bytes; sequências, repetições, senhas comuns e a própria matrícula são recusadas. A recuperação do residente confere nome, nascimento e nome de um responsável ativo, quando houver. A dos servidores é administrativa.
+- **Contas e login.** Login por matrícula e senha. Não há cadastro público: o operador cria pelo terminal só as contas de gestor, e o cadastro de residente ou de supervisor cria a conta vinculada na mesma transação. A senha tem pelo menos 8 caracteres e até 72 bytes; sequências, repetições, senhas comuns e a própria matrícula são recusadas. A recuperação do residente confere nome, nascimento e nome de um responsável ativo, quando houver. A dos servidores é administrativa.
 - **Sessão.** A sessão fica no PostgreSQL (Spring Session JDBC) e expira após 30 minutos sem uso. O cookie é `HttpOnly` e `SameSite=Lax`, e `Secure` em produção. Trocar senha, desativar a conta ou mudar o vínculo encerra as sessões. A cada requisição o servidor confere se a conta continua ativa e se perfil e vínculo ainda batem.
 - **CSRF.** Toda escrita feita pela interface exige o token obtido em `GET /api/v1/auth/csrf`, enviado no cabeçalho. A única exceção é o webhook do WhatsApp (`POST /api/v1/integracoes/whatsapp/webhook`), que não usa sessão e é conferido por HMAC no cabeçalho `X-Webhook-Hmac`.
 - **Tentativas de login.** Em produção, cinco tentativas por conta em 15 minutos, com limite por IP no backend e no gateway. No perfil local, o login não tem esse limite. Os contadores guardam só HMAC de conta e IP. A resposta é genérica e não revela se a conta existe.
@@ -133,12 +133,12 @@ Cada decisão traz o contexto, a escolha, o que foi descartado e a consequência
 - **Alternativa rejeitada:** Cloud API oficial agora, que exige contratação e novo adaptador, e um provedor externo de assinatura, descartado na decisão de 31/10/2026.
 - **Consequência:** a integração não é oficial e pode levar ao banimento do número. O uso real depende de aceite formal da instituição.
 
-### 8. Sem modo demonstração
+### 8. Modo demonstração separado (RF027)
 
-- **Contexto:** o protótipo inicial tinha dados em memória para apresentar as telas.
-- **Decisão:** o sistema só funciona com a API e o banco. Testes e apresentações usam contas e registros sintéticos.
-- **Alternativa rejeitada:** manter dados em memória paralelos à API. Duplicaria regras e poderia mostrar dado falso como real.
-- **Consequência:** uma falha da API aparece como erro, nunca como dado de exemplo.
+- **Contexto:** a banca e quem chega ao projeto precisam conhecer as telas sem conta nem banco.
+- **Decisão:** na tela de acesso ou em `/demonstracao`, o visitante escolhe gestor, supervisor ou residente; o cenário (padrão, sem dados, erro ou carregando) fica no cabeçalho ou na gaveta do celular. Os serviços `*-demo` guardam dados fictícios em memória e nunca chamam a API, e a tela mostra o selo "Demonstração". O modo some quando o `index.html` está marcado como produção (`DemoSessionService.demoAvailable`; o build do gateway faz essa marca), e o Nginx responde 404 em `/demonstracao` (`infra/production/nginx.conf.template` e `infra/coolify/nginx.conf.template`). As telas de pedido e de detalhe da saída longa não fazem parte da demonstração.
+- **Alternativa rejeitada:** trocar para dados de exemplo quando a API falha, o que mostraria dado falso como real. Também rejeitada: remover a demonstração, que a monografia descreve (RF027).
+- **Consequência:** uma falha da API aparece como erro, nunca como dado de exemplo. Telas com ramo de demonstração mantêm os dois caminhos, e cada mudança diz se a demonstração a acompanha.
 
 ### 9. Sem módulo de saúde
 
@@ -186,7 +186,7 @@ Nenhuma das escolhas abaixo tem aprovação institucional registrada. Elas permi
 | D08 Registro tardio e correção | Registro retroativo exige instante não futuro e justificativa; retorno atrasado continua registrável, com observação. | Limites para lançamentos tardios e correções. |
 | D09 Chamada noturna | Janela de 22:00 a 23:30 em `America/Sao_Paulo`, com exceção confirmada e justificada; menores alocados congelados na abertura; correção motivada. | Janela, população, fechamento e correção. |
 | D10 Limpeza | Quatro critérios de 0 a 10 com média calculada no servidor; ranking por período. | Escala, pesos, períodos, desempate e limiar de alerta. |
-| D11 Evolução do comportamento | Nenhuma métrica calculada. | Indicadores, agregação e origem dos dados. |
+| D11 Evolução do comportamento | Relatório individual com séries mensais de faltas sem justificativa, voltas com atraso e advertências vigentes, calculadas na consulta (RF011). Com a API, barras em HTML e CSS com tabela; na demonstração, Chart.js. Não há nota de comportamento. | Se esses indicadores bastam e como são agregados. |
 | D12 Cancelar notificação | Arquivamento motivado, sem exclusão nem reabertura silenciosa. | Estado e revisão posterior. |
 | D13 Critérios de notificação | Ausência injustificada em chamada fechada, retorno físico atrasado e limpeza abaixo de 6,00 geram análise interna; gravidade e advertência são decisão humana. | Catálogo de critérios, gravidades e evidências. |
 | D14 Termo de compromisso | Duas advertências vigentes da mesma categoria, de origens distintas, em 90 dias geram candidato; o supervisor confirma e emite o termo. Ciência não é assinatura. | Limiar, modelo, signatários e procedimento. |
@@ -196,10 +196,10 @@ Nenhuma das escolhas abaixo tem aprovação institucional registrada. Elas permi
 | D18 Avisos | O supervisor publica para destinatários fixados na publicação; revisão cria nova versão e exige nova ciência; sem envio externo. | Autoria, segmentação, revisão e canais. |
 | D19 Quartos e alocação | Código global único, número local textual, capacidade opcional; um quarto ativo por residente; Ocupado e Disponível seguem a capacidade, Manutenção e Indisponível são manuais. | Capacidades oficiais, reservas, exceções e lacunas do inventário. |
 | D20 Exportações por perfil | Gestor e supervisor preparam os relatórios do catálogo; cada consulta e arquivo pertence a quem o preparou. | Colunas, filtros e dados sensíveis por perfil. |
-| D21 Conta institucional | Login próprio por matrícula; contas criadas pelo operador ou com o cadastro. | Identidade institucional, provisionamento, mudança de perfil e desligamento. |
+| D21 Conta institucional | Login próprio por matrícula; contas de gestor criadas pelo operador, e as de residente e supervisor com o cadastro. | Identidade institucional, provisionamento, mudança de perfil e desligamento. |
 | D22 Retenção e recuperação | Auditoria permanente; relatórios expiram em 24 horas; documentos sem descarte automático; backup manual criptografado. | Retenção e descarte dos demais dados, RPO e RTO. |
 | D23 Relatórios offline | Relatórios em PDF e Excel para baixar; o sistema não funciona offline. | Forma de contingência. |
-| D24 Carga na VPS | Limites de 1 CPU e 1.632 MiB nos serviços permanentes; sem medição na VPS definitiva. | Cenário de carga, concorrência e método de medição. |
+| D24 Carga na VPS | Limites de 1.632 MiB nos serviços permanentes, com 1 CPU em `infra/production` e 3,1 CPU no Coolify; sem medição na VPS definitiva. | Cenário de carga, concorrência e método de medição. |
 | D25 Licenças e provedores | Só software livre auto-hospedado; nenhum provedor pago. | Contratação, custos e termos de uso. |
 | D26 Diagramas e modelo físico | O modelo físico está nas migrações Flyway. | Atualização dos diagramas depois de homologar os fluxos. |
 
@@ -223,6 +223,7 @@ Nenhuma das escolhas abaixo tem aprovação institucional registrada. Elas permi
 | Retenção dos demais dados | Nada é apagado automaticamente, salvo relatórios temporários. | Prazos de retenção e descarte. |
 | Custódia da recuperação | A identidade privada `age` fica fora do servidor, com o operador. | Quem guarda e como. |
 | Backups | Feitos sob demanda pelo operador, sem agendamento. | Frequência e cópia externa. |
-| Responsabilidades | O operador cria contas, faz backup e atualiza. | Quem opera, com que procedimento. |
+| Responsabilidades | O operador cria as contas de gestor, faz backup e atualiza. | Quem opera, com que procedimento. |
 | Piloto e aceite | Homologação técnica com dados fictícios. | Piloto na VPS, disponibilidade e aceite formal. |
+| Aviso de privacidade | O sistema não tem tela de aviso de privacidade. | Texto, momento de exibição e responsável. |
 | WhatsApp | Desligado por padrão; anexo manual disponível. | Os onze itens de [whatsapp/OPERACAO.md](whatsapp/OPERACAO.md#decisões-institucionais-pendentes). |

@@ -11,6 +11,7 @@ A referência vigente é o canvas “SAGER — Telas” (17/10/2026), organizado
 3. Os controles principais têm pelo menos 48 px de altura; controles secundários e alvos de toque têm pelo menos 44 × 44 px. Texto e espaço entre elementos favorecem leitura e coordenação motora.
 4. Ícones Material Symbols acompanham rótulos nas ações importantes. Tabelas e gráficos apresentam resumo textual; nenhuma informação depende apenas de cor. Link de ação isolado, com ícone, sublinha só no hover; link dentro de texto fica sempre sublinhado.
 5. Foco visível, navegação por teclado, rótulos explícitos, indicação do erro junto ao campo e revisão antes de decisões são parte do fluxo.
+6. Na demonstração, o selo “Demonstração · dados fictícios” acompanha a navegação; perfil e cenário ficam no cabeçalho (computador) ou na gaveta (celular).
 
 ## Marca, tipografia e cores
 
@@ -25,14 +26,14 @@ A referência vigente é o canvas “SAGER — Telas” (17/10/2026), organizado
 
 ## Padrões e estados
 
-- Gestor: listas, formulários e detalhes de residentes, responsáveis e supervisores, mapa de quartos e relatórios. Supervisor: chamada, saídas/retornos, notificações e limpeza. Residente: avisos/advertências, limpeza e ranking, e as próprias saídas quando for menor de idade.
+- Gestor: listas, formulários e detalhes de residentes, responsáveis e supervisores, mapa de quartos e relatórios. Supervisor: chamada, saídas/retornos, notificações e limpeza. Residente: avisos/advertências, limpeza e ranking, e as próprias saídas quando for menor de idade. O seletor de perfil existe somente na demonstração; na conta, o perfil vem do login.
 - Lista: busca/filtros, resultado, vazio, erro e carregamento indicados em texto. Formulário: campos agrupados, validação, revisão e resultado. Decisão: contexto, consequências e opção de cancelar.
 - Avisos e advertências usam abas distintas. A leitura não registra ciência; há uma confirmação própria.
-- No celular, o cabeçalho mostra SAGER e Menu. A marca oficial aparece somente no topo do menu aberto; no desktop, permanece no cabeçalho. Exceção: nas páginas públicas (acesso), a marca permanece visível no cabeçalho também no celular. A gaveta móvel contém a navegação e a saída da conta, prende o foco enquanto está aberta e devolve o foco ao botão Menu ao fechar.
+- No celular, o cabeçalho mostra SAGER e Menu. A marca oficial aparece somente no topo do menu aberto; no desktop, permanece no cabeçalho. Exceção: nas páginas públicas (acesso), a marca permanece visível no cabeçalho também no celular. A gaveta móvel contém a navegação e a saída da conta, prende o foco enquanto está aberta e devolve o foco ao botão Menu ao fechar. Na demonstração, o cabeçalho do celular mostra SAGER, Demonstração e Menu, e a gaveta traz perfil e cenário.
 - No celular, abrir um aviso troca a lista pelo detalhe e oferece “Voltar à lista”. Os registros de um relatório usam resumos expansíveis em vez de uma tabela cortada; a tabela completa permanece no desktop.
-- Relatório: tipo em cartões, período em atalhos e filtros opcionais recolhidos, com os ativos sempre à vista e removíveis. “Gerar relatório” não abre diálogo, pois é só leitura: um clique prepara PDF e Excel, a lista acompanha sozinha e o foco vai para o relatório criado.
+- Relatório: tipo em cartões, período em atalhos e filtros opcionais recolhidos, com os ativos sempre à vista e removíveis. “Gerar relatório” não abre diálogo, pois é só leitura: um clique prepara PDF e Excel, a lista acompanha sozinha e o foco vai para o relatório criado. Na demonstração, baixar informa que nenhum arquivo é baixado.
 - Saída longa mostra a autorização do responsável conferida antes de permitir a aprovação, que é um ato separado. O retorno curto é confirmado pelo supervisor.
-- A métrica de comportamento, regras de ranking/limpeza, permissões finais e o aceite da integração com WhatsApp ficam identificados como pendências da AE/TI.
+- Os indicadores do relatório individual, as regras de ranking/limpeza, as permissões finais e o aceite da integração com WhatsApp ficam identificados como pendências da AE/TI.
 
 ## Revisão
 

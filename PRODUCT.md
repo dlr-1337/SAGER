@@ -26,7 +26,7 @@ Substituir controles residenciais em papel por processos digitais rastreáveis p
 
 ## Operating Context
 
-Plataforma web responsiva de uso institucional no IF Goiano, em computador e celular. A Assistência Estudantil define as regras operacionais e a TI fornece a infraestrutura. Todas as telas usam o backend; desenvolvimento, testes e apresentações usam dados sintéticos.
+Plataforma web responsiva de uso institucional no IF Goiano, em computador e celular. A Assistência Estudantil define as regras operacionais e a TI fornece a infraestrutura. As telas do acesso por conta usam o backend. O modo demonstração (RF027), indisponível em produção, usa perfis e dados fictícios em memória, sem API, e uma falha da API não leva a ele. Desenvolvimento, testes e apresentações usam dados sintéticos.
 
 ## Capabilities and Constraints
 
@@ -39,7 +39,7 @@ Plataforma web responsiva de uso institucional no IF Goiano, em computador e cel
 - A auditoria tem retenção permanente. O canal com responsáveis é um gateway WhatsApp
   auto-hospedado e não oficial, desligado por padrão, sem provedor externo de assinatura.
   Conversas pelo WhatsApp são só para supervisores. O aceite dessa integração, o nível de
-  assinatura exigido, a retenção de mensagens, regras de limpeza/ranking e métricas de comportamento
+  assinatura exigido, a retenção de mensagens, regras de limpeza/ranking e os indicadores do relatório individual
   continuam como pendências institucionais em `docs/ARQUITETURA.md`.
 - O registro da autorização comprova o recebimento de um arquivo e a conferência humana, não a autoria da assinatura.
 
@@ -59,7 +59,7 @@ Preservar o nome SAGER, a referência ao IF Goiano — Campus Urutaí e o verde 
 
 - Tornar a próxima tarefa e o estado atual evidentes.
 - Ajudar a revisar decisões com consequências antes da confirmação.
-- Preservar a distinção entre pendência institucional e registro real.
+- Preservar a distinção entre dado demonstrativo, pendência institucional e registro real.
 - Reutilizar padrões entre perfis sem expor ações ou dados indevidos.
 
 ## Accessibility & Inclusion

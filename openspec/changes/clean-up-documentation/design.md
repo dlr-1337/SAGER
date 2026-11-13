@@ -4,7 +4,7 @@
 
 Motivação em proposal.md (Why). Estado medido em 13/11/2026:
 
-- `docs/` tem 36 arquivos (556 KB). Só três descrevem o sistema atual: `docs/DOCKER.md`, `docs/CI.md` e `docs/whatsapp/OPERACAO.md`. O resto é histórico das fases. O PRD e a Especificação Técnica somam 208 KB na raiz e ainda citam Google, Clicksign e a demonstração.
+- `docs/` tem 36 arquivos (556 KB). Só três descrevem o sistema atual: `docs/DOCKER.md`, `docs/CI.md` e `docs/whatsapp/OPERACAO.md`. O resto é histórico das fases. O PRD e a Especificação Técnica somam 208 KB na raiz e ainda citam Google, Clicksign e e-mail no login.
 - O CI (`.github/workflows/ci.yml`) não lê nenhum arquivo de `docs/`. Só documentos apontam para os que vão sair: `README.md`, `AGENTS.md` (:17, :33, :39), `backend/README.md` (cerca de 20 links), `frontend/README.md`, `infra/production/README.md:135`, `infra/coolify/README.md:171`, `docs/whatsapp/OPERACAO.md:3` e `:119`, `PRODUCT.md:53-54` e o `openspec/config.yaml:11-12`. Nenhuma spec em `openspec/specs` aponta para `docs/`.
 - As regras de domínio da chamada, das saídas, da disciplina, da limpeza e dos relatórios existem por extenso só em `docs/fase-3/README.md` e em `docs/fase-4/`, `fase-5/` e `fase-6/CONTRATO.md`. O AGENTS.md traz o resumo delas. As specs de base vêm depois, no change `document-core-baseline` (onda 4).
 - `origin/main` está em `7d22855`, que ainda contém todos esses documentos.
@@ -53,7 +53,7 @@ Alternativa rejeitada: um manual próprio por perfil, corrigido. A monografia j�
 
 ### 3. Decisões em formato ADR dentro de ARQUITETURA.md
 
-Cada decisão ocupa uma subseção com contexto, decisão, alternativa rejeitada e consequência. Lista mínima: login próprio por matrícula (rejeitada: Google OIDC ou SUAP agora); sessão no servidor com CSRF (rejeitada: token no navegador); autorização sempre no servidor, com a interface só escondendo o que não cabe ao perfil (rejeitada: confiar nas guardas de rota); auditoria na mesma transação, sem valores pessoais e com retenção permanente (rejeitada: log assíncrono); Flyway com papéis de migração e de execução separados, sem editar migração aplicada (rejeitada: um papel só ou schema gerado pela aplicação); backup criptografado com pausa de gravação (rejeitada: cópia do volume com a aplicação gravando); WhatsApp auto-hospedado e desligado por padrão, com "autorização conferida" e nunca assinatura (rejeitadas: Cloud API oficial agora, pela contratação, e provedor externo de assinatura); sem modo demonstração (rejeitada: dados em memória paralelos à API); sem módulo de saúde (rejeitada: mantê-lo oculto); comportamento em `openspec/specs` (rejeitada: contratos por fase em `docs/`).
+Cada decisão ocupa uma subseção com contexto, decisão, alternativa rejeitada e consequência. Lista mínima: login próprio por matrícula (rejeitada: Google OIDC ou SUAP agora); sessão no servidor com CSRF (rejeitada: token no navegador); autorização sempre no servidor, com a interface só escondendo o que não cabe ao perfil (rejeitada: confiar nas guardas de rota); auditoria na mesma transação, sem valores pessoais e com retenção permanente (rejeitada: log assíncrono); Flyway com papéis de migração e de execução separados, sem editar migração aplicada (rejeitada: um papel só ou schema gerado pela aplicação); backup criptografado com pausa de gravação (rejeitada: cópia do volume com a aplicação gravando); WhatsApp auto-hospedado e desligado por padrão, com "autorização conferida" e nunca assinatura (rejeitadas: Cloud API oficial agora, pela contratação, e provedor externo de assinatura); modo demonstração separado do acesso autenticado e indisponível em produção (RF027; rejeitada: remover a demonstração, que a monografia descreve); sem módulo de saúde (rejeitada: mantê-lo oculto); comportamento em `openspec/specs` (rejeitada: contratos por fase em `docs/`).
 
 Alternativa rejeitada: um arquivo por ADR em `docs/adr/`. Seriam mais dez arquivos, contra o objetivo de ter poucos documentos.
 
@@ -87,7 +87,7 @@ Alternativa rejeitada: ignorar as pastas e regenerá-las com `openspec update`. 
 
 ### 9. Um dono para cada texto entre as mudanças paralelas
 
-Este change é o dono do texto de README.md, AGENTS.md, PRODUCT.md, DESIGN.md, dos READMEs e de `docs/`, e já escreve o estado final: sem demonstração, sem saúde e com saídas só para o residente menor. `remove-demo-mode` e `remove-health-module` mudam o código e só mexem nesses arquivos para tirar alguma sobra. A frase sobre saídas no AGENTS.md diz o que o servidor já faz (`OperationResidents.java:44-46` recusa `not_minor` e `birth_date_required`): "Operations are supervisor-only except the minor resident's own linked exit requests; the server refuses exit requests from residents who are 18 or older in America/Sao_Paulo or have no birth date." A parte da interface fica com `hide-exits-for-adults`.
+Este change é o dono do texto de README.md, AGENTS.md, PRODUCT.md, DESIGN.md, dos READMEs e de `docs/`, e já escreve o estado final: com a demonstração preservada (RF027), sem saúde, com saídas só para o residente menor e com o comando `create` restrito a contas de gestor. `remove-health-module` muda o código e só mexe nesses arquivos para tirar alguma sobra. A frase sobre saídas no AGENTS.md diz o que o servidor já faz (`OperationResidents.java:44-46` recusa `not_minor` e `birth_date_required`): "Operations are supervisor-only except the minor resident's own linked exit requests; the server refuses exit requests from residents who are 18 or older in America/Sao_Paulo or have no birth date." A parte da interface fica com `hide-exits-for-adults`.
 
 Alternativa rejeitada: cada change editar as próprias linhas do AGENTS.md e do README. Seriam três edições paralelas nos mesmos parágrafos, com conflito certo.
 
@@ -115,11 +115,17 @@ A busca exclui `openspec/changes/` inteira: as changes arquivadas são históric
 
 Alternativa rejeitada: `markdown-link-check` na CI. Seria uma dependência nova, e os links externos falham de forma intermitente.
 
+### 12. Coerência com a monografia
+
+A monografia (versão de 10/11/2026) é a fonte da verdade. A primeira aplicação deste change tirou a demonstração dos documentos porque supunha `remove-demo-mode`, que foi descartada: RF027, cap4.tex:36 e cap6.tex:65 descrevem o modo demonstração. O grupo 6 de tasks.md corrige cada documento: devolve a demonstração como modo separado, indisponível em produção, que nunca substitui uma falha da API (RNF Degradação, cap4.tex:198); escreve as permissões da tabela de cap4.tex:73-84; restringe a criação pelo terminal a contas de gestor (cap4.tex:51, :216); troca a "métrica de comportamento" pelos indicadores mensais do relatório individual (RF011, `ReportCatalog.java`); registra a falta de aviso de privacidade; e alinha os limites de CPU do Coolify a `compose.coolify.yml` (tarefa 1.4 de `speed-up-navigation`). Cada afirmação foi conferida no código antes de ser escrita.
+
+Alternativa rejeitada: manter os documentos sem demonstração até a monografia mudar. Contradiria RF027 e esconderia de quem chega ao projeto, inclusive a banca, o jeito de conhecer as telas sem conta. Também rejeitada: copiar trechos inteiros da monografia para `docs/`, o que duplicaria texto que envelhece em dois lugares.
+
 ## Risks / Trade-offs
 
 - [As regras de fase não viram spec antes da onda 4] → AGENTS.md mantém o resumo, ARQUITETURA registra a revisão `7d22855` para `git show`, e a tabela de pendências guarda os parâmetros locais (chamada de 22:00 a 23:30, saída curta de até 3 h, limpeza abaixo de 6,00, duas advertências em 90 dias).
-- [O AGENTS.md descreve o sistema sem demonstração e sem saúde antes de `remove-health-module` (onda 2) chegar ao código] → É o estado final já decidido em DECISOES.md, e as ondas 1 e 2 são implementadas no mesmo branch (`feat/simplifica-sistema`) antes de chegar a `main`. Se `remove-health-module` for cancelado, as frases de saúde voltam ao AGENTS.md a partir de `git show 7d22855:AGENTS.md`.
-- [Conflito de texto com changes paralelas] → Decisão 9. Quem implementar `remove-demo-mode` confere README, DESIGN.md e PRODUCT.md antes de editar.
+- [Os documentos descrevem o sistema sem saúde e com `create` só para gestor antes de `remove-health-module` (onda 2) chegar ao código] → É o estado final já decidido em DECISOES.md e em cap4.tex:51, e as ondas 1 e 2 são implementadas no mesmo branch (`feat/simplifica-sistema`) antes de chegar a `main`. Se `remove-health-module` for cancelado, as frases de saúde voltam ao AGENTS.md a partir de `git show 7d22855:AGENTS.md`, e `backend/README.md`, `docs/OPERACAO.md`, a seção "Security & Demo Data" do AGENTS.md ("`create` accepts only `gestor`") e o item "Contas e login" de `docs/ARQUITETURA.md` ("o operador cria pelo terminal só as contas de gestor") voltam a listar os três perfis no `create`.
+- [Conflito de texto com changes paralelas] → Decisão 9. Quem implementar `remove-health-module` ou `hide-exits-for-adults` confere README, AGENTS.md e PRODUCT.md antes de editar.
 - [`openspec validate --all --strict` na CI reprova um PR com change ativa incompleta] → É o objetivo. As changes da onda precisam passar em `--strict` antes de abrir o PR.
 - [Versionar `.claude/` e `.agents/` põe pastas com nome de ferramenta no repositório, e a regra do dono proíbe atribuição a IA] → As pastas são configuração do OpenSpec, não atribuição. Commits e textos continuam sem menção. DECISOES.md já decidiu versionar.
 - [Um `git add -A` publicaria a monografia (55 MB), `.claude/noite/` ou `scripts/`] → O grupo 1 ignora os dois primeiros antes de qualquer outra coisa. As tasks usam `git add` e `git rm` com caminhos explícitos, nunca `-A`. `scripts/` e `.claude/launch.json` ficam como decisão do dono.
@@ -129,16 +135,18 @@ Alternativa rejeitada: `markdown-link-check` na CI. Seria uma dependência nova,
 
 1. Grupos 1 a 4 de tasks.md criam e atualizam os documentos enquanto os antigos ainda existem, então os links resolvem a cada passo.
 2. O grupo 5 remove o histórico, e a busca de links mortos tem de voltar vazia.
-3. Rollback: `git restore --staged --worktree` nos caminhos do change antes do commit, ou `git revert` do commit depois. O git guarda tudo o que foi apagado.
+3. O grupo 6 corrige os documentos pela monografia (decisão 12), e o grupo 7 repete a verificação final.
+4. Rollback: `git restore --staged --worktree` nos caminhos do change antes do commit, ou `git revert` do commit depois. O git guarda tudo o que foi apagado.
 
 ## Pendências
 
 A confirmar com a AE/TI (vão para "Pendências institucionais" em ARQUITETURA.md, sem que este change decida nenhuma):
 
-- D01 a D26, sem aprovação institucional registrada, incluindo as regras locais delegadas (D03 a D09, D12 a D14 e D18), a escala e os pesos da limpeza (D10), a métrica de comportamento (D11), o nível da autorização do responsável (D16 e D17), as exportações por perfil (D20), a retenção, o descarte e a recuperação (D22), os relatórios offline (D23), a carga na VPS (D24), as licenças (D25) e os diagramas (D26).
+- D01 a D26, sem aprovação institucional registrada, incluindo as regras locais delegadas (D03 a D09, D12 a D14 e D18), a escala e os pesos da limpeza (D10), os indicadores do relatório individual (D11), o nível da autorização do responsável (D16 e D17), as exportações por perfil (D20), a retenção, o descarte e a recuperação (D22), os relatórios offline (D23), a carga na VPS (D24), as licenças (D25) e os diagramas (D26).
 - Os sete itens de "O que segue sem confirmação" do cadastro: formato atual da matrícula do técnico integrado, vigência da Norma 04, regulamento disciplinar de 2026, SIAPE como usuário, faixa de idade de 10 a 100 anos, limite de 20 vagas por quarto e nome social.
 - A retenção dos demais dados, a custódia da recuperação, a frequência e a cópia externa dos backups, as responsabilidades de operação, o piloto na VPS e o aceite AE/TI.
 - Os onze itens do WhatsApp, que continuam em `docs/whatsapp/OPERACAO.md`.
+- O aviso de privacidade: texto, momento de exibição e responsável. O sistema não tem essa tela (cap5.tex:182, conclusao.tex:16).
 - Se o residente maior de idade fica de fora de todo controle de saída, como o AGENTS.md vai dizer (regra que o servidor já aplica). A confirmar com a AE.
 
 Do dono ou do operador:
