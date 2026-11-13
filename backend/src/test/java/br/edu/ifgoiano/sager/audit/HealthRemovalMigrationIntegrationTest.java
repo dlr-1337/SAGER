@@ -38,7 +38,7 @@ class HealthRemovalMigrationIntegrationTest {
         audit(jdbc, account, "HEALTH_EXPORT", "EXPORT", "ARRAY['notes','versions']");
         List<Map<String, Object>> events = jdbc.queryForList(AUDIT_PROJECTION);
 
-        migrate(schema, null);
+        migrate(schema, "30");
 
         assertThat(latestVersion(jdbc)).isEqualTo(30);
         for (String table : HEALTH_TABLES) {

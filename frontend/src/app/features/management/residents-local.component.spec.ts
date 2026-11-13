@@ -197,6 +197,22 @@ describe('Residentes em sessão local', () => {
     expect(text).toContain('Estudante Sintético');
   });
 
+  it('mantém os cursos no filtro quando só o mapa falha', async () => {
+    const courseApi = TestBed.inject(CourseApiService) as unknown as {
+      list: ReturnType<typeof vi.fn>;
+    };
+    courseApi.list.mockResolvedValue([{ id: 'curso-1', name: 'Curso Sintético', version: 0 }]);
+    roomApi.map.mockRejectedValue(new Error('falha sintética'));
+    const fixture = TestBed.createComponent(ResidentsComponent);
+    await fixture.whenStable();
+    expect(fixture.componentInstance.courses().map((course) => course.name)).toEqual([
+      'Curso Sintético',
+    ]);
+    expect(fixture.componentInstance.optionsError()).toBe(
+      'Não foi possível carregar todas as opções de curso e alojamento.',
+    );
+  });
+
   it('descarta quarto lembrado que não existe mais nas opções', async () => {
     TestBed.inject(FilterState).values.set('residents', { roomId: 'quarto-removido' });
     const fixture = TestBed.createComponent(ResidentsComponent);
