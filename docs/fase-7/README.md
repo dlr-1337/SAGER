@@ -17,10 +17,11 @@ operador institucional.
 
 ## Decisões técnicas delegadas
 
-Contas são provisionadas por operador, com vínculo por UUID. A criação de um
-cadastro não cria conta nem habilita acesso assistencial. Senhas são lidas pelo
-console oculto; reset, desativação e mudança de vínculo revogam sessões. Não existe
-envio automático de senha. O tempo de inatividade da sessão é 30 minutos.
+Contas são provisionadas por operador, com vínculo por UUID, ou criadas na mesma
+transação do cadastro de residente ou supervisor, com a senha informada nele.
+Nenhum cadastro habilita acesso assistencial. No provisionamento, senhas são lidas
+pelo console oculto; reset, desativação e mudança de vínculo revogam sessões. Não
+existe envio automático de senha. O tempo de inatividade da sessão é 30 minutos.
 
 O perfil `production` exige HTTPS no proxy, cookie seguro, hostname configurado,
 segredos distintos externos e role `sager_runtime`. Migrações usam outro processo,

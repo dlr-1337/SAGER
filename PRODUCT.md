@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-Angular 22, Angular Material/CDK e SCSS no frontend. O backend futuro será Java com Spring Boot, conforme a especificação técnica v2.0.
+Angular 22, Angular Material/CDK e SCSS no frontend. Backend em Java 21 com Spring Boot 4.1, JdbcTemplate e PostgreSQL 17, com migrações Flyway.
 
 ## Users
 
@@ -26,7 +26,7 @@ Substituir controles residenciais em papel por processos digitais rastreáveis p
 
 ## Operating Context
 
-Plataforma web responsiva de uso institucional no IF Goiano, em computador e celular. A Assistência Estudantil define as regras operacionais e a TI fornece autenticação e infraestrutura. A primeira etapa de desenvolvimento é um protótipo navegável de todas as telas, com dados sintéticos e sem integrações reais.
+Plataforma web responsiva de uso institucional no IF Goiano, em computador e celular. A Assistência Estudantil define as regras operacionais e a TI fornece autenticação e infraestrutura. O desenvolvimento começou por um protótipo navegável de todas as telas, com dados sintéticos. A demonstração pública continua com dados em memória; os perfis `local` e `production` usam o backend.
 
 ## Capabilities and Constraints
 
@@ -53,7 +53,7 @@ Preservar o nome SAGER, a referência ao IF Goiano — Campus Urutaí e o verde 
 - `SAGER_PRD_v2.0_Angular_SpringBoot.md`: 15 épicos, 72 critérios de aceite e pendências D01–D26.
 - `SAGER_Especificacao_Tecnica_v2.0.md`: arquitetura Angular/Material e contratos técnicos.
 - `SAGER_Corrigido.docx`: SRS original e protótipos demonstrativos. Os números e alguns fluxos dos protótipos não são autoridade sobre o PRD.
-- Não há código de aplicação nem dados reais no repositório.
+- O repositório contém o frontend, o backend, as migrações e a infraestrutura, sem dados reais.
 
 ## Product Principles
 
