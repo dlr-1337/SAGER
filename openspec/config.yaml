@@ -8,14 +8,15 @@ context: |
   Product: SAGER, gestão de residências estudantis do IF Goiano.
   Stack: Angular 22 standalone with Signals and typed Reactive Forms; Spring Boot on JDK 21;
   PostgreSQL with Flyway (never edit an applied migration); Testcontainers; Vitest; Playwright.
-  AGENTS.md is the canonical source of permissions and domain rules. The PRD and docs/fase-* are
-  source material, not requirements to be copied wholesale. Use synthetic data only.
+  AGENTS.md and openspec/specs are the canonical sources of permissions, domain rules and behavior;
+  docs/ARQUITETURA.md records architecture decisions and institutional pending items.
+  Use synthetic data only.
   Technical evidence never replaces institutional approval: state what the institution must decide.
   Commits and documents carry no attribution to tools or assistants.
 
 rules:
   proposal:
-    - Cite the PRD requirement, acceptance criterion or AGENTS.md rule that the change affects.
+    - Cite the spec requirement or AGENTS.md rule that the change affects.
     - State what is out of scope.
   specs:
     - Each requirement states one observable behavior in at most 500 characters.
