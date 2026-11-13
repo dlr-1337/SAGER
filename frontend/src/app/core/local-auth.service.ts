@@ -46,6 +46,17 @@ function validPrincipal(value: unknown): value is LocalPrincipal {
 
 class InvalidLogin extends Error {}
 
+/** Chave do localStorage que avisa as outras abas, que dividem o cookie, de uma entrada ou saída. */
+export const SESSION_SIGNAL = 'sager.session';
+
+function announce(): void {
+  try {
+    localStorage.setItem(SESSION_SIGNAL, String(Date.now()));
+  } catch {
+    // Sem armazenamento, a repetição por CSRF ainda confere a conta (core/api.ts).
+  }
+}
+
 /** Sessão local em memória. O cookie HttpOnly e a autorização pertencem ao servidor. */
 @Injectable({ providedIn: 'root' })
 export class LocalAuthService {
@@ -91,6 +102,7 @@ export class LocalAuthService {
     resetSession();
     if (!(await this.refresh()))
       throw new Error('Não foi possível entrar. Verifique a internet e tente de novo.');
+    announce();
     return 'success';
   }
 
@@ -113,6 +125,7 @@ export class LocalAuthService {
       error: () => new Error('Não foi possível sair. Verifique a internet e tente de novo.'),
     });
     this.clearPrincipal();
+    announce();
   }
 
   clearPrincipal(): void {

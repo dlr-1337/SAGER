@@ -19,10 +19,13 @@ const genericError = () => new Error('Não deu certo. Verifique a internet e ten
 
 let csrf: Promise<CsrfToken> | null = null;
 let unauthorized: () => void = () => undefined;
+let knownUser: () => string | null = () => null;
 const copies = new Map<string, { at: number; value: Promise<unknown> }>();
 
-export function onUnauthorized(handler: () => void): void {
+/** `user` diz qual conta a tela mostra; a repetição por CSRF só grava para ela. */
+export function onUnauthorized(handler: () => void, user: () => string | null = () => null): void {
   unauthorized = handler;
+  knownUser = user;
 }
 
 /** Descarta o token CSRF e as cópias: depois de entrar, ao sair e quando a sessão termina. */
@@ -72,6 +75,15 @@ export async function api(url: string, init: ApiInit = {}): Promise<Response> {
   // O filtro do Spring recusa antes do controlador: a gravação não aconteceu e pode ser repetida.
   if (write && response.status === 403 && (await errorCode(response)) === 'csrf_invalid') {
     csrf = null;
+    // Outra aba pode ter trocado a conta no mesmo cookie: só repete para a conta da tela.
+    const user = knownUser();
+    if (user) {
+      const me: unknown = await (await api('/api/v1/auth/me', { error })).json();
+      if ((me as { id?: unknown } | null)?.id !== user) {
+        unauthorized();
+        throw await error(response);
+      }
+    }
     response = await send();
   }
   if (response.status === 401) unauthorized();

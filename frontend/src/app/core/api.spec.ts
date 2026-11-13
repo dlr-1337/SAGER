@@ -108,6 +108,38 @@ describe('api', () => {
     expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
+  it('com csrf_invalid só repete a gravação se o cookie ainda for da conta da tela', async () => {
+    const handler = vi.fn();
+    onUnauthorized(handler, () => 'conta-a');
+    const refused = () => json({ code: 'csrf_invalid' }, 403);
+    fetchMock
+      .mockResolvedValueOnce(token('de-a'))
+      .mockResolvedValueOnce(refused())
+      .mockResolvedValueOnce(json({ id: 'conta-b' }));
+    await expect(api('/api/v1/a', { method: 'POST', body: {}, error })).rejects.toEqual(
+      new TestError(403),
+    );
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(calls(fetchMock)).toEqual([
+      ['/api/v1/auth/csrf', undefined],
+      ['/api/v1/a', 'POST'],
+      ['/api/v1/auth/me', 'GET'],
+    ]);
+
+    fetchMock.mockReset();
+    fetchMock
+      .mockResolvedValueOnce(token('velho'))
+      .mockResolvedValueOnce(refused())
+      .mockResolvedValueOnce(json({ id: 'conta-a' }))
+      .mockResolvedValueOnce(token('novo'))
+      .mockResolvedValueOnce(json({ ok: true }));
+    expect((await api('/api/v1/a', { method: 'POST', body: {}, error })).ok).toBe(true);
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect((fetchMock.mock.calls[4][1] as RequestInit).headers).toMatchObject({
+      'X-CSRF-TOKEN': 'novo',
+    });
+  });
+
   it('não repete um 403 que não é de CSRF', async () => {
     fetchMock
       .mockResolvedValueOnce(token())

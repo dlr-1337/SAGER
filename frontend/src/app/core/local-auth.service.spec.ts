@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, resetSession } from './api';
-import { LocalAuthService } from './local-auth.service';
+import { LocalAuthService, SESSION_SIGNAL } from './local-auth.service';
 
 const principal = {
   id: '00000000-0000-0000-0000-000000000001',
@@ -131,6 +131,26 @@ describe('LocalAuthService', () => {
     expect(auth.principal()).toBeNull();
     expect(fetchMock.mock.calls[1][0]).toBe('/api/v1/auth/logout');
     expect(fetchMock.mock.calls[1][1].headers).toMatchObject({ 'X-CSRF-TOKEN': 'csrf-test' });
+  });
+
+  it('avisa as outras abas ao entrar e ao sair, mesmo sem armazenamento', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) =>
+        url === '/api/v1/auth/csrf'
+          ? new Response(JSON.stringify({ headerName: 'X-CSRF-TOKEN', token: 't' }))
+          : new Response(url === '/api/v1/auth/me' ? JSON.stringify(principal) : null),
+      ),
+    );
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('bloqueado', 'SecurityError');
+    });
+    const auth = TestBed.inject(LocalAuthService);
+
+    expect(await auth.login(principal.matricula, 'senha de teste')).toBe('success');
+    await auth.logout();
+    expect(setItem.mock.calls.map(([key]) => key)).toEqual([SESSION_SIGNAL, SESSION_SIGNAL]);
+    setItem.mockRestore();
   });
 
   it('descarta o token CSRF ao entrar, ao sair e ao esquecer o usuário', async () => {

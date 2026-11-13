@@ -108,6 +108,17 @@ No acesso por conta, o sistema SHALL consultar a sessão no servidor ao abrir ou
 - **THEN** cada página abre sem levar à página de acesso
 - **AND** nenhum pedido é feito à API
 
+### Requirement: Troca de conta em outra aba
+
+Quando outra aba do mesmo navegador entrar ou sair, a aba com usuário conhecido SHALL consultar a sessão no servidor de novo e mostrar a conta que o servidor devolver, ou levar à página de acesso se não houver sessão.
+
+#### Scenario: Troca de conta em outra aba
+
+- **GIVEN** uma aba aberta com o gestor A
+- **WHEN** em outra aba A sai e o supervisor B entra
+- **THEN** a primeira aba passa a mostrar B a partir do Início
+- **AND** se ninguém entrar depois da saída, ela abre a página de acesso
+
 ### Requirement: Sessão encerrada tratada em um só lugar
 
 Quando uma chamada à API responder 401 enquanto há um usuário conhecido, o sistema SHALL esquecer o usuário, descartar as listas e o token guardados em memória e levar à página de acesso. Um 401 sem usuário conhecido, como a senha errada no login, MUST NOT redirecionar.
@@ -126,7 +137,7 @@ Quando uma chamada à API responder 401 enquanto há um usuário conhecido, o si
 
 ### Requirement: Token CSRF reaproveitado
 
-As gravações SHALL reutilizar o token CSRF obtido uma vez na sessão, sem pedir um token antes de cada gravação. O token MUST ser descartado ao entrar e ao sair. Uma recusa 403 `csrf_invalid` MUST obter um token novo e repetir a gravação uma única vez.
+As gravações SHALL reutilizar o token CSRF obtido uma vez na sessão, sem pedir um token antes de cada gravação. O token MUST ser descartado ao entrar e ao sair. Uma recusa 403 `csrf_invalid` MUST obter um token novo e repetir a gravação uma única vez. Com usuário conhecido, a repetição MUST acontecer só se a sessão do servidor ainda for desse usuário; se for de outra conta ou não houver sessão, o sistema MUST NOT repetir e leva à página de acesso.
 
 #### Scenario: Duas gravações seguidas
 
@@ -145,6 +156,12 @@ As gravações SHALL reutilizar o token CSRF obtido uma vez na sessão, sem pedi
 - **WHEN** o servidor recusa uma gravação com 403 `csrf_invalid`
 - **THEN** o sistema pede um token novo e repete a gravação uma vez
 - **AND** se a repetição for recusada de novo, mostra o erro sem tentar outra vez
+
+#### Scenario: Token recusado depois de troca de conta
+
+- **GIVEN** uma aba com o gestor A e, em outra aba, o supervisor B entrou com o mesmo cookie
+- **WHEN** a gravação feita na primeira aba é recusada com 403 `csrf_invalid`
+- **THEN** o sistema não repete a gravação e abre a página de acesso
 
 ### Requirement: Fonte de ícones leve
 
