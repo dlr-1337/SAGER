@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Guardar no alojamento se ele recebe menores ou maiores de 18 anos, para que o quarto herde essa faixa, a alocação respeite a idade do residente e a chamada noturna ofereça só os alojamentos que têm menores.
+Guardar no alojamento se ele recebe menores ou maiores de 18 anos, para que o quarto herde essa faixa, a alocação respeite a idade do residente e a chamada noturna deixe de oferecer alojamentos de maiores sem menor alocado.
 
 ## ADDED Requirements
 
@@ -179,16 +179,23 @@ Quando o servidor recusar uma alocação por faixa ou por falta de nascimento, a
 
 ### Requirement: Chamada noturna em alojamentos de menores
 
-A chamada noturna SHALL oferecer só alojamentos de menores ou sem faixa. Consultar ou abrir a chamada de um alojamento de maiores pela API MUST ser recusado com 422 `invalid_reference`.
+A chamada noturna SHALL oferecer os alojamentos de menores, os sem faixa e os de maiores que ainda tenham residente menor de 18 anos com alocação ativa, com a idade calculada na data civil de America/Sao_Paulo pelo relógio do servidor. Consultar ou abrir pela API a chamada de um alojamento de maiores sem menor alocado MUST ser recusado com 422 `invalid_reference`.
 
 #### Scenario: Seletor de alojamento
 
-- **GIVEN** os alojamentos "Residência 2" de menores, "Vila Estudantil" de maiores e "Alojamento Sintético" sem faixa
+- **GIVEN** os alojamentos "Residência 2" de menores, "Vila Estudantil" de maiores sem menor alocado e "Alojamento Sintético" sem faixa
 - **WHEN** o supervisor abre a chamada noturna
 - **THEN** o seletor oferece "Residência 2" e "Alojamento Sintético", e não oferece "Vila Estudantil"
 
 #### Scenario: Abertura direta pela API
 
-- **GIVEN** um alojamento de maiores
+- **GIVEN** um alojamento de maiores sem menor alocado
 - **WHEN** uma chamada direta à API tenta abrir a chamada noturna desse alojamento
 - **THEN** a resposta é 422 `invalid_reference` e nenhuma chamada é criada
+
+#### Scenario: Alojamento vira "Maiores" com um menor alocado
+
+- **GIVEN** um residente de 16 anos alocado num alojamento sem faixa
+- **WHEN** o gestor define o alojamento como "Maiores de 18 anos" e o supervisor abre a chamada noturna
+- **THEN** o seletor continua oferecendo o alojamento
+- **AND** a chamada abre com o residente de 16 anos e fecha depois que ele é marcado

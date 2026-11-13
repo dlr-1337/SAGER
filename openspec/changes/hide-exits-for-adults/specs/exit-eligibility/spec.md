@@ -1,12 +1,12 @@
 ## Purpose
 
-Definir quem pode pedir saída curta ou longa (só o residente menor de idade) e o que o residente maior de idade vê no lugar das saídas, com a idade sempre contada na data civil de America/Sao_Paulo.
+Definir quem pode pedir saída curta ou longa (só o residente menor de idade), o que o residente maior de idade vê no lugar dos atalhos de saída e como ele consulta as próprias saídas, com a idade sempre contada pelo relógio do servidor na data civil de America/Sao_Paulo.
 
 ## ADDED Requirements
 
 ### Requirement: Conta informa a maioridade
 
-A resposta da conta conectada SHALL informar `maiorDeIdade` verdadeiro somente quando a conta estiver vinculada a um residente com data de nascimento e 18 anos completos na data civil de America/Sao_Paulo. Conta de servidor, residente sem data de nascimento e residente menor de idade MUST receber falso.
+A resposta da conta conectada SHALL informar `maiorDeIdade` verdadeiro somente quando a conta estiver vinculada a um residente com data de nascimento que o servidor não considere menor de idade na data civil de America/Sao_Paulo (a mesma regra que recusa as saídas). Conta de servidor, residente sem data de nascimento e residente menor de idade MUST receber falso.
 
 #### Scenario: Aniversário de 18 anos
 
@@ -55,7 +55,7 @@ O servidor MUST recusar o pedido de saída curta ou longa de residente que não 
 
 ### Requirement: Adulto não recebe atalhos para saídas
 
-Para o residente maior de idade, o menu, a página de início e a ajuda MUST NOT mostrar "Minhas saídas" nem qualquer link para as telas de saída. O residente menor de idade e o residente sem data de nascimento SHALL continuar vendo esses atalhos.
+Para o residente maior de idade, o menu, a página de início e a ajuda MUST NOT mostrar "Minhas saídas" nem qualquer link para as telas de saída. O residente menor de idade, o residente sem data de nascimento e o residente da demonstração SHALL continuar vendo esses atalhos.
 
 #### Scenario: Menu e início do adulto
 
@@ -77,24 +77,52 @@ Para o residente maior de idade, o menu, a página de início e a ajuda MUST NOT
 - **WHEN** um residente sem data de nascimento entra no sistema
 - **THEN** o menu e a página de início mostram "Minhas saídas"
 
-### Requirement: URL de saída leva o adulto ao acesso negado
+#### Scenario: Residente da demonstração
 
-Quando o residente maior de idade abrir qualquer endereço de saída (lista, detalhe, pedido novo ou edição, curta ou longa), o sistema SHALL levá-lo à página de acesso negado sem mostrar dados de saída. O supervisor e o residente menor de idade MUST continuar abrindo esses endereços como antes.
+- **WHEN** o visitante entra na demonstração com o perfil residente
+- **THEN** o menu e a página de início mostram "Minhas saídas"
+- **AND** `/saidas` e `/saidas/nova` abrem sem acesso negado
+
+### Requirement: Adulto não abre pedido nem edição de saída
+
+Quando o residente maior de idade abrir o endereço de um pedido novo ou da edição de uma saída, curta ou longa, o sistema SHALL levá-lo à página de acesso negado sem enviar pedido nem alteração de saída ao servidor. O residente menor de idade e o residente sem data de nascimento MUST continuar abrindo esses endereços como antes.
 
 #### Scenario: Adulto digita o endereço do pedido
 
 - **WHEN** um residente maior de idade abre `/saidas/nova` ou `/saidas/longas/nova`
 - **THEN** o sistema mostra a página de acesso negado e não envia pedido ao servidor
 
-#### Scenario: Adulto abre a lista ou uma saída antiga
+#### Scenario: Adulto abre a edição de um pedido antigo
 
-- **WHEN** um residente maior de idade abre `/saidas` ou o endereço de uma saída que pediu quando era menor
-- **THEN** o sistema mostra a página de acesso negado
+- **GIVEN** um pedido pendente que o residente fez quando era menor de idade
+- **WHEN** ele, já maior de idade, abre o endereço de edição desse pedido
+- **THEN** o sistema mostra a página de acesso negado e não grava nada
+
+#### Scenario: Menor abre o pedido
+
+- **WHEN** um residente menor de idade abre `/saidas/nova`
+- **THEN** o formulário de pedido abre normalmente
+
+### Requirement: Adulto consulta as próprias saídas só para leitura
+
+O residente maior de idade SHALL continuar abrindo, pelo endereço, a lista das próprias saídas e o detalhe de cada uma, com a situação, a decisão e o histórico. Essas telas MUST NOT mostrar a ele botões para pedir, mudar ou cancelar saída. Para o supervisor e para o residente menor de idade, a lista e o detalhe não mudam.
+
+#### Scenario: Adulto abre a lista
+
+- **WHEN** um residente maior de idade abre `/saidas`
+- **THEN** a lista mostra as saídas dele sem os botões "Pedir saída curta" e "Pedir saída longa"
+
+#### Scenario: Adulto abre uma saída que pediu quando era menor
+
+- **GIVEN** uma saída curta ou longa que o residente pediu quando era menor de idade
+- **WHEN** ele, já maior de idade, abre o detalhe dessa saída
+- **THEN** ele vê a situação, a decisão e o histórico
+- **AND** não vê os botões "Mudar pedido" nem "Cancelar pedido"
 
 #### Scenario: Supervisor
 
 - **WHEN** um supervisor abre `/saidas`
-- **THEN** a lista de saídas abre normalmente
+- **THEN** a lista de saídas abre normalmente, com as ações de sempre
 
 ### Requirement: Aviso de horário para o adulto
 

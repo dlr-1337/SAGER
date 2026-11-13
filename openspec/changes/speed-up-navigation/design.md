@@ -7,7 +7,10 @@ A motivação está em proposal.md (Why), e os comportamentos esperados estão e
 - O gateway nginx tem dois templates (`infra/coolify/nginx.conf.template`, usado em produção pelo Coolify, e `infra/production/nginx.conf.template`, do deploy com TLS próprio). Os dois declaram `add_header Cache-Control no-store always` no nível do `server`. A location de estáticos (`location ~* \.(?:js|css|woff2?|svg|png|jpe?g|ico)$`) não declara cabeçalhos e herda tudo. No nginx, uma location que declara qualquer `add_header` deixa de herdar os do `server`.
 - O build Angular usa `outputHashing: all`. Os nomes reais são `main-<8>.js`, `chunk-<8>.js`, `styles-<8>.css` e `media/<nome>-<8>.<ext>`, e o hash de 8 caracteres usa `[A-Za-z0-9_-]` (por exemplo, `chunk-BD-lnXbU.js`). Os arquivos de `frontend/public/` (favicon, ícones, `og-image.png`, `manifest.webmanifest`, `if-goiano-urutai.png`) saem sem hash.
 - O frontend faz `fetch` direto em 14 arquivos (`core/local-auth.service.ts`, `core/list-page.ts`, `cleaning/reporting-local.transport.ts` e 11 `*-api.service.ts`, sem contar a saúde, que sai antes). Cada gravação pede `GET /api/v1/auth/csrf` antes. O backend guarda o token na sessão (repositório padrão do Spring Security, mascarado por `XorCsrfTokenRequestAttributeHandler`), troca o token no login (`changeSessionId`) e responde 403 `csrf_invalid` quando ele falha (`SecurityConfiguration.java`).
-- O `accessGuard` (`app.routes.ts`) chama `auth.refresh()`, ou seja, `GET /api/v1/auth/me`, em toda navegação protegida. No Angular 22, os guards rodam antes do download do código da página.
+- O `accessGuard` (`app.routes.ts`) chama `auth.refresh()`, ou seja, `GET /api/v1/auth/me`, em toda navegação protegida fora da demonstração (`if (!session.active() && !(await auth.refresh()))`). No Angular 22, os guards rodam antes do download do código da página.
+- O modo demonstração (RF027, cap4.tex:133) continua. Ele não tem usuário em `LocalAuthService` (`DemoSessionService.activate()` chama `clearPrincipal()`), guarda os dados nos `*-demo.service` e nunca chama a API. Em produção, ele fica desligado (`DemoSessionService.demoAvailable`), e o gateway responde 404 em `/demonstracao`. As rotas carregam componentes-casca que escolhem, por `session.active()`, entre a tela `*-local` e a da demonstração (por exemplo, `night-call.component.ts`, `exits.component.ts`, `notifications.component.ts` e `cleaning-local.pages.ts`, que embute `CleaningComponent` e `RankingComponent`). Assim, o código da demonstração está nos mesmos arquivos de código que as telas da conta usam. A única rota própria, `/demonstracao`, fica em `portal.pages.ts`, o mesmo arquivo de `/acesso`.
+- O Chart.js 4.5.1 entra só por `features/reports/reports.pages.ts`, que o importa de forma estática e chama `Chart.register` no topo do módulo. Só a rota `relatorios/individual/:id` carrega esse arquivo. Na conta, a mesma página mostra os indicadores em HTML e CSS (`CleaningIndicatorsLocalPage`), e o link de Relatórios leva a `/relatorios/individual`, sem id (`reports-local.pages.ts:399`). O gráfico só existe na demonstração (cap6.tex:7 e :23).
+- `CourseApiService` tem ramo de demonstração em `list()` e `save()` (signal `demoCourses`). `ResidentApiService` e `RoomApiService` não têm. Em `residents.component.ts`, `loadOptions()` pede só os cursos na demonstração e, na conta, pede cursos e depois o mapa, em série.
 - `app.config.ts` usa `provideRouter(routes)` sem pré-carregamento e `provideNoopAnimations()`, que puxa `@angular/animations` (cerca de 73 kB) só para desligar as animações do Material. O Material 22 lê o token `MATERIAL_ANIMATIONS` (`{ animationsDisabled: true }`), e nem o Material nem o CDK declaram `@angular/animations` como dependência.
 - `styles.scss` importa `material-symbols/rounded.css`, que declara a fonte variável inteira (5.399.668 bytes, `font-display: block`). O código usa cerca de 70 ícones, com FILL 0 e 1, wght 500 e opsz 24 (um ícone de 48 px na página inicial).
 - `CleaningService.list()` e `ownList()` chamam `assessment()` para cada uma das até 20 linhas, e cada chamada roda `rankRows()` da semana, um agregado de todos os quartos. São cerca de 81 consultas por página.
@@ -58,7 +61,8 @@ Em `compose.coolify.yml`, o `database` passa a `cpus: 1.0` e o `backend` a `cpus
 
 - `api(url, init)` aplica `credentials: 'same-origin'`, `cache: 'no-store'` e `Accept: application/json`. Serializa como JSON o corpo que for objeto e deixa `FormData` e `URLSearchParams` como estão. Repassa o `AbortSignal` e devolve a `Response` já conferida. Quando a resposta não é ok, lança o erro montado pela fábrica que o serviço passa, para que cada serviço mantenha sua classe de erro (`ResidentApiError`, `RoomApiError`, ...), seus guards de tipo e a leitura de `X-Total-Count` (em `readArrayPage`).
 - Em métodos que não são GET, envia o cabeçalho CSRF de um token guardado em memória. O token é buscado uma vez, e gravações simultâneas esperam a mesma Promise. Numa resposta 403 com `code: csrf_invalid`, o token é descartado, buscado de novo, e a chamada é repetida uma única vez.
-- Numa resposta 401, chama o tratador registrado por `onUnauthorized()`. `app.config.ts` registra esse tratador com `provideAppInitializer`: se `auth.principal()` existe, chama `auth.clearPrincipal()` e navega para `/acesso`; sem usuário conhecido, não faz nada. Por isso a senha errada no login e o `/auth/me` da abertura não redirecionam.
+- Numa resposta 401, chama o tratador registrado por `onUnauthorized()`. `app.config.ts` registra esse tratador com `provideAppInitializer`: se `auth.principal()` existe, chama `auth.clearPrincipal()` e navega para `/acesso`; sem usuário conhecido, não faz nada. Por isso a senha errada no login e o `/auth/me` da abertura não redirecionam. A demonstração não tem usuário e não chama a API, então o tratador nunca age nela.
+- Os `*-demo.service` não usam `fetch` e ficam fora de `api()`.
 - `cached(key, loader)` guarda a Promise por 60 s. Uma Promise rejeitada é esquecida na hora, e toda chamada não-GET bem-sucedida limpa todas as cópias (D9).
 - `resetSession()` descarta o token e as cópias. `LocalAuthService` a chama depois do login, no logout e em `clearPrincipal()`.
 
@@ -69,33 +73,39 @@ A repetição depois de `csrf_invalid` é segura: o filtro do Spring Security re
 
 ### D5. Sessão consultada só sem usuário conhecido
 
-O `accessGuard` só chama `auth.refresh()` quando `auth.principal()` é nulo, ou seja, ao abrir ou recarregar a página e depois de um 401. O perfil das rotas continua sendo conferido com o usuário em memória. O login mantém o seu único `refresh()`.
+O `accessGuard` só chama `auth.refresh()` quando a demonstração não está ativa e `auth.principal()` é nulo: `if (!session.active() && !auth.principal() && !(await auth.refresh()))`. Na conta, isso acontece ao abrir ou recarregar a página e depois de um 401. O perfil das rotas continua sendo conferido por `session.hasRole()`, com o perfil da demonstração ou o do usuário em memória. O login mantém o seu único `refresh()`. O primeiro termo é obrigatório: a demonstração não tem principal (`demo-session.service.ts:60`), e sem ele a guarda chamaria `/auth/me` e levaria a demonstração para `/acesso`.
 
 - Rejeitado: manter `/auth/me` em toda navegação. Custa pelo menos 230 ms por troca de página, e o backend já valida a sessão e a conta em toda chamada (`LocalAccountStatusFilter`).
 - Rejeitado: consultar `/auth/me` periodicamente. É tráfego extra sem ganho, porque o 401 central já cobre a sessão perdida.
 
-### D6. Pré-carregar todas as páginas
+### D6. Pré-carregar as páginas, exceto o relatório individual com gráfico
 
-`provideRouter(routes, withPreloading(PreloadAllModules))`. O download começa depois da primeira navegação, inclusive na página de acesso, enquanto o usuário digita. Com D1, ele acontece uma vez por versão.
+`provideRouter(routes, withPreloading(SagerPreloading))`. `SagerPreloading`, exportada de `app.routes.ts`, tem cerca de 6 linhas: chama `load()` em toda rota com código sob demanda, exceto quando `route.data.preload === false`, caso em que devolve `of(null)`. A única rota marcada é `relatorios/individual/:id`, porque o seu arquivo traz o Chart.js (cerca de 158 kB brutos, medidos em 13/11/2026), que só desenha o gráfico da demonstração (Context). Em produção, o Chart.js só é baixado se alguém digitar esse endereço. Na demonstração, ele é baixado ao abrir o relatório da Ana, como hoje. O download das demais páginas começa depois da primeira navegação, inclusive na página de acesso, enquanto o usuário digita. Com D1, ele acontece uma vez por versão.
 
-- Rejeitado: uma estratégia por perfil (cerca de 10 linhas). Sem a saúde, a diferença para o residente se resume às páginas de gestão e relatórios, com chart.js (158 kB brutos), baixadas uma vez por versão. O código é público, e a autorização continua no servidor.
+As páginas só da demonstração não têm o que excluir: o código delas está nos mesmos arquivos das telas da conta (Context), e `/demonstracao` usa o arquivo de `/acesso`, que já foi baixado. Em produção, esse código é baixado mas nunca roda, porque `demoAvailable` é falso.
+
+- Rejeitado: `PreloadAllModules` sem exceção. Baixaria o Chart.js em todo acesso de produção, para um gráfico que só a demonstração desenha.
+- Rejeitado: importar o Chart.js de forma dinâmica dentro do ramo da demonstração de `reports.pages.ts`. Isso tira o Chart.js até do acesso direto pelo endereço, mas mexe na criação do gráfico e no seu teste, para um caminho que nenhum link da conta alcança.
+- Rejeitado: separar em arquivos próprios o código da demonstração das cascas das telas, para tirá-lo do pré-carregamento. Seria preciso reescrever várias telas para economizar bytes que se baixam uma vez por versão. O código é público, e a autorização continua no servidor.
+- Rejeitado: uma estratégia por perfil (cerca de 10 linhas). Sem a saúde, a diferença para o residente se resume às páginas de gestão e relatórios, baixadas uma vez por versão.
 
 ### D7. Barra fina de navegação no App
 
-`App` ganha um signal `navigating`: liga em `NavigationStart` e desliga em `NavigationEnd`, `NavigationCancel` e `NavigationError`. `app.html` mostra uma barra fixa de 3 px no topo, com `aria-hidden="true"`, e põe `aria-busy` em `#conteudo-principal`. A animação indeterminada fica em CSS. A barra só aparece depois de 150 ms (`animation-delay`), para não piscar em navegações instantâneas, e fica parada com `prefers-reduced-motion: reduce`.
+`App` ganha um signal `navigating`: liga em `NavigationStart` e desliga em `NavigationEnd`, `NavigationCancel` e `NavigationError`. `app.html` mostra uma barra fixa de 3 px no topo, com `aria-hidden="true"`, e põe `aria-busy` em `#conteudo-principal`. A animação indeterminada fica em CSS. A barra só aparece depois de 150 ms (`animation-delay`), para não piscar em navegações instantâneas, e fica parada com `prefers-reduced-motion: reduce`. A barra vale também na demonstração. Os ramos `session.active()` de `app.ts` e `app.html` (selo da demonstração, perfil e cenário no cabeçalho e na gaveta) ficam como estão.
 
 - Rejeitado: reaproveitar `ProgressBarComponent`. Ele é determinado (`done` e `total`) e tem `role="img"` com rótulo, mas a navegação não tem percentual conhecido.
 
 ### D8. Animações desligadas pelo token do Material
 
-`provideNoopAnimations()` sai e entra `{ provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } }` (de `@angular/material/core`). `@angular/animations` sai do `package.json`, porque nada mais o importa. O orçamento inicial de 500 kB volta a ser cumprido (559 kB menos cerca de 73 kB, antes ainda da remoção da demonstração).
+`provideNoopAnimations()` sai e entra `{ provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } }` (de `@angular/material/core`). `@angular/animations` sai do `package.json`, porque nada mais o importa. O orçamento inicial de 500 kB volta a ser cumprido (559 kB menos cerca de 73 kB). A demonstração continua e já estava nessa medição.
 
 - Rejeitado: manter `provideNoopAnimations()` e só subir o orçamento. Os 73 kB continuariam em todo primeiro acesso e em toda recarga.
 
 ### D9. Listas de referência guardadas por 60 s, descartadas em qualquer gravação
 
-`ResidentApiService.list()`, `CourseApiService.list()` e `RoomApiService.map()` passam por `cached()`. Qualquer gravação bem-sucedida feita pela aba limpa as três cópias, porque o mapa muda com quarto, alocação e alojamento, e a lista de residentes mostra o nome do curso. Login, logout e 401 também limpam. A tela de residentes pede cursos e mapa com `Promise.all`, mantendo a mensagem de erro atual. O detalhe do quarto troca `residentApi.list()` por `residentApi.page({ roomId })`, filtro já aceito pelo backend (`ResidentRepository`, com alocação ativa), que sem `limit` devolve todos os moradores.
+`ResidentApiService.list()`, `CourseApiService.list()` e `RoomApiService.map()` passam por `cached()`. Em `CourseApiService.list()`, só o ramo da conta passa pelo cache: `return this.session.active() ? this.demoCourses() : cached('cursos', () => this.request<Course[]>('/api/v1/cursos'));`. O ramo de demonstração de `save()` continua atualizando `demoCourses` sem `api()`, então a lista seguinte já traz o curso novo. Qualquer gravação bem-sucedida feita pela aba limpa as três cópias, porque o mapa muda com quarto, alocação e alojamento, e a lista de residentes mostra o nome do curso. Login, logout e 401 também limpam. No acesso por conta, a tela de residentes pede cursos e mapa com `Promise.all`, mantendo a mensagem de erro atual. Na demonstração, `loadOptions()` mantém o ramo `isDemo()` (`residents.component.ts:333-347`): cursos da memória e ajuste da página, sem pedir o mapa. O detalhe do quarto troca `residentApi.list()` por `residentApi.page({ roomId })`, filtro já aceito pelo backend (`ResidentRepository`, com alocação ativa), que sem `limit` devolve todos os moradores. O ramo `isDemo()` do detalhe (`demo.room()` e `demo.residentsInRoom()`) fica, e `loadOccupants()` continua sem rodar na demonstração.
 
+- Rejeitado: passar também os cursos da demonstração pelo cache. A cópia de 60 s esconderia o curso recém-criado no signal, e a demonstração não tem ida ao servidor a economizar.
 - Rejeitado: invalidar por serviço. É fácil esquecer um caminho de escrita, como a alocação, que muda a ocupação do mapa.
 - Rejeitado: `shareReplay` ou um store de estado. Os serviços trabalham com Promises, e isso seria mais código.
 - Rejeitado: guardar sem prazo e limpar só nas gravações. Alterações de outras pessoas nunca apareceriam sem recarregar.
@@ -151,19 +161,30 @@ Não foram medidos: requisições autenticadas em produção, throttling real do
 - [e2e que mudam o fixture entre navegações sem gravar pela interface podem ver a cópia guardada] → Esses testes recarregam a página ou passam a gravar pela interface.
 - [Ícone fora do subconjunto aparece como texto] → Teste em `e2e/icon-font.spec.ts`. Nomes de ícone ficam como literais no código para o teste encontrá-los.
 - [O ícone de 48 px da página inicial passa a usar o desenho de opsz 24] → Diferença visual pequena, conferida na captura da página inicial.
-- [A remoção da demonstração mexe nos mesmos arquivos (templates nginx, smokes, `app.routes.ts`, `app.html`, `app.ts`)] → Os grupos 1 e 2 tocam só infra e backend e são reaplicados sobre o que `remove-demo-mode` deixar. Os grupos 3 a 5 começam depois de `remove-demo-mode` e `remove-health-module`. `simplify-room-browsing` e `simplify-long-lists` vêm depois e mexem em `map()` e nos carregamentos das telas. Como o `cached()` envolve o `map()` inteiro, a ordenação natural feita ali roda uma vez por cópia.
+- [Outras mudanças mexem nos mesmos arquivos (`app.routes.ts`, `app.html`, `app.ts` e os serviços de gestão)] → Os grupos 1 e 2 já foram aplicados. Os grupos 3 a 5 começam depois de `remove-health-module`, que tira as rotas e os ramos de saúde de `app.routes.ts` e `app.ts`. `simplify-room-browsing`, `simplify-long-lists` e `hide-exits-for-adults` vêm depois: as duas primeiras mexem em `map()` e nos carregamentos das telas, e a terceira acrescenta à mesma guarda a checagem de maioridade. Como o `cached()` envolve o `map()` inteiro, a ordenação natural feita ali roda uma vez por cópia.
+- [A demonstração não tem usuário em memória; uma guarda que só olhasse `principal()` a mandaria para `/acesso`] → `session.active()` vem primeiro na condição (D5). `app.routes.spec.ts` e `e2e/page-loading.spec.ts` conferem que a demonstração navega sem pedir nada a `/api/`, e `e2e/route-audit.spec.ts` continua abrindo todas as rotas da demonstração.
+- [A primeira abertura do relatório individual por id espera o download do Chart.js] → Só a demonstração chega a essa rota pelo menu, e a barra de navegação (D7) mostra a espera. Hoje toda página já espera o próprio download.
 - [Os limites de CPU podem passar da capacidade da VPS, compartilhada com Coolify, Traefik e WAHA] → `cpus` é teto, não reserva. O operador confirma a capacidade antes do deploy.
 
 ## Migration Plan
 
-1. Onda 1: grupos 1 e 2 (gateway, compose, Hikari e limpeza). Não há migração Flyway nem mudança de dados. Para voltar atrás, basta reimplantar o commit anterior no Coolify. Arquivos já guardados com hash são inofensivos, porque a página `no-store` passa a apontar para os nomes antigos.
+1. Onda 1, já aplicada: grupos 1 e 2 (gateway, compose, Hikari e limpeza). Não há migração Flyway nem mudança de dados. Para voltar atrás, basta reimplantar o commit anterior no Coolify. Arquivos já guardados com hash são inofensivos, porque a página `no-store` passa a apontar para os nomes antigos.
 2. Medir com os comandos acima logo depois do deploy e anotar os números na descrição do PR.
-3. Onda 2: grupos 3, 4 e 5, depois de `remove-demo-mode` e `remove-health-module`, nessa ordem. São só frontend, com volta pelo mesmo reimplante. Os usuários recebem a versão nova ao recarregar, porque a página não fica guardada.
+3. Onda 2: grupos 3, 4 e 5, depois de `remove-health-module`. São só frontend, com volta pelo mesmo reimplante. Os usuários recebem a versão nova ao recarregar, porque a página não fica guardada. A demonstração muda junto, no mesmo build, e continua fora de produção.
 
 ## O que a instituição ou o operador ainda decide
 
 - Operador: a região da VPS: o TTFB de 230 ms até para um favicon indica origem distante.
 - Operador: conferir que nenhuma regra do painel do Cloudflare força "Bypass cache" nem sobrepõe o `Cache-Control` da origem. Ajustar os limites de `infra/production/compose.yml`, se esse deploy for usado.
-- Instituição: método de medição do requisito de resposta de 2 segundos do PRD (operações, massa de dados e fronteira da medição). A confirmar com a AE e a TI.
+- Operador e instituição: o servidor definitivo, que, com o WAHA na mesma VPS, precisa de no mínimo 2 vCPU e 4 GB, mais swap (RNF Desempenho, cap4.tex:197; cap5.tex:274).
+- Instituição: método de medição do requisito de resposta em até 2 segundos do RNF Desempenho (cap4.tex:197): operações, massa de dados e fronteira da medição. A medição no servidor definitivo continua pendente (cap5.tex:274). A confirmar com a AE e a TI.
 - Instituição: aceitar que alterações feitas por outra pessoa em residentes, cursos e mapa de quartos podem levar até 60 s para aparecer numa aba já aberta. A confirmar com a AE.
 - Instituição: aceitar que uma conta desativada ou com perfil trocado veja o menu antigo até a próxima chamada ao servidor, que é sempre recusada. A confirmar com a AE.
+
+## Reflexo na monografia
+
+O dono decide o texto; esta mudança não edita a monografia.
+
+- Novidades visíveis que entram no texto: o 401 tratado em um só lugar (no fim de cap6.tex:71) e a barra fina de navegação com o conteúdo marcado como ocupado e sem animação com movimento reduzido (no fim de cap6.tex:77).
+- Ficam imprecisos depois dos grupos 3 a 5: cap6.tex:61 diz que as páginas carregam conforme a navegação e que a guarda consulta `/api/v1/auth/me` no acesso por conta. Passa a valer que as páginas são pré-carregadas, exceto o relatório individual da demonstração, e que a guarda só consulta a sessão ao abrir o sistema ou sem usuário conhecido. cap6.tex:71 diz que o serviço obtém o token CSRF em cada operação que altera informações. Passa a valer que o token é obtido uma vez por sessão e renovado quando o servidor o recusa.
+- cap6.tex:7 e :23 continuam corretos: o Chart.js 4.5.1 desenha só o gráfico da demonstração, e esta mudança não troca a versão.

@@ -10,6 +10,8 @@ Ver proposal.md (Why). Estado atual, conferido no código:
 - A consulta de auditoria (`AuditRepository.find`) só devolve os recursos de uma lista fixa. Hoje essa lista inclui `HEALTH_GRANT`, `CARE_ASSIGNMENT` e `HEALTH_CUSTODY` e deixa de fora as notas, partilhas e exportações. `AuditService.list` responde 403 quando o filtro pede um recurso protegido. Cada linha lida é convertida para o enum `AuditResource`, que hoje tem os seis valores de saúde.
 - `SecurityConfiguration` libera `/api/v1/saude/**` e `/api/v1/minha-saude/**` para qualquer sessão autenticada e termina com `anyRequest().denyAll()`.
 - No frontend, `validPrincipal` (`core/local-auth.service.ts`) só aceita perfis da lista `roles`. Um principal com perfil fora dela é tratado como sessão ausente.
+- O modo demonstração (RF027, cap4.tex:133) continua. O tipo `Role` fica em `core/demo-session.service.ts`. `DemoEntry.options` e `storedRole` só oferecem gestor, supervisor e residente, então o ramo `'saude'` da `HomePage` (e os de `heading` e `intro`), que fica dentro do `@else` de `@if (!session.active())`, é inalcançável, e os de `HelpPage` e `ProfilePage` só aparecem com uma conta `saude` autenticada; com conta, o início de saúde vem de `healthTasks` em `local-home.page.ts`.
+- O comando `--sager-account=create` (`auth/LocalAccountProvisioningRunner.java`) aceita qualquer perfil da lista do serviço e só depois pede a senha no console. O mesmo `LocalAccountProvisioningService.create` também cria, no ato do cadastro, as contas de residente e de supervisor (`ResidentService`, `SupervisorService`). A monografia só prevê o terminal para as contas iniciais de gestor (cap4.tex:51 e :216).
 
 ## Goals / Non-Goals
 
@@ -72,7 +74,7 @@ Alternativa rejeitada: manter os ajudantes "para depois". Seria código morto.
 
 ### D8. O frontend recusa o perfil e não redireciona as rotas antigas
 
-O tipo `Role` e a lista `roles` perdem `saude`. Uma sessão com esse perfil é tratada como ausente e vai para `/acesso`. Os endereços `/saude/**` e `/minha-saude` caem na rota `**` e mostram a página "não encontrada". `app.ts` perde o item de menu, o rótulo do perfil, `/saude/acessos` dos cadastros e o sinal `healthAccessPage`. `app.html` perde a condição `exact` ligada a ele.
+O tipo `Role` e a lista `roles` perdem `saude`. Uma sessão com esse perfil é tratada como ausente e vai para `/acesso`. Os endereços `/saude/**` e `/minha-saude` caem na rota `**` e mostram a página "não encontrada". `app.ts` perde o item de menu, o rótulo do perfil, `/saude/acessos` dos cadastros e o sinal `healthAccessPage`. `app.html` perde a condição `exact` ligada a ele. Os ramos `session.active()`/`isDemo()` e os `*-demo.service` ficam: a demonstração acompanha a mudança sem trabalho próprio, porque nunca ofereceu o perfil `saude`.
 
 Alternativa rejeitada: redirecionar `/saude` para `/inicio`. Seria uma rota mantida só para um endereço que ninguém usa.
 
@@ -82,12 +84,21 @@ Os testes do módulo são apagados. Os testes que usavam `saude` só como "outro
 
 Alternativa rejeitada: só apagar os testes. Isso deixaria sem prova a preservação da auditoria e o bloqueio da V30.
 
+### D10. O terminal só cria contas de gestor
+
+No `case "create"` do runner, um `--profile` diferente de `gestor` vira `IllegalArgumentException` antes de `readConfirmedPassword()`. O tratamento existente devolve código de saída 2 e imprime "Comando de contas recusado: Pelo terminal só se criam contas de gestor; residentes e supervisores recebem a conta no próprio cadastro." Nenhuma senha é pedida e o banco não muda. A ajuda mostra `--profile=gestor`. A opção continua obrigatória, então quem já passa `--profile=gestor` (o smoke de `infra/coolify/smoke.py`, os exemplos de README.md e docs/OPERACAO.md) não muda nada.
+
+Alternativas rejeitadas:
+- Restringir em `LocalAccountProvisioningService`. Quebraria a criação da conta no cadastro de residente e de supervisor, que usa o mesmo serviço.
+- Tirar a opção `--profile` e assumir gestor. Um comando antigo com `--profile=residente` criaria um gestor sem aviso.
+
 ## Risks / Trade-offs
 
 - [Um banco local com dados sintéticos de saúde não sobe a nova versão] → A mensagem da V30 explica o motivo. Como os dados são sintéticos, basta recriar o volume do banco local (`SAGER_DB_VOLUME` próprio ou `./sager down` seguido da remoção do volume).
 - [A produção tem uma conta ou um registro de saúde que ninguém lembra] → A V30 aborta sem alterar nada, e o deploy para antes de mudar o esquema. Antes do deploy, o operador confere as contagens (Migration Plan).
 - [Eventos antigos de saúde somem da consulta da API] → Eles continuam na tabela, com retenção permanente, e o operador os lê por SQL. Na produção esse conjunto é vazio.
-- [Conflito de arquivos com `remove-demo-mode` (portal.pages.ts, app.ts, e2e) e com `speed-up-navigation` (app.routes.ts, core/)] → Ordem fixa por ondas: esta mudança vem depois de `remove-demo-mode` e antes da parte frontend de `speed-up-navigation`. As tarefas citam o arquivo e o símbolo, não números de linha.
+- [Conflito de arquivos com `speed-up-navigation` (app.routes.ts, core/)] → Ordem fixa por ondas: esta mudança vem antes da parte frontend de `speed-up-navigation`. As tarefas citam o arquivo e o símbolo, não números de linha.
+- [Um operador ou script ainda cria residente ou supervisor pelo terminal] → O comando falha com código 2, sem pedir senha nem mudar o banco, e a mensagem diz onde criar a conta (D10). Os documentos que ainda mostram `--profile=residente` são corrigidos fora desta mudança, e a tarefa 5.2 os lista.
 - [O vocabulário "saúde" continua em lugares legítimos] → A varredura final tem uma lista explícita de exceções: V13, V30, o teste da V30, os probes `/actuator/health` e o aviso das conversas do WhatsApp.
 
 ## Migration Plan

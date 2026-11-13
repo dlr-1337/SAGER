@@ -20,6 +20,28 @@ O semestre de ingresso MUST ser o 5º caractere da matrícula quando ele for 1 o
 - **WHEN** o sistema calcula a etapa e a saída prevista
 - **THEN** o ingresso conta como 2º semestre de 2026
 
+### Requirement: Calculado pelo servidor
+
+A etapa, a saída prevista e a situação de concluinte MUST ser calculadas pelo servidor, com a data civil de hoje no fuso America/Sao_Paulo pelo relógio do servidor, e SHALL vir na resposta da API de residentes, inclusive na lista dos moradores de um quarto. A data e o fuso do aparelho do usuário MUST NOT mudar o que aparece.
+
+#### Scenario: Leitura pela API
+
+- **GIVEN** um residente com ano de ingresso e curso com nível e duração
+- **WHEN** um cliente autorizado lê o residente, ou a lista de residentes, pela API
+- **THEN** a resposta traz a etapa, a saída prevista e se ele concluiu o curso
+
+#### Scenario: Aparelho com a data errada
+
+- **GIVEN** um residente com saída prevista em 30/06/2026, o servidor em 01/07/2026 no horário de Brasília e o computador do usuário com a data de 30/06/2026
+- **WHEN** o usuário abre a ficha do residente
+- **THEN** a ficha mostra "Concluinte"
+
+#### Scenario: Fim do dia no horário de Brasília
+
+- **GIVEN** um residente com saída prevista em 30/06/2026
+- **WHEN** alguém abre a ficha às 23h30 de 30/06/2026 no horário de Brasília, já 01/07/2026 em UTC
+- **THEN** a ficha mostra a etapa do curso, não "Concluinte"
+
 ### Requirement: Etapa do curso conforme o nível
 
 A etapa do curso SHALL ser contada a partir do semestre de ingresso: em anos no ensino médio ("2º ano") e em períodos no superior ("3º período"). Antes do ingresso, a etapa SHALL mostrar o ano em que o residente ingressa.
@@ -82,7 +104,7 @@ Cada semestre de prorrogação MUST adiar a saída prevista em um semestre, e co
 
 ### Requirement: Situação de concluinte
 
-O residente cuja data atual em America/Sao_Paulo passou da saída prevista SHALL aparecer como "Concluinte" na ficha, na lista de residentes e nos moradores do quarto. Residente sem saída prevista MUST NOT aparecer como concluinte.
+O residente cuja data de hoje, pelo relógio do servidor em America/Sao_Paulo, passou da saída prevista SHALL aparecer como "Concluinte" na ficha, na lista de residentes e nos moradores do quarto. Residente sem saída prevista MUST NOT aparecer como concluinte. Na demonstração, cujos dados fictícios não têm ano de ingresso nem duração, a etapa, a saída prevista e a situação não aparecem.
 
 #### Scenario: Dia seguinte à saída prevista
 
@@ -102,9 +124,15 @@ O residente cuja data atual em America/Sao_Paulo passou da saída prevista SHALL
 - **WHEN** alguém abre a lista de residentes
 - **THEN** ele não aparece como concluinte
 
+#### Scenario: Demonstração
+
+- **GIVEN** a demonstração com o perfil gestor
+- **WHEN** o visitante abre a lista de residentes e a ficha de um residente fictício
+- **THEN** nenhuma das duas mostra etapa, saída prevista ou "Concluinte"
+
 ### Requirement: Datas de cada morador no quarto
 
-O detalhe do quarto SHALL mostrar, para cada morador, a data em que entrou no quarto e a saída prevista, no formato "Entrou em dd/mm/aaaa · saída prevista dd/mm/aaaa". Sem saída prevista, a linha SHALL mostrar só a data de entrada.
+O detalhe do quarto SHALL mostrar, para cada morador, a data em que entrou no quarto, no horário de Brasília, e a saída prevista, no formato "Entrou em dd/mm/aaaa · saída prevista dd/mm/aaaa". Sem saída prevista, a linha SHALL mostrar só a data de entrada.
 
 #### Scenario: Morador com saída prevista
 

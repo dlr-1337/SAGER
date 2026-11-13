@@ -81,7 +81,7 @@ Enquanto uma troca de página estiver em andamento, o sistema SHALL mostrar uma 
 
 ### Requirement: Sessão verificada ao abrir o sistema
 
-O sistema SHALL consultar a sessão no servidor ao abrir ou recarregar uma página protegida e sempre que ainda não souber quem é o usuário. As trocas de página seguintes MUST NOT consultar a sessão de novo e MUST continuar respeitando o perfil já conhecido.
+No acesso por conta, o sistema SHALL consultar a sessão no servidor ao abrir ou recarregar uma página protegida e sempre que ainda não souber quem é o usuário. As trocas de página seguintes MUST NOT consultar a sessão de novo e MUST continuar respeitando o perfil já conhecido. No modo demonstração, a navegação MUST NOT consultar a sessão no servidor nem fazer qualquer pedido à API.
 
 #### Scenario: Entrar e navegar
 
@@ -100,6 +100,13 @@ O sistema SHALL consultar a sessão no servidor ao abrir ou recarregar uma pági
 - **GIVEN** um residente já identificado
 - **WHEN** um link interno o leva a `/residentes`
 - **THEN** o sistema mostra o acesso negado sem consultar a sessão de novo
+
+#### Scenario: Navegar na demonstração
+
+- **GIVEN** a demonstração ativa com o perfil gestor
+- **WHEN** o visitante abre Início, Residentes e Quartos pelo menu
+- **THEN** cada página abre sem levar à página de acesso
+- **AND** nenhum pedido é feito à API
 
 ### Requirement: Sessão encerrada tratada em um só lugar
 
@@ -156,7 +163,7 @@ Os ícones SHALL vir de uma fonte servida pela própria origem que contém só o
 
 ### Requirement: Código das páginas pré-carregado
 
-Depois que o sistema abre, o navegador SHALL baixar em segundo plano o código de todas as páginas. A primeira visita a uma página MUST NOT esperar o download do código dessa página.
+Depois que o sistema abre, o navegador SHALL baixar em segundo plano o código das páginas. A primeira visita a uma página MUST NOT esperar o download do código dela. A exceção é o relatório individual aberto pelo endereço com o residente, cujo gráfico só a demonstração desenha: o código dessa página MUST NOT ser pré-carregado e é baixado só quando ela é aberta.
 
 #### Scenario: Primeira visita aos quartos
 
@@ -164,9 +171,16 @@ Depois que o sistema abre, o navegador SHALL baixar em segundo plano o código d
 - **WHEN** ele abre Quartos pela primeira vez
 - **THEN** nenhum arquivo de código é pedido ao servidor nessa navegação
 
+#### Scenario: Relatório individual fora do pré-carregamento
+
+- **GIVEN** um gestor que entrou e esperou o sistema terminar de carregar
+- **WHEN** ele abre pelo endereço o relatório individual de um residente
+- **THEN** o código dessa página, que não tinha sido baixado em segundo plano, é pedido ao servidor nessa navegação
+- **AND** a página mostra os indicadores do residente
+
 ### Requirement: Listas de referência reaproveitadas
 
-As listas de residentes e de cursos e o mapa de quartos SHALL ser reaproveitados na mesma aba por até 60 segundos. Qualquer gravação feita pelo próprio usuário MUST descartar essas cópias, e entrar, sair ou perder a sessão também.
+Com acesso por conta, as listas de residentes e de cursos e o mapa de quartos SHALL ser reaproveitados na mesma aba por até 60 segundos. Qualquer gravação feita pelo próprio usuário MUST descartar essas cópias, e entrar, sair ou perder a sessão também. Na demonstração, as listas vêm da memória e MUST mostrar na hora o que o visitante acabou de gravar.
 
 #### Scenario: Paginar responsáveis
 
@@ -184,11 +198,18 @@ As listas de residentes e de cursos e o mapa de quartos SHALL ser reaproveitados
 - **WHEN** outro usuário altera um curso
 - **THEN** a alteração aparece em no máximo 60 segundos, ou logo ao recarregar a página
 
+#### Scenario: Curso novo na demonstração
+
+- **GIVEN** a demonstração ativa com o perfil gestor
+- **WHEN** o visitante cria um curso e volta à lista de cursos
+- **THEN** o curso novo aparece na lista
+- **AND** nenhum pedido é feito à API
+
 ### Requirement: Listas de referência pedidas ao mesmo tempo
 
-Uma tela que precisa de mais de uma lista de referência SHALL pedir todas ao mesmo tempo, sem esperar uma resposta para começar o pedido seguinte.
+No acesso por conta, uma tela que precisa de mais de uma lista de referência SHALL pedir todas ao mesmo tempo, sem esperar uma resposta para começar o pedido seguinte. Na demonstração, as listas vêm da memória e a tela MUST NOT fazer pedidos à API.
 
-#### Scenario: Abrir residentes
+#### Scenario: Abrir residentes no acesso por conta
 
 - **WHEN** o gestor abre Residentes
 - **THEN** os pedidos de cursos e do mapa de quartos começam antes de qualquer um deles responder
@@ -198,6 +219,13 @@ Uma tela que precisa de mais de uma lista de referência SHALL pedir todas ao me
 - **WHEN** o pedido de cursos ou o do mapa falha
 - **THEN** a tela avisa que não carregou todas as opções de curso e alojamento
 - **AND** a lista de residentes continua carregando
+
+#### Scenario: Na demonstração, Residentes não pede o mapa
+
+- **GIVEN** a demonstração ativa com o perfil gestor
+- **WHEN** o visitante abre Residentes
+- **THEN** a lista e os cursos da demonstração aparecem sem aviso de falha nas opções
+- **AND** nenhum pedido é feito à API
 
 ### Requirement: Detalhe do quarto com só os moradores
 

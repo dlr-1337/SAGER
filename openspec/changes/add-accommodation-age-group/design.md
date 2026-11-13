@@ -10,7 +10,8 @@ Estado atual, conferido no código:
 - `AllocationService.checkAdmission(room)` (chamado em `create` e `transfer`) só olha situação, capacidade e lotação. O residente já fica bloqueado por `AllocationRepository.lockResident` antes da checagem.
 - A constraint `sager_audit_event_changed_fields_allowed` aceita para ACCOMMODATION só `code` e `name` (V13). A V29 a estende com um bloco `DO` que embrulha a expressão atual em `(atual) OR (novo)`. O enum `AuditResource.ACCOMMODATION` repete a mesma lista no Java.
 - A regra de menoridade está duplicada em `OperationResidents.eligibility` e em `NightCallService.minor`. A mudança `hide-exits-for-adults`, da mesma onda, cria `FieldRules.minor(LocalDate birth, Instant at)`, que converte o instante para a data civil de America/Sao_Paulo, para unificá-la. A `track-course-conclusion` já injeta o `Clock` em `AllocationService`.
-- O contexto da chamada noturna lista `NightCallRepository.accommodations()`, e o mesmo método valida o alojamento em `context()` e em `open()`. O frontend da chamada só mostra o que o contexto devolve.
+- O contexto da chamada noturna lista `NightCallRepository.accommodations()` (NightCallRepository.java:29-33), e o mesmo método valida o alojamento em `context()` e em `open()`. `NightCallService` já calcula a data civil de hoje (`today(now)`, pelo `Clock`, em `OperationResidents.ZONE`) e conta como menor quem tem `birth.plusYears(18)` depois dela. O frontend da chamada só mostra o que o contexto devolve, e o fechamento pela tela pede de novo o contexto do alojamento da chamada (`callContext`, night-call-local.component.ts:685).
+- O modo demonstração (RF027) continua. `AccommodationDataService.save` guarda o alojamento em memória copiando `...input`. A ficha do quarto, a ficha do residente e a chamada noturna têm ramos próprios da demonstração (`isDemo()`/`session.active()`, `night-call.component.ts`, `operations-demo.service.ts`).
 - Os guards `isAccommodation` de `room-api.service.ts` e de `accommodation-api.service.ts` conferem campo a campo. Cerca de 17 fixtures de e2e e de specs simulam `/quartos/mapa` e `/alojamentos` sem o campo novo.
 - A V31 é da `track-course-conclusion`, implementada pelo mesmo executor logo antes. Ela também mexe em `AllocationService`, `AllocationRepository`, `AllocationApiIntegrationTest`, `resident-detail.component.ts` e `allocation-api.service.ts`.
 
@@ -89,16 +90,26 @@ Em `resident-detail.component.ts`, um `computed` filtra os quartos oferecidos no
 
 - Alternativa rejeitada: usar a mensagem genérica de erro. Ela não diz o que fazer (spec `plain-language`).
 
-### D10. A chamada noturna filtra na própria consulta de opções
+### D10. A chamada noturna filtra na própria consulta de opções, sem perder menor alocado
 
-`NightCallRepository.accommodations()` ganha `WHERE age_group IS DISTINCT FROM 'MAIORES'`. Como o mesmo método valida o alojamento em `context()` e `open()`, a API passa a responder 422 `invalid_reference` para um alojamento de maiores. O frontend não muda, porque já mostra só o que o contexto devolve. A lista de chamadas antigas (`GET /api/v1/chamadas`) não usa esse método e continua igual.
+`NightCallRepository.accommodations(LocalDate today)` mantém o alojamento quando `age_group IS DISTINCT FROM 'MAIORES' OR EXISTS (SELECT 1 FROM sager_room q JOIN sager_room_allocation a ON a.room_id = q.id AND a.ended_at IS NULL JOIN sager_resident r ON r.id = a.resident_id WHERE q.accommodation_id = sager_accommodation.id AND r.birth_date > ?)`. O parâmetro é `today.minusYears(18)`, em que `today` é a data civil que `context()` e `open()` já calculam pelo `Clock` em America/Sao_Paulo (cap4.tex:218). Como o mesmo método valida o alojamento em `context()` e `open()`, a API responde 422 `invalid_reference` só para um alojamento de maiores sem menor alocado. O frontend não muda, porque já mostra só o que o contexto devolve. A lista de chamadas antigas (`GET /api/v1/chamadas`) não usa esse método e continua igual.
 
+O `EXISTS` é obrigatório: só o `age_group` tiraria da chamada um menor que continua num alojamento que virou "Maiores" (D6 não move ninguém), contra RF006, RN02 e UC05 (cap4.tex:112, :157, :325-329), e `callContext` deixaria de fechar a chamada aberta nesse alojamento.
+
+- Alternativa rejeitada: filtrar só pelo `age_group`. Perderia o menor alocado, como acima.
 - Alternativa rejeitada: filtrar só na tela. A API continuaria abrindo chamadas vazias em alojamentos de adultos.
 - Alternativa rejeitada: validar contra todos os alojamentos e filtrar só a lista. Daria mais código para cobrir um caso raro (ver Riscos).
 
+### D11. Demonstração: acompanha só no cadastro do alojamento
+
+O formulário e o detalhe do alojamento são os mesmos na demonstração, então o campo "Faixa etária" aparece nela e a faixa fica em memória, sem mudar `AccommodationDataService`. Os ramos da demonstração na ficha do quarto, na ficha do residente e na chamada noturna ficam como estão: os dados fictícios não têm faixa e a ficha do residente da demonstração não tem escolha de quarto. Nenhum ramo `isDemo()`/`session.active()` é removido nem alterado.
+
+- Alternativa rejeitada: levar a faixa aos dados fictícios de quartos, residentes e chamada. Muda a demonstração descrita na monografia (cap7) sem ganho para a banca.
+
 ## Risks / Trade-offs
 
-- [Mudar um alojamento para "Maiores" com uma chamada aberta naquela noite deixa a chamada fora do seletor, e o fechamento pela tela falha.] → Mitigação: a tela do alojamento não muda durante a chamada na prática. Se acontecer, o supervisor volta a faixa, fecha a chamada e muda de novo. Fica registrado em "Para o operador".
+- [Um alojamento que virou "Maiores" e já não tem menor alocado sai do seletor (D10). Suas chamadas fechadas deixam de aparecer na tela para correção, e uma chamada ainda aberta cujo último menor saiu ou fez 18 anos depois da abertura não fecha pela tela.] → Mitigação: o supervisor volta a faixa, corrige ou fecha a chamada e muda a faixa de novo. Fica registrado em "Para o operador".
+- [O filtro de D10 usa `birth_date > today - 18 anos`; quem nasceu em 29/02 conta como menor um dia a mais (28/02 de ano não bissexto) do que em `NightCallService.minor`.] → Mitigação: o efeito é só manter o alojamento no seletor nesse dia; a lista da chamada continua decidida por `minor`.
 - [Uma aba antiga do formulário de alojamento, aberta durante o deploy, salva sem `ageGroup` e limpa a faixa (D3).] → Mitigação: a auditoria registra `ageGroup` e o gestor corrige pela tela.
 - [O preenchimento depende do texto do nome, que só vem do script não versionado `scripts/popular_estrutura_if.py`.] → Mitigação: alojamentos que o nome não classifica ficam sem faixa, ou seja, sem restrição, e o operador confere a lista depois do deploy.
 - [Um quarto de menores pode ficar com morador adulto (D6).] → Mitigação: é o comportamento decidido. A chamada noturna conta só menores pela data de nascimento, então não muda.
@@ -121,4 +132,4 @@ Em `resident-detail.component.ts`, um `computed` filtra os quartos oferecidos no
 ## Para o operador
 
 - Depois do deploy, conferir em `/alojamentos` a faixa de cada residência. Os nomes sem "menores de 18" ou "maiores de 18" ficam sem faixa.
-- Antes de mudar a faixa de um alojamento à noite, conferir se não há chamada aberta nele.
+- Para corrigir ou fechar a chamada de um alojamento de maiores sem menor alocado, voltar a faixa, fazer a operação e definir "Maiores" de novo.

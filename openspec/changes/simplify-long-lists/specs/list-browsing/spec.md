@@ -1,12 +1,12 @@
 ## Purpose
 
-Permitir que gestor, supervisor e residente filtrem e percorram listas longas no computador e no celular, com a busca à vista, os filtros ativos sempre visíveis e páginas de tamanho fixo, sem que o filtro ocupe a primeira tela.
+Permitir que gestor, supervisor e residente filtrem e percorram listas longas no computador e no celular, com a busca à vista, os filtros ativos sempre visíveis e páginas de tamanho fixo, sem que o filtro ocupe a primeira tela. As telas próprias do modo demonstração (RF027) ficam como estão.
 
 ## ADDED Requirements
 
 ### Requirement: Busca à vista e filtros extras recolhíveis
 
-Cada lista com filtros SHALL ter um único painel de filtro, com a busca principal sempre visível e os demais filtros numa área recolhível "Mais filtros", aberta em telas com mais de 760 px e fechada no celular. Uma tela sem filtros além da busca mantém só a busca, sem área recolhível.
+No acesso por conta, cada lista com filtros SHALL ter um único painel de filtro, com a busca principal sempre visível e os demais filtros numa área recolhível "Mais filtros", aberta em telas com mais de 760 px e fechada no celular. Uma tela sem filtros além da busca mantém só a busca, sem área recolhível.
 
 #### Scenario: Celular
 
@@ -43,7 +43,7 @@ O painel SHALL lembrar, para cada tela, se o usuário deixou "Mais filtros" aber
 
 ### Requirement: Filtros ativos sempre visíveis e removíveis
 
-Cada filtro ativo SHALL aparecer fora da área recolhível, com o nome do filtro e o valor legível, nunca um identificador interno, e MUST poder ser removido sozinho; "Limpar filtros" SHALL remover todos de uma vez.
+No acesso por conta, cada filtro ativo SHALL aparecer fora da área recolhível, com o nome do filtro e o valor legível, nunca um identificador interno, e MUST poder ser removido sozinho; "Limpar filtros" SHALL remover todos de uma vez.
 
 #### Scenario: Área fechada com filtro ativo
 
@@ -83,7 +83,7 @@ O painel de filtro MUST continuar na tela, com o foco e o valor digitado, enquan
 
 ### Requirement: Páginas de 25 que substituem a lista
 
-Listas longas SHALL mostrar 25 itens por página, com Anterior e Próxima, e trocar de página MUST substituir os itens mostrados em vez de acrescentá-los ao fim. Só a lista de conversas, que se atualiza sozinha, mantém "Carregar mais".
+Listas longas, exceto a da chamada noturna, SHALL mostrar 25 itens por página, com Anterior e Próxima, e trocar de página MUST substituir os itens mostrados em vez de acrescentá-los ao fim. Só a lista de conversas, que se atualiza sozinha, mantém "Carregar mais".
 
 #### Scenario: Próxima página de avisos
 
@@ -149,7 +149,7 @@ Uma página ou um filtro pedido antes MUST NOT substituir a lista do filtro e da
 
 ### Requirement: Ranking paginado com o próprio quarto no topo
 
-O ranking SHALL mostrar 25 quartos por página e, para o residente, repetir acima da lista as linhas dos quartos em que ele participou no período, em qualquer página.
+No acesso por conta, o ranking SHALL mostrar 25 quartos por página e, para o residente, repetir acima da lista as linhas dos quartos em que ele participou no período, em qualquer página.
 
 #### Scenario: Residente na página 1
 
@@ -164,7 +164,7 @@ O ranking SHALL mostrar 25 quartos por página e, para o residente, repetir acim
 
 ### Requirement: Chamada noturna inteira
 
-A lista da chamada noturna MUST NOT ser paginada; só os filtros além da busca ficam recolhíveis, e o resumo e o fechamento continuam considerando todos os registros da chamada.
+A lista da chamada noturna MUST NOT ser paginada; no acesso por conta, só os filtros além da busca ficam recolhíveis, e o resumo e o fechamento continuam considerando todos os registros da chamada.
 
 #### Scenario: Chamada com 51 residentes
 

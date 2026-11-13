@@ -28,11 +28,11 @@ Toda seleção de casa ou bloco e de quarto SHALL oferecer somente opções do a
 
 ### Requirement: Ordem natural dos locais
 
-O mapa de quartos e toda seleção de alojamento, casa ou bloco e quarto SHALL listar os locais em ordem natural, com os alojamentos em ordem alfabética e os números comparados como números ("2" antes de "10", "Casa 2" antes de "Casa 10").
+O mapa de quartos e toda seleção de alojamento, casa ou bloco e quarto SHALL listar os locais em ordem natural, com os alojamentos em ordem alfabética e os números comparados como números ("2" antes de "10", "Casa 2" antes de "Casa 10"), e os quartos SHALL seguir alojamento, casa ou bloco, piso (sem piso e Térreo primeiro) e só então o número.
 
 #### Scenario: Quartos 1, 2 e 10
 
-- **GIVEN** os quartos 1, 10 e 2 no mesmo alojamento
+- **GIVEN** os quartos 1, 10 e 2 no mesmo alojamento e piso
 - **WHEN** o supervisor abre a seleção de quarto dos residentes
 - **THEN** as opções aparecem na ordem 1, 2 e 10
 
@@ -41,3 +41,15 @@ O mapa de quartos e toda seleção de alojamento, casa ou bloco e quarto SHALL l
 - **GIVEN** a "Casa 10" e a "Casa 2" na Vila Estudantil
 - **WHEN** o gestor abre a Vila Estudantil no mapa de quartos
 - **THEN** o cartão da Casa 2 vem antes do cartão da Casa 10
+
+#### Scenario: Quartos da demonstração
+
+- **GIVEN** o modo demonstração, em que o quarto 202 do bloco A foi cadastrado depois do 201 do bloco B
+- **WHEN** o gestor abre a seleção de quarto dos residentes sem escolher bloco
+- **THEN** "A · 202" aparece antes de "B · 201"
+
+#### Scenario: Piso antes do número
+
+- **GIVEN** o modo demonstração, com o quarto 301 no Térreo e o 201 no 1º piso do bloco B
+- **WHEN** o gestor abre a seleção de quarto dos residentes sem escolher bloco
+- **THEN** "B · 301" aparece antes de "B · 201"

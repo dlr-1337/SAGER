@@ -8,7 +8,7 @@ Permitir que gestor e supervisor encontrem um quarto indo do geral ao específic
 
 ### Requirement: Alojamentos no primeiro nível
 
-Ao abrir a tela Quartos, gestor e supervisor SHALL ver um cartão por alojamento, com o nome, o número de quartos e as vagas livres somadas dos quartos com capacidade definida, e escolher um cartão SHALL abrir o nível seguinte desse alojamento.
+No acesso por conta, ao abrir a tela Quartos, gestor e supervisor SHALL ver um cartão por alojamento, com o nome, o número de quartos e as vagas livres somadas só dos quartos que recebem alocação (fora de Manutenção e Indisponível), e escolher um cartão SHALL abrir o nível seguinte desse alojamento.
 
 #### Scenario: Abrir a tela
 
@@ -22,9 +22,15 @@ Ao abrir a tela Quartos, gestor e supervisor SHALL ver um cartão por alojamento
 - **WHEN** o supervisor escolhe o cartão dele
 - **THEN** a tela informa que o alojamento não tem quartos e a trilha permite voltar
 
+#### Scenario: Vaga de quarto em manutenção não conta
+
+- **GIVEN** um alojamento com um quarto Disponível com 2 vagas livres e um quarto em Manutenção com 3 camas livres
+- **WHEN** o gestor abre a tela Quartos
+- **THEN** o cartão desse alojamento mostra 2 vagas livres
+
 ### Requirement: Casas ou blocos no segundo nível
 
-Escolher um alojamento que tenha casas ou blocos SHALL mostrar um cartão por casa ou bloco, com o número de quartos e as vagas livres, e os quartos sem casa ou bloco desse alojamento em grade abaixo dos cartões; escolher um alojamento sem casas ou blocos SHALL mostrar direto a grade dos quartos dele.
+No acesso por conta, escolher um alojamento que tenha casas ou blocos SHALL mostrar um cartão por casa ou bloco, com o número de quartos e as vagas livres contadas como no cartão do alojamento, e os quartos sem casa ou bloco desse alojamento em grade abaixo dos cartões; escolher um alojamento sem casas ou blocos SHALL mostrar direto a grade dos quartos dele.
 
 #### Scenario: Alojamento com casas
 
@@ -46,7 +52,7 @@ Escolher um alojamento que tenha casas ou blocos SHALL mostrar um cartão por ca
 
 ### Requirement: Trilha entre os níveis
 
-A tela SHALL mostrar a trilha do nível atual, como "Quartos › Vila Estudantil › Casa 3", em que cada nível anterior volta a ele e o nível atual não é clicável.
+No acesso por conta, a tela SHALL mostrar a trilha do nível atual, como "Quartos › Vila Estudantil › Casa 3", em que cada nível anterior volta a ele e o nível atual não é clicável.
 
 #### Scenario: Voltar pela trilha
 
@@ -85,7 +91,7 @@ Voltar do detalhe ou do formulário de um quarto para a tela Quartos SHALL resta
 
 ### Requirement: Busca e filtros em qualquer nível
 
-Com busca ou filtro ativo, a tela SHALL mostrar em grade os quartos que atendem dentro do nível atual (todos os alojamentos no primeiro nível), agrupados por alojamento, casa ou bloco e piso, e limpar os filtros MUST manter o nível.
+No acesso por conta, com busca ou filtro ativo, a tela SHALL mostrar em grade os quartos que atendem dentro do nível atual (todos os alojamentos no primeiro nível), agrupados por alojamento, casa ou bloco e piso, e limpar os filtros MUST manter o nível.
 
 #### Scenario: Buscar código no primeiro nível
 
@@ -100,7 +106,7 @@ Com busca ou filtro ativo, a tela SHALL mostrar em grade os quartos que atendem 
 
 ### Requirement: Filtros do mapa
 
-A busca por número, código, alojamento ou casa SHALL ficar sempre visível; Situação e "Só com vagas" SHALL ficar no painel recolhível, com os ativos sempre visíveis e removíveis; Piso SHALL aparecer só quando algum quarto tiver piso; e a tela MUST NOT oferecer filtro de ocupação, de alojamento nem de casa ou bloco.
+No acesso por conta, a busca por número, código, alojamento ou casa SHALL ficar sempre visível; Situação e "Só com vagas" SHALL ficar no painel recolhível, com os ativos sempre visíveis e removíveis; "Só com vagas" SHALL mostrar só quartos com vaga livre fora de Manutenção e Indisponível; Piso SHALL aparecer só quando algum quarto tiver piso; e a tela MUST NOT oferecer filtro de ocupação, de alojamento nem de casa ou bloco.
 
 #### Scenario: Celular
 
@@ -109,9 +115,9 @@ A busca por número, código, alojamento ou casa SHALL ficar sempre visível; Si
 
 #### Scenario: Só com vagas
 
-- **GIVEN** na grade um quarto com 2 vagas livres e um quarto lotado
+- **GIVEN** na grade um quarto Disponível com 2 vagas livres, um quarto lotado e um quarto em Manutenção com 3 camas livres
 - **WHEN** o supervisor marca "Só com vagas"
-- **THEN** só o quarto com vagas aparece e o filtro ativo fica visível e removível mesmo com o painel fechado
+- **THEN** só o quarto Disponível aparece e o filtro ativo fica visível e removível mesmo com o painel fechado
 
 #### Scenario: Nenhum quarto com piso
 
@@ -121,7 +127,7 @@ A busca por número, código, alojamento ou casa SHALL ficar sempre visível; Si
 
 ### Requirement: Legenda das situações
 
-A legenda SHALL explicar as quatro situações: Disponível tem vaga e recebe residentes, e muda sozinha; Ocupado tem todas as vagas preenchidas, e muda sozinha; Manutenção está em reparo e não recebe novos residentes, e é escolhida pelo gestor ou supervisor; Indisponível está fora de uso ou sem capacidade definida e não recebe novos residentes, e é escolhida pelo gestor ou supervisor ou vem da falta de capacidade. Nenhum texto da tela MUST dizer que toda situação é escolhida.
+No acesso por conta, a legenda SHALL explicar as quatro situações: Disponível tem vaga e recebe residentes, e muda sozinha; Ocupado tem todas as vagas preenchidas, e muda sozinha; Manutenção está em reparo e não recebe novos residentes, e é escolhida pelo gestor ou supervisor; Indisponível está fora de uso e não recebe novos residentes, e é escolhida pelo gestor ou supervisor ou vem da falta de capacidade. Nenhum texto do mapa nem do detalhe do quarto MUST dizer que toda situação é escolhida.
 
 #### Scenario: Ler a legenda
 
@@ -133,9 +139,14 @@ A legenda SHALL explicar as quatro situações: Disponível tem vaga e recebe re
 - **WHEN** o supervisor lê a nota abaixo da grade
 - **THEN** ela diz que Disponível e Ocupado mudam sozinhos com os moradores e que Manutenção e Indisponível são escolhidos no cadastro do quarto
 
+#### Scenario: Nota do detalhe
+
+- **WHEN** o supervisor abre o detalhe de um quarto
+- **THEN** a nota diz que Disponível e Ocupado mudam sozinhos e que Manutenção e Indisponível são escolhidos no cadastro, sem dizer que a situação é escolhida por ele
+
 ### Requirement: Quarto sem capacidade aparece indisponível
 
-Um quarto sem capacidade definida e sem Manutenção ou Indisponível escolhidos SHALL aparecer como Indisponível no mapa, no detalhe e no filtro de situação, e SHALL passar a Disponível ou Ocupado sozinho quando a capacidade for definida com a situação automática.
+No acesso por conta, um quarto sem capacidade definida e sem Manutenção ou Indisponível escolhidos SHALL aparecer como Indisponível no mapa, no detalhe e no filtro de situação, e SHALL passar a Disponível ou Ocupado sozinho quando a capacidade for definida com a situação automática.
 
 #### Scenario: Quarto cadastrado sem capacidade
 
@@ -157,7 +168,7 @@ Um quarto sem capacidade definida e sem Manutenção ou Indisponível escolhidos
 
 ### Requirement: Situação pedida na edição de quarto sem capacidade
 
-Ao editar um quarto sem capacidade que aparece como Indisponível, o formulário MUST deixar a situação sem escolha e exigir que o usuário escolha uma antes de salvar, sem presumir a automática nem Indisponível.
+No acesso por conta, ao editar um quarto sem capacidade que aparece como Indisponível, o formulário MUST deixar a situação sem escolha e exigir que o usuário escolha uma antes de salvar, sem presumir a automática nem Indisponível.
 
 #### Scenario: Editar quarto sem capacidade
 
@@ -198,9 +209,31 @@ A grade SHALL mostrar até 25 quartos por página, com a paginação logo depois
 
 ### Requirement: Sem nota de limpeza inventada
 
-O mapa e o detalhe do quarto MUST NOT mostrar linha de nota de limpeza, porque o cadastro do quarto não traz a nota das avaliações.
+O mapa e o detalhe do quarto, também na demonstração, MUST NOT mostrar linha de nota de limpeza, porque o cadastro do quarto não traz a nota das avaliações.
 
 #### Scenario: Abrir um quarto
 
 - **WHEN** o supervisor vê o cartão de um quarto no mapa e abre o detalhe dele
 - **THEN** nenhum dos dois mostra "Sem avaliação" nem "Última nota de limpeza"
+
+#### Scenario: Quarto da demonstração
+
+- **GIVEN** o modo demonstração com o perfil supervisor
+- **WHEN** ele vê o quarto 102 na grade e abre o detalhe dele
+- **THEN** nenhum dos dois mostra "Limpeza:", nota nem "Última nota de limpeza"
+
+### Requirement: Quartos na demonstração
+
+No modo demonstração, a tela Quartos SHALL abrir direto na grade agrupada por bloco e piso, sem níveis nem trilha e sem chamar a API, com a busca sempre visível e Bloco, Piso e Situação no painel recolhível; MUST NOT mostrar capacidade, totais nem "Só com vagas"; e a legenda SHALL mostrar só o nome e a cor das quatro situações.
+
+#### Scenario: Abrir a tela na demonstração
+
+- **GIVEN** o modo demonstração com o perfil gestor
+- **WHEN** ele abre a tela Quartos
+- **THEN** vê a grade dos quartos dos blocos A e B, sem cartão de alojamento nem trilha, e a legenda com os quatro nomes, sem explicações
+
+#### Scenario: Filtrar por bloco na demonstração
+
+- **GIVEN** o modo demonstração com o perfil supervisor
+- **WHEN** ele escolhe o bloco A no painel de filtros
+- **THEN** só os quartos do bloco A aparecem e o filtro ativo fica visível e removível

@@ -22,7 +22,7 @@ O ano de ingresso MUST ser obrigatório na criação e na edição de residente,
 
 ### Requirement: Ano de ingresso sugerido pela matrícula
 
-Quando o ano de ingresso estiver vazio, o formulário de residente SHALL preenchê-lo com os 4 primeiros dígitos da matrícula, e o usuário MUST poder trocar o valor antes de salvar.
+Quando o ano de ingresso estiver vazio, o formulário de residente SHALL preenchê-lo com os 4 primeiros dígitos da matrícula, ao digitar a matrícula e ao abrir um cadastro para edição, também na demonstração, e o usuário MUST poder trocar o valor antes de salvar.
 
 #### Scenario: Matrícula digitada
 
@@ -36,9 +36,21 @@ Quando o ano de ingresso estiver vazio, o formulário de residente SHALL preench
 - **WHEN** o usuário digita a matrícula 20251ABCD000123
 - **THEN** o ano de ingresso continua 2024
 
+#### Scenario: Cadastro antigo aberto para edição
+
+- **GIVEN** um residente antigo sem ano de ingresso, com a matrícula 20241ABCD000123
+- **WHEN** o usuário abre a edição dele
+- **THEN** o ano de ingresso aparece preenchido com 2024 e pode ser trocado
+
+#### Scenario: Cadastro na demonstração
+
+- **GIVEN** a demonstração com o perfil gestor
+- **WHEN** o visitante cadastra um residente com a matrícula 20261PAG0000001
+- **THEN** o ano de ingresso fica 2026 e o cadastro é salvo
+
 ### Requirement: Nível e duração do curso
 
-Curso novo ou com nome, nível ou duração alterados MUST ter nível, ensino médio ou superior, e duração de 1 a 6 anos, no navegador e no servidor. O curso antigo sem esses dados SHALL continuar legível e MUST poder ser ativado ou desativado sem informá-los.
+Curso novo ou com nome, nível ou duração alterados MUST ter nível, ensino médio ou superior, e duração de 1 a 6 anos, no navegador, inclusive na demonstração, e no servidor. O curso antigo sem esses dados SHALL continuar legível e MUST poder ser ativado ou desativado sem informá-los.
 
 #### Scenario: Curso novo sem duração
 
