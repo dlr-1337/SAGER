@@ -28,6 +28,18 @@ describe('AccommodationDataService', () => {
     expect(api.saveUnit).not.toHaveBeenCalled();
   });
 
+  it('guarda a faixa etária do alojamento demonstrativo só em memória', async () => {
+    const { data, api } = setup(true);
+    const saved = await data.save({
+      code: 'FICTICIO',
+      name: 'Alojamento Fictício',
+      ageGroup: 'MENORES',
+    });
+    expect(saved.ageGroup).toBe('MENORES');
+    expect((await data.get(saved.id)).ageGroup).toBe('MENORES');
+    expect(api.save).not.toHaveBeenCalled();
+  });
+
   it('recusa código duplicado e edição demonstrativa com versão obsoleta', async () => {
     const { data } = setup(true);
     const accommodation = await data.save({ code: 'FICTICIO', name: 'Alojamento Fictício' });
