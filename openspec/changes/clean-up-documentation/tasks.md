@@ -40,8 +40,8 @@ Nas verificações, "verificador de links" é o comando Python da decisão 11 de
 
 ## 6. Verificação final
 
-- [ ] 6.1 Verificar: `openspec validate clean-up-documentation --strict` passa, e `openspec status --change clean-up-documentation` mostra specs como `skipped`.
-- [ ] 6.2 Verificar que nada mudou no comportamento: `git status --short` deste change toca só os arquivos da seção Impact de proposal.md, e `git diff --stat HEAD -- '*.java' '*.ts' '*.sql' '*.html' '*.scss' '*.py' '*.sh' '*.mjs'` não mostra arquivo alterado por este change (alterações de `remove-demo-mode` no mesmo diretório de trabalho são dela).
+- [x] 6.1 Verificar: `openspec validate clean-up-documentation --strict` passa, e `openspec status --change clean-up-documentation` mostra specs como `skipped`.
+- [x] 6.2 Verificar que nada mudou no comportamento: `git status --short` deste change toca só os arquivos da seção Impact de proposal.md, e `git diff --stat HEAD -- '*.java' '*.ts' '*.sql' '*.html' '*.scss' '*.py' '*.sh' '*.mjs'` não mostra arquivo alterado por este change (alterações de `remove-demo-mode` no mesmo diretório de trabalho são dela).
 
 ## Workflow follow-up
 
