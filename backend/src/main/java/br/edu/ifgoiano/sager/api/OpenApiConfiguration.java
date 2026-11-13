@@ -71,7 +71,9 @@ public class OpenApiConfiguration {
                     .addProperty("expectedExit", new StringSchema().format("date").nullable(true).readOnly(true)
                             .description("Saída prevista: 30/06 ou 31/12 do último semestre."))
                     .addProperty("concluded", new BooleanSchema().readOnly(true)
-                            .description("Verdadeiro depois da saída prevista."));
+                            .description("Verdadeiro depois da saída prevista."))
+                    .addProperty("minor", new BooleanSchema().readOnly(true)
+                            .description("Menor de 18 anos; falso sem data de nascimento."));
             crud(api, "/api/v1/cursos", "Course", new ObjectSchema().addProperty("name", text(1,200,false))
                     .addProperty("level", new StringSchema()._enum(List.of("MEDIO", "SUPERIOR")).nullable(true)
                             .description("Obrigatório em curso novo ou com nome, nível ou duração alterados."))

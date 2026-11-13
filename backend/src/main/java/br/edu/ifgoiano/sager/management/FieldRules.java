@@ -72,7 +72,10 @@ public final class FieldRules {
 
     /** Menor de 18 anos na data civil de America/Sao_Paulo do instante; sem data ou data futura não é menor. */
     public static boolean minor(LocalDate birth, Instant at) {
-        LocalDate date = at.atZone(CIVIL_ZONE).toLocalDate();
+        return minor(birth, at.atZone(CIVIL_ZONE).toLocalDate());
+    }
+
+    public static boolean minor(LocalDate birth, LocalDate date) {
         return birth != null && !birth.isAfter(date) && birth.plusYears(18).isAfter(date);
     }
 

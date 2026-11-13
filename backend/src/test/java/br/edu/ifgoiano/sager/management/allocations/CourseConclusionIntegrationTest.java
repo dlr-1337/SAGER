@@ -117,6 +117,18 @@ class CourseConclusionIntegrationTest {
     }
 
     @Test
+    void residentResponsesCarryMinorityFromTheServerClock() throws Exception {
+        UUID resident = resident("20222CONC000003", 2022, 0, course);
+        jdbc.update("UPDATE sager_resident SET birth_date = ? WHERE id = ?", LocalDate.of(2008, 7, 1), resident);
+        try (HttpClient client = browser()) {
+            login(client, "gestor");
+            assertThat(read(client, "/api/v1/residentes/" + resident).path("minor").asBoolean()).isTrue();
+            clock.set(NEXT_DAY);
+            assertThat(read(client, "/api/v1/residentes/" + resident).path("minor").asBoolean()).isFalse();
+        }
+    }
+
+    @Test
     void concludedResidentIsRefusedUntilTheExtensionIsRecorded() throws Exception {
         clock.set(NEXT_DAY);
         UUID placed = resident("20222CONC000003", 2022, 0, course);

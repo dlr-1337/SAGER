@@ -59,9 +59,11 @@ public class ResidentRepository {
         int extraSemesters = result.getInt("extra_semesters");
         CourseProgress progress = CourseProgress.of(enrollment, entryYear, extraSemesters,
                 result.getString("course_level"), result.getObject("course_duration_years", Integer.class), today);
+        LocalDate birthDate = result.getObject("birth_date", LocalDate.class);
         return new Resident(result.getObject("id", UUID.class), result.getString("name"),
-                enrollment, result.getObject("birth_date", LocalDate.class),
+                enrollment, birthDate,
                 result.getString("course"), result.getLong("version"), result.getObject("course_id", UUID.class), result.getString("institutional_email"),
-                entryYear, extraSemesters, progress.stage(), progress.expectedExit(), progress.concluded());
+                entryYear, extraSemesters, progress.stage(), progress.expectedExit(), progress.concluded(),
+                br.edu.ifgoiano.sager.management.FieldRules.minor(birthDate, today));
     }
 }

@@ -102,7 +102,8 @@ class ResidentApiIntegrationTest {
             assertThat(UUID.fromString(id)).isNotNull();
             assertThat(created.headers().firstValue("Location").orElseThrow())
                     .isEqualTo(PATH + "/" + id);
-            assertThat(value.size()).isEqualTo(13);
+            assertThat(value.size()).isEqualTo(14);
+            assertThat(value.path("minor").isBoolean()).isTrue();
             assertThat(value.path("name").asText()).isEqualTo("Estudante Sintético");
             assertThat(value.path("enrollment").asText()).isEqualTo("20261DEMO00000A");
             assertThat(value.path("birthDate").asText()).isEqualTo(BIRTH_DATE);

@@ -130,7 +130,7 @@ class ApiFoundationIntegrationTest {
                     .isEqualTo(10);
             assertThat(schemas.path("ResidentCreateRequest").path("properties").path("entryYear").path("minimum").asInt())
                     .isEqualTo(1990);
-            for (String field : List.of("stage", "expectedExit", "concluded")) {
+            for (String field : List.of("stage", "expectedExit", "concluded", "minor")) {
                 assertThat(schemas.path("Resident").path("properties").path(field).path("readOnly").asBoolean())
                         .as(field).isTrue();
                 assertThat(schemas.path("ResidentCreateRequest").path("properties").has(field)).as(field).isFalse();
