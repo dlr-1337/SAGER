@@ -46,8 +46,8 @@ Implementar depois de `track-course-conclusion` (V31) e `remove-health-module`. 
 
 ## 8. Verificação integrada
 
-- [ ] 8.1 Rodar `npm run build`, `npm test -- --watch=false` e `npm run test:e2e` em `frontend/`, e `.\mvnw.cmd -B -ntp verify` em `backend/`. Todos devem passar e o resultado vai no resumo da mudança.
-- [ ] 8.2 Rodar `npx prettier --check` nos arquivos de frontend tocados e `openspec validate add-accommodation-age-group --strict`. Os dois devem passar sem erro.
+- [x] 8.1 Rodar `npm run build`, `npm test -- --watch=false` e `npm run test:e2e` em `frontend/`, e `.\mvnw.cmd -B -ntp verify` em `backend/`. Todos devem passar e o resultado vai no resumo da mudança.
+- [x] 8.2 Rodar `npx prettier --check` nos arquivos de frontend tocados e `openspec validate add-accommodation-age-group --strict`. Os dois devem passar sem erro.
 
 ## Workflow follow-up
 
