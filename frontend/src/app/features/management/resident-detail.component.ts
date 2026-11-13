@@ -515,16 +515,6 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico';
                 </div>
               </dl>
             </section>
-            <section class="mg-note mg-sensitive" aria-labelledby="medical-title">
-              <span class="material-symbols-rounded" aria-hidden="true">lock</span>
-              <div>
-                <h2 id="medical-title">Informações médicas restritas</h2>
-                <p>
-                  A matriz de acesso a dados médicos ainda depende de definição da AE/TI. Nenhum
-                  dado médico é exibido ou armazenado nesta demonstração.
-                </p>
-              </div>
-            </section>
           }
 
           @if (tab() === 'responsaveis') {

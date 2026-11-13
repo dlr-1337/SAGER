@@ -369,14 +369,7 @@ import {
           </div>
           <div class="mg-note">
             <span class="material-symbols-rounded" aria-hidden="true">info</span>
-            <p>
-              @if (isDemo()) {
-                Depois de salvar, você poderá adicionar responsáveis e escolher o quarto. Dados
-                médicos não são exibidos nesta demonstração.
-              } @else {
-                Depois de salvar, você poderá adicionar responsáveis e escolher o quarto.
-              }
-            </p>
+            <p>Depois de salvar, você poderá adicionar responsáveis e escolher o quarto.</p>
           </div>
           @if (error()) {
             <p class="mg-alert" role="alert">{{ error() }}</p>
