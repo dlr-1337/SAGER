@@ -432,6 +432,29 @@ describe('Quartos em sessão local', () => {
     );
   });
 
+  it('quarto sem capacidade exibido como Indisponível pede a situação antes de salvar', async () => {
+    const unknown: RoomRecord = { ...room, situation: 'Indisponível' };
+    api.map.mockResolvedValue({ ...structuredClone(map), rooms: [unknown] });
+    route.snapshot.paramMap = convertToParamMap({ id: unknown.id });
+    const fixture = TestBed.createComponent(RoomFormComponent);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const form = fixture.componentInstance.localForm;
+    expect(form.controls.situation.value).toBe('');
+    expect(fixture.nativeElement.textContent).toContain(
+      'Sem capacidade, o quarto aparece como Indisponível.',
+    );
+    form.controls.capacity.setValue(4);
+    await fixture.componentInstance.save();
+    expect(api.save).not.toHaveBeenCalled();
+    form.controls.situation.setValue('Disponível');
+    await fixture.componentInstance.save();
+    expect(api.save).toHaveBeenCalledWith(
+      expect.objectContaining({ situation: 'Disponível', capacity: 4 }),
+      { id: unknown.id, version: 0 },
+    );
+  });
+
   it('quarto antigo acima do limite mantém a capacidade salva, mas não aceita outra', async () => {
     const old = structuredClone(map.rooms[0]);
     old.capacity = 500;

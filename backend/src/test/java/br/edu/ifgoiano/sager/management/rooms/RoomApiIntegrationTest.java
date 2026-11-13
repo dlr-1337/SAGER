@@ -96,7 +96,7 @@ class RoomApiIntegrationTest {
             assertThat(value.path("code").asText()).isEqualTo("DEMO-A-01");
             assertThat(value.path("number").asText()).isEqualTo("01");
             assertThat(value.path("accommodationId").asText()).isEqualTo(accommodation);
-            assertThat(value.path("situation").asText()).isEqualTo("Disponível");
+            assertThat(value.path("situation").asText()).isEqualTo("Indisponível");
             assertThat(value.path("version").asLong()).isZero();
             assertThat(value.size()).isEqualTo(11);
             for (String field : new String[] { "unitId", "floor", "capacity", "vacancies" }) {
@@ -165,6 +165,59 @@ class RoomApiIntegrationTest {
             assertThat(value.path("capacity").isNull()).isTrue();
             assertThat(value.path("floor").isNull()).isTrue();
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_room", Integer.class)).isEqualTo(1);
+        }
+    }
+
+    @Test
+    void roomWithoutCapacityShowsUnavailableUntilCapacityIsDefined() throws Exception {
+        gestorAccount();
+        try (HttpClient client = browser()) {
+            login(client, "gestor");
+            String accommodation = accommodation(client, "DEMO-SC");
+            HttpResponse<String> created = post(client, PATH,
+                    room("DEMO-SC-01", "01", accommodation, null, null, null, "Disponível"), csrf(client));
+            assertThat(created.statusCode()).isEqualTo(201);
+            assertThat(json.readTree(created.body()).path("situation").asText()).isEqualTo("Indisponível");
+            String id = json.readTree(created.body()).path("id").asText();
+            String maintenance = createRoom(client,
+                    room("DEMO-SC-02", "02", accommodation, null, null, null, "Manutenção"));
+            assertThat(json.readTree(get(client, PATH + "/" + id).body()).path("situation").asText())
+                    .isEqualTo("Indisponível");
+            Map<String, String> situations = new LinkedHashMap<>();
+            for (JsonNode item : json.readTree(get(client, PATH + "/mapa").body()).path("rooms")) {
+                situations.put(item.path("id").asText(), item.path("situation").asText());
+            }
+            assertThat(situations).containsExactlyInAnyOrderEntriesOf(
+                    Map.of(id, "Indisponível", maintenance, "Manutenção"));
+            JsonNode unavailable = json.readTree(get(client, PATH + "?situation="
+                    + URLEncoder.encode("Indisponível", StandardCharsets.UTF_8)).body());
+            assertThat(unavailable.size()).isEqualTo(1);
+            assertThat(unavailable.get(0).path("id").asText()).isEqualTo(id);
+            HttpResponse<String> defined = put(client, PATH + "/" + id,
+                    edit(room("DEMO-SC-01", "01", accommodation, null, null, 4, "Disponível"), 0),
+                    csrf(client));
+            assertThat(defined.statusCode()).isEqualTo(200);
+            assertThat(json.readTree(defined.body()).path("situation").asText()).isEqualTo("Disponível");
+            assertThat(json.readTree(get(client, PATH + "/" + id).body()).path("situation").asText())
+                    .isEqualTo("Disponível");
+        }
+    }
+
+    @Test
+    void definingCapacityWithTheAutomaticSituationAuditsOnlyTheCapacity() throws Exception {
+        gestorAccount();
+        try (HttpClient client = browser()) {
+            login(client, "gestor");
+            String accommodation = accommodation(client, "DEMO-AUD");
+            String id = createRoom(client, room("DEMO-AUD-01", "01", accommodation, null, null, null, "Disponível"));
+            assertThat(put(client, PATH + "/" + id,
+                    edit(room("DEMO-AUD-01", "01", accommodation, null, null, 4, "Disponível"), 0),
+                    csrf(client)).statusCode()).isEqualTo(200);
+            assertAudit(id, "UPDATE", 1, "capacity");
+            assertThat(put(client, PATH + "/" + id,
+                    edit(room("DEMO-AUD-01", "01", accommodation, null, null, null, "Indisponível"), 1),
+                    csrf(client)).statusCode()).isEqualTo(200);
+            assertAudit(id, "UPDATE", 2, "capacity", "situation");
         }
     }
 

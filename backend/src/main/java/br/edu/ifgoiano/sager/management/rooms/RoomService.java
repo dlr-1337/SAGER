@@ -78,6 +78,7 @@ public class RoomService {
             throw new RoomApiException(HttpStatus.CONFLICT, "stale_version",
                     "O quarto foi alterado. Recarregue o registro antes de salvar.");
         }
+        String storedSituation = repository.storedSituation(id);
         if (capacity != null && !capacity.equals(current.capacity()) && !FieldRules.validCapacity(capacity)) {
             throw invalidCapacity();
         }
@@ -117,8 +118,7 @@ public class RoomService {
         if (!Objects.equals(current.capacity(), capacity)) {
             changed.add("capacity");
         }
-        String currentSituation = "Ocupado".equals(current.situation()) ? "Disponível" : current.situation();
-        if (!Objects.equals(currentSituation, checked.situation())) {
+        if (!Objects.equals(storedSituation, checked.situation())) {
             changed.add("situation");
         }
         audit.record(AuditResource.ROOM, id, AuditAction.UPDATE, version + 1, changed);
