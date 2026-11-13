@@ -80,6 +80,44 @@ describe('accessGuard', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  describe('saídas do residente', () => {
+    const requests = [
+      'saidas/nova',
+      'saidas/:id/editar',
+      'saidas/longas/nova',
+      'saidas/longas/:id/editar',
+    ];
+    const reading = ['saidas', 'saidas/:id', 'saidas/longas/:id'];
+
+    it('leva o adulto ao acesso negado no pedido e na edição, e deixa a consulta aberta', async () => {
+      TestBed.inject(LocalAuthService).principal.set({
+        ...principal('residente'),
+        maiorDeIdade: true,
+      });
+      for (const path of requests) expect(await enter(path)).toBe('/acesso-negado');
+      for (const path of reading) expect(await enter(path)).toBe(true);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('deixa o menor entrar nas sete rotas e o supervisor na lista', async () => {
+      const auth = TestBed.inject(LocalAuthService);
+      auth.principal.set({ ...principal('residente'), maiorDeIdade: false });
+      for (const path of [...requests, ...reading]) expect(await enter(path)).toBe(true);
+      auth.principal.set({ ...principal('gestor'), perfis: ['supervisor'] });
+      expect(await enter('saidas')).toBe(true);
+    });
+
+    it('demonstração com perfil residente entra em saidas, saidas/nova e saidas/:id', async () => {
+      const session = TestBed.inject(DemoSessionService);
+      session.activate('residente');
+      expect(session.active()).toBe(true);
+      expect(TestBed.inject(LocalAuthService).principal()).toBeNull();
+      for (const path of ['saidas', 'saidas/nova', 'saidas/:id'])
+        expect(await enter(path)).toBe(true);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+  });
+
   it('na demonstração, o residente não abre a lista de residentes', async () => {
     TestBed.inject(DemoSessionService).activate('residente');
     expect(await enter('residentes')).toBe('/acesso-negado');

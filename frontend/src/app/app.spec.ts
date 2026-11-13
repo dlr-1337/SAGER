@@ -108,6 +108,37 @@ describe('App', () => {
     expect(ownItems.find((item) => item.path === '/avisos')?.label).toBe('Minhas comunicações');
     expect(ownItems.map((item) => item.path)).not.toContain('/comunicacoes/avisos');
   });
+
+  it('tira Minhas saídas do menu só do residente maior de idade', async () => {
+    const session = TestBed.inject(DemoSessionService);
+    session.deactivate();
+    const auth = TestBed.inject(LocalAuthService);
+    const resident = {
+      id: '00000000-0000-0000-0000-000000000001',
+      nome: 'Residente Sintético',
+      email: null,
+      matricula: 'TESTE-LOGIN',
+      fotoUrl: null,
+      perfis: ['residente' as const],
+      residenteId: '00000000-0000-0000-0000-000000000002',
+      supervisorId: null,
+    };
+    auth.principal.set({ ...resident, maiorDeIdade: true });
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const paths = () => fixture.componentInstance.navItems().map((item) => item.path);
+    expect(paths()).not.toContain('/saidas');
+    expect(paths()).toContain('/avisos');
+    auth.principal.set({ ...resident, maiorDeIdade: false });
+    expect(paths()).toContain('/saidas');
+    auth.principal.set(null);
+    session.activate('residente');
+    expect(
+      fixture.componentInstance.navItems().find((item) => item.path === '/saidas')?.label,
+    ).toBe('Minhas saídas');
+    session.deactivate();
+  });
+
   it('confirma alterações antes de encerrar a sessão', async () => {
     TestBed.inject(DemoSessionService).deactivate();
     const logout = vi.spyOn(TestBed.inject(LocalAuthService), 'logout').mockResolvedValue();

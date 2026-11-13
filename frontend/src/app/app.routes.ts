@@ -16,7 +16,13 @@ const accessGuard: CanActivateFn = async (route) => {
   if (!session.active() && !auth.principal() && !(await auth.refresh()))
     return router.createUrlTree(['/acesso']);
   const allowed = route.data['roles'] as Role[] | undefined;
-  return !allowed || session.hasRole(...allowed) || router.createUrlTree(['/acesso-negado']);
+  // Pedir e editar saída é só do residente menor (RN02); a demonstração não tem principal.
+  const adultBlocked =
+    !session.active() && route.data['minorResident'] && auth.principal()?.maiorDeIdade === true;
+  return (
+    ((!allowed || session.hasRole(...allowed)) && !adultBlocked) ||
+    router.createUrlTree(['/acesso-negado'])
+  );
 };
 
 const managementRoutes: Routes = MANAGEMENT_ROUTES.map((route) => ({
@@ -32,11 +38,11 @@ const managementRoutes: Routes = MANAGEMENT_ROUTES.map((route) => ({
 
 const operationRoutes: Routes = OPERATIONS_ROUTES.map((route) => {
   let roles: Role[] = ['supervisor'];
+  const exitRequest =
+    !!route.path?.startsWith('saidas') &&
+    (route.path.endsWith('/nova') || route.path.endsWith('/editar'));
   if (route.path?.startsWith('saidas'))
-    roles =
-      route.path?.endsWith('/nova') || route.path?.endsWith('/editar')
-        ? ['residente']
-        : ['supervisor', 'residente'];
+    roles = exitRequest ? ['residente'] : ['supervisor', 'residente'];
   if (route.path === 'ranking') roles = ['residente', 'supervisor', 'gestor'];
   if (route.path === 'limpeza') roles = ['supervisor', 'gestor'];
   if (route.path === 'limpeza')
@@ -51,7 +57,11 @@ const operationRoutes: Routes = OPERATIONS_ROUTES.map((route) => {
       loadComponent: () =>
         import('./features/cleaning/cleaning-local.pages').then((m) => m.RankingPage),
     };
-  return { ...route, canActivate: [accessGuard], data: { ...route.data, roles } };
+  return {
+    ...route,
+    canActivate: [accessGuard],
+    data: { ...route.data, roles, ...(exitRequest && { minorResident: true }) },
+  };
 });
 
 const appRoutes: Routes = [
