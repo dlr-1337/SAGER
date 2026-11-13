@@ -62,9 +62,9 @@ As migrações ficam em `backend/src/main/resources/db/migration/` e os testes e
 
 - Todas as rotas ficam sob `/api/v1` e trocam JSON. Datas civis usam ISO `YYYY-MM-DD`; instantes são gravados em UTC; identificadores são UUID.
 - Cada resposta traz `X-Request-Id`, um UUID gerado pelo servidor. Um valor enviado pelo cliente não o substitui. O mesmo ID aparece no erro e nos logs.
-- Erros sempre têm o formato `{ code, message, requestId }`, inclusive JSON inválido, tipo errado, método ou formato não aceito, autorização e CSRF. Exemplos: `401 unauthorized`, `401 invalid_credentials`, `403 forbidden`, `403 csrf_invalid`, `404 not_found`, `429 rate_limited`. Falha inesperada devolve mensagem genérica, sem SQL, pilha ou valores enviados.
+- Erros têm o formato `{ code, message, requestId }`, inclusive JSON inválido, tipo errado, método ou formato não aceito, autorização e CSRF. A exceção é o `429` da recuperação de senha (`POST /api/v1/auth/recover`), que vem sem corpo, só com `Retry-After`. Exemplos: `401 unauthorized`, `401 invalid_credentials`, `403 forbidden`, `403 csrf_invalid`, `404 not_found`, `429 rate_limited` (login em produção). Falha inesperada devolve mensagem genérica, sem SQL, pilha ou valores enviados.
 - Escrita sobre registro existente exige a versão lida (inteiro a partir de 0). Se outra conta alterou antes, a escrita é recusada e nada é sobrescrito.
-- Listas aceitam `search`, `limit` (1 a 100) e `offset`, devolvem o corpo como array e informam o total em `X-Total-Count`. Comunicações e auditoria usam cursor. A autorização é aplicada antes do filtro, da contagem e da paginação.
+- Listas de cadastro (alojamentos, responsáveis, residentes, quartos e supervisores) e de saídas aceitam `search`, `limit` (1 a 100) e `offset`, devolvem o corpo como array e informam o total em `X-Total-Count`. Avisos, comunicações do residente, ocorrências, notificações, advertências, termos, avaliações de limpeza e auditoria usam o cursor `beforeSequence`; as conversas do WhatsApp usam o cursor `before`. Cursos, alocações, chamadas noturnas e consultas de relatório voltam inteiras. A autorização é aplicada antes do filtro, da contagem e da paginação.
 - O contrato OpenAPI fica em `GET /api/v1/openapi` só no perfil `local`, para gestor e supervisor autenticados. Em produção ele fica desligado.
 - Logs saem em JSON, com o ID da requisição, sem corpo de requisição, credenciais ou valores pessoais.
 
@@ -72,8 +72,8 @@ As migrações ficam em `backend/src/main/resources/db/migration/` e os testes e
 
 - **Contas e login.** Login por matrícula e senha. Não há cadastro público: o operador cria contas pelo terminal, e o cadastro de residente ou de supervisor cria a conta vinculada na mesma transação. A senha tem pelo menos 8 caracteres e até 72 bytes; sequências, repetições, senhas comuns e a própria matrícula são recusadas. A recuperação do residente confere nome, nascimento e nome de um responsável ativo, quando houver. A dos servidores é administrativa.
 - **Sessão.** A sessão fica no PostgreSQL (Spring Session JDBC) e expira após 30 minutos sem uso. O cookie é `HttpOnly` e `SameSite=Lax`, e `Secure` em produção. Trocar senha, desativar a conta ou mudar o vínculo encerra as sessões. A cada requisição o servidor confere se a conta continua ativa e se perfil e vínculo ainda batem.
-- **CSRF.** Toda escrita exige o token obtido em `GET /api/v1/auth/csrf`.
-- **Tentativas de login.** Cinco tentativas por conta em 15 minutos, com limite por IP. Os contadores guardam só HMAC de conta e IP. A resposta é genérica e não revela se a conta existe.
+- **CSRF.** Toda escrita feita pela interface exige o token obtido em `GET /api/v1/auth/csrf`, enviado no cabeçalho. A única exceção é o webhook do WhatsApp (`POST /api/v1/integracoes/whatsapp/webhook`), que não usa sessão e é conferido por HMAC no cabeçalho `X-Webhook-Hmac`.
+- **Tentativas de login.** Em produção, cinco tentativas por conta em 15 minutos, com limite por IP no backend e no gateway. No perfil local, o login não tem esse limite. Os contadores guardam só HMAC de conta e IP. A resposta é genérica e não revela se a conta existe.
 - **Autorização.** Cada operação e cada registro são conferidos no servidor. O residente só alcança dados ligados à própria conta.
 - **Auditoria.** Criações, edições, encerramentos e decisões gravam um evento na mesma transação. O evento guarda autor, perfil, origem, correlação, recurso, ação, versão e nomes dos campos alterados, nunca os valores. O banco recusa `UPDATE`, `DELETE` e `TRUNCATE` na tabela de auditoria.
 - **Papéis do banco.** Migrações rodam com `sager_owner`, em processo e perfil próprios (`migration`). A aplicação roda com `sager_runtime`, que não cria objetos nem altera a auditoria. Em produção, o servidor não inicia se o schema tiver migração pendente, se o papel tiver privilégio demais ou se houver conta ativa sem matrícula. Combinar `production` ou `migration` com outro perfil é recusado antes de abrir o banco. Perfil desconhecido mantém a API fechada.
@@ -158,7 +158,7 @@ Cada decisão traz o contexto, a escolha, o que foi descartado e a consequência
 
 As specs de cada capacidade ficam em [`openspec/specs`](../openspec/specs/). O fluxo de mudança está na seção [OpenSpec workflow do AGENTS.md](../AGENTS.md#openspec-workflow).
 
-As regras de chamada, saídas, disciplina, limpeza e relatórios ainda não viraram spec. Até lá, o resumo canônico fica no AGENTS.md. Os contratos completos continuam no histórico do git, nas pastas de fase de `docs/` da revisão `7d22855`:
+As regras de base da chamada, das saídas, da disciplina, da limpeza e dos relatórios ainda não viraram spec. Por enquanto há só specs parciais: `night-call-justification`, `exit-scheduling`, `guardian-authorization` e `report-generation`. Até lá, o resumo canônico fica no AGENTS.md. Os contratos completos continuam no histórico do git, nas pastas de fase de `docs/` da revisão `7d22855`:
 
 ```bash
 git show 7d22855:docs/                      # lista as pastas de fase

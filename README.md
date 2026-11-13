@@ -16,7 +16,7 @@ Não há cadastro público. O operador cria as contas pelo terminal, e o cadastr
 
 ## Uso por perfil
 
-**Acesso.** Entre com a matrícula (ou SIAPE) e a senha. Se esquecer a senha, o residente usa **Esqueci minha senha**, que confere nome, nascimento e o nome de um responsável ativo; servidores procuram o operador. Muitas tentativas erradas bloqueiam o login por alguns minutos. Ao terminar, use **Sair**, principalmente em computador compartilhado.
+**Acesso.** Entre com a matrícula (ou SIAPE) e a senha. Se esquecer a senha, o residente usa **Esqueci minha senha**, que confere matrícula, nome, nascimento e, se houver responsável ativo, o nome de um deles; servidores procuram o operador. Muitas tentativas erradas bloqueiam o login por alguns minutos. Ao terminar, use **Sair**, principalmente em computador compartilhado.
 
 **Gestor**
 
