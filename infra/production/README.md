@@ -38,12 +38,14 @@ sem imprimir valores. Não use `config` ou `inspect` completo em logs públicos.
    execução e seus privilégios, incluindo a retirada de alteração/exclusão da
    auditoria. Repita após cada migração que criar tabelas.
 5. Provisione as contas necessárias pelo comando administrativo interativo do
-   backend, com perfil `production` explícito; nunca use senha em argumentos. Vínculos e habilitações assistenciais
-   continuam explícitos. Registre os operadores responsáveis.
+   backend, com perfil `production` explícito; nunca use senha em argumentos. Vínculos
+   continuam explícitos. Registre os operadores responsáveis. O servidor recusa iniciar
+   enquanto houver conta ativa sem matrícula: `--sager-account=list` mostra as pendentes,
+   e `--sager-account=assign-enrollment --account-id=UUID --matricula=...` resolve cada uma.
 6. `up -d backend gateway` — inicia a aplicação e o HTTPS. As portas públicas são
    80 e 443 por padrão; backend e PostgreSQL ficam nas redes privadas.
-7. Confira acesso, cookie seguro, ausência de demonstração, integridade dos PDFs e
-   métricas internas. Conserve a versão anterior das imagens até o aceite da atualização.
+7. Confira acesso, cookie seguro, integridade dos PDFs e métricas internas. Conserve
+   a versão anterior das imagens até o aceite da atualização.
 
 Antes de atualizar, execute o backup coordenado. Migrações são progressivas: não
 reverta o schema em uso com `clean` ou SQL destrutivo. Se a versão anterior não for
@@ -61,7 +63,7 @@ conferida ou entrega de mensagem a partir de teste local, evento recebido ou HTT
 Contas usam provisionamento operacional. `--sager-account=create` e `reset` leem
 senha duas vezes pelo console oculto; `disable` revoga a conta e suas sessões.
 `link-resident`, `link-supervisor` e `unlink` exigem UUID explícito e revogam
-sessões após alteração. Servidores recuperam a senha com `reset`, após conferência presencial/administrativa. Residentes com cadastro completo usam a recuperação por dados pessoais, sem e-mail. Consulte [a regra atual](../../backend/README.md#revisão-de-cadastros-e-acesso--16102026).
+sessões após alteração. Servidores recuperam a senha com `reset`, após conferência presencial/administrativa. Residentes com cadastro completo usam a recuperação por dados pessoais, sem e-mail. Consulte os [comandos de conta](../../backend/README.md#comandos-de-conta).
 Execute com `--profile maintenance run --rm --no-deps -it backend` e os argumentos
 documentados em `backend/README.md`; o comando encerra sem abrir servidor HTTP.
 
@@ -132,8 +134,6 @@ Em Windows/Schannel, usa `--ssl-revoke-best-effort` para a CA sintética sem CRL
 preservando a validação da CA e do hostname. Não usa `-k`.
 
 Para usar imagens já compiladas, informe `--backend-image` e `--gateway-image`.
-O [QA de F7](../../docs/fase-7/QA.md) distingue smoke, prova funcional HTTPS,
-medição local sob limites e recuperação da versão completa.
 
 ## Fontes técnicas
 
@@ -144,17 +144,3 @@ medição local sob limites e recuperação da versão completa.
   [pg_restore](https://www.postgresql.org/docs/17/app-pgrestore.html).
 - [Imagens oficiais Eclipse Temurin](https://github.com/docker-library/official-images/blob/master/library/eclipse-temurin).
 
-## Atualização para matrícula e catálogo (V20/V21)
-
-Faça backup consistente do banco, documentos e relatórios antes da atualização. Execute a migração isolada e reaplique `initialize-runtime` para conceder acesso às novas tabelas, mantendo os papéis de migração e execução separados. Preserve os mesmos volumes e segredos.
-
-Antes de iniciar o servidor atualizado, execute o comando administrativo no container de manutenção:
-
-```text
---sager-account=list
---sager-account=assign-enrollment --account-id=UUID --matricula=MATRICULA-CONFERIDA
-```
-
-A V20 preenche a matrícula somente a partir de vínculos explícitos com residente/supervisor e sem colisão entre perfis. Contas pendentes continuam preservadas; o operador deve conferir os identificadores. O servidor de produção recusa iniciar enquanto houver conta ativa sem matrícula; comandos administrativos continuam disponíveis para concluir o mapeamento. E-mail permanece aceito apenas como seletor administrativo legado. Login por e-mail foi removido. Todas as sessões anteriores à mudança são encerradas.
-
-Cadastros novos de residentes criam a própria conta; as contas operacionais continuam provisionadas pelo operador. Não coloque senhas em argumentos, imagens, arquivos versionados ou logs. A instalação local em Docker não é evidência de implantação ou aceite institucional na VPS.

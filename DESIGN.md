@@ -2,7 +2,7 @@
 
 ## Referência aprovada
 
-A referência vigente é o canvas “SAGER — Telas” (17/10/2026), com 31 telas em seis grupos: acesso e assinatura, início e cadastros, operação, comunicação e limpeza, relatórios e saúde, e residente no celular. Ele parte da composição [Início B](.impeccable/mocks/inicio-b.png) — lista ampla de pendências, próxima tarefa evidente, navegação estável e apoio contextual discreto — e das referências de [saída longa](.impeccable/mocks/saida-detalhe.png) e [avisos no celular](.impeccable/mocks/avisos-mobile.png). Textos, datas e números do canvas são ilustrativos; elementos que dependem de dados ainda inexistentes (colunas de situação, quarto e responsável na lista de residentes, totais de leitura e ciência dos avisos, escala qualitativa de limpeza, agenda do início e aba de recuperação para a equipe) só entram quando o backend ou a decisão institucional existirem. O canvas é privado até ser compartilhado pelo responsável; para ver as telas implementadas sem acesso a ele, gere as capturas em `.impeccable/reviews/` com `SAGER_E2E_PORT=4320 npx playwright test -g 'captura telas centrais'` (a partir de `frontend/`). Use uma porta livre: fora do CI o Playwright reaproveita qualquer servidor já ativo na porta, como um container de homologação em 4200, e capturaria essa versão em vez do código local.
+A referência vigente é o canvas “SAGER — Telas” (17/10/2026), organizado em grupos: acesso, início e cadastros, operação, comunicação e limpeza, relatórios, e residente no celular. Ele parte da composição [Início B](.impeccable/mocks/inicio-b.png) — lista ampla de pendências, próxima tarefa evidente, navegação estável e apoio contextual discreto — e das referências de [saída longa](.impeccable/mocks/saida-detalhe.png) e [avisos no celular](.impeccable/mocks/avisos-mobile.png). Textos, datas e números do canvas são ilustrativos; elementos que dependem de dados ainda inexistentes (colunas de situação, quarto e responsável na lista de residentes, totais de leitura e ciência dos avisos, escala qualitativa de limpeza, agenda do início e aba de recuperação para a equipe) só entram quando o backend ou a decisão institucional existirem. O canvas é privado até ser compartilhado pelo responsável; para ver as telas implementadas sem acesso a ele, gere as capturas em `.impeccable/reviews/` com `SAGER_E2E_PORT=4320 npx playwright test -g 'captura telas centrais'` (a partir de `frontend/`). Use uma porta livre: fora do CI o Playwright reaproveita qualquer servidor já ativo na porta, como um container de homologação em 4200, e capturaria essa versão em vez do código local.
 
 ## Princípios de interface
 
@@ -11,7 +11,6 @@ A referência vigente é o canvas “SAGER — Telas” (17/10/2026), com 31 tel
 3. Os controles principais têm pelo menos 48 px de altura; controles secundários e alvos de toque têm pelo menos 44 × 44 px. Texto e espaço entre elementos favorecem leitura e coordenação motora.
 4. Ícones Material Symbols acompanham rótulos nas ações importantes. Tabelas e gráficos apresentam resumo textual; nenhuma informação depende apenas de cor. Link de ação isolado, com ícone, sublinha só no hover; link dentro de texto fica sempre sublinhado.
 5. Foco visível, navegação por teclado, rótulos explícitos, indicação do erro junto ao campo e revisão antes de decisões são parte do fluxo.
-6. O selo “Demonstração · dados fictícios” acompanha a navegação. Conferência de autorização, exportação e autenticação aparecem claramente como simulações.
 
 ## Marca, tipografia e cores
 
@@ -26,12 +25,12 @@ A referência vigente é o canvas “SAGER — Telas” (17/10/2026), com 31 tel
 
 ## Padrões e estados
 
-- Gestor: listas, formulários e detalhes de residentes, responsáveis e supervisores, mapa de quartos e relatórios. Supervisor: chamada, saídas/retornos, notificações e limpeza. Residente: próprias saídas, avisos/advertências e ranking. O seletor de perfil existe somente na demonstração.
+- Gestor: listas, formulários e detalhes de residentes, responsáveis e supervisores, mapa de quartos e relatórios. Supervisor: chamada, saídas/retornos, notificações e limpeza. Residente: avisos/advertências, limpeza e ranking, e as próprias saídas quando for menor de idade.
 - Lista: busca/filtros, resultado, vazio, erro e carregamento indicados em texto. Formulário: campos agrupados, validação, revisão e resultado. Decisão: contexto, consequências e opção de cancelar.
 - Avisos e advertências usam abas distintas. A leitura não registra ciência; há uma confirmação própria.
-- No celular, o cabeçalho mostra SAGER, Demonstração e Menu. A marca oficial aparece somente no topo do menu aberto; no desktop, permanece no cabeçalho. Exceção: nas páginas públicas (acesso), a marca permanece visível no cabeçalho também no celular. A gaveta móvel contém navegação, perfil e cenário, prende o foco enquanto está aberta e devolve o foco ao botão Menu ao fechar.
+- No celular, o cabeçalho mostra SAGER e Menu. A marca oficial aparece somente no topo do menu aberto; no desktop, permanece no cabeçalho. Exceção: nas páginas públicas (acesso), a marca permanece visível no cabeçalho também no celular. A gaveta móvel contém a navegação e a saída da conta, prende o foco enquanto está aberta e devolve o foco ao botão Menu ao fechar.
 - No celular, abrir um aviso troca a lista pelo detalhe e oferece “Voltar à lista”. Os registros de um relatório usam resumos expansíveis em vez de uma tabela cortada; a tabela completa permanece no desktop.
-- Relatório: tipo em cartões, período em atalhos e filtros opcionais recolhidos, com os ativos sempre à vista e removíveis. “Gerar relatório” não abre diálogo, pois é só leitura: um clique prepara PDF e Excel, a lista acompanha sozinha e o foco vai para o relatório criado. Na demonstração, baixar informa que nenhum arquivo é baixado.
+- Relatório: tipo em cartões, período em atalhos e filtros opcionais recolhidos, com os ativos sempre à vista e removíveis. “Gerar relatório” não abre diálogo, pois é só leitura: um clique prepara PDF e Excel, a lista acompanha sozinha e o foco vai para o relatório criado.
 - Saída longa mostra a autorização do responsável conferida antes de permitir a aprovação, que é um ato separado. O retorno curto é confirmado pelo supervisor.
 - A métrica de comportamento, regras de ranking/limpeza, permissões finais e o aceite da integração com WhatsApp ficam identificados como pendências da AE/TI.
 
