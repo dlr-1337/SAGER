@@ -141,7 +141,7 @@ Alocações ativas MUST NOT ser encerradas nem transferidas quando o morador com
 
 ### Requirement: Escolha de quarto na ficha do residente
 
-Na ficha do residente, a escolha de quarto SHALL listar só quartos de alojamentos sem faixa e da faixa do residente. Sem data de nascimento, a lista MUST trazer só quartos de alojamentos sem faixa e a tela MUST pedir a data para liberar os demais.
+Na ficha do residente, a escolha de quarto SHALL listar só quartos de alojamentos sem faixa e da faixa do residente, com a idade calculada pelo servidor na data civil de America/Sao_Paulo, e não pelo relógio do aparelho. Sem data de nascimento, a lista MUST trazer só quartos de alojamentos sem faixa e a tela MUST pedir a data para liberar os demais.
 
 #### Scenario: Residente menor
 

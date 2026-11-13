@@ -111,9 +111,10 @@ Na demonstração valem o ano de ingresso obrigatório, a sugestão pela matríc
 ## Migration Plan
 
 1. Antes do deploy, o operador confere em produção os cursos sem `duration_years` e os residentes sem `entry_year` com vínculo ativo (consultas registradas em `backend/README.md`, task 4.5).
-2. O deploy aplica a V31, de preferência durante o dia. Até as 00:10, a lista de residentes já mostra "Concluinte" em quem a primeira execução vai encerrar, porque a lista e a rotina usam a mesma conta (D5). O operador confere ali e, se for o caso, o supervisor lança a prorrogação ou corrige o ano antes da rotina.
-3. A rotina roda às 00:10 e encerra de uma vez todos os vínculos já vencidos.
-4. Reversão: `sager.operations.expiry.enabled=false` para a rotina. Os vínculos encerrados não voltam sozinhos: o supervisor lança a prorrogação ou corrige o ano e coloca o residente no quarto de novo. A V31 não precisa ser desfeita.
+2. A V30 da `remove-health-module` (branch `impl/saude-desempenho`) entra antes, ou no mesmo deploy. Com `outOfOrder` desligado, um banco persistente que receba a V31 antes da V30 recusa a V30 depois e a aplicação não sobe. Não renumerar nem ligar `outOfOrder`.
+3. O deploy aplica a V31, de preferência durante o dia. Até as 00:10, a lista de residentes já mostra "Concluinte" em quem a primeira execução vai encerrar, porque a lista e a rotina usam a mesma conta (D5). O operador confere ali e, se for o caso, o supervisor lança a prorrogação ou corrige o ano antes da rotina.
+4. A rotina roda às 00:10 e encerra de uma vez todos os vínculos já vencidos.
+5. Reversão: `sager.operations.expiry.enabled=false` para a rotina. Os vínculos encerrados não voltam sozinhos: o supervisor lança a prorrogação ou corrige o ano e coloca o residente no quarto de novo. A V31 não precisa ser desfeita.
 
 ## Open Questions
 
