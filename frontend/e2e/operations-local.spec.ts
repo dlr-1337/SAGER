@@ -477,6 +477,9 @@ test('chamada filtra por bloco e quarto, com número repetido, sem liberar o fec
     'B-101 · Bloco B',
   ]);
   await room.selectOption({ label: 'B-101 · Bloco B' });
+  await expect(page.getByRole('button', { name: 'Remover filtro Quarto' })).toContainText(
+    'Quarto: B-101 · Bloco B',
+  );
   await expect(page.getByRole('heading', { name: 'Residente de Teste' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Estudante Sintético' })).toHaveCount(0);
   await expect(page.getByText('1 de 2 residentes')).toBeVisible();
@@ -490,6 +493,23 @@ test('chamada filtra por bloco e quarto, com número repetido, sem liberar o fec
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.getByRole('button', { name: 'Limpar filtros', exact: true }).click();
   await expect(page.getByText('2 de 2 residentes')).toBeVisible();
+});
+
+test('chamada com 51 residentes mostra todos na mesma tela, sem paginação', async ({ page }) => {
+  const call = callFixture();
+  call.records = Array.from({ length: 51 }, (_, index) => ({
+    ...call.records[0],
+    id: `registro-${index}`,
+    residentId: `00000000-0000-0000-0000-${String(index + 500).padStart(12, '0')}`,
+    residentName: `Residente Sintético ${String(index + 1).padStart(2, '0')}`,
+    enrollment: `TESTE-${index + 1}`,
+  }));
+  call.summary = { total: 51, present: 0, absent: 0, justified: 0, unmarked: 51 };
+  await mockApi(page, { calls: [call] });
+  await page.goto('/chamada');
+  await expect(page.getByText('51 de 51 residentes')).toBeVisible();
+  await expect(page.locator('article.op-call-row')).toHaveCount(51);
+  await expect(page.getByRole('navigation', { name: 'Paginação' })).toHaveCount(0);
 });
 
 test('chamada persiste após recarga, confirma alerta e preserva correção da chamada fechada', async ({

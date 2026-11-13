@@ -42,7 +42,7 @@
 
 ## 8. Chamada noturna
 
-- [ ] 8.1 Em `frontend/src/app/features/operations/night-call-local.component.ts`, pôr a busca em `[filterMain]` e marcação, casa ou bloco e quarto nos extras de `<sager-filter-panel>`, com chips e "Limpar filtros". A lista continua inteira, sem paginação, e o resumo "X de Y residentes" fica igual. Verificar em `frontend/src/app/features/operations/night-call-local.component.spec.ts` (fechamento continua bloqueado com filtro ativo) e no teste de filtro da chamada em `frontend/e2e/operations-local.spec.ts`, com 51 residentes visíveis sem paginação: `npm test -- --watch=false` e `npx playwright test operations-local`.
+- [x] 8.1 Em `frontend/src/app/features/operations/night-call-local.component.ts`, pôr a busca em `[filterMain]` e marcação, casa ou bloco e quarto nos extras de `<sager-filter-panel>`, com chips e "Limpar filtros". A lista continua inteira, sem paginação, e o resumo "X de Y residentes" fica igual. Verificar em `frontend/src/app/features/operations/night-call-local.component.spec.ts` (fechamento continua bloqueado com filtro ativo) e no teste de filtro da chamada em `frontend/e2e/operations-local.spec.ts`, com 51 residentes visíveis sem paginação: `npm test -- --watch=false` e `npx playwright test operations-local`.
 
 ## 9. Demonstração
 

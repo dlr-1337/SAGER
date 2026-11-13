@@ -3,6 +3,7 @@ import { rememberFilters } from '../../core/filter-state';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import { ProgressBarComponent } from '../../shared/progress-bar.component';
+import { FilterChip, FilterPanelComponent } from '../../shared/filter-panel.component';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
@@ -26,7 +27,13 @@ import {
 @Component({
   standalone: true,
   selector: 'app-night-call-local',
-  imports: [SearchableSelectDirective, ProgressBarComponent, ReactiveFormsModule, RouterLink],
+  imports: [
+    SearchableSelectDirective,
+    ProgressBarComponent,
+    ReactiveFormsModule,
+    RouterLink,
+    FilterPanelComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page">
@@ -150,45 +157,52 @@ import {
             </section>
             <section class="op-section" aria-labelledby="call-roster">
               <div class="op-section-heading"><h2 id="call-roster">Residentes da chamada</h2></div>
-              <div class="op-filters">
-                <label class="field"
+              <sager-filter-panel
+                heading="Filtrar residentes"
+                key="night-call"
+                [chips]="chips()"
+                (remove)="removeFilter($event)"
+                (clear)="clearFilters()"
+              >
+                <label filterMain class="field"
                   >Buscar por nome ou matrícula<input
                     type="search"
                     [formControl]="search"
                     (input)="searchValue.set(search.value)"
                 /></label>
-                <label class="field"
-                  >Marcação<select
-                    [value]="markFilter()"
-                    (change)="markFilter.set($any($event.target).value)"
-                  >
-                    <option value="">Todas</option>
-                    <option value="PENDENTE">Pendente</option>
-                    <option value="PRESENTE">Presente</option>
-                    <option value="AUSENTE">Ausente</option>
-                    <option value="AUSENCIA_JUSTIFICADA">Ausência justificada</option>
-                  </select></label
-                >
-                @if (unitOptions().length) {
+                <div class="op-filters">
                   <label class="field"
-                    >Casa ou bloco<select sagerSearchable [formControl]="unit">
-                      <option value="">Todos os blocos</option>
-                      @for (option of unitOptions(); track option.id) {
-                        <option [value]="option.id">{{ option.name }}</option>
+                    >Marcação<select
+                      [value]="markFilter()"
+                      (change)="markFilter.set($any($event.target).value)"
+                    >
+                      <option value="">Todas</option>
+                      <option value="PENDENTE">Pendente</option>
+                      <option value="PRESENTE">Presente</option>
+                      <option value="AUSENTE">Ausente</option>
+                      <option value="AUSENCIA_JUSTIFICADA">Ausência justificada</option>
+                    </select></label
+                  >
+                  @if (unitOptions().length) {
+                    <label class="field"
+                      >Casa ou bloco<select sagerSearchable [formControl]="unit">
+                        <option value="">Todos os blocos</option>
+                        @for (option of unitOptions(); track option.id) {
+                          <option [value]="option.id">{{ option.name }}</option>
+                        }
+                      </select></label
+                    >
+                  }
+                  <label class="field"
+                    >Quarto<select sagerSearchable [formControl]="room">
+                      <option value="">Todos os quartos</option>
+                      @for (option of roomOptions(); track option.id) {
+                        <option [value]="option.id">{{ option.label }}</option>
                       }
                     </select></label
                   >
-                }
-                <label class="field"
-                  >Quarto<select sagerSearchable [formControl]="room">
-                    <option value="">Todos os quartos</option>
-                    @for (option of roomOptions(); track option.id) {
-                      <option [value]="option.id">{{ option.label }}</option>
-                    }
-                  </select></label
-                >
-                <button class="btn op-secondary" (click)="clearFilters()">Limpar filtros</button>
-              </div>
+                </div>
+              </sager-filter-panel>
               @if (optionsError()) {
                 <p class="op-help">{{ optionsError() }}</p>
               }
@@ -488,6 +502,22 @@ export class NightCallLocalComponent {
         (!this.roomValue() || row.roomId === this.roomValue()),
     );
   });
+  readonly chips = computed<FilterChip[]>(() => {
+    const mark = this.markFilter();
+    const chips: [string, string, string | undefined][] = [
+      ['search', 'Busca', this.searchValue().trim()],
+      [
+        'mark',
+        'Marcação',
+        mark && (mark === 'PENDENTE' ? 'Pendente' : callMarkLabels[mark as CallMark]),
+      ],
+      ['unit', 'Casa ou bloco', this.unitOptions().find((u) => u.id === this.unitValue())?.name],
+      ['room', 'Quarto', this.rosterRooms().find((r) => r.id === this.roomValue())?.label],
+    ];
+    return chips
+      .filter((chip): chip is [string, string, string] => !!chip[2])
+      .map(([key, label, value]) => ({ key, label, value }));
+  });
   readonly formatDate = formatCivilDate;
   readonly formatTime = formatOperationsTime;
   readonly labels = callMarkLabels;
@@ -519,6 +549,12 @@ export class NightCallLocalComponent {
     this.search.setValue('');
     this.markFilter.set('');
     this.clearRoomFilters();
+  }
+  removeFilter(key: string): void {
+    if (key === 'search') this.search.setValue('');
+    if (key === 'mark') this.markFilter.set('');
+    if (key === 'unit') this.clearRoomFilters();
+    if (key === 'room') this.room.setValue('');
   }
   async load(): Promise<void> {
     if (!this.session.hasRole('supervisor') || this.busy()) return;
