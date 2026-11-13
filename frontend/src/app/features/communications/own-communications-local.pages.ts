@@ -3,6 +3,8 @@ import { ChangeDetectionStrategy, Component, OnDestroy, inject, signal } from '@
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
+import { cursorPages } from '../../core/list-page';
+import { PaginationComponent } from '../../shared/pagination.component';
 import {
   CommunicationsApiError,
   CommunicationsLocalApiService,
@@ -26,7 +28,12 @@ type OwnTab = 'avisos' | 'advertencias' | 'termos';
 @Component({
   standalone: true,
   selector: 'sager-own-communications-local',
-  imports: [CommunicationFiltersComponent, RouterLink, CommunicationsStateComponent],
+  imports: [
+    CommunicationFiltersComponent,
+    RouterLink,
+    CommunicationsStateComponent,
+    PaginationComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page comm-page">
@@ -37,10 +44,12 @@ type OwnTab = 'avisos' | 'advertencias' | 'termos';
           <p>Veja os avisos, advertências e termos da sua conta.</p>
         </div>
       </header>
+      <sager-communications-state
+        [demo]="session.active()"
+        [blocked]="!session.hasRole('residente')"
+      />
       @if (!session.active() && session.hasRole('residente')) {
-        <sager-communication-filters mode="own" (changed)="searchFilters = $event; load()" />
-      }
-      @if (!session.active() && session.hasRole('residente')) {
+        <sager-communication-filters mode="own" (changed)="filter($event)" />
         <nav class="comm-tabs segmented" aria-label="Tipo de comunicação">
           <button
             type="button"
@@ -62,84 +71,70 @@ type OwnTab = 'avisos' | 'advertencias' | 'termos';
             Termos de compromisso
           </button>
         </nav>
-      }
-      <!-- O estado fica abaixo das abas: acima, empurraria as abas ao carregar. -->
-      <div class="mg-tab-panel">
-        <sager-communications-state
-          [demo]="session.active()"
-          [blocked]="!session.hasRole('residente')"
-          [loading]="loading()"
-          [error]="error()"
-          (retry)="load()"
-        />
-        @if (!session.active() && session.hasRole('residente') && !loading() && !error()) {
+        <!-- O estado fica abaixo das abas: acima, empurraria as abas ao carregar. -->
+        <div class="mg-tab-panel">
           <section class="op-section">
-            <h2>{{ tabLabels[tab()] }}</h2>
-            <div class="op-list">
-              @for (item of items(); track item.id) {
-                <article class="op-row">
-                  <div class="op-row-main">
-                    <h3>{{ item.title }}</h3>
-                    <p>{{ kinds[item.kind] }} · {{ formatTime(item.publishedAt) }}</p>
-                    @if (item.requiresReview) {
-                      <p>A equipe está conferindo este registro</p>
-                    }
+            <h2 id="own-results-title" tabindex="-1">{{ tabLabels[tab()] }}</h2>
+            <sager-communications-state
+              [loading]="list.loading()"
+              [error]="list.error()"
+              (retry)="list.reload()"
+            />
+            @if (!list.loading() && !list.error()) {
+              <div class="op-list">
+                @for (item of list.items(); track item.id) {
+                  <article class="op-row">
+                    <div class="op-row-main">
+                      <h3>{{ item.title }}</h3>
+                      <p>{{ kinds[item.kind] }} · {{ formatTime(item.publishedAt) }}</p>
+                      @if (item.requiresReview) {
+                        <p>A equipe está conferindo este registro</p>
+                      }
+                    </div>
+                    <div class="op-row-side">
+                      <span class="op-status">{{ states[item.status] }}</span
+                      ><small>{{
+                        item.acknowledgedAt ? 'Ciente' : item.readAt ? 'Lido' : 'Não lido'
+                      }}</small>
+                    </div>
+                    <a class="op-row-link" [routerLink]="['/minhas-comunicacoes', item.id]"
+                      >Ler<span class="material-symbols-outlined" aria-hidden="true"
+                        >arrow_forward</span
+                      ></a
+                    >
+                  </article>
+                } @empty {
+                  <div class="op-empty" role="status">
+                    <h3>Nenhuma comunicação disponível</h3>
+                    <p>As publicações destinadas a sua conta aparecerão nesta categoria.</p>
                   </div>
-                  <div class="op-row-side">
-                    <span class="op-status">{{ states[item.status] }}</span
-                    ><small>{{
-                      item.acknowledgedAt ? 'Ciente' : item.readAt ? 'Lido' : 'Não lido'
-                    }}</small>
-                  </div>
-                  <a class="op-row-link" [routerLink]="['/minhas-comunicacoes', item.id]"
-                    >Ler<span class="material-symbols-outlined" aria-hidden="true"
-                      >arrow_forward</span
-                    ></a
-                  >
-                </article>
-              } @empty {
-                <div class="op-empty" role="status">
-                  <h3>Nenhuma comunicação disponível</h3>
-                  <p>As publicações destinadas a sua conta aparecerão nesta categoria.</p>
-                </div>
-              }
-            </div>
-            @if (nextCursor() !== null) {
-              <div class="comm-actions">
-                <button
-                  class="btn-secondary"
-                  type="button"
-                  [disabled]="moreLoading()"
-                  (click)="more()"
-                >
-                  Carregar mais comunicações
-                </button>
+                }
               </div>
             }
-            @if (moreError()) {
-              <p class="comm-error" role="alert">{{ moreError() }}</p>
-            }
+            <sager-pagination
+              [page]="list.page()"
+              [hasNext]="list.hasNext()"
+              [busy]="list.loading()"
+              anchor="own-results-title"
+              (pageChange)="list.go($event)"
+            />
           </section>
-        }
-      </div>
+        </div>
+      }
     </main>
   `,
   styleUrl: './communications-local.scss',
 })
 export class OwnCommunicationsLocalPage {
-  searchFilters: Record<string, string> = {};
-  private appliedSearch: Record<string, string> = {};
-
   readonly session = inject(DemoSessionService);
   private readonly api = inject(CommunicationsLocalApiService);
   private readonly route = inject(ActivatedRoute);
   readonly tab = signal<OwnTab>(this.initialTab());
-  readonly items = signal<OwnCommunication[]>([]);
-  readonly nextCursor = signal<number | null>(null);
-  readonly loading = signal(false);
-  readonly error = signal('');
-  readonly moreLoading = signal(false);
-  readonly moreError = signal('');
+  private filters: Record<string, string> = {};
+  readonly list = cursorPages<OwnCommunication>(
+    (cursor) => this.api.ownList(this.tab(), cursor, this.filters),
+    communicationsError,
+  );
   readonly kinds = communicationLabels;
   readonly states = communicationStateLabels;
   readonly formatTime = formatCommunicationTime;
@@ -148,10 +143,6 @@ export class OwnCommunicationsLocalPage {
     advertencias: 'Suas advertências',
     termos: 'Termos de compromisso',
   };
-  private generation = 0;
-  constructor() {
-    void this.load();
-  }
   private initialTab(): OwnTab {
     const tab = this.route.snapshot.queryParamMap.get('tipo');
     return tab === 'advertencias' || tab === 'termos' ? tab : 'avisos';
@@ -159,49 +150,13 @@ export class OwnCommunicationsLocalPage {
   choose(tab: OwnTab): void {
     if (this.tab() === tab) return;
     this.tab.set(tab);
-    void this.load();
+    void this.list.reload();
   }
-  async load(): Promise<void> {
-    this.appliedSearch = { ...this.searchFilters };
-    if (this.session.active() || !this.session.hasRole('residente')) return;
-    const generation = ++this.generation;
-    this.loading.set(true);
-    this.moreLoading.set(false);
-    this.error.set('');
-    this.moreError.set('');
-    this.items.set([]);
-    try {
-      const page = await this.api.ownList(this.tab(), undefined, this.appliedSearch);
-      if (generation === this.generation) {
-        this.items.set(page.items);
-        this.nextCursor.set(page.nextCursor);
-      }
-    } catch (error) {
-      if (generation === this.generation) this.error.set(communicationsError(error));
-    } finally {
-      if (generation === this.generation) this.loading.set(false);
-    }
-  }
-  async more(): Promise<void> {
-    const cursor = this.nextCursor();
-    const generation = this.generation;
-    if (cursor === null || this.moreLoading()) return;
-    this.moreLoading.set(true);
-    this.moreError.set('');
-    try {
-      const page = await this.api.ownList(this.tab(), cursor, this.appliedSearch);
-      if (generation === this.generation) {
-        this.items.update((items) => [
-          ...items,
-          ...page.items.filter((item) => !items.some((old) => old.id === item.id)),
-        ]);
-        this.nextCursor.set(page.nextCursor);
-      }
-    } catch (error) {
-      if (generation === this.generation) this.moreError.set(communicationsError(error));
-    } finally {
-      if (generation === this.generation) this.moreLoading.set(false);
-    }
+  // A primeira carga vem da emissão inicial do painel de filtro.
+  filter(filters: Record<string, string>): Promise<void> {
+    if (this.session.active() || !this.session.hasRole('residente')) return Promise.resolve();
+    this.filters = filters;
+    return this.list.reload();
   }
 }
 

@@ -1,6 +1,6 @@
 import { signal, Type } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { describe, expect, it, vi } from 'vitest';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { ResidentApiService } from '../management/resident-api.service';
@@ -8,24 +8,52 @@ import { CommunicationsLocalApiService } from './communications-local-api.servic
 import { NoticesManagementLocalPage } from './notices-local.pages';
 import { NotificationsLocalPage } from './notifications-local.pages';
 import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
+import { RecurrenceLocalPage } from './recurrence-local.pages';
 import { WarningsLocalPage } from './warnings-local.pages';
 
-type List =
+type Filtered =
   | NoticesManagementLocalPage
   | WarningsLocalPage
   | OwnCommunicationsLocalPage
   | NotificationsLocalPage;
 type Page = { items: { id: string }[]; nextCursor: number | null };
-const initial: Page = { items: [{ id: 'inicial' }], nextCursor: 10 };
-const current: Page = { items: [{ id: 'atual' }], nextCursor: 20 };
-function pendingPage() {
-  let resolve!: (page: Page) => void;
-  let reject!: (error: Error) => void;
-  const promise = new Promise<Page>((yes, no) => {
-    resolve = yes;
-    reject = no;
+const first: Page = { items: [{ id: 'primeira' }], nextCursor: 10 };
+const second: Page = { items: [{ id: 'segunda' }], nextCursor: null };
+const residentId = '00000000-0000-0000-0000-000000000041';
+
+function setup() {
+  const page = vi.fn().mockResolvedValueOnce(first).mockResolvedValueOnce(second);
+  TestBed.configureTestingModule({
+    providers: [
+      provideRouter([]),
+      {
+        provide: ActivatedRoute,
+        useValue: {
+          snapshot: {
+            paramMap: convertToParamMap({ id: residentId }),
+            queryParamMap: convertToParamMap({}),
+          },
+        },
+      },
+      {
+        provide: CommunicationsLocalApiService,
+        useValue: {
+          notices: page,
+          warnings: page,
+          ownList: page,
+          notifications: page,
+          terms: page,
+          recurrences: vi.fn().mockResolvedValue([]),
+        },
+      },
+      {
+        provide: ResidentApiService,
+        useValue: { list: vi.fn().mockResolvedValue([]), get: vi.fn().mockResolvedValue({}) },
+      },
+      { provide: DemoSessionService, useValue: { active: signal(false), hasRole: () => true } },
+    ],
   });
-  return { promise, resolve, reject };
+  return page;
 }
 
 for (const component of [
@@ -34,89 +62,44 @@ for (const component of [
   OwnCommunicationsLocalPage,
   NotificationsLocalPage,
 ]) {
-  describe(`Paginação substituída de ${component.name}`, () => {
-    async function setup() {
-      const page = vi.fn().mockResolvedValue(initial);
-      TestBed.configureTestingModule({
-        providers: [
-          provideRouter([]),
-          {
-            provide: CommunicationsLocalApiService,
-            useValue: { notices: page, warnings: page, ownList: page, notifications: page },
-          },
-          { provide: ResidentApiService, useValue: { list: vi.fn().mockResolvedValue([]) } },
-          { provide: DemoSessionService, useValue: { active: signal(false), hasRole: () => true } },
-        ],
+  describe(`Páginas fixas de ${component.name}`, () => {
+    it('Próxima substitui a página e Anterior devolve a já vista sem nova consulta', async () => {
+      const page = setup();
+      const Component: Type<Filtered> = component;
+      const view = TestBed.runInInjectionContext(() => new Component());
+      expect(page).not.toHaveBeenCalled();
+      await view.filter({ search: 'busca', residentId, status: 'PENDENTE' });
+      expect(view.list.items()).toEqual(first.items);
+      expect(view.list.hasNext()).toBe(true);
+      await view.list.go(1);
+      expect(view.list.items()).toEqual(second.items);
+      expect(view.list.page()).toBe(1);
+      expect(view.list.hasNext()).toBe(false);
+      expect(page.mock.calls[1]).toContain(10);
+      expect(page.mock.calls[1].at(-1)).toEqual({
+        search: 'busca',
+        residentId,
+        status: 'PENDENTE',
       });
-      const Component: Type<List> = component;
-      const list = TestBed.runInInjectionContext(() => new Component());
-      await list.load();
-      page.mockClear();
-      return { list, page };
-    }
-
-    it.each(['success', 'failure'])(
-      'ignora conclusão antiga (%s) após a nova busca terminar',
-      async (result) => {
-        const { list, page } = await setup();
-        const old = pendingPage();
-        page.mockReturnValueOnce(old.promise).mockResolvedValueOnce(current);
-        const oldMore = list.more();
-        list.searchFilters = { search: 'busca atual' };
-        await list.load();
-        expect(list.moreLoading()).toBe(false);
-        if (result === 'failure') old.reject(new Error('Falha antiga'));
-        else old.resolve({ items: [{ id: 'descartado' }], nextCursor: 30 });
-        await oldMore;
-        expect(list.items()).toEqual(current.items);
-        expect(list.nextCursor()).toBe(20);
-        expect(list.moreError()).toBe('');
-        expect(page.mock.calls.at(-1)?.at(-1)).toEqual({ search: 'busca atual' });
-      },
-    );
-
-    it.each(['success', 'failure'])(
-      'conclusão antiga (%s) não encerra uma nova paginação pendente',
-      async (result) => {
-        const { list, page } = await setup();
-        const old = pendingPage();
-        const latest = pendingPage();
-        page
-          .mockReturnValueOnce(old.promise)
-          .mockResolvedValueOnce(current)
-          .mockReturnValueOnce(latest.promise);
-        const oldMore = list.more();
-        list.searchFilters = { search: 'busca atual' };
-        await list.load();
-        const newMore = list.more();
-        expect(page).toHaveBeenCalledTimes(3);
-        if (result === 'failure') old.reject(new Error('Falha antiga'));
-        else old.resolve({ items: [{ id: 'descartado' }], nextCursor: null });
-        await oldMore;
-        expect(list.moreLoading()).toBe(true);
-        expect(list.moreError()).toBe('');
-        expect(list.items()).toEqual(current.items);
-        latest.resolve({ items: [...current.items, { id: 'seguinte' }], nextCursor: null });
-        await newMore;
-        expect(list.items()).toEqual([{ id: 'atual' }, { id: 'seguinte' }]);
-        expect(list.moreLoading()).toBe(false);
-        expect(list.nextCursor()).toBeNull();
-      },
-    );
-
-    it('apresenta falha atual, mantém os itens e permite tentar novamente', async () => {
-      const { list, page } = await setup();
-      page
-        .mockRejectedValueOnce(new Error('Falha atual'))
-        .mockResolvedValueOnce({ items: [{ id: 'seguinte' }], nextCursor: null });
-      await list.more();
-      expect(list.items()).toEqual(initial.items);
-      expect(list.nextCursor()).toBe(10);
-      expect(list.moreLoading()).toBe(false);
-      expect(list.moreError()).not.toBe('');
-      await list.more();
-      expect(list.items()).toEqual([...initial.items, { id: 'seguinte' }]);
-      expect(list.moreError()).toBe('');
+      if (component === WarningsLocalPage || component === NotificationsLocalPage)
+        expect(page.mock.calls[1][0]).toBe(residentId);
+      await view.list.go(0);
+      expect(view.list.items()).toEqual(first.items);
+      expect(page).toHaveBeenCalledTimes(2);
     });
   });
 }
+
+describe('Páginas fixas dos termos já emitidos', () => {
+  it('Próxima usa o cursor e Anterior não consulta de novo', async () => {
+    const page = setup();
+    const view = TestBed.runInInjectionContext(() => new RecurrenceLocalPage());
+    await vi.waitFor(() => expect(view.terms.items()).toEqual(first.items));
+    await view.terms.go(1);
+    expect(page).toHaveBeenLastCalledWith(residentId, 10);
+    expect(view.terms.items()).toEqual(second.items);
+    await view.terms.go(0);
+    expect(view.terms.items()).toEqual(first.items);
+    expect(page).toHaveBeenCalledTimes(2);
+  });
+});

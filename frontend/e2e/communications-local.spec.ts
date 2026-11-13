@@ -891,7 +891,8 @@ test('falha tardia da paginação de avisos não altera os resultados da nova bu
     });
   });
   await page.goto('/comunicacoes/avisos');
-  const more = page.getByRole('button', { name: 'Carregar mais avisos', exact: true });
+  await expect(page.getByRole('heading', { name: initial.title, exact: true })).toBeVisible();
+  const more = page.getByRole('button', { name: 'Próxima', exact: true });
   await more.click();
   await paging;
   await page.getByRole('searchbox', { name: 'Título', exact: true }).fill('atual');
@@ -907,7 +908,55 @@ test('falha tardia da paginação de avisos não altera os resultados da nova bu
   await expect(page.getByRole('heading', { name: current.title, exact: true })).toBeVisible();
   await more.click();
   await expect(page.getByRole('heading', { name: next.title, exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: current.title, exact: true })).toHaveCount(0);
+  await expect(page.getByText('Página 2', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Avisos registrados' })).toBeFocused();
+  await page.getByRole('button', { name: 'Anterior', exact: true }).click();
+  await expect(page.getByRole('heading', { name: current.title, exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: next.title, exact: true })).toHaveCount(0);
   await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+test('notificações têm um só painel e pedem os residentes uma vez', async ({ page }) => {
+  const state = await mockApi(page);
+  await page.goto('/notificacoes');
+  await expect(page.locator('sager-filter-panel')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Buscar', exact: true })).toHaveCount(0);
+  const panel = page.locator('sager-filter-panel details');
+  await expect(panel).toHaveAttribute('open');
+  for (const name of ['Residente', 'Situação', 'Categoria'])
+    await expect(panel.getByRole('combobox', { name, exact: true })).toBeVisible();
+  await expect(panel.getByLabel('Data inicial')).toBeVisible();
+  await expect(page.getByRole('searchbox', { name: 'Nome ou matrícula' })).toBeVisible();
+  const notifications = () => state.gets.filter((path) => path.startsWith('/notificacoes?'));
+  await expect.poll(() => notifications().length).toBe(1);
+  await panel.getByRole('combobox', { name: 'Categoria', exact: true }).selectOption('AUSENCIA');
+  await expect.poll(() => notifications().length).toBe(2);
+  await panel.getByRole('combobox', { name: 'Situação', exact: true }).selectOption('PENDENTE');
+  await expect.poll(() => notifications().length).toBe(3);
+  expect(new URL(notifications()[2], 'http://local').searchParams.get('status')).toBe('PENDENTE');
+  await expect(page.getByRole('button', { name: 'Remover filtro Situação' })).toContainText(
+    'Situação: Pendente',
+  );
+  expect(state.gets.filter((path) => path.startsWith('/residentes'))).toHaveLength(1);
+});
+
+test('no celular, minhas comunicações deixam a busca à vista e recolhem os outros filtros', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const state = await mockApi(page, { role: 'residente' });
+  await page.goto('/avisos');
+  await expect(page.getByRole('heading', { name: state.own.title })).toBeVisible();
+  await expect(page.getByRole('searchbox', { name: 'Título', exact: true })).toBeVisible();
+  await expect(page.locator('sager-filter-panel details')).not.toHaveAttribute('open');
+  await expect(page.getByRole('combobox', { name: 'Situação', exact: true })).toBeHidden();
+  await page.getByText('Mais filtros', { exact: true }).click();
+  await expect(page.getByRole('combobox', { name: 'Situação', exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });
 
 test('filtro Anulado nas próprias comunicações envia ANULADO', async ({ page }) => {
