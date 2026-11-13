@@ -2,6 +2,7 @@ package br.edu.ifgoiano.sager.management;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 
@@ -79,6 +80,15 @@ class FieldRulesTest {
         assertThat(FieldRules.plausibleBirthDate(TODAY)).isFalse();
         assertThat(FieldRules.plausibleBirthDate(TODAY.plusDays(1))).isFalse();
         assertThat(FieldRules.plausibleBirthDate(LocalDate.of(1900, 1, 1))).isFalse();
+    }
+
+    @Test
+    void minorUsesTheCivilDateInSaoPaulo() {
+        Instant at = Instant.parse("2026-10-01T01:00:00Z");
+        assertThat(FieldRules.minor(LocalDate.of(2008, 10, 1), at)).isTrue();
+        assertThat(FieldRules.minor(LocalDate.of(2008, 9, 30), at)).isFalse();
+        assertThat(FieldRules.minor(null, at)).isFalse();
+        assertThat(FieldRules.minor(LocalDate.of(2026, 10, 1), at)).isFalse();
     }
 
     @Test

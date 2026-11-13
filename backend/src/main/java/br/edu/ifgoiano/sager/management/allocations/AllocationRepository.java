@@ -69,6 +69,18 @@ public class AllocationRepository {
                 (result, row) -> facts(result));
     }
 
+    /** Nascimento do residente e faixa etária do alojamento do quarto. */
+    public AgeCheck ageCheck(UUID residentId, UUID roomId) {
+        return jdbc.queryForObject("""
+                SELECT r.birth_date, a.age_group FROM sager_resident r CROSS JOIN sager_room q
+                LEFT JOIN sager_accommodation a ON a.id = q.accommodation_id WHERE r.id = ? AND q.id = ?
+                """, (result, row) -> new AgeCheck(result.getObject("birth_date", LocalDate.class),
+                result.getString("age_group")), residentId, roomId);
+    }
+
+    public record AgeCheck(LocalDate birthDate, String ageGroup) {
+    }
+
     public boolean activeResident(UUID residentId) {
         return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM sager_room_allocation"
                 + " WHERE resident_id = ? AND ended_at IS NULL)", Boolean.class, residentId));

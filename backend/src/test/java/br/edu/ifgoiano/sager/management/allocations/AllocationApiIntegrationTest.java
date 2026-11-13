@@ -419,6 +419,84 @@ class AllocationApiIntegrationTest {
         }
     }
 
+    @Test
+    void ageGroupIsCheckedOnlyWhenPlacingOrTransferring() throws Exception {
+        account("gestor");
+        java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo"));
+        UUID minorsAccommodation = accommodation("MEN", "MENORES");
+        UUID minors = room("MEN-01", minorsAccommodation);
+        UUID adults = room("MAI-01", accommodation("MAI", "MAIORES"));
+        UUID free = room("LIVRE-01", 4, "Disponível");
+        UUID minor = resident("AGE-A", today.minusYears(15));
+        UUID adult = resident("AGE-B", today.minusYears(19));
+        UUID turning = resident("AGE-C", today.minusYears(18));
+        UUID unknown = resident("AGE-D", null);
+        UUID minorWithoutGroup = resident("AGE-E", today.minusYears(16));
+        int audits = jdbc.queryForObject("SELECT COUNT(*) FROM sager_audit_event WHERE resource = 'ALLOCATION'",
+                Integer.class);
+        try (HttpClient client = browser()) {
+            login(client, "gestor");
+            assertError(allocate(client, minor, adults), 409, "age_group_mismatch");
+            assertError(allocate(client, turning, minors), 409, "age_group_mismatch");
+            assertError(allocate(client, unknown, minors), 409, "birth_date_required");
+            assertError(allocate(client, unknown, adults), 409, "birth_date_required");
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_room_allocation", Integer.class)).isZero();
+
+            UUID adultAllocation = create(client, adult, free);
+            create(client, unknown, free);
+            UUID minorAllocation = create(client, minor, minors);
+            create(client, minorWithoutGroup, free);
+            create(client, turning, adults);
+            assertError(post(client, PATH + "/" + adultAllocation + "/transferir",
+                    json.writeValueAsString(Map.of("roomId", minors, "version", 0)), csrf(client)), 409,
+                    "age_group_mismatch");
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_room_allocation WHERE id = ?"
+                    + " AND ended_at IS NULL AND version = 0", Integer.class, adultAllocation)).isOne();
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_audit_event WHERE resource = 'ALLOCATION'",
+                    Integer.class)).isEqualTo(audits + 5);
+
+            assertThat(put(client, "/api/v1/alojamentos/" + minorsAccommodation, json.writeValueAsString(
+                    Map.of("code", "MEN", "name", "Sintético", "ageGroup", "MAIORES", "version", 0)), csrf(client))
+                    .statusCode()).isEqualTo(200);
+            assertThat(read(client, PATH + "/" + minorAllocation).path("endedAt").isNull()).isTrue();
+        }
+    }
+
+    private HttpResponse<String> allocate(HttpClient client, UUID resident, UUID room) throws Exception {
+        return post(client, PATH, json.writeValueAsString(Map.of("residentId", resident, "roomId", room)),
+                csrf(client));
+    }
+
+    private UUID accommodation(String code, String ageGroup) {
+        UUID id = UUID.randomUUID();
+        jdbc.update("INSERT INTO sager_accommodation (id, code, name, age_group) VALUES (?, ?, 'Sintético', ?)",
+                id, code, ageGroup);
+        return id;
+    }
+
+    private UUID room(String code, UUID accommodation) {
+        UUID id = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO sager_room (id, code, number, accommodation_id, capacity, situation)
+                VALUES (?, ?, ?, ?, 4, 'Disponível')
+                """, id, code, code, accommodation);
+        return id;
+    }
+
+    /** Sem data, simula o cadastro antigo que a V10 preservou. */
+    private UUID resident(String enrollment, java.time.LocalDate birth) {
+        UUID id = UUID.randomUUID();
+        if (birth == null) jdbc.execute("ALTER TABLE sager_resident DROP CONSTRAINT sager_resident_birth_date_required");
+        try {
+            jdbc.update("INSERT INTO sager_resident (id, name, enrollment, birth_date) VALUES (?, ?, ?, ?)",
+                    id, "Estudante Sintético", enrollment, birth);
+        } finally {
+            if (birth == null) jdbc.execute("ALTER TABLE sager_resident ADD CONSTRAINT"
+                    + " sager_resident_birth_date_required CHECK (birth_date IS NOT NULL) NOT VALID");
+        }
+        return id;
+    }
+
     private int parallelPost(HttpClient client, UUID resident, UUID room, String token) {
         try {
             return post(client, PATH, json.writeValueAsString(Map.of(

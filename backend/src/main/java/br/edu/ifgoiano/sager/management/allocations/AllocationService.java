@@ -11,6 +11,7 @@ import java.util.UUID;
 import br.edu.ifgoiano.sager.audit.AuditAction;
 import br.edu.ifgoiano.sager.audit.AuditResource;
 import br.edu.ifgoiano.sager.audit.AuditService;
+import br.edu.ifgoiano.sager.management.FieldRules;
 import br.edu.ifgoiano.sager.management.rooms.RoomRecord;
 import br.edu.ifgoiano.sager.management.rooms.RoomRepository;
 import org.springframework.context.annotation.Profile;
@@ -165,6 +166,16 @@ public class AllocationService {
         if (concluded(residentId, today())) {
             throw conflict("resident_concluded",
                     "Este residente concluiu o curso. Lance a prorrogação antes de colocar no quarto.");
+        }
+        AllocationRepository.AgeCheck age = allocations.ageCheck(residentId, room.id());
+        if (age.ageGroup() != null && age.birthDate() == null) {
+            throw conflict("birth_date_required",
+                    "Informe a data de nascimento do residente antes de colocá-lo neste quarto.");
+        }
+        if (age.ageGroup() != null
+                && FieldRules.minor(age.birthDate(), clock.instant()) != age.ageGroup().equals("MENORES")) {
+            throw conflict("age_group_mismatch",
+                    "Este quarto é de outra faixa etária. Escolha um quarto da faixa do residente.");
         }
         if (room.situation().equals("Manutenção") || room.situation().equals("Indisponível")) {
             throw conflict("room_unavailable", "O quarto não recebe novas alocações nesta situação.");
