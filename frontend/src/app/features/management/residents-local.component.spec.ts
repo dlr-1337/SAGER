@@ -363,6 +363,12 @@ describe('Residentes em sessão local', () => {
     expect(form.controls.courseId.hasError('required')).toBe(true);
     form.controls.courseId.setValue('curso-1');
     await fixture.componentInstance.save();
+    expect(api.save).not.toHaveBeenCalled();
+    expect(form.controls.entryYear.errors).toMatchObject({
+      fieldRule: 'Informe o ano de ingresso.',
+    });
+    form.controls.entryYear.setValue(2026);
+    await fixture.componentInstance.save();
     expect(api.save).toHaveBeenCalledWith(
       {
         name: 'Estudante Sintético',
@@ -370,7 +376,7 @@ describe('Residentes em sessão local', () => {
         birthDate: '2009-05-14',
         courseId: 'curso-1',
         institutionalEmail: null,
-        entryYear: null,
+        entryYear: 2026,
         extraSemesters: 0,
         password: 'Senha teste 123!',
         passwordConfirmation: 'Senha teste 123!',
@@ -530,6 +536,7 @@ describe('Residentes em sessão local', () => {
     await fixture.whenStable();
     fixture.componentInstance.form.controls.birthDate.setValue('2009-05-14');
     fixture.componentInstance.form.controls.courseId.setValue('curso-1');
+    fixture.componentInstance.form.controls.entryYear.setValue(2026);
     api.save.mockRejectedValueOnce(new ResidentApiError(409, 'duplicate_enrollment'));
     await fixture.componentInstance.save();
     expect(fixture.componentInstance.error()).toContain('Já existe um cadastro');
@@ -546,6 +553,7 @@ describe('Residentes em sessão local', () => {
     });
     fixture.componentInstance.form.controls.birthDate.setValue('2009-05-14');
     fixture.componentInstance.form.controls.courseId.setValue('curso-1');
+    fixture.componentInstance.form.controls.entryYear.setValue(2026);
     await fixture.componentInstance.save();
     expect(api.save).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'Versão Atual' }), {
       id: resident.id,
@@ -571,6 +579,10 @@ describe('Residentes em sessão local', () => {
     expect(form.controls.name.valid && form.controls.enrollment.valid).toBe(true);
     expect(form.controls.birthDate.valid && form.controls.institutionalEmail.valid).toBe(true);
     form.controls.courseId.setValue('curso-1');
+    await fixture.componentInstance.save();
+    expect(api.save).not.toHaveBeenCalled();
+    expect(form.controls.entryYear.errors).toEqual({ fieldRule: 'Informe o ano de ingresso.' });
+    form.controls.entryYear.setValue(2026);
     await fixture.componentInstance.save();
     expect(api.save).toHaveBeenCalledOnce();
     form.controls.enrollment.setValue('SAGER-QA-2026-002');
@@ -615,6 +627,36 @@ describe('Residentes em sessão local', () => {
       expect.objectContaining({ entryYear: next, extraSemesters: 2 }),
       undefined,
     );
+  });
+
+  it('sugere o ano de ingresso pela matrícula sem trocar o ano já informado', async () => {
+    const fixture = TestBed.createComponent(ResidentFormComponent);
+    await fixture.whenStable();
+    const form = fixture.componentInstance.form;
+    form.controls.enrollment.setValue('20251ABCD000123');
+    expect(form.controls.entryYear.value).toBe(2025);
+    form.controls.entryYear.setValue(2024);
+    form.controls.enrollment.setValue('20261ABCD000123');
+    expect(form.controls.entryYear.value).toBe(2024);
+  });
+
+  it('cadastro antigo sem ano abre com o ano sugerido pela matrícula', async () => {
+    route.snapshot.paramMap = convertToParamMap({ id: resident.id });
+    api.get.mockResolvedValue({
+      ...resident,
+      enrollment: '20241ABCD000123',
+      birthDate: '2009-05-14',
+      courseId: 'curso-1',
+    });
+    const fixture = TestBed.createComponent(ResidentFormComponent);
+    await fixture.whenStable();
+    const form = fixture.componentInstance.form;
+    expect(form.controls.entryYear.value).toBe(2024);
+    await fixture.componentInstance.save();
+    expect(api.save).toHaveBeenCalledWith(expect.objectContaining({ entryYear: 2024 }), {
+      id: resident.id,
+      version: 0,
+    });
   });
 
   it('ano de ingresso antigo fora da regra continua editável se não mudar', async () => {
@@ -681,7 +723,7 @@ describe('Residentes em sessão local', () => {
       birthDate: '2009-05-14',
       courseId: 'curso-1',
       institutionalEmail: '',
-      entryYear: null,
+      entryYear: 2026,
       extraSemesters: 0,
       password: 'Senha teste 123!',
       passwordConfirmation: 'Senha teste 123!',

@@ -253,7 +253,7 @@ import {
               }
             </div>
             <label class="field mg-field"
-              >Ano de ingresso <small>Opcional</small>
+              >Ano de ingresso *
               <input
                 type="number"
                 formControlName="entryYear"
@@ -480,6 +480,12 @@ export class ResidentFormComponent {
       if (value) this.form.markAsDirty();
     });
     void this.loadCourses();
+    this.form.controls.enrollment.valueChanges.pipe(takeUntilDestroyed()).subscribe((value) => {
+      const year = yearFromEnrollment(value);
+      if (year && this.form.controls.entryYear.value == null) {
+        this.form.controls.entryYear.setValue(year);
+      }
+    });
     if (!this.editId) {
       this.form.controls.password.setValidators(passwordRules('enrollment', normalizeEnrollment));
       this.form.controls.passwordConfirmation.setValidators(Validators.required);
@@ -641,10 +647,16 @@ export class ResidentFormComponent {
         this.coursesApi.demoCourses().find((c) => c.name === item.course)?.id ??
         '',
       institutionalEmail: item.institutionalEmail ?? '',
-      entryYear: item.entryYear ?? null,
+      entryYear: item.entryYear ?? yearFromEnrollment(item.enrollment),
       extraSemesters: item.extraSemesters ?? 0,
       password: '',
       passwordConfirmation: '',
     });
   }
+}
+
+/** Sugestão do ano de ingresso: os 4 primeiros dígitos da matrícula SUAP. */
+function yearFromEnrollment(enrollment: string): number | null {
+  const year = /^\s*(\d{4})/.exec(enrollment)?.[1];
+  return year ? Number(year) : null;
 }

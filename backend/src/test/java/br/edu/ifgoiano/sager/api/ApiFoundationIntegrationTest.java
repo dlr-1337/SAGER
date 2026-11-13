@@ -130,6 +130,11 @@ class ApiFoundationIntegrationTest {
                     .isEqualTo(10);
             assertThat(schemas.path("ResidentCreateRequest").path("properties").path("entryYear").path("minimum").asInt())
                     .isEqualTo(1990);
+            for (String request : List.of("ResidentCreateRequest", "ResidentUpdateRequest")) {
+                assertThat(schemas.path(request).path("required").toString()).as(request).contains("\"entryYear\"");
+                assertThat(schemas.path(request).path("properties").path("entryYear").path("nullable").asBoolean())
+                        .as(request).isFalse();
+            }
             assertThat(schemas.path("CourseUpdateRequest").path("properties").path("level").path("enum").toString())
                     .contains("MEDIO", "SUPERIOR");
             assertThat(schemas.path("CourseCreateRequest").path("properties").path("durationYears").path("maximum").asInt())

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   birthDateProblem,
   changedProblem,
+  entryYearProblem,
   fieldRule,
   nameProblem,
   normalizeEnrollment,
@@ -175,6 +176,16 @@ describe('demais campos', () => {
   it('capacidade fica entre 1 e 20', () => {
     expect([1, 20].every(validCapacity)).toBe(true);
     expect([0, 21, 500, 1.5].some(validCapacity)).toBe(false);
+  });
+
+  it('ano de ingresso é obrigatório e vai de 1990 ao ano seguinte', () => {
+    vi.setSystemTime(new Date('2026-06-15T12:00:00-03:00'));
+    expect(entryYearProblem('')).toBe('Informe o ano de ingresso.');
+    expect(entryYearProblem('2025')).toBeNull();
+    expect(entryYearProblem('2027')).toBeNull();
+    expect(entryYearProblem('1989')).toBe('Informe um ano de 1990 a 2027.');
+    expect(entryYearProblem('2028')).not.toBeNull();
+    vi.useRealTimers();
   });
 
   it('texto só com espaços não conta', () => {

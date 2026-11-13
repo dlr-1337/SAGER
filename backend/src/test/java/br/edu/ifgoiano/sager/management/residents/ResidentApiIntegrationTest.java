@@ -176,7 +176,8 @@ class ResidentApiIntegrationTest {
             }
             var input = new LinkedHashMap<String, Object>(Map.of("name", "Pessoa Sintética", "enrollment", valid,
                     "birthDate", BIRTH_DATE, "courseId", courseId("Curso Sintético"),
-                    "institutionalEmail", "pessoa@gmail.com", "password", PASSWORD, "passwordConfirmation", PASSWORD));
+                    "institutionalEmail", "pessoa@gmail.com", "password", PASSWORD, "passwordConfirmation", PASSWORD,
+                    "entryYear", 2017));
             assertError(post(client, PATH, json.writeValueAsString(input), csrf(client)), 400, "invalid_input");
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_resident", Integer.class)).isZero();
             input.put("institutionalEmail", "Pessoa.Silva@ESTUDANTE.ifgoiano.edu.br");
@@ -207,7 +208,7 @@ class ResidentApiIntegrationTest {
             JsonNode value = json.readTree(edited.body());
             assertThat(value.path("name").asText()).isEqualTo("Maria");
             assertThat(value.path("enrollment").asText()).isEqualTo("SAGER-QA-2026-001");
-            assertThat(auditRows(id).getLast().fields()).containsExactlyInAnyOrder("course", "courseId");
+            assertThat(auditRows(id).getLast().fields()).containsExactlyInAnyOrder("course", "courseId", "entryYear");
             for (String changed : List.of(legacy("Mariana", "SAGER-QA-2026-001", "1900-01-01", course, "maria@gmail.com", 1),
                     legacy("Maria", "SAGER-QA-2026-002", "1900-01-01", course, "maria@gmail.com", 1),
                     legacy("Maria", "SAGER-QA-2026-001", "1900-01-02", course, "maria@gmail.com", 1),
@@ -224,6 +225,7 @@ class ResidentApiIntegrationTest {
         fields.put("birthDate", birthDate);
         fields.put("courseId", course);
         fields.put("institutionalEmail", email);
+        fields.put("entryYear", 2026);
         fields.put("version", version);
         return json.writeValueAsString(fields);
     }
@@ -585,7 +587,7 @@ class ResidentApiIntegrationTest {
         try (HttpClient client = browser()) {
             login(client,"gestor");
             provisioning.create("2026100000000123", null, "Outra Conta Sintética", "saude", PASSWORD.toCharArray());
-            var input = new LinkedHashMap<String,Object>(Map.of("name","Pessoa Sintética","enrollment","2026100000000123","birthDate",BIRTH_DATE,"courseId",courseId("Curso Sintético"),"password",PASSWORD,"passwordConfirmation","diferente"));
+            var input = new LinkedHashMap<String,Object>(Map.of("name","Pessoa Sintética","enrollment","2026100000000123","birthDate",BIRTH_DATE,"courseId",courseId("Curso Sintético"),"password",PASSWORD,"passwordConfirmation","diferente","entryYear",2026));
             assertThat(post(client,PATH,json.writeValueAsString(input),csrf(client)).statusCode()).isEqualTo(400);
             input.put("passwordConfirmation", PASSWORD);
             assertThat(post(client,PATH,json.writeValueAsString(input),csrf(client)).statusCode()).isEqualTo(409);
@@ -619,7 +621,7 @@ class ResidentApiIntegrationTest {
         account("gestor");
         try (HttpClient manager = browser(); HttpClient resident = browser()) {
             login(manager,"gestor");
-            var input=new LinkedHashMap<String,Object>(Map.of("name","Pessoa Sintética","enrollment","2026100000000777","birthDate",BIRTH_DATE,"courseId",courseId("Curso Sintético")));
+            var input=new LinkedHashMap<String,Object>(Map.of("name","Pessoa Sintética","enrollment","2026100000000777","birthDate",BIRTH_DATE,"courseId",courseId("Curso Sintético"),"entryYear",2026));
             for (String refused : List.of("gato az", "12345678", "2026100000000777", "x".repeat(73))) {
                 input.put("password",refused); input.put("passwordConfirmation",refused);
                 assertThat(post(manager,PATH,json.writeValueAsString(input),csrf(manager)).statusCode()).as(refused).isEqualTo(400);
@@ -682,7 +684,7 @@ class ResidentApiIntegrationTest {
             assertThat(response.statusCode()).isEqualTo(201);
             String course=json.readTree(response.body()).path("id").asText();
             assertThat(post(manager,"/api/v1/cursos",json.writeValueAsString(Map.of("name"," curso sintético ")),csrf(manager)).statusCode()).isEqualTo(409);
-            var input=new LinkedHashMap<String,Object>(Map.of("name","Pessoa Sintética","enrollment","2026100000000003","birthDate",BIRTH_DATE,"courseId",course,"institutionalEmail","Pessoa@estudante.ifgoiano.edu.br","password",PASSWORD,"passwordConfirmation",PASSWORD));
+            var input=new LinkedHashMap<String,Object>(Map.of("name","Pessoa Sintética","enrollment","2026100000000003","birthDate",BIRTH_DATE,"courseId",course,"institutionalEmail","Pessoa@estudante.ifgoiano.edu.br","password",PASSWORD,"passwordConfirmation",PASSWORD,"entryYear",2026));
             var created=post(manager,PATH,json.writeValueAsString(input),csrf(manager));
             assertThat(created.statusCode()).isEqualTo(201);
             String resident=json.readTree(created.body()).path("id").asText();
@@ -768,12 +770,10 @@ class ResidentApiIntegrationTest {
             assertError(put(client, PATH + "/" + id, progress(body("Pessoa Sintética", "20261PROG000001", BIRTH_DATE, null, 2),
                     2099, 3), csrf(client)), 400, "invalid_input");
 
-            HttpResponse<String> cleared = put(client, PATH + "/" + id, legacy.replace("\"version\":1", "\"version\":2"),
-                    csrf(client));
-            assertThat(cleared.statusCode()).isEqualTo(200);
-            assertThat(json.readTree(cleared.body()).path("entryYear").isNull()).isTrue();
-            assertThat(json.readTree(cleared.body()).path("extraSemesters").asInt()).isZero();
-            assertThat(auditRows(id).getLast().fields()).containsExactlyInAnyOrder("entryYear", "extraSemesters");
+            assertError(put(client, PATH + "/" + id, progress(body("Pessoa Sintética", "20261PROG000001", BIRTH_DATE,
+                    null, 2), null, 3), csrf(client)), 400, "invalid_input");
+            assertThat(jdbc.queryForObject("SELECT entry_year FROM sager_resident WHERE id = ?", Integer.class, id))
+                    .isEqualTo(2100);
 
             UUID old = UUID.randomUUID();
             jdbc.update("INSERT INTO sager_resident(id,name,enrollment,birth_date) VALUES (?,?,?,?::date)", old,
@@ -781,6 +781,11 @@ class ResidentApiIntegrationTest {
             JsonNode legacyRead = json.readTree(get(client, PATH + "/" + old).body());
             assertThat(legacyRead.path("entryYear").isNull()).isTrue();
             assertThat(legacyRead.path("extraSemesters").asInt()).isZero();
+            String oldBody = body("Pessoa Antiga", "20251PROG000002", BIRTH_DATE, null, 0);
+            assertError(put(client, PATH + "/" + old, progress(oldBody, null, 0), csrf(client)), 400, "invalid_input");
+            HttpResponse<String> filled = put(client, PATH + "/" + old, progress(oldBody, 2025, 0), csrf(client));
+            assertThat(filled.statusCode()).isEqualTo(200);
+            assertThat(json.readTree(filled.body()).path("entryYear").asInt()).isEqualTo(2025);
         }
     }
 
@@ -906,6 +911,7 @@ class ResidentApiIntegrationTest {
         if (chosen instanceof String courseName && courseName.strip().length() <= 200)
             courseId = courseName.isBlank() ? null : courseId(courseName.strip());
         fields.put("courseId", courseId);
+        fields.put("entryYear", 2026);
         if (version == null) {
             fields.put("password", PASSWORD);
             fields.put("passwordConfirmation", PASSWORD);

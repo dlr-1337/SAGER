@@ -177,7 +177,7 @@ Nenhuma das escolhas abaixo tem aprovação institucional registrada. Elas permi
 | Item | Regra local adotada | A confirmar com a AE/TI |
 | --- | --- | --- |
 | D01 Perfis e permissões | Gestor e supervisor têm as mesmas permissões nos cadastros, exceto supervisores, que só o gestor gerencia (31/10/2026). Operações são do supervisor. O residente vê só o que é seu. | Matriz de recursos e operações por perfil. |
-| D02 Cadastro do residente | Cadastro manual. Nome, matrícula, nascimento e curso obrigatórios em novas gravações; regras de formato só para valor novo ou alterado; matrícula única sem diferenciar maiúsculas. SUAP adiado. | Conferência da matrícula, comprovação dos campos, correção, desligamento e ciclo do vínculo. |
+| D02 Cadastro do residente | Cadastro manual. Nome, matrícula, nascimento, curso e ano de ingresso obrigatórios em novas gravações (o ano é sugerido pelos 4 primeiros dígitos da matrícula); regras de formato só para valor novo ou alterado; matrícula única sem diferenciar maiúsculas. SUAP adiado. | Conferência da matrícula, comprovação dos campos, correção, desligamento e ciclo do vínculo. |
 | D03 Horário "agora" na saída | Vale o relógio do servidor no instante do envio; o cliente não manda a hora. | Referência de tempo e tolerância de preenchimento. |
 | D04 Modalidades de saída | Só Curta e Longa. | Se existem outras modalidades. |
 | D05 Início da saída | Aprovar não registra partida. Só o supervisor registra a partida física, que inicia a saída. | Evento que marca a saída como em andamento. |

@@ -135,7 +135,8 @@ public class ResidentService {
 
     /** O ano salvo não é revalidado: um cadastro antigo continua editável. */
     private void checkProgress(Integer entryYear, int extraSemesters, Resident current) {
-        if (entryYear != null && (current == null || !entryYear.equals(current.entryYear()))
+        if (entryYear == null) throw invalidInput("entryYear é obrigatório.");
+        if ((current == null || !entryYear.equals(current.entryYear()))
                 && !FieldRules.validEntryYear(entryYear)) {
             throw invalidInput("Confira o ano de ingresso.");
         }

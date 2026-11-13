@@ -287,7 +287,7 @@ class SupervisorApiIntegrationTest {
             jdbc.update("INSERT INTO sager_course (id, name) VALUES (?, ?)", courseId, "Curso " + courseId);
             HttpResponse<String> resident = post(supervisor, "/api/v1/residentes", """
                     {"name":"Residente Sintético","enrollment":"20261PARIDADE001","birthDate":"2009-05-14",
-                    "courseId":"%s","password":"%s","passwordConfirmation":"%s"}
+                    "courseId":"%s","entryYear":2026,"password":"%s","passwordConfirmation":"%s"}
                     """.formatted(courseId, PASSWORD, PASSWORD), csrfToken(supervisor));
             assertThat(resident.statusCode()).isEqualTo(201);
         }
