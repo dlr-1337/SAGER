@@ -2,6 +2,7 @@ import { ERROR_GENERIC } from '../../core/error-messages';
 import { Injectable, inject, signal } from '@angular/core';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { ManagementDemoService } from './management-demo.service';
+import { api } from '../../core/api';
 export const COURSE_LEVELS = { MEDIO: 'Ensino médio', SUPERIOR: 'Superior' } as const;
 export type CourseLevel = keyof typeof COURSE_LEVELS;
 export interface Course {
@@ -60,31 +61,16 @@ export class CourseApiService {
     );
   }
   private async request<T extends Course | Course[]>(url: string, body?: object): Promise<T> {
-    let headers: Record<string, string> = { Accept: 'application/json' };
-    if (body) {
-      const csrfResponse = await fetch('/api/v1/auth/csrf', {
-        credentials: 'same-origin',
-        cache: 'no-store',
-      });
-      if (!csrfResponse.ok) throw new Error(ERROR_GENERIC);
-      const csrf = await csrfResponse.json();
-      if (typeof csrf.headerName !== 'string' || typeof csrf.token !== 'string')
-        throw new Error(ERROR_GENERIC);
-      headers = { ...headers, 'Content-Type': 'application/json', [csrf.headerName]: csrf.token };
-    }
-    const response = await fetch(url, {
+    const response = await api(url, {
       method: body ? (url === '/api/v1/cursos' ? 'POST' : 'PUT') : 'GET',
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers,
-      ...(body ? { body: JSON.stringify(body) } : {}),
+      body,
+      error: (response) =>
+        new Error(
+          response.status === 409
+            ? 'Já existe um curso com esse nome, ou outra pessoa alterou este curso. Recarregue a lista e confira.'
+            : ERROR_GENERIC,
+        ),
     });
-    if (!response.ok)
-      throw new Error(
-        response.status === 409
-          ? 'Já existe um curso com esse nome, ou outra pessoa alterou este curso. Recarregue a lista e confira.'
-          : ERROR_GENERIC,
-      );
     const result: unknown = await response.json();
     const valid = (c: unknown): c is Course =>
       !!c &&

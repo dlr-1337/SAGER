@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { api } from '../../core/api';
 
 export interface ResidentRecord {
   id: string;
@@ -64,13 +65,10 @@ export class ResidentApiService {
     params: Record<string, string>,
     signal?: AbortSignal,
   ): Promise<{ items: ResidentRecord[]; total: number }> {
-    const response = await fetch(`${baseUrl}?${new URLSearchParams(params)}`, {
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
+    const response = await api(`${baseUrl}?${new URLSearchParams(params)}`, {
       signal,
+      error: (response) => this.responseError(response),
     });
-    if (!response.ok) throw await this.responseError(response);
     const value: unknown = await response.json();
     if (!Array.isArray(value) || !value.every(isResident))
       throw new Error('Lista de residentes inválida.');
@@ -89,47 +87,21 @@ export class ResidentApiService {
     input: ResidentPayload,
     existing?: Pick<ResidentRecord, 'id' | 'version'>,
   ): Promise<ResidentRecord> {
-    const csrfResponse = await fetch('/api/v1/auth/csrf', {
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
-    });
-    if (!csrfResponse.ok) throw await this.responseError(csrfResponse);
-    const token: unknown = await csrfResponse.json();
-    if (!token || typeof token !== 'object') throw new Error('Resposta CSRF inválida.');
-    const { headerName, token: tokenValue } = token as Record<string, unknown>;
-    if (typeof headerName !== 'string' || typeof tokenValue !== 'string') {
-      throw new Error('Resposta CSRF inválida.');
-    }
-
-    const response = await fetch(
+    const response = await api(
       existing ? `${baseUrl}/${encodeURIComponent(existing.id)}` : baseUrl,
       {
         method: existing ? 'PUT' : 'POST',
-        credentials: 'same-origin',
-        cache: 'no-store',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          [headerName]: tokenValue,
-        },
-        body: JSON.stringify(existing ? { ...input, version: existing.version } : input),
+        body: existing ? { ...input, version: existing.version } : input,
+        error: (response) => this.responseError(response),
       },
     );
-    if (!response.ok) throw await this.responseError(response);
     const value: unknown = await response.json();
     if (!isResident(value)) throw new Error('O cadastro salvo não pôde ser confirmado.');
     return value;
   }
 
   private async read(url: string): Promise<unknown> {
-    const response = await fetch(url, {
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
-    });
-    if (!response.ok) throw await this.responseError(response);
-    return response.json();
+    return (await api(url, { error: (response) => this.responseError(response) })).json();
   }
 
   private async responseError(response: Response): Promise<ResidentApiError> {

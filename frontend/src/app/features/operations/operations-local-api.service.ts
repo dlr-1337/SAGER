@@ -1,3 +1,4 @@
+import { api } from '../../core/api';
 import {
   ERROR_FORBIDDEN,
   ERROR_GENERIC,
@@ -280,34 +281,18 @@ export class OperationsLocalApiService {
     return value;
   }
   private async request(url: string, method = 'GET', input?: unknown): Promise<unknown> {
-    const headers: Record<string, string> = { Accept: 'application/json' };
-    if (method !== 'GET') {
-      const token = await this.request('/api/v1/auth/csrf');
-      if (!record(token) || !strings(token, ['headerName', 'token']))
-        throw new Error(ERROR_GENERIC);
-      headers[String(token['headerName'])] = String(token['token']);
-      headers['Content-Type'] = 'application/json';
-    }
-    const response = await fetch(url, {
+    const response = await api(url, {
       method,
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers,
-      ...(input === undefined ? {} : { body: JSON.stringify(input) }),
+      body: input,
+      error: async (response) => {
+        const body: unknown = await response.json().catch(() => null);
+        return new OperationsApiError(
+          response.status,
+          record(body) && typeof body['code'] === 'string' ? body['code'] : undefined,
+          record(body) && typeof body['message'] === 'string' ? body['message'] : undefined,
+        );
+      },
     });
-    if (!response.ok) {
-      let body: unknown;
-      try {
-        body = await response.json();
-      } catch {
-        body = null;
-      }
-      throw new OperationsApiError(
-        response.status,
-        record(body) && typeof body['code'] === 'string' ? body['code'] : undefined,
-        record(body) && typeof body['message'] === 'string' ? body['message'] : undefined,
-      );
-    }
     return response.json();
   }
 }

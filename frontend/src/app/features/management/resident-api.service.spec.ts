@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetSession } from '../../core/api';
 import {
   ResidentApiError,
   ResidentApiService,
@@ -26,17 +27,21 @@ const input: ResidentPayload = {
 };
 
 describe('ResidentApiService', () => {
+  beforeEach(() => resetSession());
   afterEach(() => vi.unstubAllGlobals());
 
   it('consulta a coleção apenas pela API com a sessão local', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify([record])));
     vi.stubGlobal('fetch', fetchMock);
     expect(await TestBed.inject(ResidentApiService).list()).toEqual([record]);
-    expect(fetchMock).toHaveBeenCalledWith('/api/v1/residentes', {
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
-    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/residentes',
+      expect.objectContaining({
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
+      }),
+    );
   });
 
   it('envia campos opcionais nulos e CSRF, adicionando versão somente na edição', async () => {

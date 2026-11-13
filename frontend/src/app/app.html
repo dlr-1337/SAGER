@@ -8,6 +8,9 @@
     Ir para o conteúdo
   </button>
 }
+@if (navigating()) {
+  <div class="navigation-bar" aria-hidden="true"></div>
+}
 <div class="app-shell" [class.public-shell]="publicPage()">
   @if (!publicPage()) {
     <header class="masthead" [attr.inert]="drawerActive() ? '' : null">
@@ -210,7 +213,12 @@
       @if (exitError()) {
         <p class="session-error" role="alert">{{ exitError() }}</p>
       }
-      <div id="conteudo-principal" class="app-main" tabindex="-1">
+      <div
+        id="conteudo-principal"
+        class="app-main"
+        tabindex="-1"
+        [attr.aria-busy]="navigating() ? 'true' : null"
+      >
         <router-outlet />
       </div>
       @if (!publicPage()) {

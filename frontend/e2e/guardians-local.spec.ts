@@ -99,7 +99,7 @@ function registry(initial: Guardian[] = [], residents = [resident]) {
 }
 
 for (const edit of [false, true]) {
-  test(`responsável mantém envio único com navegação lenta (${edit ? 'edição' : 'criação'})`, async ({
+  test(`responsável mantém envio único com gravação lenta (${edit ? 'edição' : 'criação'})`, async ({
     page,
   }) => {
     await session(page);
@@ -119,24 +119,26 @@ for (const edit of [false, true]) {
     await page.getByRole('textbox', { name: 'Nome completo *' }).fill('Responsável Sintético');
     await page.getByRole('textbox', { name: 'Parentesco com o residente *' }).fill('Mãe');
     await page.getByRole('textbox', { name: 'Telefone com DDD *' }).fill('(62) 99999-0000');
-    let authPending = false;
+    // A navegação não volta mais a /auth/me; a espera fica na própria gravação.
+    let held = 0;
     let release!: () => void;
     const pending = new Promise<void>((resolve) => {
       release = resolve;
     });
-    await page.route('**/api/v1/auth/me', async (route) => {
-      authPending = true;
+    await page.route('**/api/v1/responsaveis**', async (route) => {
+      if (route.request().method() === 'GET') return route.fallback();
+      held++;
       await pending;
       await route.fallback();
     });
     const submit = page.getByRole('button', { name: 'Salvar responsável', exact: true });
     await submit.click();
     try {
-      await expect.poll(() => authPending).toBe(true);
+      await expect.poll(() => held).toBe(1);
       await expect(page.getByRole('dialog')).toHaveCount(0);
       await expect(page.locator('button[type="submit"]')).toBeDisabled();
       await page.locator('form.mg-form').dispatchEvent('submit');
-      expect(data.writes).toHaveLength(1);
+      expect(held).toBe(1);
     } finally {
       release();
     }

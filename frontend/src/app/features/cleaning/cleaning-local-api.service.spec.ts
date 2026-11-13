@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CleaningLocalApiService } from './cleaning-local-api.service';
 import { ReportingApiError, reportingError } from './reporting-local.transport';
+import { resetSession } from '../../core/api';
 const id = '00000000-0000-0000-0000-000000000001';
 const criteria = { PISO: 6, SUPERFICIES: 6, RESIDUOS: 6, ORGANIZACAO: 6 };
 const own = {
@@ -37,7 +38,10 @@ const item = {
 };
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status });
 describe('Projeções e gravação de limpeza', () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    resetSession();
+  });
   it('consulta própria exige projeção sem participantes, revisões ou autoria de terceiros', async () => {
     const fetch = vi.fn().mockResolvedValueOnce(json(own)).mockResolvedValueOnce(json(item));
     vi.stubGlobal('fetch', fetch);

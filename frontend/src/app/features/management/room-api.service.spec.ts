@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetSession } from '../../core/api';
 import { HousingMap, RoomRecord, RoomRecordInput } from './housing.models';
 import { RoomApiError, RoomApiService } from './room-api.service';
 
@@ -44,17 +45,21 @@ const map: HousingMap = {
 const csrf = { headerName: 'X-CSRF-TOKEN', token: 'csrf-test' };
 
 describe('RoomApiService', () => {
+  beforeEach(() => resetSession());
   afterEach(() => vi.unstubAllGlobals());
 
   it('aceita mapa inicial com versão zero de alojamento, unidade e quarto', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(map)));
     vi.stubGlobal('fetch', fetchMock);
     expect(await TestBed.inject(RoomApiService).map()).toEqual(map);
-    expect(fetchMock).toHaveBeenCalledWith('/api/v1/quartos/mapa', {
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
-    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/quartos/mapa',
+      expect.objectContaining({
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
+      }),
+    );
   });
 
   it('aceita criação na versão zero, preservando número textual e nulos com CSRF', async () => {

@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { api, resetSession } from './api';
 import { LocalAuthService } from './local-auth.service';
 
 const principal = {
@@ -14,6 +15,7 @@ const principal = {
 };
 
 describe('LocalAuthService', () => {
+  beforeEach(() => resetSession());
   afterEach(() => vi.unstubAllGlobals());
 
   it('envia formulário com CSRF e aceita o perfil devolvido por /me', async () => {
@@ -129,5 +131,32 @@ describe('LocalAuthService', () => {
     expect(auth.principal()).toBeNull();
     expect(fetchMock.mock.calls[1][0]).toBe('/api/v1/auth/logout');
     expect(fetchMock.mock.calls[1][1].headers).toMatchObject({ 'X-CSRF-TOKEN': 'csrf-test' });
+  });
+
+  it('descarta o token CSRF ao entrar, ao sair e ao esquecer o usuário', async () => {
+    let issued = 0;
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === '/api/v1/auth/csrf')
+        return new Response(JSON.stringify({ headerName: 'X-CSRF-TOKEN', token: `t${++issued}` }));
+      if (url === '/api/v1/auth/me') return new Response(JSON.stringify(principal));
+      return new Response(url === '/api/v1/gravacao' ? '{}' : null, { status: 200 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const auth = TestBed.inject(LocalAuthService);
+    const write = async () => {
+      await api('/api/v1/gravacao', { method: 'POST', body: {} });
+      const [, init] = fetchMock.mock.calls.at(-1) as unknown as [string, RequestInit];
+      return (init.headers as Record<string, string>)['X-CSRF-TOKEN'];
+    };
+
+    expect(await write()).toBe('t1');
+    expect(await write()).toBe('t1');
+    expect(await auth.login(principal.matricula, 'senha de teste')).toBe('success');
+    expect(await write()).toBe('t2');
+    await auth.logout();
+    expect(await write()).toBe('t3');
+    auth.clearPrincipal();
+    expect(await write()).toBe('t4');
+    expect(fetchMock.mock.calls.filter(([url]) => url === '/api/v1/auth/csrf')).toHaveLength(4);
   });
 });

@@ -1,4 +1,4 @@
-import { UnsavedForms } from './shared/unsaved-form';
+import { UnsavedForms } from './shared/unsaved-forms';
 import {
   Component,
   ElementRef,
@@ -12,7 +12,16 @@ import {
 import { DOCUMENT } from '@angular/common';
 import { CdkTrapFocus } from '@angular/cdk/a11y';
 import { BreakpointObserver } from '@angular/cdk/layout';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet, NavigationEnd } from '@angular/router';
+import {
+  NavigationCancel,
+  NavigationEnd,
+  NavigationError,
+  NavigationStart,
+  Router,
+  RouterLink,
+  RouterLinkActive,
+  RouterOutlet,
+} from '@angular/router';
 import { filter } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DemoSessionService, type DemoScenario, type Role } from './core/demo-session.service';
@@ -166,6 +175,8 @@ export class App implements OnDestroy {
   private previousBodyOverflow: string | null = null;
   private previousHtmlOverflow: string | null = null;
   private focusContentAfterNavigation = false;
+  /** Liga a barra do topo enquanto a próxima tela carrega (código ou guarda). */
+  readonly navigating = signal(false);
   private currentPath = this.document.location.pathname;
 
   constructor() {
@@ -177,6 +188,15 @@ export class App implements OnDestroy {
         if (!matches && this.menuOpen()) this.closeMenu(false);
         this.isMobile.set(matches);
       });
+    this.router.events.pipe(takeUntilDestroyed()).subscribe((event) => {
+      if (event instanceof NavigationStart) this.navigating.set(true);
+      else if (
+        event instanceof NavigationEnd ||
+        event instanceof NavigationCancel ||
+        event instanceof NavigationError
+      )
+        this.navigating.set(false);
+    });
     this.router.events
       .pipe(
         filter((event): event is NavigationEnd => event instanceof NavigationEnd),
