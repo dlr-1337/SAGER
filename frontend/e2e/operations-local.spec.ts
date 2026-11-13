@@ -736,6 +736,26 @@ test('conflito exige recarga explícita e nunca repete a decisão com outra vers
   expect(state.writes).toHaveLength(1);
 });
 
+test('rejeição de saída curta exige justificativa', async ({ page }) => {
+  const state = await mockApi(page, { exits: [exitFixture()] });
+  await page.goto(`/saidas/${exitId}`);
+  await page.getByRole('button', { name: 'Rejeitar', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  const confirm = dialog.getByRole('button', { name: 'Confirmar rejeição' });
+  await confirm.click();
+  await expect(dialog.getByRole('alert')).toContainText('10 a 2.000');
+  await dialog.getByLabel('Justificativa', { exact: true }).fill('a'.repeat(9));
+  await confirm.click();
+  await expect(dialog.getByRole('alert')).toContainText('10 a 2.000');
+  expect(state.writes).toHaveLength(0);
+  await dialog.getByLabel('Justificativa', { exact: true }).fill('Sem vaga.!');
+  await confirm.click();
+  await expect(page.getByText('Rejeitada', { exact: true }).first()).toBeVisible();
+  expect(state.writes).toHaveLength(1);
+  expect(state.writes[0].path).toBe(`/api/v1/saidas-curtas/${exitId}/decisao`);
+  expect(state.writes[0].body).toMatchObject({ decision: 'REJECT', comment: 'Sem vaga.!' });
+});
+
 test('layout de 320px, revisão por teclado, foco restaurado e acessibilidade', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 900 });
   const state = await mockApi(page, { exits: [exitFixture()] });

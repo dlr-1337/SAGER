@@ -23,7 +23,7 @@ Os caminhos do frontend são relativos a `frontend/`, e os do backend, a `backen
 
 ## 4. Rejeição de saída curta com motivo (RN05; D3)
 
-- [ ] 4.1 Em `src/app/features/operations/exit-detail-local.component.ts`, `decide()` passa `requireReason: decision === 'REJECT', comment: decision === 'APPROVE'`. A demonstração não acompanha esta tarefa, porque já exige motivo na rejeição; o mínimo de 10 chega pelo grupo 5. Depende do grupo 3, porque a mensagem "10 a 2.000" vem da tarefa 3.2. Verificar com um teste novo em `e2e/operations-local.spec.ts`, "rejeição de saída curta exige justificativa":
+- [x] 4.1 Em `src/app/features/operations/exit-detail-local.component.ts`, `decide()` passa `requireReason: decision === 'REJECT', comment: decision === 'APPROVE'`. A demonstração não acompanha esta tarefa, porque já exige motivo na rejeição; o mínimo de 10 chega pelo grupo 5. Depende do grupo 3, porque a mensagem "10 a 2.000" vem da tarefa 3.2. Verificar com um teste novo em `e2e/operations-local.spec.ts`, "rejeição de saída curta exige justificativa":
   - sem texto ou com 9 caracteres, o diálogo mostra o alerta "10 a 2.000" e `state.writes` fica vazio;
   - com 10 caracteres, o corpo da escrita em `/decisao` tem `decision: 'REJECT'` e `comment` igual ao texto, e a tela mostra "Rejeitada".
 
