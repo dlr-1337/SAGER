@@ -97,7 +97,7 @@ for (const config of [
       }),
     ).toBeVisible();
     await page.locator('main a.mg-back').first().click();
-    await expect(page.getByText('1–25 de 25', { exact: true })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Paginação' })).toHaveCount(0);
     await expect(rows).toHaveCount(25);
     await expect(search).toHaveValue('Sintético');
     if (config.resource === 'residentes')

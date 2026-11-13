@@ -12,7 +12,7 @@ import {
 } from './allocation-api.service';
 import { GuardianApiService, GuardianRecord } from './guardian-api.service';
 import { Course, CourseApiService } from './course-api.service';
-import { HousingMap } from './housing.models';
+import { HousingMap, sortHousingMap } from './housing.models';
 import { ManagementDemoService } from './management-demo.service';
 import { ResidentApiError, ResidentApiService, ResidentRecord } from './resident-api.service';
 import { ResidentDetailComponent } from './resident-detail.component';
@@ -62,7 +62,6 @@ const map: HousingMap = {
     situation: 'Disponível',
     occupancy: index,
     vacancies: 2 - index,
-    cleaningScore: null,
     version: 0,
   })),
 };
@@ -218,6 +217,28 @@ describe('Residentes em sessão local', () => {
     const fixture = TestBed.createComponent(ResidentsComponent);
     await fixture.whenStable();
     expect(fixture.componentInstance.filters.controls.roomId.value).toBe('');
+  });
+
+  it('seleção de quarto oferece 1, 2 e 10 nessa ordem', async () => {
+    roomApi.map.mockResolvedValue(
+      sortHousingMap({
+        ...structuredClone(map),
+        rooms: ['10', '1', '2'].map((code, index) => ({
+          ...map.rooms[0],
+          id: `quarto-${code}`,
+          code,
+          number: code,
+          version: index,
+        })),
+      }),
+    );
+    const fixture = TestBed.createComponent(ResidentsComponent);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const options = [
+      ...fixture.nativeElement.querySelectorAll('select[formcontrolname="roomId"] option'),
+    ].map((option: HTMLOptionElement) => option.textContent?.trim());
+    expect(options).toEqual(['Todos os quartos', '1', '2', '10']);
   });
 
   it('filtra por casa ou bloco no servidor, com quarto dependente e cascata', async () => {

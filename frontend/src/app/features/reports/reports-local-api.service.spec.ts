@@ -31,16 +31,19 @@ const job = {
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status });
 describe('Contrato dos recortes e arquivos privados', () => {
   afterEach(() => vi.unstubAllGlobals());
-  it('vincula paginação ao snapshot exato, limite 20 e cursor progressivo', async () => {
-    const page = { snapshotId: id, offset: 0, limit: 20, nextOffset: null, total: 1, items: [row] };
+  it('vincula paginação ao snapshot exato, limite 25 e cursor progressivo', async () => {
+    const page = { snapshotId: id, offset: 0, limit: 25, nextOffset: null, total: 1, items: [row] };
     const fetch = vi
       .fn()
       .mockResolvedValueOnce(json(page))
       .mockResolvedValueOnce(json({ ...page, snapshotId: '00000000-0000-0000-0000-000000000002' }))
-      .mockResolvedValueOnce(json({ ...page, nextOffset: 0 }));
+      .mockResolvedValueOnce(json({ ...page, nextOffset: 0 }))
+      .mockResolvedValueOnce(json({ ...page, limit: 20 }));
     vi.stubGlobal('fetch', fetch);
     const api = TestBed.inject(ReportsLocalApiService);
     expect((await api.rows(id)).items).toHaveLength(1);
+    expect(fetch.mock.calls[0][0]).toContain('offset=0&limit=25');
+    await expect(api.rows(id)).rejects.toThrow('página');
     await expect(api.rows(id)).rejects.toThrow('página');
     await expect(api.rows(id)).rejects.toThrow('página');
   });
@@ -49,7 +52,7 @@ describe('Contrato dos recortes e arquivos privados', () => {
       json({
         snapshotId: id,
         offset: 0,
-        limit: 20,
+        limit: 25,
         nextOffset: null,
         total: 1,
         items: [{ ...row, clinicalNote: 'private' }],

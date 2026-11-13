@@ -49,7 +49,6 @@ async function mockLocal(
     floor: null,
     capacity: 1,
     situation: 'Disponível',
-    cleaningScore: null,
     version: 0,
     get occupancy() {
       return allocations.filter((item) => item.roomId === id && item.endedAt === null).length;
@@ -179,6 +178,7 @@ test('gestor aloca, transfere e encerra com histórico persistido na interface',
   await expect(page.getByRole('heading', { name: 'Histórico de quartos' })).toBeVisible();
   await expect(page.locator('.mg-timeline li')).toHaveCount(2);
   await page.goto('/quartos');
+  await page.getByRole('button', { name: /^Alojamento Sintético/ }).click();
   await expect(page.getByText('0 moradores', { exact: false }).first()).toBeVisible();
 });
 

@@ -1,3 +1,4 @@
+import { compareFloors, compareNatural } from './housing.models';
 import { computed, Injectable, signal } from '@angular/core';
 import {
   CommitmentTerm,
@@ -121,7 +122,6 @@ const INITIAL_STATE: ManagementState = {
       block: 'A',
       floor: 'Térreo',
       situation: 'Disponível',
-      cleaningScore: 8.5,
       version: 1,
     },
     {
@@ -130,7 +130,6 @@ const INITIAL_STATE: ManagementState = {
       block: 'A',
       floor: 'Térreo',
       situation: 'Ocupado',
-      cleaningScore: null,
       version: 1,
     },
     {
@@ -139,7 +138,6 @@ const INITIAL_STATE: ManagementState = {
       block: 'A',
       floor: 'Térreo',
       situation: 'Disponível',
-      cleaningScore: null,
       version: 1,
     },
     {
@@ -148,7 +146,6 @@ const INITIAL_STATE: ManagementState = {
       block: 'A',
       floor: 'Térreo',
       situation: 'Ocupado',
-      cleaningScore: null,
       version: 1,
     },
     {
@@ -157,7 +154,6 @@ const INITIAL_STATE: ManagementState = {
       block: 'B',
       floor: '1º piso',
       situation: 'Ocupado',
-      cleaningScore: 9,
       version: 1,
     },
     {
@@ -166,7 +162,6 @@ const INITIAL_STATE: ManagementState = {
       block: 'A',
       floor: '1º piso',
       situation: 'Manutenção',
-      cleaningScore: null,
       version: 1,
     },
     {
@@ -175,7 +170,6 @@ const INITIAL_STATE: ManagementState = {
       block: 'B',
       floor: '1º piso',
       situation: 'Ocupado',
-      cleaningScore: null,
       version: 1,
     },
     {
@@ -184,7 +178,6 @@ const INITIAL_STATE: ManagementState = {
       block: 'B',
       floor: 'Térreo',
       situation: 'Disponível',
-      cleaningScore: null,
       version: 1,
     },
     {
@@ -193,7 +186,6 @@ const INITIAL_STATE: ManagementState = {
       block: 'B',
       floor: 'Térreo',
       situation: 'Indisponível',
-      cleaningScore: null,
       version: 1,
     },
   ],
@@ -230,7 +222,15 @@ export class ManagementDemoService {
   readonly residents = computed(() => this.state().residents);
   readonly guardians = computed(() => this.state().guardians);
   readonly supervisors = computed(() => this.state().supervisors);
-  readonly rooms = computed(() => this.state().rooms);
+  // Mesma ordem natural do mapa do acesso por conta: bloco, piso e número.
+  readonly rooms = computed(() =>
+    [...this.state().rooms].sort(
+      (a, b) =>
+        compareNatural(a.block, b.block) ||
+        compareFloors(a.floor, b.floor) ||
+        compareNatural(a.number, b.number),
+    ),
+  );
 
   readonly history = signal<ResidentHistoryEntry[]>(HISTORY);
   readonly terms = signal<CommitmentTerm[]>([]);
@@ -388,7 +388,6 @@ export class ManagementDemoService {
       block: input.block.trim(),
       floor: input.floor.trim(),
       situation: input.situation,
-      cleaningScore: existing?.cleaningScore ?? null,
       version: (existing?.version ?? 0) + 1,
     };
     this.commit({ ...this.state(), rooms: upsert(this.rooms(), room) });

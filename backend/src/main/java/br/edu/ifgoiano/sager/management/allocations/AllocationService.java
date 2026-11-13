@@ -177,11 +177,13 @@ public class AllocationService {
             throw conflict("age_group_mismatch",
                     "Este quarto é de outra faixa etária. Escolha um quarto da faixa do residente.");
         }
-        if (room.situation().equals("Manutenção") || room.situation().equals("Indisponível")) {
-            throw conflict("room_unavailable", "O quarto não recebe novas alocações nesta situação.");
-        }
+        // Before the situation: a room without capacity shows as Indisponível, and the refusal
+        // must still ask for the capacity.
         if (room.capacity() == null) {
             throw conflict("capacity_unknown", "Defina a capacidade antes de alocar residentes.");
+        }
+        if (room.situation().equals("Manutenção") || room.situation().equals("Indisponível")) {
+            throw conflict("room_unavailable", "O quarto não recebe novas alocações nesta situação.");
         }
         if (allocations.activeRoomCount(room.id()) >= room.capacity()) {
             throw conflict("room_full", "A capacidade do quarto foi atingida.");

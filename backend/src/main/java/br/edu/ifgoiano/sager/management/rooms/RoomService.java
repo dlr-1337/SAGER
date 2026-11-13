@@ -2,7 +2,6 @@ package br.edu.ifgoiano.sager.management.rooms;
 
 import java.sql.SQLException;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -37,10 +36,6 @@ public class RoomService {
 
     public br.edu.ifgoiano.sager.management.ManagementSearch.Page<RoomRecord> list(java.util.Map<String,String> params) {
         return repository.search(params);
-    }
-
-    public List<RoomRecord> list() {
-        return repository.findAll();
     }
 
     public RoomRecord get(UUID id) {
@@ -83,6 +78,7 @@ public class RoomService {
             throw new RoomApiException(HttpStatus.CONFLICT, "stale_version",
                     "O quarto foi alterado. Recarregue o registro antes de salvar.");
         }
+        String storedSituation = repository.storedSituation(id);
         if (capacity != null && !capacity.equals(current.capacity()) && !FieldRules.validCapacity(capacity)) {
             throw invalidCapacity();
         }
@@ -122,8 +118,7 @@ public class RoomService {
         if (!Objects.equals(current.capacity(), capacity)) {
             changed.add("capacity");
         }
-        String currentSituation = "Ocupado".equals(current.situation()) ? "Disponível" : current.situation();
-        if (!Objects.equals(currentSituation, checked.situation())) {
+        if (!Objects.equals(storedSituation, checked.situation())) {
             changed.add("situation");
         }
         audit.record(AuditResource.ROOM, id, AuditAction.UPDATE, version + 1, changed);

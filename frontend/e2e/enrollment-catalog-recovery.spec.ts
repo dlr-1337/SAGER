@@ -219,7 +219,7 @@ for (const action of ['desativar', 'renomear'] as const) {
     await status.selectOption('active');
     await page.getByRole('button', { name: 'Próxima', exact: true }).click();
     await expect(page.locator('.course-row')).toHaveCount(1);
-    await expect(page.getByText('Página 2', { exact: true })).toBeVisible();
+    await expect(page.getByText('26–26 de 26', { exact: true })).toBeVisible();
     if (action === 'desativar')
       await page.getByRole('button', { name: 'Desativar', exact: true }).click();
     else {
@@ -228,7 +228,7 @@ for (const action of ['desativar', 'renomear'] as const) {
       await page.getByRole('button', { name: 'Salvar curso', exact: true }).click();
     }
     await expect(page.getByText('25 cursos encontrados', { exact: true })).toBeVisible();
-    await expect(page.getByText('Página 1', { exact: true })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Paginação' })).toHaveCount(0);
     await expect(page.locator('.course-row')).toHaveCount(25);
     await expect(
       page.getByText('Nenhum curso corresponde aos filtros.', { exact: true }),

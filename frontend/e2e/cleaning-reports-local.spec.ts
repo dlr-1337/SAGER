@@ -39,7 +39,6 @@ const room = {
   situation: 'Ocupado',
   occupancy: 1,
   vacancies: 1,
-  cleaningScore: null,
   version: 0,
 };
 const criteria: CleaningCriteria = { PISO: 6, SUPERFICIES: 6, RESIDUOS: 6, ORGANIZACAO: 6 };
@@ -208,6 +207,8 @@ interface State {
   zeroRows: boolean;
   failResidents: boolean;
   leakRanking: boolean;
+  paged: boolean;
+  rankingRooms: number;
   jobs: Map<string, ReportExport>;
   writes: { path: string; body: Record<string, any>; csrf: string | undefined }[];
   gets: string[];
@@ -230,6 +231,8 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
     zeroRows: false,
     failResidents: false,
     leakRanking: false,
+    paged: false,
+    rankingRooms: 0,
     jobs: new Map(),
     writes: [],
     gets: [],
@@ -284,53 +287,78 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
           : ok([resident]);
       if (path === '/alojamentos')
         return ok([{ id: accommodationId, code: 'T', name: 'Alojamento Sintético', version: 0 }]);
+      if (path === '/limpeza/avaliacoes' && state.paged) {
+        const second = url.searchParams.get('beforeSequence') === '50';
+        const items = Array.from({ length: second ? 3 : 25 }, (_, i) => ({
+          ...state.item,
+          id: uuid(2000 + i + (second ? 25 : 0)),
+          roomCode: `P-${i + 1 + (second ? 25 : 0)}`,
+        }));
+        return ok({ items, nextCursor: second ? null : 50 });
+      }
       if (path === '/limpeza/avaliacoes')
         return ok({ items: state.exists ? [state.item] : [], nextCursor: null });
       if (path === '/me/limpeza/avaliacoes')
         return ok({ items: state.exists ? [ownAssessment(state.item)] : [], nextCursor: null });
       if (path === '/limpeza/avaliacoes/' + assessmentId) return ok(state.item);
       if (path === '/me/limpeza/avaliacoes/' + assessmentId) return ok(ownAssessment(state.item));
-      if (path === '/limpeza/ranking')
+      if (path === '/limpeza/ranking') {
+        const resident = state.role === 'residente';
+        const items = [
+          {
+            roomId,
+            roomCode: room.code,
+            mean: 6,
+            position: 1,
+            assessmentCount: 1,
+            own: state.role === 'residente',
+          },
+          {
+            roomId: state.role === 'residente' ? null : uuid(112),
+            roomCode: 'T-102',
+            mean: state.role === 'residente' && !state.leakRanking ? null : 6,
+            position: 1,
+            assessmentCount: state.role === 'residente' ? null : 1,
+            own: false,
+          },
+          {
+            roomId: state.role === 'residente' ? null : uuid(113),
+            roomCode: 'T-103',
+            mean: state.role === 'residente' ? null : 4,
+            position: 3,
+            assessmentCount: state.role === 'residente' ? null : 1,
+            own: false,
+          },
+          {
+            roomId: state.role === 'residente' ? null : uuid(114),
+            roomCode: 'T-104',
+            mean: null,
+            position: null,
+            assessmentCount: state.role === 'residente' ? null : 0,
+            own: false,
+          },
+        ];
+        // Com quartos extras, o quarto do residente vai para o fim da lista (página 2).
+        if (state.rankingRooms)
+          items.push(
+            ...Array.from({ length: state.rankingRooms }, (_, i) => ({
+              roomId: resident ? null : uuid(200 + i),
+              roomCode: `T-${200 + i}`,
+              mean: resident ? null : 5,
+              position: 4 + i,
+              assessmentCount: resident ? null : 1,
+              own: false,
+            })),
+            { ...items.shift()!, position: 4 + state.rankingRooms },
+          );
         return ok({
           period: url.searchParams.get('period'),
           referenceDate: url.searchParams.get('referenceDate'),
           from: '2026-09-01',
           to: '2026-09-30',
-          items: [
-            {
-              roomId,
-              roomCode: room.code,
-              mean: 6,
-              position: 1,
-              assessmentCount: 1,
-              own: state.role === 'residente',
-            },
-            {
-              roomId: state.role === 'residente' ? null : uuid(112),
-              roomCode: 'T-102',
-              mean: state.role === 'residente' && !state.leakRanking ? null : 6,
-              position: 1,
-              assessmentCount: state.role === 'residente' ? null : 1,
-              own: false,
-            },
-            {
-              roomId: state.role === 'residente' ? null : uuid(113),
-              roomCode: 'T-103',
-              mean: state.role === 'residente' ? null : 4,
-              position: 3,
-              assessmentCount: state.role === 'residente' ? null : 1,
-              own: false,
-            },
-            {
-              roomId: state.role === 'residente' ? null : uuid(114),
-              roomCode: 'T-104',
-              mean: null,
-              position: null,
-              assessmentCount: state.role === 'residente' ? null : 0,
-              own: false,
-            },
-          ],
+          items,
         });
+      }
       if (path === '/limpeza/indicadores')
         return ok([
           { month: '2026-08', unjustifiedAbsences: 0, confirmedLateReturns: 2, activeWarnings: 1 },
@@ -623,7 +651,10 @@ test('lista de limpeza filtra por alojamento com quarto dependente', async ({ pa
   await page.getByRole('combobox', { name: 'Alojamento', exact: true }).selectOption(uuid(12));
   await expect(room).toHaveValue('');
   await expect(room.locator('option')).toHaveText(['Todos os quartos', 'U-201']);
-  await page.getByRole('button', { name: 'Buscar avaliações', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Buscar avaliações' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Remover filtro Alojamento' })).toContainText(
+    'Alojamento: Outro Alojamento',
+  );
   await expect
     .poll(() =>
       state.gets.some(
@@ -648,7 +679,6 @@ test('lista de limpeza filtra por casa ou bloco, com opções distinguíveis e c
   await expect(unit.locator('option')).toHaveText(['Todos', 'Casa 1 · Alojamento Sintético']);
   await unit.selectOption(uuid(13));
   await expect(room.locator('option')).toHaveText(['Todos os quartos']);
-  await page.getByRole('button', { name: 'Buscar avaliações', exact: true }).click();
   await expect
     .poll(() =>
       state.gets.some(
@@ -659,6 +689,30 @@ test('lista de limpeza filtra por casa ou bloco, com opções distinguíveis e c
   await accommodation.selectOption(accommodationId);
   await expect(unit).toHaveValue('');
   await expect(unit.locator('option')).toHaveText(['Todos', 'Casa 1']);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+});
+test('lista de limpeza no celular recolhe os filtros extras e troca páginas sem crescer', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const state = await mockApi(page, { paged: true });
+  await page.goto('/limpeza');
+  await expect(page.locator('sager-filter-panel details')).not.toHaveAttribute('open');
+  await expect(page.getByLabel('Data inicial')).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Alojamento', exact: true })).toBeHidden();
+  const rows = page.locator('article.op-row');
+  await expect(rows.first()).toContainText('Quarto P-1');
+  expect((await rows.first().boundingBox())!.y).toBeLessThan(844);
+  await page.getByRole('button', { name: 'Próxima', exact: true }).click();
+  await expect(rows.first()).toContainText('Quarto P-26');
+  await expect(rows).toHaveCount(3);
+  await expect(page.getByText('Página 2', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Avaliações registradas' })).toBeFocused();
+  await page.getByRole('button', { name: 'Anterior', exact: true }).click();
+  await expect(rows.first()).toContainText('Quarto P-1');
+  await expect(rows).toHaveCount(25);
+  expect(state.gets.filter((path) => path.startsWith('/limpeza/avaliacoes?'))).toHaveLength(2);
+  await noOverflow(page);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });
 test('registro de limpeza escolhe alojamento e casa antes do quarto', async ({ page }) => {
@@ -717,6 +771,31 @@ test('ranking usa posições e nulos do servidor, empates 1 1 3 e período expl�
   ).toBeVisible();
   await expect(page.getByText('Fórmula pendente da AE')).toHaveCount(0);
   await expect(page.getByText('db-password-secret')).toHaveCount(0);
+});
+test('ranking mostra 25 quartos por página e repete o quarto do residente no topo', async ({
+  page,
+}) => {
+  const state = await mockApi(page, { role: 'gestor', rankingRooms: 26 });
+  await page.goto('/ranking');
+  const ranks = page.getByLabel('Posições dos quartos').locator('article.cleaning-rank');
+  await expect(ranks).toHaveCount(25);
+  await expect(page.getByText('1–25 de 30', { exact: true })).toBeVisible();
+  await expect(page.getByText('Seu quarto neste período')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Próxima', exact: true }).click();
+  await expect(page.getByText('26–30 de 30', { exact: true })).toBeVisible();
+  await expect(ranks).toHaveCount(5);
+  await expect(ranks.last()).toContainText('Quarto T-101');
+  await expect(page.getByRole('heading', { name: 'Mês · 01/09/2026 a 30/09/2026' })).toBeFocused();
+  state.role = 'residente';
+  await page.goto('/ranking');
+  const own = page.getByRole('region', { name: 'Seu quarto neste período' });
+  await expect(own.locator('article.cleaning-rank')).toHaveCount(1);
+  await expect(own).toContainText('Quarto T-101');
+  await expect(own).toContainText('30º');
+  await expect(own.locator('.cleaning-score')).toHaveText('6,00');
+  await expect(ranks.first()).toContainText('Quarto T-102');
+  await expect(page.getByText('1–25 de 30', { exact: true })).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });
 const ready = (state: State) => {
   for (const job of state.jobs.values()) {
@@ -904,16 +983,27 @@ test('"Ver na tela" mostra baixar no topo, páginas de registros e nada técnico
   page,
 }) => {
   const state = await mockApi(page);
+  state.rows.push(
+    ...Array.from({ length: 9 }, (_, i) => ({ ...state.rows[0], id: uuid(1100 + i) })),
+  );
   await page.goto('/relatorios');
   await generate(page);
   await expect(page.getByText('Montando os arquivos', { exact: false })).toBeVisible();
   ready(state);
+  state.snapshot = {
+    ...state.snapshot,
+    rowCount: 30,
+    summary: { ...state.snapshot.summary, totalRows: 30 },
+  };
   await page.goto('/relatorios');
   await page.getByRole('link', { name: 'Ver na tela', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(snapshotId));
-  await expect(page.getByText('20 de 21 registros na tela.', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Carregar mais registros', exact: true }).click();
-  await expect(page.getByText('21 de 21 registros na tela.', { exact: true })).toBeVisible();
+  await expect(page.getByText('25 de 30 registros na tela.', { exact: true })).toBeVisible();
+  await expect(page.getByText('1–25 de 30', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Próxima', exact: true }).click();
+  await expect(page.getByText('5 de 30 registros na tela.', { exact: true })).toBeVisible();
+  await expect(page.getByText('26–30 de 30', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Registros', exact: true })).toBeFocused();
   const download = await page
     .getByRole('button', { name: 'Baixar PDF', exact: true })
     .boundingBox();

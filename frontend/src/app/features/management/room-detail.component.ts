@@ -136,10 +136,6 @@ import { formattedDate } from './management.utils';
               <dt>Vagas livres</dt>
               <dd>{{ item.vacancies === null ? 'Capacidade não definida' : item.vacancies }}</dd>
             </div>
-            <div>
-              <dt>Última nota de limpeza</dt>
-              <dd>Sem avaliação</dd>
-            </div>
           </dl>
         </section>
         <section class="panel mg-panel" aria-labelledby="local-room-residents-title">
@@ -187,7 +183,8 @@ import { formattedDate } from './management.utils';
         <div class="mg-note">
           <span class="material-symbols-rounded" aria-hidden="true">info</span>
           <p>
-            A situação do quarto é escolhida por você. O quarto não recebe mais moradores do que a
+            Disponível e Ocupado mudam sozinhos com os moradores. Manutenção e Indisponível são
+            escolhidos no cadastro do quarto. O quarto não recebe mais moradores do que a
             capacidade.
           </p>
         </div>
@@ -236,16 +233,6 @@ import { formattedDate } from './management.utils';
             <div>
               <dt>Ocupação</dt>
               <dd>{{ demo.occupancyLabel(item.id) }}</dd>
-            </div>
-            <div>
-              <dt>Última nota de limpeza</dt>
-              <dd>
-                {{
-                  item.cleaningScore === null
-                    ? 'Sem avaliação'
-                    : item.cleaningScore.toLocaleString('pt-BR')
-                }}
-              </dd>
             </div>
           </dl>
         </section>

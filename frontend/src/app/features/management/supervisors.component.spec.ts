@@ -59,6 +59,26 @@ describe('Paginação autorizada de supervisores', () => {
     else expect(page).toHaveBeenLastCalledWith({ search: '', limit: '25', offset: '25' });
   });
 
+  it('mostra 3 supervisores sem paginação', async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        {
+          provide: SupervisorApiService,
+          useValue: { page: vi.fn().mockResolvedValue({ items: records.slice(0, 3), total: 3 }) },
+        },
+        {
+          provide: DemoSessionService,
+          useValue: { active: signal(false), scenario: signal('padrao'), hasRole: () => true },
+        },
+      ],
+    });
+    const fixture = TestBed.createComponent(SupervisorsComponent);
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelectorAll('article h3')).toHaveLength(3);
+    expect(fixture.nativeElement.querySelector('sager-pagination nav')).toBeNull();
+  });
+
   it.each([{ demo: true }, { demo: false }])(
     'mantém o clique em Próxima dado logo depois de filtrar (demo=$demo)',
     async ({ demo }) => {

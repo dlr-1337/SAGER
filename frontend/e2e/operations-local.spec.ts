@@ -202,7 +202,6 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
           situation: 'Ocupado',
           occupancy: 1,
           vacancies: 3,
-          cleaningScore: null,
           version: 0,
         });
         return ok({
@@ -424,7 +423,7 @@ test('redução de 26 para 25 saídas curtas retorna à página válida com filt
   await expect.poll(() => queries.at(-1)?.get('status')).toBe('APROVADA');
   await expect(pagination).toContainText('1–25 de 26');
   await pagination.getByRole('button', { name: 'Próxima' }).click();
-  await expect(pagination).toContainText('1–25 de 25');
+  await expect(pagination).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Ver pedido' })).toHaveCount(25);
   await expect(page.getByRole('heading', { name: 'Nenhum pedido ainda.' })).toHaveCount(0);
   await expect(search).toHaveValue('TESTE-001');
@@ -441,15 +440,18 @@ test('situação Aprovada permanece ao abrir uma saída curta e retornar à list
 }) => {
   await mockApi(page, { exits: [{ ...exitFixture(), status: 'APROVADA' }] });
   await page.goto('/saidas');
-  await page.getByLabel('Situação', { exact: true }).selectOption('APROVADA');
+  await expect(page.getByRole('button', { name: 'Buscar', exact: true })).toHaveCount(0);
   const filtered = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return (
       url.pathname === '/api/v1/saidas-curtas' && url.searchParams.get('status') === 'APROVADA'
     );
   });
-  await page.getByRole('button', { name: 'Buscar', exact: true }).click();
+  await page.getByLabel('Situação', { exact: true }).selectOption('APROVADA');
   await filtered;
+  await expect(page.getByRole('button', { name: 'Remover filtro Situação' })).toContainText(
+    'Situação: Aprovada',
+  );
   await page.getByRole('link', { name: 'Ver pedido' }).click();
   await expect(page.getByRole('heading', { name: 'Pedido de saída curta' })).toBeVisible();
   const restored = page.waitForRequest(
@@ -474,6 +476,9 @@ test('chamada filtra por bloco e quarto, com número repetido, sem liberar o fec
     'B-101 · Bloco B',
   ]);
   await room.selectOption({ label: 'B-101 · Bloco B' });
+  await expect(page.getByRole('button', { name: 'Remover filtro Quarto' })).toContainText(
+    'Quarto: B-101 · Bloco B',
+  );
   await expect(page.getByRole('heading', { name: 'Residente de Teste' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Estudante Sintético' })).toHaveCount(0);
   await expect(page.getByText('1 de 2 residentes')).toBeVisible();
@@ -487,6 +492,23 @@ test('chamada filtra por bloco e quarto, com número repetido, sem liberar o fec
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.getByRole('button', { name: 'Limpar filtros', exact: true }).click();
   await expect(page.getByText('2 de 2 residentes')).toBeVisible();
+});
+
+test('chamada com 51 residentes mostra todos na mesma tela, sem paginação', async ({ page }) => {
+  const call = callFixture();
+  call.records = Array.from({ length: 51 }, (_, index) => ({
+    ...call.records[0],
+    id: `registro-${index}`,
+    residentId: `00000000-0000-0000-0000-${String(index + 500).padStart(12, '0')}`,
+    residentName: `Residente Sintético ${String(index + 1).padStart(2, '0')}`,
+    enrollment: `TESTE-${index + 1}`,
+  }));
+  call.summary = { total: 51, present: 0, absent: 0, justified: 0, unmarked: 51 };
+  await mockApi(page, { calls: [call] });
+  await page.goto('/chamada');
+  await expect(page.getByText('51 de 51 residentes')).toBeVisible();
+  await expect(page.locator('article.op-call-row')).toHaveCount(51);
+  await expect(page.getByRole('navigation', { name: 'Paginação' })).toHaveCount(0);
 });
 
 test('chamada persiste após recarga, confirma alerta e preserva correção da chamada fechada', async ({

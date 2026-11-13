@@ -463,7 +463,7 @@ test('redução de 26 para 25 saídas longas retorna à página válida com filt
   await expect.poll(() => queries.at(-1)?.get('status')).toBe('APROVADA');
   await expect(pagination).toContainText('1–25 de 26');
   await pagination.getByRole('button', { name: 'Próxima' }).click();
-  await expect(pagination).toContainText('1–25 de 25');
+  await expect(pagination).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Ver pedido' })).toHaveCount(25);
   await expect(page.getByRole('heading', { name: 'Nenhuma saída encontrada' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Saídas longas', exact: true })).toHaveAttribute(
@@ -484,14 +484,13 @@ test('situação Aprovada permanece no retorno à lista longa e limpa ao trocar 
 }) => {
   await mockApi(page, { role: 'supervisor', exits: [{ ...exitFixture(), status: 'APROVADA' }] });
   await page.goto('/saidas?tipo=longa');
-  await page.getByLabel('Situação', { exact: true }).selectOption('APROVADA');
   const filtered = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return (
       url.pathname === '/api/v1/saidas-longas' && url.searchParams.get('status') === 'APROVADA'
     );
   });
-  await page.getByRole('button', { name: 'Buscar', exact: true }).click();
+  await page.getByLabel('Situação', { exact: true }).selectOption('APROVADA');
   await filtered;
   await page.getByRole('link', { name: 'Ver pedido' }).click();
   await expect(page.getByRole('heading', { name: 'Pedido de saída longa' })).toBeVisible();

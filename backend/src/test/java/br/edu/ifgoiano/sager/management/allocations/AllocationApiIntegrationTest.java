@@ -152,8 +152,14 @@ class AllocationApiIntegrationTest {
                     WHERE resource = 'ROOM' AND resource_id = ? AND resulting_version = 1
                     """, String.class, room)).isEqualTo("capacity");
 
-            jdbc.update("UPDATE sager_room SET capacity = 1, situation = 'Manutenção' WHERE id = ?", room);
+            assertThat(putRoom(client, room, 1, 1).statusCode()).isEqualTo(200);
+            assertSituation(client, room, "Ocupado");
+            assertThat(putRoom(client, room, 1, 2, "Manutenção").statusCode()).isEqualTo(200);
             assertSituation(client, room, "Manutenção");
+            assertThat(jdbc.queryForObject("""
+                    SELECT array_to_string(changed_fields, ',') FROM sager_audit_event
+                    WHERE resource = 'ROOM' AND resource_id = ? AND resulting_version = 3
+                    """, String.class, room)).isEqualTo("situation");
             assertThat(read(client, "/api/v1/quartos?situation=Ocupado").size()).isZero();
             assertThat(post(client, PATH + "/" + allocation + "/encerrar", "{\"version\":0}", csrf(client))
                     .statusCode()).isEqualTo(200);
@@ -554,6 +560,11 @@ class AllocationApiIntegrationTest {
 
     private HttpResponse<String> putRoom(HttpClient client, UUID roomId, Integer capacity, long version)
             throws Exception {
+        return putRoom(client, roomId, capacity, version, "Disponível");
+    }
+
+    private HttpResponse<String> putRoom(HttpClient client, UUID roomId, Integer capacity, long version,
+            String situation) throws Exception {
         Map<String, Object> body = new java.util.LinkedHashMap<>();
         body.put("code", "DEMO-01");
         body.put("number", "DEMO-01");
@@ -562,7 +573,7 @@ class AllocationApiIntegrationTest {
         body.put("unitId", null);
         body.put("floor", null);
         body.put("capacity", capacity);
-        body.put("situation", "Disponível");
+        body.put("situation", situation);
         body.put("version", version);
         return put(client, "/api/v1/quartos/" + roomId, json.writeValueAsString(body), csrf(client));
     }

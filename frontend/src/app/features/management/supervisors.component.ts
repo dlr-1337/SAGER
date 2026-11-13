@@ -48,7 +48,7 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
         </section>
         <section class="mg-section" aria-labelledby="supervisor-results-title">
           <div class="mg-section-heading">
-            <h2 id="supervisor-results-title">Equipe cadastrada</h2>
+            <h2 id="supervisor-results-title" tabindex="-1">Equipe cadastrada</h2>
             <p aria-live="polite">
               @if (isDemo() && scenario() !== 'padrao') {
                 Cenário demonstrativo
@@ -148,7 +148,12 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
               </button>
             </div>
           }
-          <sager-pagination [page]="page()" [total]="total()" (pageChange)="changePage($event)" />
+          <sager-pagination
+            [page]="page()"
+            [total]="total()"
+            anchor="supervisor-results-title"
+            (pageChange)="changePage($event)"
+          />
         </section>
         @if (isDemo()) {
           <div class="mg-note">

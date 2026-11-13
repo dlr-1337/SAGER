@@ -200,14 +200,14 @@ export class ReportsLocalApiService {
   }
   async rows(id: string, offset = 0): Promise<ReportRows> {
     const value = await this.transport.get(
-      `/relatorios/consultas/${identifier(id)}/linhas` + query({ offset, limit: 20 }),
+      `/relatorios/consultas/${identifier(id)}/linhas` + query({ offset, limit: 25 }),
       rows,
     );
     if (
       value.snapshotId !== id ||
       value.offset !== offset ||
-      value.limit !== 20 ||
-      value.items.length > 20 ||
+      value.limit !== 25 ||
+      value.items.length > 25 ||
       (value.nextOffset !== null && (value.nextOffset <= offset || value.nextOffset > value.total))
     )
       throw new Error('O servidor não confirmou a página da consulta.');

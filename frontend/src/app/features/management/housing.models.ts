@@ -40,7 +40,6 @@ export interface RoomRecord {
   situation: RoomSituation;
   occupancy: number;
   vacancies: number | null;
-  cleaningScore: null;
   version: number;
 }
 
@@ -53,6 +52,50 @@ export interface HousingMap {
   accommodations: Accommodation[];
   units: AccommodationUnit[];
   rooms: RoomRecord[];
+}
+
+const collator = new Intl.Collator('pt-BR', { numeric: true });
+
+/** Ordem natural: "Casa 2" antes de "Casa 10". */
+export function compareNatural(a: string, b: string): number {
+  return collator.compare(a, b);
+}
+
+/** Sem piso primeiro, depois Térreo, os pisos numerados e o resto pelo nome. */
+export function floorPosition(floor: string | null): number {
+  if (floor === null) return -1;
+  if (floor === 'Térreo') return 0;
+  const number = Number.parseInt(floor, 10);
+  return Number.isNaN(number) ? Number.MAX_SAFE_INTEGER : number;
+}
+
+export function compareFloors(a: string | null, b: string | null): number {
+  return floorPosition(a) - floorPosition(b) || compareNatural(a ?? '', b ?? '');
+}
+
+/** Alojamentos por nome; casas por alojamento e nome; quartos por alojamento, casa (sem casa
+ * primeiro), piso, número e código. */
+export function sortHousingMap(map: HousingMap): HousingMap {
+  const names = new Map(
+    [...map.accommodations, ...map.units].map((item) => [item.id, item.name] as const),
+  );
+  const byName = (a: string | null, b: string | null) =>
+    compareNatural(names.get(a ?? '') ?? '', names.get(b ?? '') ?? '');
+  return {
+    accommodations: [...map.accommodations].sort((a, b) => compareNatural(a.name, b.name)),
+    units: [...map.units].sort(
+      (a, b) => byName(a.accommodationId, b.accommodationId) || compareNatural(a.name, b.name),
+    ),
+    rooms: [...map.rooms].sort(
+      (a, b) =>
+        byName(a.accommodationId, b.accommodationId) ||
+        Number(a.unitId !== null) - Number(b.unitId !== null) ||
+        byName(a.unitId, b.unitId) ||
+        compareFloors(a.floor, b.floor) ||
+        compareNatural(a.number, b.number) ||
+        compareNatural(a.code, b.code),
+    ),
+  };
 }
 
 // O número pode repetir dentro do alojamento; o código é o que distingue a opção.

@@ -1,24 +1,21 @@
 import { CommunicationFiltersComponent } from './communication-filters.component';
-import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
-import { rememberFilters } from '../../core/filter-state';
+import { cursorPages } from '../../core/list-page';
+import { PaginationComponent } from '../../shared/pagination.component';
 import { UnsavedFormDirective } from '../../shared/unsaved-form';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { ReactiveFormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
-import { ResidentApiService, ResidentRecord } from '../management/resident-api.service';
 import {
   CommunicationsApiError,
   CommunicationsLocalApiService,
   communicationsError,
 } from './communications-local-api.service';
 import {
-  CursorPage,
   DisciplineContext,
   DisciplineNotification,
   DisciplineOccurrence,
-  NotificationStatus,
 } from './communications-local.models';
 import {
   CommunicationReviewData,
@@ -44,10 +41,9 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
   selector: 'sager-notifications-local',
   imports: [
     CommunicationFiltersComponent,
-    SearchableSelectDirective,
     RouterLink,
-    ReactiveFormsModule,
     CommunicationsStateComponent,
+    PaginationComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -63,94 +59,67 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
         <a routerLink="/advertencias">Advertências</a
         ><a routerLink="/comunicacoes/avisos">Avisos aos residentes</a>
       </nav>
-      @if (!session.active() && session.hasRole('supervisor')) {
-        <sager-communication-filters
-          mode="notifications"
-          (changed)="searchFilters = $event; load()"
-        />
-      }
       <sager-communications-state
         [demo]="session.active()"
         [blocked]="!session.hasRole('supervisor')"
-        [loading]="loading()"
-        [error]="error()"
-        (retry)="load()"
       />
-      @if (!session.active() && session.hasRole('supervisor') && !loading() && !error()) {
+      @if (!session.active() && session.hasRole('supervisor')) {
+        <sager-communication-filters
+          mode="notifications"
+          heading="Filtrar notificações"
+          (changed)="filter($event)"
+        />
         <p class="comm-help">
           Abrir um item não registra visualização. Uma notificação não é uma advertência e nenhuma
           penalidade é automática.
         </p>
-        <section class="panel op-panel">
-          <h2>Filtrar notificações</h2>
-          <form class="op-filters" [formGroup]="filters" (ngSubmit)="load()">
-            <label class="field"
-              >Residente<select sagerSearchable formControlName="residentId">
-                <option value="">Todos os residentes</option>
-                @for (resident of residents(); track resident.id) {
-                  <option [value]="resident.id">
-                    {{ resident.name }} · {{ resident.enrollment }}
-                  </option>
-                }
-              </select></label
-            ><label class="field"
-              >Situação<select sagerSearchable formControlName="status">
-                <option value="">Todas</option>
-                @for (status of statuses; track status) {
-                  <option [value]="status">{{ labels[status] }}</option>
-                }
-              </select></label
-            ><button class="btn-secondary" type="submit">Buscar</button>
-          </form>
-        </section>
         <section class="op-section">
-          <h2>Notificações</h2>
-          @if (!items().length) {
-            <div class="op-empty" role="status">
-              <h3>Nenhuma notificação encontrada</h3>
-              <p>Quando acontecer algo para analisar, vai aparecer aqui.</p>
-            </div>
-          } @else {
-            <div class="op-list">
-              @for (item of items(); track item.id) {
-                <article class="op-row">
-                  <div class="op-row-main">
-                    <h3>{{ item.residentName }}</h3>
-                    <p>{{ categories[item.category] }} · {{ formatTime(item.createdAt) }}</p>
-                    @if (item.requiresReview) {
-                      <p>Origem corrigida · falta conferir</p>
-                    }
-                  </div>
-                  <div class="op-row-side">
-                    <span class="op-status">{{ labels[item.status] }}</span>
-                    @if (!item.valid) {
-                      <small>Origem invalidada</small>
-                    }
-                  </div>
-                  <a class="op-row-link" [routerLink]="['/notificacoes', item.id]"
-                    >Ver notificação<span class="material-symbols-outlined" aria-hidden="true"
-                      >arrow_forward</span
-                    ></a
-                  >
-                </article>
-              }
-            </div>
+          <h2 id="notification-results-title" tabindex="-1">Notificações</h2>
+          <sager-communications-state
+            [loading]="list.loading()"
+            [error]="list.error()"
+            (retry)="list.reload()"
+          />
+          @if (!list.loading() && !list.error()) {
+            @if (!list.items().length) {
+              <div class="op-empty" role="status">
+                <h3>Nenhuma notificação encontrada</h3>
+                <p>Quando acontecer algo para analisar, vai aparecer aqui.</p>
+              </div>
+            } @else {
+              <div class="op-list">
+                @for (item of list.items(); track item.id) {
+                  <article class="op-row">
+                    <div class="op-row-main">
+                      <h3>{{ item.residentName }}</h3>
+                      <p>{{ categories[item.category] }} · {{ formatTime(item.createdAt) }}</p>
+                      @if (item.requiresReview) {
+                        <p>Origem corrigida · falta conferir</p>
+                      }
+                    </div>
+                    <div class="op-row-side">
+                      <span class="op-status">{{ labels[item.status] }}</span>
+                      @if (!item.valid) {
+                        <small>Origem invalidada</small>
+                      }
+                    </div>
+                    <a class="op-row-link" [routerLink]="['/notificacoes', item.id]"
+                      >Ver notificação<span class="material-symbols-outlined" aria-hidden="true"
+                        >arrow_forward</span
+                      ></a
+                    >
+                  </article>
+                }
+              </div>
+            }
           }
-          @if (nextCursor() !== null) {
-            <div class="comm-actions">
-              <button
-                class="btn-secondary"
-                type="button"
-                [disabled]="moreLoading()"
-                (click)="more()"
-              >
-                {{ moreLoading() ? 'Carregando…' : 'Carregar mais notificações' }}
-              </button>
-            </div>
-          }
-          @if (moreError()) {
-            <p class="comm-error" role="alert">{{ moreError() }}</p>
-          }
+          <sager-pagination
+            [page]="list.page()"
+            [hasNext]="list.hasNext()"
+            [busy]="list.loading()"
+            anchor="notification-results-title"
+            (pageChange)="list.go($event)"
+          />
         </section>
       }
     </main>
@@ -158,92 +127,27 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
   styleUrl: './communications-local.scss',
 })
 export class NotificationsLocalPage {
-  searchFilters: Record<string, string> = {};
-  private appliedSearch: Record<string, string> = {};
-
   readonly session = inject(DemoSessionService);
   private readonly api = inject(CommunicationsLocalApiService);
-  private readonly registry = inject(ResidentApiService);
-  readonly residents = signal<ResidentRecord[]>([]);
-  readonly items = signal<DisciplineNotification[]>([]);
-  readonly nextCursor = signal<number | null>(null);
-  readonly loading = signal(false);
-  readonly error = signal('');
-  readonly moreLoading = signal(false);
-  readonly moreError = signal('');
+  private filters: Record<string, string> = {};
+  readonly list = cursorPages<DisciplineNotification>(
+    (cursor) =>
+      this.api.notifications(
+        this.filters['residentId'] ?? '',
+        this.filters['status'] ?? '',
+        cursor,
+        this.filters,
+      ),
+    communicationsError,
+  );
   readonly labels = notificationLabels;
   readonly categories = categoryLabels;
-  readonly statuses = Object.keys(notificationLabels) as NotificationStatus[];
   readonly formatTime = formatCommunicationTime;
-  readonly filters = new FormGroup({
-    residentId: new FormControl('', { nonNullable: true }),
-    status: new FormControl('', { nonNullable: true }),
-  });
-  private generation = 0;
-  private appliedFilters = { residentId: '', status: '' };
-  constructor() {
-    rememberFilters('notifications-local.pages', this.filters);
-    void this.load();
-  }
-  async load(): Promise<void> {
-    this.appliedSearch = { ...this.searchFilters };
-    if (this.session.active() || !this.session.hasRole('supervisor')) return;
-    const generation = ++this.generation;
-    this.loading.set(true);
-    this.moreLoading.set(false);
-    this.error.set('');
-    this.moreError.set('');
-    this.items.set([]);
-    try {
-      const value = this.filters.getRawValue();
-      const [items, residents] = await Promise.all([
-        this.api.notifications(value.residentId, value.status, undefined, this.appliedSearch),
-        this.registry.list(),
-      ]);
-      if (generation === this.generation) {
-        this.appliedFilters = value;
-        this.apply(items);
-        this.residents.set(residents);
-      }
-    } catch (error) {
-      if (generation === this.generation) this.error.set(communicationsError(error));
-    } finally {
-      if (generation === this.generation) this.loading.set(false);
-    }
-  }
-  async more(): Promise<void> {
-    const cursor = this.nextCursor();
-    const generation = this.generation;
-    if (cursor === null || this.moreLoading()) return;
-    this.moreLoading.set(true);
-    this.moreError.set('');
-    try {
-      const value = this.appliedFilters;
-      const page = await this.api.notifications(
-        value.residentId,
-        value.status,
-        cursor,
-        this.appliedSearch,
-      );
-      if (generation === this.generation) this.apply(page, true);
-    } catch (error) {
-      if (generation === this.generation) this.moreError.set(communicationsError(error));
-    } finally {
-      if (generation === this.generation) this.moreLoading.set(false);
-    }
-  }
-  private apply(page: CursorPage<DisciplineNotification>, append = false): void {
-    this.items.set(
-      append
-        ? [
-            ...this.items(),
-            ...page.items.filter(
-              (item) => !this.items().some((previous) => previous.id === item.id),
-            ),
-          ]
-        : page.items,
-    );
-    this.nextCursor.set(page.nextCursor);
+  // A primeira carga vem da emissão inicial do painel de filtro.
+  filter(filters: Record<string, string>): Promise<void> {
+    if (this.session.active() || !this.session.hasRole('supervisor')) return Promise.resolve();
+    this.filters = filters;
+    return this.list.reload();
   }
 }
 
