@@ -87,8 +87,7 @@ async function mockLocal(
     const inRoom =
       !roomId ||
       allocations.some(
-        (item) =>
-          item.residentId === subject.id && item.roomId === roomId && item.endedAt === null,
+        (item) => item.residentId === subject.id && item.roomId === roomId && item.endedAt === null,
       );
     return route.fulfill({ json: inRoom ? [subject] : [] });
   });

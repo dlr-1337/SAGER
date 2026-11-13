@@ -348,12 +348,18 @@ export class ResidentsComponent {
         const lastPage = Math.max(0, Math.ceil(this.demoFiltered().length / 25) - 1);
         this.changePage(Math.max(0, Math.min(this.page(), lastPage)));
       } else {
-        // Os dois pedidos saem juntos; a falha de um mostra o aviso, e a lista carrega à parte.
-        const [courses, map] = await Promise.all([this.courseApi.list(), this.roomApi.map()]);
+        // Os dois pedidos saem juntos; o que chegar fica, e a falha de um mostra o aviso.
+        const [courses, map] = await Promise.allSettled([
+          this.courseApi.list(),
+          this.roomApi.map(),
+        ]);
         if (this.destroy.destroyed) return;
-        this.courses.set(courses);
-        this.housing.set(map);
-        clearMissingLocation(map, this.filters.controls);
+        if (courses.status === 'fulfilled') this.courses.set(courses.value);
+        if (map.status === 'fulfilled') {
+          this.housing.set(map.value);
+          clearMissingLocation(map.value, this.filters.controls);
+        }
+        if (courses.status === 'rejected' || map.status === 'rejected') throw new Error();
       }
     } catch {
       if (!this.destroy.destroyed)

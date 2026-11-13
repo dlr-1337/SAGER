@@ -72,7 +72,7 @@ Com Docker, o mesmo comando fica `./sager account create --matricula=...`. A sen
 Todo dia às 00h10 (America/Sao_Paulo), nos perfis `local` e `production`, o backend encerra o vínculo ativo de quarto de cada residente que passou da saída prevista. A saída prevista sai do ano de ingresso, do 5º caractere da matrícula (`1` é o 1º semestre; outro valor, o 2º), da duração do curso e da prorrogação, e termina em 30/06 ou 31/12.
 
 - O vínculo fecha com o motivo `CONCLUSION`, e a auditoria registra `END` com origem `SYSTEM_JOB`, sem autor.
-- A flag `sager.operations.expiry.enabled=false` (variável `SAGER_OPERATIONS_EXPIRY_ENABLED=false`) desliga esta rotina junto com a expiração das saídas curtas.
+- A flag `sager.operations.expiry.enabled=false` (variável `SAGER_OPERATIONS_EXPIRY_ENABLED=false`) desliga esta rotina junto com a expiração das saídas curtas e longas.
 - A condição é "passou da saída prevista", não "venceu ontem": um dia sem execução, por servidor parado, é recuperado na execução seguinte.
 - A API recusa colocar ou transferir um concluinte (409 `resident_concluded`) até que a prorrogação seja lançada no cadastro.
 - A conta de acesso do concluinte continua ativa.

@@ -938,7 +938,7 @@ export class ResidentDetailComponent {
   async saveAllocation(): Promise<void> {
     if (!this.canEdit() || this.allocationSaving() || this.allocationLoadError()) return;
     const roomId = this.selectedRoom.value;
-    const room = this.allocationMap().rooms.find((item) => item.id === roomId);
+    const room = this.roomOptions().find((item) => item.id === roomId);
     if (!room || !this.roomCanReceive(room) || roomId === this.activeAllocation()?.roomId) return;
     this.allocationSaving.set(true);
     this.allocationActionError.set('');
@@ -950,7 +950,11 @@ export class ResidentDetailComponent {
       await this.loadAllocations();
     } catch (error) {
       this.allocationActionError.set(allocationErrorMessage(error));
-      if (error instanceof AllocationApiError && error.status === 409) await this.loadAllocations();
+      if (error instanceof AllocationApiError && error.status === 409) {
+        await this.loadAllocations();
+        // O quarto pode ter saído das opções (faixa trocada): pede outra escolha.
+        if (!this.roomOptions().some((item) => item.id === roomId)) this.selectedRoom.setValue('');
+      }
     } finally {
       this.allocationSaving.set(false);
     }
