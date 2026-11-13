@@ -35,7 +35,7 @@ Implementar na onda 3, depois de `remove-health-module` e da parte frontend de `
 
 ## 5. Demonstração
 
-- [x] 5.1 Confirmar que a demonstração acompanha só o formulário (D11), sem mudar `management-demo.service.ts` nem os dados fictícios: ano de ingresso obrigatório e sugerido pela matrícula, e nível e duração no "Novo curso" e na tela de cursos. Etapa, saída prevista e "Concluinte" não aparecem nela. Verificar em `frontend/` com `npm test -- --watch=false --include=src/app/features/management/management-demo.service.spec.ts --include=src/app/features/management/residents-demo-rooms.spec.ts --include=src/app/features/management/resident-form.component.spec.ts` e, à mão, em `/demonstracao` com o perfil gestor: criar um residente, editar `r-ana` e criar um curso com nível e duração continuam funcionando.
+- [x] 5.1 Confirmar que a demonstração acompanha só o formulário (D11), sem mudar `management-demo.service.ts` nem os dados fictícios: ano de ingresso obrigatório e sugerido pela matrícula, e nível e duração no "Novo curso" e na tela de cursos. Etapa, saída prevista e "Concluinte" não aparecem nela. Verificar em `frontend/` com `npm test -- --watch=false --include=src/app/features/management/management-demo.service.spec.ts --include=src/app/features/management/residents-demo-rooms.spec.ts --include=src/app/features/management/resident-form.component.spec.ts` e, à mão, em `/demonstracao` com o perfil gestor: criar um residente, editar `r-ana` e criar um curso com nível e duração continuam funcionando. Conferido à mão em 13/11/2026 no Chrome (`ng serve` da branch integrada): curso "Superior · 4 anos" criado; residente novo com o ano 2025 sugerido pela matrícula; `r-ana` editada com o ano 2024 e salva.
 
 ## 6. Verificação geral
 
