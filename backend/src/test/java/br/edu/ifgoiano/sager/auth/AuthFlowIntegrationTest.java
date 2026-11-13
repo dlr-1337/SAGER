@@ -154,24 +154,21 @@ class AuthFlowIntegrationTest {
     }
 
     @Test
-    void healthProfileRequiresIndependentProfessionalAccessAndCannotManageResidents() throws Exception {
-        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("saude@example.invalid"), "saude@example.invalid", "Profissional Sintetica", "saude",
+    void removedHealthProfileAndRoutesStayClosed() throws Exception {
+        assertThatThrownBy(() -> provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("saude@example.invalid"),
+                "saude@example.invalid", "Profissional Sintetica", "saude", PASSWORD.toCharArray()))
+                .isInstanceOf(IllegalArgumentException.class);
+        try (HttpClient client = browser()) {
+            assertThat(get(client, "/api/v1/saude/me").statusCode()).isEqualTo(401);
+            assertThat(get(client, "/api/v1/minha-saude/notas").statusCode()).isEqualTo(401);
+        }
+        String email = "gestor-saude@example.invalid";
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(email), email, "Gestor Sintetico", "gestor",
                 PASSWORD.toCharArray());
         try (HttpClient client = browser()) {
-            String csrf = csrfToken(client);
-            assertThat(login(client, "saude@example.invalid", PASSWORD, csrf).statusCode()).isEqualTo(204);
-            JsonNode principal = json.readTree(get(client, "/api/v1/auth/me").body());
-            assertThat(principal.path("perfis").get(0).asText()).isEqualTo("saude");
-            assertThat(principal.path("residenteId").isNull()).isTrue();
-            assertThat(principal.path("supervisorId").isNull()).isTrue();
-            assertThat(get(client, "/api/v1/residentes").statusCode()).isEqualTo(403);
-            assertThat(get(client, "/api/v1/auditoria").statusCode()).isEqualTo(403);
-            HttpResponse<String> response = get(client, "/api/v1/saude/me");
-            assertThat(response.statusCode()).isEqualTo(200);
-            JsonNode capacity = json.readTree(response.body());
-            assertThat(capacity.path("professionalGrant").isNull()).isTrue();
-            assertThat(capacity.path("canAdministerAccess").asBoolean()).isFalse();
-            assertThat(capacity.path("canAccessOwnRecord").asBoolean()).isFalse();
+            assertThat(login(client, email, PASSWORD, csrfToken(client)).statusCode()).isEqualTo(204);
+            assertThat(get(client, "/api/v1/saude/me").statusCode()).isEqualTo(403);
+            assertThat(get(client, "/api/v1/minha-saude/notas").statusCode()).isEqualTo(403);
         }
     }
 

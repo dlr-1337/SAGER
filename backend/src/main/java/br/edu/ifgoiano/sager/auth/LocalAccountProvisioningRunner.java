@@ -83,6 +83,10 @@ public class LocalAccountProvisioningRunner implements ApplicationRunner, ExitCo
             case "create" -> {
                 String name = requiredOption(arguments, "name");
                 String profile = requiredOption(arguments, "profile");
+                if (!profile.equals("gestor")) {
+                    throw new IllegalArgumentException("Pelo terminal só se criam contas de gestor; "
+                            + "residentes e supervisores recebem a conta no próprio cadastro.");
+                }
                 char[] password = readConfirmedPassword();
                 try {
                     accounts.create(requiredOption(arguments, "matricula"), email, name, profile, password);
@@ -139,7 +143,7 @@ public class LocalAccountProvisioningRunner implements ApplicationRunner, ExitCo
     private static void printHelp() {
         System.out.println("""
                 Comandos administrativos de contas (somente perfil local ou production):
-                  --sager-account=create --matricula=... [--email=...] --name=... --profile=gestor|supervisor|residente|saude
+                  --sager-account=create --matricula=... [--email=...] --name=... --profile=gestor
                   --sager-account=reset --matricula=...
                   --sager-account=disable --matricula=...
                   --sager-account=link-resident --email=... --resident-id=UUID
@@ -151,7 +155,6 @@ public class LocalAccountProvisioningRunner implements ApplicationRunner, ExitCo
                 Create e reset solicitam a senha no terminal; nao use senha em argumentos.
                 Vínculos exigem conta ativa e registro existente. Nao criam credenciais nem alteram perfil.
                 Residente exige perfil residente; supervisor admite perfil gestor ou supervisor.
-                Perfil saude nao concede habilitacao assistencial nem vinculo a residente/supervisor.
                 Unlink exige o UUID do vinculo atual e admite conta inativa sem reativa-la.
                 Alterar ou remover um vinculo encerra as sessoes existentes da conta.
                 """);

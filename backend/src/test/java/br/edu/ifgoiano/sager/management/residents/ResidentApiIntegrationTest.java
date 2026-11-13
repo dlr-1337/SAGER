@@ -527,7 +527,7 @@ class ResidentApiIntegrationTest {
             provisioning.assignEnrollment(linked.id(), "acesso-res-001");
             var assigned = provisioning.list().stream().filter(a -> a.id().equals(linked.id())).findFirst().orElseThrow();
             if (originalEnrollmentOccupied)
-                provisioning.create("20261CADRES00001", null, "Outra Conta Sintética", "saude", PASSWORD.toCharArray());
+                provisioning.create("20261CADRES00001", null, "Outra Conta Sintética", "gestor", PASSWORD.toCharArray());
             assertThat(form(resident, "/api/v1/auth/login", Map.of("matricula", assigned.enrollment(), "password", PASSWORD)).statusCode()).isEqualTo(204);
 
             HttpResponse<String> updated = put(manager, PATH + "/" + id,
@@ -553,7 +553,7 @@ class ResidentApiIntegrationTest {
             var linked = provisioning.list().stream().filter(a -> id.equals(a.residentId())).findFirst().orElseThrow();
             provisioning.assignEnrollment(linked.id(), "acesso-res-001");
             var assigned = provisioning.list().stream().filter(a -> a.id().equals(linked.id())).findFirst().orElseThrow();
-            provisioning.create("20261OCUPADA0001", null, "Outra Conta Sintética", "saude", PASSWORD.toCharArray());
+            provisioning.create("20261OCUPADA0001", null, "Outra Conta Sintética", "gestor", PASSWORD.toCharArray());
             assertThat(form(resident, "/api/v1/auth/login", Map.of("matricula", assigned.enrollment(), "password", PASSWORD)).statusCode()).isEqualTo(204);
             String before = get(manager, PATH + "/" + id).body();
             int audits = auditRows(id).size();
@@ -584,7 +584,7 @@ class ResidentApiIntegrationTest {
         account("gestor");
         try (HttpClient client = browser()) {
             login(client,"gestor");
-            provisioning.create("2026100000000123", null, "Outra Conta Sintética", "saude", PASSWORD.toCharArray());
+            provisioning.create("2026100000000123", null, "Outra Conta Sintética", "gestor", PASSWORD.toCharArray());
             var input = new LinkedHashMap<String,Object>(Map.of("name","Pessoa Sintética","enrollment","2026100000000123","birthDate",BIRTH_DATE,"courseId",courseId("Curso Sintético"),"password",PASSWORD,"passwordConfirmation","diferente"));
             assertThat(post(client,PATH,json.writeValueAsString(input),csrf(client)).statusCode()).isEqualTo(400);
             input.put("passwordConfirmation", PASSWORD);

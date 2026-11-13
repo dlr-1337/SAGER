@@ -246,8 +246,6 @@ class SupervisorApiIntegrationTest {
                 PASSWORD.toCharArray());
         provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("residente@example.invalid"), "residente@example.invalid", "Residente", "residente",
                 PASSWORD.toCharArray());
-        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("saude@example.invalid"), "saude@example.invalid", "Saúde", "saude",
-                PASSWORD.toCharArray());
         String unknown = UUID.randomUUID().toString();
         try (HttpClient anonymous = browser()) {
             assertThat(get(anonymous, PATH).statusCode()).isEqualTo(401);
@@ -258,7 +256,7 @@ class SupervisorApiIntegrationTest {
                     updateInput("Ana", "DEMO-001", "ana@demo.invalid", 0),
                     csrfToken(anonymous)).statusCode()).isEqualTo(401);
         }
-        for (String profile : new String[] { "supervisor", "residente", "saude" }) {
+        for (String profile : new String[] { "supervisor", "residente" }) {
             try (HttpClient client = browser()) {
                 login(client, profile + "@example.invalid");
                 assertThat(get(client, PATH).statusCode()).isEqualTo(403);
@@ -405,7 +403,7 @@ class SupervisorApiIntegrationTest {
             LocalAccount assigned = linkedSupervisor(manager);
             UUID id = assigned.supervisorId();
             if (originalEnrollmentOccupied)
-                provisioning.create("cad-sup-001", null, "Outra Conta Sintética", "saude", PASSWORD.toCharArray());
+                provisioning.create("cad-sup-001", null, "Outra Conta Sintética", "gestor", PASSWORD.toCharArray());
             login(supervisor, assigned.enrollment());
 
             HttpResponse<String> updated = put(manager, PATH + "/" + id,
@@ -427,7 +425,7 @@ class SupervisorApiIntegrationTest {
         try (HttpClient manager = browser(); HttpClient supervisor = browser()) {
             LocalAccount assigned = linkedSupervisor(manager);
             UUID id = assigned.supervisorId();
-            provisioning.create("ocupada-sup-001", null, "Outra Conta Sintética", "saude", PASSWORD.toCharArray());
+            provisioning.create("ocupada-sup-001", null, "Outra Conta Sintética", "gestor", PASSWORD.toCharArray());
             login(supervisor, assigned.enrollment());
             String before = get(manager, PATH + "/" + id).body();
             Integer audits = jdbc.queryForObject("SELECT COUNT(*) FROM sager_audit_event WHERE resource_id=?", Integer.class, id);
