@@ -2,6 +2,7 @@ package br.edu.ifgoiano.sager.auth;
 
 import br.edu.ifgoiano.sager.management.FieldRules;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -63,6 +64,12 @@ public class LocalAccountRepository {
 
     public Optional<LocalAccount> findById(UUID id) {
         return query("WHERE id = ?", id).stream().findFirst();
+    }
+
+    public Optional<LocalDate> residentBirthDate(UUID residentId) {
+        return jdbc.query("SELECT birth_date FROM sager_resident WHERE id = ?",
+                (row, index) -> Optional.ofNullable(row.getObject(1, LocalDate.class)), residentId)
+                .stream().findFirst().flatMap(value -> value);
     }
 
     public Optional<LocalAccount> findByEmailForUpdate(String email) {
