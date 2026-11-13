@@ -40,15 +40,21 @@ Somente o residente SHALL pedir saída, sempre em nome próprio, com partida ime
 - **WHEN** um supervisor tenta criar uma saída curta
 - **THEN** o servidor responde 403
 
-### Requirement: Saída exige alocação ativa
+### Requirement: Saída exige residente elegível
 
-O pedido, a edição, a aprovação e a partida de uma saída MUST ser recusados com 409 `not_eligible` quando o residente não tiver alocação ativa, e a consulta de elegibilidade SHALL apontar o bloqueio `active_allocation_required` (RN02).
+O pedido, a edição, a aprovação e a partida de uma saída MUST ser recusados com 409 `not_eligible` quando o residente não tiver alocação ativa ou não for menor de idade na data civil de America/Sao_Paulo, como define `exit-eligibility`. O servidor SHALL conferir isso de novo em cada um desses passos, e a consulta de elegibilidade SHALL apontar `active_allocation_required` quando faltar a alocação (RN02).
 
 #### Scenario: Residente sem quarto
 
 - **GIVEN** um residente menor de idade cuja alocação foi encerrada
 - **WHEN** ele pede uma saída curta
 - **THEN** o servidor responde 409 `not_eligible` e nada é gravado
+
+#### Scenario: Aprovação depois dos 18 anos
+
+- **GIVEN** uma saída curta pedida aos 17 anos, aguardando análise
+- **WHEN** o supervisor tenta aprová-la depois do aniversário de 18 anos do residente
+- **THEN** o servidor responde 409 `not_eligible` e a saída continua aguardando análise
 
 ### Requirement: Sem sobreposição de saídas
 
@@ -62,7 +68,7 @@ Um residente MUST NOT ter saídas, curtas ou longas, com janelas sobrepostas ent
 
 ### Requirement: Edição e cancelamento
 
-O residente SHALL editar ou cancelar o próprio pedido enquanto ele aguarda análise, e o supervisor SHALL cancelar pedido aguardando análise ou aprovado. Todo cancelamento MUST trazer justificativa de 10 a 2.000 caracteres, e pedido em outra situação MUST receber 409 `invalid_state` (RF007; cap. 4, tabela de permissões).
+O residente menor de idade SHALL editar ou cancelar o próprio pedido enquanto ele aguarda análise, e o supervisor SHALL cancelar pedido aguardando análise ou aprovado. Todo cancelamento MUST trazer justificativa de 10 a 2.000 caracteres, e pedido em outra situação MUST receber 409 `invalid_state` (RF007; cap. 4, tabela de permissões).
 
 #### Scenario: Residente cancela pedido pendente
 

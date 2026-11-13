@@ -57,19 +57,19 @@ Leitura e ciência SHALL ser registradas por ações separadas do residente, cad
 
 ### Requirement: Ciência por versão vigente
 
-A ciência SHALL valer para a versão confirmada do conteúdo e só ser aceita na versão vigente. Ciência em versão superada, retirada ou anulada MUST receber 409 `content_not_current`, e repetir a ciência MUST manter a data original (RN13, RF009, UC08).
+A ciência SHALL valer para a versão confirmada do conteúdo, e a ciência nova só SHALL ser aceita na versão vigente. Ciência numa versão superada, retirada ou anulada que ainda não a tinha MUST receber 409 `content_not_current`. Repetir a ciência de uma versão que já a tem MUST devolver a data original, sem novo registro, mesmo que essa versão tenha sido superada, retirada ou anulada depois (RN13, RF009, UC08).
 
 #### Scenario: Ciência em versão superada
 
-- **GIVEN** um aviso cuja primeira versão foi superada
+- **GIVEN** um aviso cuja primeira versão foi superada antes da ciência do residente
 - **WHEN** o residente tenta dar ciência na primeira versão
 - **THEN** o servidor responde 409 `content_not_current`
 
 #### Scenario: Ciência repetida
 
-- **GIVEN** uma advertência com ciência registrada ontem
-- **WHEN** o residente confirma a ciência de novo
-- **THEN** a ciência continua com a data de ontem
+- **GIVEN** uma advertência com ciência registrada ontem e anulada hoje
+- **WHEN** o residente confirma a ciência dela de novo
+- **THEN** o servidor não responde 409 e a ciência continua com a data de ontem
 
 ### Requirement: Comunicações só do destinatário
 

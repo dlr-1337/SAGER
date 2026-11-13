@@ -24,7 +24,7 @@ Gestor e supervisor SHALL cadastrar e editar alojamentos e, dentro de cada um, u
 
 ### Requirement: Quartos na estrutura
 
-Cada quarto SHALL pertencer a um alojamento e, se tiver unidade, a uma unidade desse mesmo alojamento, com código único no sistema e número único na sua localização. Unidade de outro alojamento MUST ser recusada com 400 `invalid_location`, sem mover o quarto (RF003, UC16).
+Cada quarto SHALL pertencer a um alojamento e, se tiver unidade, a uma unidade desse mesmo alojamento. O código MUST ser único no sistema, e o número, único no mesmo alojamento, unidade e andar; as duas comparações não diferenciam maiúsculas de minúsculas, e dois quartos sem unidade ou sem andar contam como do mesmo lugar. A repetição MUST receber 409. Unidade de outro alojamento MUST ser recusada com 400 `invalid_location`, sem mover o quarto (RF003, UC16).
 
 #### Scenario: Unidade de outro alojamento
 
@@ -32,11 +32,17 @@ Cada quarto SHALL pertencer a um alojamento e, se tiver unidade, a uma unidade d
 - **WHEN** o gestor tenta colocá-lo numa unidade do alojamento B
 - **THEN** o servidor responde 400 `invalid_location` e o quarto continua onde estava
 
-#### Scenario: Número repetido na mesma unidade
+#### Scenario: Número repetido no mesmo andar
 
-- **GIVEN** o quarto 101 na Casa 1
-- **WHEN** o supervisor cadastra outro quarto 101 na Casa 1
-- **THEN** o servidor responde 409 e nenhum quarto é criado
+- **GIVEN** o quarto 101 no andar "Térreo" da Casa 1
+- **WHEN** o gestor cadastra outro quarto 101 no andar "térreo" da Casa 1
+- **THEN** o servidor responde 409 `duplicate_location` e nenhum quarto é criado
+
+#### Scenario: Mesmo número em andar diferente
+
+- **GIVEN** o quarto 101 sem andar na Casa 1
+- **WHEN** o gestor cadastra outro quarto 101 no andar "Térreo" da Casa 1
+- **THEN** o quarto é gravado
 
 ### Requirement: Situação escolhida do quarto
 

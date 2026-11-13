@@ -96,9 +96,9 @@ O supervisor SHALL registrar advertência convertendo uma notificação ou manua
 
 O sistema SHALL apontar possível reincidência quando o residente tiver duas advertências vigentes da mesma categoria, de origens distintas, registradas nos últimos 90 dias, sem contar as da categoria Outra, as anuladas e as de origem inválida (RN12, UC21).
 
-#### Scenario: Duas advertências da mesma origem
+#### Scenario: Uma só origem
 
-- **GIVEN** duas advertências vigentes de ausência que vêm da mesma chamada
+- **GIVEN** uma única advertência vigente de ausência, registrada nesta semana
 - **WHEN** o supervisor consulta a reincidência do residente
 - **THEN** a categoria ausência não aparece como possível reincidência
 
@@ -132,9 +132,9 @@ Advertência da base do termo que seja da categoria Outra, anulada, de origem in
 - **WHEN** o supervisor tenta emitir um termo com elas
 - **THEN** o servidor responde 409 `recurrence_not_eligible`
 
-#### Scenario: Base com uma só origem
+#### Scenario: Base com categorias diferentes
 
-- **GIVEN** duas advertências vigentes de ausência que vêm da mesma chamada
+- **GIVEN** uma advertência vigente de ausência e outra de atraso no retorno, as duas registradas nesta semana
 - **WHEN** o supervisor tenta emitir um termo com elas
 - **THEN** o servidor responde 400 `invalid_input` e nenhum termo é emitido
 

@@ -9,18 +9,18 @@ O AGENTS.md diz que `openspec/specs` é a fonte do comportamento ("openspec/spec
 - Cria 13 capabilities novas, só com `## ADDED Requirements`, que descrevem o comportamento central que já existe no código e na monografia. São 84 requisitos.
 - Cada requisito cita entre parênteses o RF, a RN, o UC ou a seção da monografia de onde vem. Todos foram conferidos no código do backend e do frontend em 13/11/2026. Quando código e monografia divergem, o texto segue a monografia, e a divergência fica em design.md, "Divergências e lacunas".
 - Os códigos de erro da API (`active_conflict`, `overlapping_exit`, `stale_version` etc.) aparecem nos cenários como contrato observável, porque os testes de integração e as telas dependem deles.
-- Nada do que as changes ativas alteram entra aqui: paginação de 25 itens, níveis do mapa de quartos, menu sem saídas para adultos, concluinte, faixa etária e remoção da saúde. Os requisitos foram escritos para continuar verdadeiros depois que essas changes forem arquivadas.
+- Nada do que as changes arquivadas em 13/11/2026 alteraram entra aqui: paginação de 25 itens, níveis do mapa de quartos, menu sem saídas para adultos, concluinte, faixa etária e remoção da saúde. Os requisitos foram escritos para continuar verdadeiros depois delas.
 
 Já coberto por outras specs, e por isso só citado aqui:
 - `supervisor-accounts` (RF013, UC14): cadastro de supervisores e conta criada no mesmo ato.
-- `password-policy`: regra de senha; e o delta de `align-with-monograph`, que corrige a ajuda de senha.
+- `password-policy`: regra de senha; e o delta de `align-with-monograph`, que corrigiu a ajuda de senha.
 - `registration-validation` (e o delta de `track-course-conclusion`): formatos de nome, matrícula, e-mail, nascimento, telefone, curso obrigatório e capacidade de 1 a 20.
 - `guardian-authorization`, `whatsapp-gateway` e `whatsapp-conversations` (RF015, RF016, RN04, UC18, UC24): documento, envio, conferência humana, anexo manual e decisão separada da conferência.
 - `guardian-authorization`, "Conteúdo mínimo do documento" (RN17, na parte das mensagens externas): o PDF sem nascimento, matrícula nem quarto. O texto da mensagem ao responsável não tem spec (design.md, "Divergências e lacunas").
 - `exit-scheduling` (RF007): comportamento do formulário de saída na tela (sugestão de retorno, limites visíveis, horário do servidor, partida no passado, sobreposição avisada).
 - `night-call-justification` (RN10): ausência justificada automática na abertura, correção e fechamento.
 - `report-generation` (RF011, UC11): geração e exportação de relatórios.
-- Changes ativas: `exit-eligibility` (RN02, maioridade nas saídas), `accommodation-age-group` (faixa etária), `course-progress` (concluinte), `room-map`, `room-filters` e `block-filters` (tela de quartos), `list-browsing` (paginação), `page-loading` (sessão e CSRF no frontend), `account-audit` (auditoria das contas), `demo-fidelity` (textos da demonstração) e `resident-record` (ficha do residente).
+- Specs das changes arquivadas em 13/11/2026: `exit-eligibility` (RN02, maioridade nas saídas), `accommodation-age-group` (faixa etária), `course-progress` (concluinte), `room-map`, `room-filters` e `block-filters` (tela de quartos), `list-browsing` (paginação), `page-loading` (sessão e CSRF no frontend), `account-audit` (auditoria das contas), `demo-fidelity` (textos da demonstração) e `resident-record` (ficha do residente).
 
 Fora do escopo:
 - Qualquer mudança de código, migração, teste ou tela. Esta change só documenta.
@@ -54,5 +54,4 @@ Nenhuma.
 ## Impact
 
 - Só documentação: 13 pastas novas em `openspec/changes/document-core-baseline/specs/`. Nenhum arquivo de código, migração, teste ou configuração muda.
-- Depois do arquivamento, `openspec/specs` passa de 16 para 29 capabilities, e `validate --all --strict` passa a conferir também a base central.
-- Ordem: arquivar depois das changes ativas (design.md, D6), para que as specs que elas criam ou alteram já estejam em `openspec/specs`.
+- Depois do arquivamento, `openspec/specs` passa de 25 para 38 capabilities, e `validate --all --strict` passa a conferir também a base central.
