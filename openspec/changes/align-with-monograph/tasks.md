@@ -62,7 +62,7 @@ Os caminhos do frontend são relativos a `frontend/`, e os do backend, a `backen
 
 ## 8. Demonstração: chamada só com menores (RN02; D8)
 
-- [ ] 8.1 Em `src/app/features/management/management-demo.service.ts`, trocar o nascimento de Pedro Henrique Silva para `2009-12-03` e o de Beatriz Costa para `2010-08-22`. Este grupo é só da demonstração. Verificar com um caso novo em `src/app/features/management/management-demo.service.spec.ts`. Com `vi.setSystemTime` em 2026-12-31, cada nome de `OperationsDemoService.minors` corresponde a um residente de `ManagementDemoService.residents()` com menos de 18 anos. O caso precisa falhar com as datas antigas antes da troca. Rodar `npm test -- --watch=false --include=src/app/features/management/management-demo.service.spec.ts --include=src/app/features/management/residents-demo-rooms.spec.ts --include=src/app/features/management/management-demo-pagination.spec.ts`.
+- [x] 8.1 Em `src/app/features/management/management-demo.service.ts`, trocar o nascimento de Pedro Henrique Silva para `2009-12-03` e o de Beatriz Costa para `2010-08-22`. Este grupo é só da demonstração. Verificar com um caso novo em `src/app/features/management/management-demo.service.spec.ts`. Com `vi.setSystemTime` em 2026-12-31, cada nome de `OperationsDemoService.minors` corresponde a um residente de `ManagementDemoService.residents()` com menos de 18 anos. O caso precisa falhar com as datas antigas antes da troca. Rodar `npm test -- --watch=false --include=src/app/features/management/management-demo.service.spec.ts --include=src/app/features/management/residents-demo-rooms.spec.ts --include=src/app/features/management/management-demo-pagination.spec.ts`.
 
 ## 9. Auditoria das contas (RN16, RN17, RF025; D9)
 

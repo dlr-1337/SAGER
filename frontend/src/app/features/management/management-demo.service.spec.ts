@@ -1,6 +1,27 @@
+import { vi } from 'vitest';
+import { OperationsDemoService } from '../operations/operations-demo.service';
 import { ManagementDemoService } from './management-demo.service';
 
 describe('ManagementDemoService', () => {
+  it('lists in the demo night call only residents under 18 on 2026-12-31', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-12-31T12:00:00-03:00'));
+    try {
+      const residents = new ManagementDemoService().residents();
+      const today = new Date().toISOString().slice(0, 10);
+      for (const minor of new OperationsDemoService().minors) {
+        const birth = residents.find((item) => item.name === minor.name)?.birthDate ?? '';
+        const age =
+          Number(today.slice(0, 4)) -
+          Number(birth.slice(0, 4)) -
+          (today.slice(5) < birth.slice(5) ? 1 : 0);
+        expect(age, minor.name).toBeLessThan(18);
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('rejects a duplicate room number across blocks without changing the map', () => {
     const service = new ManagementDemoService();
     const before = service.rooms().length;
