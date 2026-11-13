@@ -236,6 +236,10 @@ public class LocalAccountProvisioningService {
         });
     }
 
+    // Auditado na edição do residente, como a matrícula.
+    @Transactional
+    public void synchronizeResidentName(UUID residentId, String name) { accounts.renameResidentAccount(residentId, name); }
+
     @Transactional
     public void assignEnrollment(UUID accountId, String enrollment) {
         LocalAccount account = accounts.findByIdForUpdate(accountId)

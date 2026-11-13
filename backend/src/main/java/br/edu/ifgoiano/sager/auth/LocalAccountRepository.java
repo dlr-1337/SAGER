@@ -46,6 +46,12 @@ public class LocalAccountRepository {
         revokeSessions(account);
     }
 
+    /** O nome não é credencial: a sessão continua. */
+    public void renameResidentAccount(UUID residentId, String name) {
+        jdbc.update("UPDATE sager_local_account SET display_name=?, updated_at=CURRENT_TIMESTAMP WHERE resident_id=?",
+                name, residentId);
+    }
+
     public void revokeSessions(LocalAccount account) {
         jdbc.update("DELETE FROM spring_session WHERE principal_name IN (?, ?)", account.id().toString(), account.email());
     }
