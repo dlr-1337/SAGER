@@ -286,11 +286,11 @@ export class ReportsDemoApiService implements ReportsApi {
   async rows(reportId: string, offset = 0): Promise<ReportRows> {
     await this.scenario();
     const { rows } = this.report(reportId);
-    const end = offset + 20;
+    const end = offset + 25;
     return {
       snapshotId: reportId,
       offset,
-      limit: 20,
+      limit: 25,
       total: rows.length,
       nextOffset: end < rows.length ? end : null,
       items: rows.slice(offset, end),
