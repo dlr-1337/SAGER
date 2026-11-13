@@ -262,6 +262,9 @@ curl_request actuator /actuator/health/readiness 404
 for asset in favicon.svg favicon.ico apple-touch-icon.png icon-192.png icon-512.png og-image.png manifest.webmanifest; do
   curl_request "$asset" "/$asset" 200
 done
+[[ "$(<"$temp_dir/index.body")" =~ (main-[A-Za-z0-9_-]{8}\.js) ]] || fail 'The index must reference a hashed main script.'
+curl_request main-script "/${BASH_REMATCH[1]}" 200
+curl_request missing-chunk /chunk-AAAAAAAA.js 404
 head -c 2097152 /dev/zero > "$temp_dir/2m.bin"
 head -c 12582912 /dev/zero > "$temp_dir/12m.bin"
 # The uploads reach the backend, which refuses them without CSRF, while the webhook keeps 1 MiB.
@@ -336,7 +339,9 @@ all_headers = {}
 brand_assets = {'favicon.svg': 'image/svg+xml', 'favicon.ico': 'icon', 'apple-touch-icon.png': 'image/png',
                 'icon-192.png': 'image/png', 'icon-512.png': 'image/png', 'og-image.png': 'image/png',
                 'manifest.webmanifest': 'application/manifest+json'}
-for name in ('index', 'demo', 'csrf', 'principal', 'unprotected-write', 'actuator', *brand_assets):
+immutable = 'public, max-age=31536000, immutable'
+for name in ('index', 'demo', 'csrf', 'principal', 'unprotected-write', 'actuator', 'main-script', 'missing-chunk',
+             *brand_assets):
     headers = {}
     for line in (temporary / (name + '.headers')).read_text(encoding='iso-8859-1').splitlines():
         if ':' in line:
@@ -349,7 +354,9 @@ for name in ('index', 'demo', 'csrf', 'principal', 'unprotected-write', 'actuato
         'strict-transport-security': lambda value: bool(re.search(r'(?:^|;)\s*max-age=31536000\s*(?:;|$)', value)),
         'x-content-type-options': lambda value: value.lower() == 'nosniff',
         'referrer-policy': lambda value: value.lower() == 'no-referrer',
-        'cache-control': lambda value: 'no-store' in value.lower(),
+        # Only the hashed main script is immutable; a missing hashed file stays no-store.
+        'cache-control': (lambda value: value == immutable) if name == 'main-script'
+                         else (lambda value: 'no-store' in value.lower()),
         'permissions-policy': lambda value: value == 'camera=(), microphone=(self), geolocation=()',
         'content-security-policy': lambda value: all(directive in value for directive in (
             "default-src 'self'", "frame-ancestors 'none'", "object-src 'none'",

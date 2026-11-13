@@ -135,6 +135,44 @@ preservando a validação da CA e do hostname. Não usa `-k`.
 
 Para usar imagens já compiladas, informe `--backend-image` e `--gateway-image`.
 
+## Política de cache do gateway
+
+Vale para os dois templates, `nginx.conf.template` daqui e `infra/coolify/nginx.conf.template`:
+
+- Arquivos do build com hash de 8 caracteres no nome (`main-<hash>.js`, `chunk-<hash>.js`,
+  `styles-<hash>.css` e `media/<nome>-<hash>.<ext>`) saem com
+  `Cache-Control: public, max-age=31536000, immutable`. Um nome com hash que não existe na
+  versão publicada responde 404 com `no-store`, para que o Cloudflare nunca guarde o erro.
+- A página (`index.html`, em qualquer rota), os arquivos de `frontend/public/` sem hash
+  (favicon, ícones, `og-image.png`, manifest e marca do IF) e toda resposta de `/api` saem com
+  `Cache-Control: no-store`.
+- Os cabeçalhos de segurança ficam em `sager-security-headers.conf`, incluído no `server` e na
+  location dos arquivos com hash, porque no nginx uma location com `add_header` próprio deixa
+  de herdar os do `server`. O `gateway.Dockerfile` copia o arquivo para a imagem.
+- O log `operational` traz `$upstream_response_time` depois de `$request_time`, separando o
+  tempo do backend do tempo total do pedido.
+
+`infra/coolify/test_start_gateway.py` e os dois smokes conferem essa política. Depois de cada
+deploy, confira pelo domínio público (troque `<host>`):
+
+```sh
+host=<host>
+main=$(curl -s "https://$host/acesso" | grep -oE 'main-[A-Za-z0-9_-]{8}\.js' | head -n 1)
+for i in 1 2; do
+  curl -s -o /dev/null -D - -w 'ttfb=%{time_starttransfer}\n' "https://$host/$main" \
+    | grep -iE '^(cache-control|cf-cache-status)|^ttfb'
+done
+for path in /acesso /api/v1/auth/csrf; do
+  curl -s -o /dev/null -D - "https://$host$path" | grep -iE '^(cache-control|cf-cache-status)'
+done
+```
+
+Esperado: `cache-control: public, max-age=31536000, immutable` no arquivo com hash,
+`cf-cache-status: HIT` no segundo pedido e TTFB de cerca de 30–40 ms. `/acesso` e
+`/api/v1/auth/csrf` mostram `no-store` e nunca `HIT`. Anote os números na descrição do PR.
+Se o arquivo com hash continuar `BYPASS`, confira no painel do Cloudflare se alguma regra
+força "Bypass cache" ou sobrepõe o `Cache-Control` da origem.
+
 ## Fontes técnicas
 
 - [Segredos no Docker Compose](https://docs.docker.com/compose/how-tos/use-secrets/).

@@ -555,6 +555,12 @@ class Smoke:
             asset, asset_headers = self.request('/' + parsed.path.lstrip('/'), 200)
             require(asset and expected_type in asset_headers.get('content-type', [''])[0],
                     'Production JS and CSS must serve their actual content types.')
+            require(asset_headers.get('cache-control') == ['public, max-age=31536000, immutable']
+                    and asset_headers.get('strict-transport-security')
+                    and asset_headers.get('content-security-policy'),
+                    'Hashed JS and CSS must be immutable and keep the security headers.')
+        _, missing = self.request('/chunk-AAAAAAAA.js', 404)
+        require(missing.get('cache-control') == ['no-store'], 'A missing hashed file must not be cached.')
         for path, expected_type in (
             ('/favicon.svg', 'image/svg+xml'), ('/favicon.ico', 'icon'),
             ('/apple-touch-icon.png', 'image/png'), ('/icon-192.png', 'image/png'),
@@ -564,12 +570,16 @@ class Smoke:
             asset, asset_headers = self.request(path, 200)
             require(asset and expected_type in asset_headers.get('content-type', [''])[0]
                     and asset_headers.get('content-security-policy')
-                    and asset_headers.get('strict-transport-security'),
-                    f'{path} must serve its type and the security headers.')
+                    and asset_headers.get('strict-transport-security')
+                    and asset_headers.get('cache-control') == ['no-store'],
+                    f'{path} must serve its type, the security headers and no-store.')
         self.request('/demonstracao', 404)
         self.request('/actuator/health/readiness', 404)
         # Fetch CSRF before any unauthenticated protected request can create a session.
         token, cookie_headers = self.csrf()
+        require(cookie_headers.get('cache-control')
+                and all('no-store' in value for value in cookie_headers['cache-control']),
+                'API responses must never be cached.')
         session = [value for value in cookie_headers.get('set-cookie', [])
                    if value.startswith(('SESSION=', 'JSESSIONID='))]
         require(session and all({'secure', 'httponly', 'samesite=lax'} <=

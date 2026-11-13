@@ -177,6 +177,8 @@ python -B infra/coolify/smoke.py --build
 ```
 
 A CI mantém também o smoke standalone com TLS e os testes de backend/frontend.
+A [política de cache do gateway](../production/README.md#política-de-cache-do-gateway) vale
+também para este template; depois do deploy, confira-a com os comandos `curl` de lá.
 No servidor, verificar certificado sem exceções, HTTP→HTTPS, `/acesso`, assets,
 CSRF, login/logout, endpoints internos bloqueados, isolamento, persistência após
 reimplantação e backup/restauração. Registrar saída, hashes e duração de cada
