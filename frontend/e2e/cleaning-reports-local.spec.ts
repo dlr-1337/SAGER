@@ -984,16 +984,27 @@ test('"Ver na tela" mostra baixar no topo, páginas de registros e nada técnico
   page,
 }) => {
   const state = await mockApi(page);
+  state.rows.push(
+    ...Array.from({ length: 9 }, (_, i) => ({ ...state.rows[0], id: uuid(1100 + i) })),
+  );
   await page.goto('/relatorios');
   await generate(page);
   await expect(page.getByText('Montando os arquivos', { exact: false })).toBeVisible();
   ready(state);
+  state.snapshot = {
+    ...state.snapshot,
+    rowCount: 30,
+    summary: { ...state.snapshot.summary, totalRows: 30 },
+  };
   await page.goto('/relatorios');
   await page.getByRole('link', { name: 'Ver na tela', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(snapshotId));
-  await expect(page.getByText('20 de 21 registros na tela.', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Carregar mais registros', exact: true }).click();
-  await expect(page.getByText('21 de 21 registros na tela.', { exact: true })).toBeVisible();
+  await expect(page.getByText('25 de 30 registros na tela.', { exact: true })).toBeVisible();
+  await expect(page.getByText('1–25 de 30', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Próxima', exact: true }).click();
+  await expect(page.getByText('5 de 30 registros na tela.', { exact: true })).toBeVisible();
+  await expect(page.getByText('26–30 de 30', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Registros', exact: true })).toBeFocused();
   const download = await page
     .getByRole('button', { name: 'Baixar PDF', exact: true })
     .boundingBox();

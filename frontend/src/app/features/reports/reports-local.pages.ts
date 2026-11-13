@@ -37,6 +37,7 @@ import {
 import { ResidentRecord } from '../management/resident-api.service';
 import { reportsApi } from './reports-demo-api.service';
 import { ReportsLocalApiService } from './reports-local-api.service';
+import { PaginationComponent } from '../../shared/pagination.component';
 import {
   ReportCatalog,
   ReportCode,
@@ -610,6 +611,7 @@ export class ReportsLocalPage implements OnDestroy {
     CommunicationsStateComponent,
     MonthlyIndicatorsComponent,
     ReportCardComponent,
+    PaginationComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `<main class="page op-page comm-page">
@@ -710,7 +712,7 @@ export class ReportsLocalPage implements OnDestroy {
         </dl>
       </section>
       <section class="panel op-panel op-section">
-        <h2>Registros</h2>
+        <h2 id="report-rows-title" tabindex="-1">Registros</h2>
         <p aria-live="polite">{{ rows().length }} de {{ result.rowCount }} registros na tela.</p>
         @if (rows().length) {
           <div class="report-desktop-table">
@@ -758,13 +760,13 @@ export class ReportsLocalPage implements OnDestroy {
         } @else {
           <p>Não encontramos registros nesse período.</p>
         }
-        @if (nextOffset() !== null) {
-          <div class="comm-actions">
-            <button class="btn-secondary" type="button" [disabled]="moreLoading()" (click)="more()">
-              Carregar mais registros
-            </button>
-          </div>
-        }
+        <sager-pagination
+          [page]="page()"
+          [total]="result.rowCount"
+          [busy]="rowsLoading()"
+          anchor="report-rows-title"
+          (pageChange)="go($event)"
+        />
         @if (rowsError()) {
           <p class="comm-error" role="alert">{{ rowsError() }}</p>
         }
@@ -786,9 +788,9 @@ export class ReportSnapshotLocalPage implements OnDestroy {
   readonly card = computed(() => this.list.items().find((item) => item.id === this.id));
   readonly snapshot = signal<ReportSnapshot | null>(null);
   readonly rows = signal<ReportRow[]>([]);
-  readonly nextOffset = signal<number | null>(null);
+  readonly page = signal(0);
   readonly loading = signal(false);
-  readonly moreLoading = signal(false);
+  readonly rowsLoading = signal(false);
   readonly error = signal('');
   readonly rowsError = signal('');
   readonly labels: Record<string, string> = reportLabels;
@@ -818,6 +820,7 @@ export class ReportSnapshotLocalPage implements OnDestroy {
     this.rowsError.set('');
     this.snapshot.set(null);
     this.rows.set([]);
+    this.page.set(0);
     try {
       const [snapshot, page] = await Promise.all([this.api.get(this.id), this.api.rows(this.id)]);
       if (snapshot.rowCount !== page.total)
@@ -825,7 +828,6 @@ export class ReportSnapshotLocalPage implements OnDestroy {
       if (generation === this.generation) {
         this.snapshot.set(snapshot);
         this.rows.set(page.items);
-        this.nextOffset.set(page.nextOffset);
         void this.list.refresh();
       }
     } catch (error) {
@@ -834,23 +836,21 @@ export class ReportSnapshotLocalPage implements OnDestroy {
       if (generation === this.generation) this.loading.set(false);
     }
   }
-  async more(): Promise<void> {
-    const offset = this.nextOffset();
-    const generation = this.generation;
-    if (offset === null || this.moreLoading()) return;
-    this.moreLoading.set(true);
+  // A página substitui as linhas; uma resposta de página pedida antes é descartada.
+  async go(page: number): Promise<void> {
+    const generation = ++this.generation;
+    this.page.set(page);
+    this.rowsLoading.set(true);
     this.rowsError.set('');
     try {
-      const page = await this.api.rows(this.id, offset);
-      if (page.total !== this.snapshot()?.rowCount) throw new Error('O total de registros mudou.');
-      if (generation === this.generation) {
-        this.rows.update((rows) => [...rows, ...page.items]);
-        this.nextOffset.set(page.nextOffset);
-      }
+      const result = await this.api.rows(this.id, page * 25);
+      if (result.total !== this.snapshot()?.rowCount)
+        throw new Error('O total de registros mudou.');
+      if (generation === this.generation) this.rows.set(result.items);
     } catch (error) {
-      this.rowsError.set(reportingError(error));
+      if (generation === this.generation) this.rowsError.set(reportingError(error));
     } finally {
-      this.moreLoading.set(false);
+      if (generation === this.generation) this.rowsLoading.set(false);
     }
   }
   ngOnDestroy(): void {

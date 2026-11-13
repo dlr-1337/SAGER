@@ -38,7 +38,7 @@
 
 ## 7. Relatórios
 
-- [ ] 7.1 Em `frontend/src/app/features/reports/reports-local.pages.ts`, paginar as linhas da consulta com `sager-pagination [total]` (offset `page * 25`, `anchor` no título "Registros") e trocar o limite de `rows` em `frontend/src/app/features/reports/reports-local-api.service.ts` de 20 para 25, apagando "Carregar mais registros". O formulário (`<details class="report-filters">`, fechado, com o rótulo atual) e os ramos da demonstração (o aviso de download e o link `/relatorios/individual/ana`) ficam iguais (D9). Verificar em `frontend/src/app/features/reports/reports-local-api.service.spec.ts` (limite 25) e no teste "Ver na tela" de `cleaning-reports-local.spec.ts` (903), com Próxima; `frontend/e2e/reports-mobile-dialog.spec.ts` (54) não muda: `npm test -- --watch=false` e `npx playwright test cleaning-reports-local reports-mobile-dialog`.
+- [x] 7.1 Em `frontend/src/app/features/reports/reports-local.pages.ts`, paginar as linhas da consulta com `sager-pagination [total]` (offset `page * 25`, `anchor` no título "Registros") e trocar o limite de `rows` em `frontend/src/app/features/reports/reports-local-api.service.ts` de 20 para 25, apagando "Carregar mais registros". O formulário (`<details class="report-filters">`, fechado, com o rótulo atual) e os ramos da demonstração (o aviso de download e o link `/relatorios/individual/ana`) ficam iguais (D9). Verificar em `frontend/src/app/features/reports/reports-local-api.service.spec.ts` (limite 25) e no teste "Ver na tela" de `cleaning-reports-local.spec.ts` (903), com Próxima; `frontend/e2e/reports-mobile-dialog.spec.ts` (54) não muda: `npm test -- --watch=false` e `npx playwright test cleaning-reports-local reports-mobile-dialog`.
 
 ## 8. Chamada noturna
 
