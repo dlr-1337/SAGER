@@ -400,7 +400,9 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
                               allocation.endedAt
                                 ? (allocation.endReason === 'TRANSFER'
                                     ? 'Transferido'
-                                    : 'Encerrado') +
+                                    : allocation.endReason === 'CONCLUSION'
+                                      ? 'Concluiu o curso'
+                                      : 'Encerrado') +
                                   ' em ' +
                                   allocationDate(allocation.endedAt)
                                 : 'No quarto atualmente'

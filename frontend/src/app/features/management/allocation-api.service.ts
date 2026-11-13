@@ -13,7 +13,7 @@ export interface AllocationRecord {
   roomId: string;
   startedAt: string;
   endedAt: string | null;
-  endReason: 'TRANSFER' | 'END' | null;
+  endReason: 'TRANSFER' | 'END' | 'CONCLUSION' | null;
   version: number;
 }
 
@@ -37,7 +37,8 @@ function isAllocation(value: unknown): value is AllocationRecord {
     typeof item.roomId === 'string' &&
     typeof item.startedAt === 'string' &&
     (item.endedAt === null || typeof item.endedAt === 'string') &&
-    (item.endReason === null || item.endReason === 'TRANSFER' || item.endReason === 'END') &&
+    (item.endReason === null ||
+      ['TRANSFER', 'END', 'CONCLUSION'].includes(item.endReason as string)) &&
     Number.isInteger(item.version) &&
     (item.version ?? -1) >= 0
   );
@@ -136,6 +137,8 @@ export function allocationErrorMessage(error: unknown): string {
         return 'O quarto está em manutenção ou indisponível. Escolha outro quarto.';
       case 'capacity_unknown':
         return 'Defina a capacidade do quarto antes de colocar um residente nele.';
+      case 'resident_concluded':
+        return 'Este residente concluiu o curso. Lance a prorrogação antes de colocar no quarto.';
       case 'invalid_reference':
         return 'Residente ou quarto não encontrado. Recarregue os dados.';
     }

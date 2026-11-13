@@ -15,6 +15,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 
 import br.edu.ifgoiano.sager.auth.LocalAccountProvisioningService;
@@ -61,6 +63,7 @@ class CourseConclusionIntegrationTest {
     @Autowired private JdbcTemplate jdbc;
     @Autowired private ObjectMapper json;
     @Autowired private MutableClock clock;
+    @Autowired private AllocationService allocations;
     @LocalServerPort private int port;
     private UUID course;
     private UUID room;
@@ -111,6 +114,94 @@ class CourseConclusionIntegrationTest {
             assertThat(unknown.path("stage").isNull()).isTrue();
             assertThat(unknown.path("concluded").asBoolean()).isFalse();
         }
+    }
+
+    @Test
+    void concludedResidentIsRefusedUntilTheExtensionIsRecorded() throws Exception {
+        clock.set(NEXT_DAY);
+        UUID placed = resident("20222CONC000003", 2022, 0, course);
+        UUID origin = allocate(placed, room);
+        UUID target = room("CONC-02", 2);
+        UUID waiting = resident("20222CONC000004", 2022, 0, course);
+        try (HttpClient client = browser()) {
+            login(client, "gestor");
+            HttpResponse<String> create = write(client, "POST", "/api/v1/alocacoes",
+                    Map.of("residentId", waiting, "roomId", room));
+            assertThat(create.statusCode()).isEqualTo(409);
+            assertThat(json.readTree(create.body()).path("code").asText()).isEqualTo("resident_concluded");
+            assertThat(json.readTree(create.body()).path("message").asText())
+                    .isEqualTo("Este residente concluiu o curso. Lance a prorrogação antes de colocar no quarto.");
+            assertThat(count("SELECT COUNT(*) FROM sager_room_allocation WHERE resident_id = ?", waiting)).isZero();
+
+            HttpResponse<String> transfer = write(client, "POST", "/api/v1/alocacoes/" + origin + "/transferir",
+                    Map.of("roomId", target, "version", 0));
+            assertThat(transfer.statusCode()).isEqualTo(409);
+            assertThat(json.readTree(transfer.body()).path("code").asText()).isEqualTo("resident_concluded");
+            assertThat(count("SELECT COUNT(*) FROM sager_room_allocation WHERE resident_id = ?", placed)).isOne();
+            assertThat(count("SELECT COUNT(*) FROM sager_room_allocation WHERE id = ? AND ended_at IS NULL"
+                    + " AND version = 0", origin)).isOne();
+
+            long version = read(client, "/api/v1/residentes/" + waiting).path("version").asLong();
+            Map<String, Object> extension = new LinkedHashMap<>();
+            extension.put("name", "Estudante Sintético");
+            extension.put("enrollment", "20222CONC000004");
+            extension.put("birthDate", "2004-03-10");
+            extension.put("courseId", course);
+            extension.put("entryYear", 2022);
+            extension.put("extraSemesters", 1);
+            extension.put("version", version);
+            assertThat(write(client, "PUT", "/api/v1/residentes/" + waiting, extension).statusCode()).isEqualTo(200);
+            assertThat(write(client, "POST", "/api/v1/alocacoes", Map.of("residentId", waiting, "roomId", room))
+                    .statusCode()).isEqualTo(201);
+        }
+    }
+
+    @Test
+    void dailyRoutineClosesOnlyTheAllocationsPastTheExpectedExit() throws Exception {
+        UUID noDuration = UUID.randomUUID();
+        jdbc.update("INSERT INTO sager_course(id,name) VALUES (?,'Curso Antigo Sintético')", noDuration);
+        UUID due = resident("20222CONC000005", 2022, 0, course);
+        UUID extended = resident("20222CONC000006", 2022, 1, course);
+        UUID withoutYear = resident("20222CONC000007", null, 0, course);
+        UUID oldCourse = resident("20222CONC000008", 2022, 0, noDuration);
+        UUID dueAllocation = allocate(due, room);
+        allocate(extended, room);
+        allocate(withoutYear, room);
+        allocate(oldCourse, room);
+        provisioning.create("20222CONC000005", null, "Estudante Sintético", "residente", PASSWORD.toCharArray());
+        provisioning.linkResident("20222CONC000005", due);
+
+        assertThat(allocations.closeConcluded()).isZero();
+        clock.set(NEXT_DAY);
+        assertThat(allocations.closeConcluded()).isOne();
+        assertThat(count("SELECT COUNT(*) FROM sager_room_allocation WHERE ended_at IS NULL")).isEqualTo(3);
+        assertThat(count("SELECT COUNT(*) FROM sager_room_allocation WHERE id = ? AND ended_at IS NOT NULL"
+                + " AND end_reason = 'CONCLUSION' AND version = 1", dueAllocation)).isOne();
+        assertThat(count("""
+                SELECT COUNT(*) FROM sager_audit_event WHERE resource_id = ? AND resource = 'ALLOCATION'
+                AND action = 'END' AND origin = 'SYSTEM_JOB' AND actor_id IS NULL AND actor_profile IS NULL
+                AND resulting_version = 1 AND changed_fields @> ARRAY['endedAt','endReason']::text[]
+                AND cardinality(changed_fields) = 2
+                """, dueAllocation)).isOne();
+        assertThat(allocations.closeConcluded()).isZero();
+
+        try (HttpClient client = browser()) {
+            login(client, "gestor");
+            JsonNode inMap = null;
+            for (JsonNode candidate : read(client, "/api/v1/quartos/mapa").path("rooms")) {
+                if (candidate.path("id").asText().equals(room.toString())) inMap = candidate;
+            }
+            assertThat(inMap).isNotNull();
+            assertThat(inMap.path("occupancy").asInt()).isEqualTo(3);
+            assertThat(inMap.path("vacancies").asInt()).isOne();
+        }
+        try (HttpClient client = browser()) {
+            login(client, "20222CONC000005");
+        }
+    }
+
+    private int count(String sql, Object... args) {
+        return jdbc.queryForObject(sql, Integer.class, args);
     }
 
     private UUID resident(String enrollment, Integer entryYear, int extraSemesters, UUID courseId) {

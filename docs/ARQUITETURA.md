@@ -227,3 +227,9 @@ Nenhuma das escolhas abaixo tem aprovação institucional registrada. Elas permi
 | Piloto e aceite | Homologação técnica com dados fictícios. | Piloto na VPS, disponibilidade e aceite formal. |
 | Aviso de privacidade | O sistema não tem tela de aviso de privacidade. | Texto, momento de exibição e responsável. |
 | WhatsApp | Desligado por padrão; anexo manual disponível. | Os onze itens de [whatsapp/OPERACAO.md](whatsapp/OPERACAO.md#decisões-institucionais-pendentes). |
+| Conclusão do curso: encerramento do vínculo | Depois da saída prevista, a rotina diária das 00h10 encerra o vínculo de quarto com o motivo `CONCLUSION`. | Se o vínculo é encerrado sozinho ou só marcado "Concluinte". |
+| Conclusão do curso: fim do semestre | Saída prevista em 30/06 ou 31/12, sem folga. | Outra data de fim de semestre e se deve haver folga. |
+| Conclusão do curso: semestre de ingresso | 5º caractere da matrícula: `1` é o 1º semestre; outro valor, o 2º. | Se o 5º dígito da matrícula SUAP é o semestre de ingresso. |
+| Conclusão do curso: duração | Duração em anos inteiros, de 1 a 6, sem curso com número ímpar de semestres. | Se existe curso com número ímpar de semestres. |
+| Conclusão do curso: cadastros antigos | Residente sem ano de ingresso nunca vira concluinte até a edição, que passa a exigir o ano. | Se os antigos são preenchidos de uma vez pela matrícula. |
+| Conclusão do curso: conta de acesso | A conta do concluinte continua ativa. | O que fazer com ela depois da saída. |

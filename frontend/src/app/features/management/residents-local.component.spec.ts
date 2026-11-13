@@ -314,6 +314,18 @@ describe('Residentes em sessão local', () => {
     expect(fixture.nativeElement.textContent).toContain('1º piso');
   });
 
+  it('mostra no histórico o vínculo encerrado pela conclusão do curso', async () => {
+    route.snapshot.paramMap = convertToParamMap({ id: resident.id });
+    allocationApi.byResident.mockResolvedValue([
+      { ...allocation, endedAt: '2026-07-01T03:10:00Z', endReason: 'CONCLUSION', version: 1 },
+    ]);
+    const fixture = TestBed.createComponent(ResidentDetailComponent);
+    await fixture.whenStable();
+    fixture.componentInstance.tab.set('historico');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Concluiu o curso em');
+  });
+
   it('aloca, transfere e encerra vínculo com versão do servidor, preservando histórico', async () => {
     route.snapshot.paramMap = convertToParamMap({ id: resident.id });
     const fixture = TestBed.createComponent(ResidentDetailComponent);
