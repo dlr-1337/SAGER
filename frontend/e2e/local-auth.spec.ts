@@ -30,11 +30,20 @@ test('login permite conferir a senha e volta a ocultá-la ao enviar', async ({ p
   await expect(page.getByRole('button', { name: 'Mostrar senha' })).toBeVisible();
 });
 
-test('rota interna exige sessão', async ({ page }) => {
+test('rota interna exige sessão e o acesso só oferece login', async ({ page }) => {
   await page.route('**/api/v1/auth/me', (route) => route.abort('failed'));
 
   await page.goto('/inicio');
   await expect(page).toHaveURL(/\/acesso$/);
+  await expect(page.getByRole('link', { name: 'Ajuda para acessar' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Esqueci minha senha' })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Explorar/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Entrar como/ })).toHaveCount(0);
+
+  // Endereço antigo: cai na rota pública de página inexistente, sem abrir sessão.
+  await page.goto('/demonstracao');
+  await expect(page.getByRole('heading', { name: 'Página não encontrada' })).toBeVisible();
+  await expect(page.locator('.masthead .session-user')).toHaveCount(0);
 });
 
 test('login local restaura a sessão, respeita o perfil do servidor e permite sair', async ({
@@ -88,7 +97,8 @@ test('login local restaura a sessão, respeita o perfil do servidor e permite sa
   await expect(page).toHaveURL(/\/inicio$/);
   await expect(page.getByRole('heading', { name: 'Atividades do SAGER' })).toBeVisible();
   await expect(page.getByText('Operadora Exemplo · Acesso local')).toBeVisible();
-  await expect(page.locator('.demo-flag')).toContainText('Login local');
+  await expect(page.locator('.environment-flag')).toContainText('Login local');
+  await expect(page.locator('#profile-select-desktop')).toHaveCount(0);
   await expect(page.getByLabel('Perfil', { exact: true })).toHaveCount(0);
 
   await page.reload();

@@ -15,7 +15,7 @@ import { BreakpointObserver } from '@angular/cdk/layout';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet, NavigationEnd } from '@angular/router';
 import { filter } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { SessionService, type DemoScenario, type Role } from './core/session.service';
+import { SessionService, type Role } from './core/session.service';
 import { LocalAuthService } from './core/local-auth.service';
 
 interface NavItem {
@@ -135,7 +135,6 @@ export class App implements OnDestroy {
   readonly navItems = computed(() => {
     const role = this.session.role();
     const items = navByRole[role];
-    if (this.session.active()) return grouped(items);
     const localItems =
       role === 'residente'
         ? items.map((item) =>
@@ -176,9 +175,7 @@ export class App implements OnDestroy {
       localItems[localItems.length - 1],
     ]);
   });
-  readonly userName = computed(() =>
-    this.session.active() ? '' : (this.auth.principal()?.nome ?? ''),
-  );
+  readonly userName = computed(() => this.auth.principal()?.nome ?? '');
   readonly roleLabel = computed(() => roleLabels[this.session.role()]);
   private previousBodyOverflow: string | null = null;
   private previousHtmlOverflow: string | null = null;
@@ -219,40 +216,16 @@ export class App implements OnDestroy {
     this.unlockScroll();
   }
 
-  async setRoleFromSelect(event: Event): Promise<void> {
-    const value = (event.target as HTMLSelectElement).value;
-    if (value === 'gestor' || value === 'supervisor' || value === 'residente') {
-      if (!(await this.drafts.canLeave())) {
-        (event.target as HTMLSelectElement).value = this.session.role();
-        return;
-      }
-      this.drafts.discardAll();
-      if (this.drawerActive()) this.navigateFromMenu();
-      this.session.setRole(value);
-      void this.router.navigateByUrl('/inicio');
-    }
-  }
-
-  setScenarioFromSelect(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value;
-    if (value === 'padrao' || value === 'vazio' || value === 'erro' || value === 'carregando') {
-      this.session.setScenario(value as DemoScenario);
-    }
-  }
-
   async signOut(): Promise<void> {
     this.exitError.set('');
     if (!(await this.drafts.canLeave())) return;
-    if (!this.session.active()) {
-      try {
-        await this.auth.logout();
-      } catch {
-        this.exitError.set('Não foi possível sair. Verifique a internet e tente de novo.');
-        return;
-      }
+    try {
+      await this.auth.logout();
+    } catch {
+      this.exitError.set('Não foi possível sair. Verifique a internet e tente de novo.');
+      return;
     }
     this.drafts.discardAll();
-    this.session.deactivate();
     if (this.drawerActive()) this.navigateFromMenu();
     await this.router.navigateByUrl('/acesso');
   }
@@ -325,6 +298,6 @@ export class App implements OnDestroy {
     }
     const path = this.router.url.split('?')[0];
     this.healthAccessPage.set(path === '/saude/acessos');
-    this.publicPage.set(isPublic || /^\/(acesso|demonstracao|ajuda)(\/|$)/.test(path));
+    this.publicPage.set(isPublic || /^\/(acesso|ajuda)(\/|$)/.test(path));
   }
 }

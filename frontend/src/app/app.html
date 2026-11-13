@@ -20,44 +20,11 @@
       </div>
       @if (!session.production) {
         <div
-          class="demo-flag"
-          [attr.aria-label]="
-            session.active()
-              ? 'Ambiente de demonstração com dados fictícios'
-              : 'Login local de teste com telas de dados fictícios'
-          "
+          class="environment-flag"
+          aria-label="Login local de teste com telas de dados fictícios"
         >
-          <strong>{{ session.active() ? 'Demonstração' : 'Login local' }}</strong>
+          <strong>Login local</strong>
           <span>Dados fictícios</span>
-        </div>
-      }
-      @if (!isMobile() && session.active()) {
-        <div class="session-controls">
-          <div class="control">
-            <label for="profile-select-desktop">Perfil</label>
-            <select
-              id="profile-select-desktop"
-              [value]="session.role()"
-              (change)="setRoleFromSelect($event)"
-            >
-              <option value="gestor">Gestor</option>
-              <option value="supervisor">Supervisor</option>
-              <option value="residente">Residente</option>
-            </select>
-          </div>
-          <div class="control">
-            <label for="scenario-select-desktop">Cenário</label>
-            <select
-              id="scenario-select-desktop"
-              [value]="session.scenario()"
-              (change)="setScenarioFromSelect($event)"
-            >
-              <option value="padrao">Padrão</option>
-              <option value="vazio">Sem dados</option>
-              <option value="erro">Erro</option>
-              <option value="carregando">Carregando</option>
-            </select>
-          </div>
         </div>
       }
       @if (userName()) {
@@ -72,13 +39,7 @@
       <button
         class="exit-link"
         type="button"
-        [attr.aria-label]="
-          session.active()
-            ? 'Sair da demonstração'
-            : session.production
-              ? 'Sair da conta'
-              : 'Sair da conta local'
-        "
+        [attr.aria-label]="session.production ? 'Sair da conta' : 'Sair da conta local'"
         (click)="signOut()"
       >
         <span class="material-symbols-rounded" aria-hidden="true">logout</span>
@@ -158,49 +119,13 @@
             </a>
           }
         </nav>
-        @if (isMobile() && session.active()) {
-          <div class="sidebar-demo-controls" aria-label="Opções da demonstração">
-            <strong>Demonstração</strong>
-            <div class="control">
-              <label for="profile-select-mobile">Perfil</label>
-              <select
-                id="profile-select-mobile"
-                [value]="session.role()"
-                (change)="setRoleFromSelect($event)"
-              >
-                <option value="gestor">Gestor</option>
-                <option value="supervisor">Supervisor</option>
-                <option value="residente">Residente</option>
-              </select>
-            </div>
-            <div class="control">
-              <label for="scenario-select-mobile">Cenário</label>
-              <select
-                id="scenario-select-mobile"
-                [value]="session.scenario()"
-                (change)="setScenarioFromSelect($event)"
-              >
-                <option value="padrao">Padrão</option>
-                <option value="vazio">Sem dados</option>
-                <option value="erro">Erro</option>
-                <option value="carregando">Carregando</option>
-              </select>
-            </div>
-          </div>
-        }
         <div class="sidebar-note">
           <strong>SAGER · Campus Urutaí</strong>
           @if (!session.production) {
             <span>As telas mostram apenas dados fictícios.</span>
           }
           <button type="button" (click)="signOut()">
-            {{
-              session.active()
-                ? 'Sair da demonstração'
-                : session.production
-                  ? 'Sair da conta'
-                  : 'Sair da conta local'
-            }}
+            {{ session.production ? 'Sair da conta' : 'Sair da conta local' }}
           </button>
         </div>
       </aside>
@@ -217,11 +142,7 @@
         <footer class="app-footer">
           <span>SAGER · Campus Urutaí</span>
           <span>{{
-            session.production
-              ? 'Residência Estudantil'
-              : session.active()
-                ? 'Demonstração · dados fictícios'
-                : 'Login local de teste · dados fictícios'
+            session.production ? 'Residência Estudantil' : 'Login local de teste · dados fictícios'
           }}</span>
         </footer>
       }

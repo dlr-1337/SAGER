@@ -132,17 +132,9 @@ const appRoutes: Routes = [
     loadComponent: () => import('./features/portal/recovery.page').then((m) => m.RecoveryPage),
   },
   {
-    path: 'demonstracao',
-    canActivate: [
-      () => inject(SessionService).demoAvailable || inject(Router).createUrlTree(['/acesso']),
-    ],
-    data: { public: true },
-    loadComponent: () => import('./features/portal/portal.pages').then((m) => m.DemoSelectorPage),
-  },
-  {
     path: 'inicio',
     canActivate: [accessGuard],
-    loadComponent: () => import('./features/portal/portal.pages').then((m) => m.HomePage),
+    loadComponent: () => import('./features/portal/local-home.page').then((m) => m.LocalHomePage),
   },
   ...managementRoutes,
   {

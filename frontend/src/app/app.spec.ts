@@ -3,7 +3,6 @@ import { UnsavedForms } from './shared/unsaved-form';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { App } from './app';
-import { SessionService } from './core/session.service';
 import { LocalAuthService } from './core/local-auth.service';
 
 describe('App', () => {
@@ -21,7 +20,6 @@ describe('App', () => {
   });
 
   it('mantém a navegação de saúde sem recursos de gestão ou de residente', async () => {
-    TestBed.inject(SessionService).deactivate();
     TestBed.inject(LocalAuthService).principal.set({
       id: '00000000-0000-0000-0000-000000000001',
       nome: 'Profissional Sintética',
@@ -43,7 +41,6 @@ describe('App', () => {
   });
 
   it('agrupa o menu em rotina, cadastros e apoio, com separador no início de cada grupo', async () => {
-    TestBed.inject(SessionService).deactivate();
     TestBed.inject(LocalAuthService).principal.set({
       id: '00000000-0000-0000-0000-000000000001',
       nome: 'Supervisora Sintética',
@@ -74,7 +71,7 @@ describe('App', () => {
     expect(fixture.componentInstance.navItems().map((item) => item.path)).toContain('/saude');
   });
 
-  it('identifica a demonstração e a marca no shell', async () => {
+  it('identifica o ambiente local e a marca no shell', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     fixture.detectChanges();
@@ -84,8 +81,37 @@ describe('App', () => {
     expect(compiled.querySelector('img[alt*="Instituto Federal Goiano"]')).toBeTruthy();
   });
 
+  it('em produção o cabeçalho, o menu e o rodapé não falam em dados fictícios', async () => {
+    const meta = document.createElement('meta');
+    meta.name = 'sager-environment';
+    meta.content = 'production';
+    document.head.append(meta);
+    try {
+      TestBed.inject(LocalAuthService).principal.set({
+        id: '00000000-0000-0000-0000-000000000001',
+        nome: 'Supervisora Sintética',
+        email: 'supervisor@example.test',
+        matricula: 'TESTE-LOGIN',
+        fotoUrl: null,
+        perfis: ['supervisor'],
+        residenteId: null,
+        supervisorId: null,
+      });
+      const fixture = TestBed.createComponent(App);
+      await fixture.whenStable();
+      fixture.detectChanges();
+      const compiled = fixture.nativeElement as HTMLElement;
+      for (const part of ['.masthead', '#app-navigation', '.app-footer']) {
+        expect(compiled.querySelector(part), part).toBeTruthy();
+        expect(compiled.querySelector(part)?.textContent, part).not.toMatch(/fictíci/i);
+      }
+      expect(compiled.querySelector('.environment-flag')).toBeNull();
+    } finally {
+      meta.remove();
+    }
+  });
+
   it('oferece análise e avisos somente ao supervisor no acesso local', async () => {
-    TestBed.inject(SessionService).deactivate();
     const auth = TestBed.inject(LocalAuthService);
     const account = {
       id: '00000000-0000-0000-0000-000000000001',
@@ -129,7 +155,6 @@ describe('App', () => {
     expect(ownItems.map((item) => item.path)).not.toContain('/comunicacoes/avisos');
   });
   it('confirma alterações antes de encerrar a sessão', async () => {
-    TestBed.inject(SessionService).deactivate();
     const logout = vi.spyOn(TestBed.inject(LocalAuthService), 'logout').mockResolvedValue();
     vi.spyOn(TestBed.inject(UnsavedForms), 'canLeave').mockResolvedValue(false);
     const fixture = TestBed.createComponent(App);

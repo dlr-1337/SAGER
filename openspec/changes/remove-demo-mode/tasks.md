@@ -25,13 +25,13 @@ Os caminhos são relativos à raiz do repositório. Os comandos `npm` e `npx` ro
 
 ## 3. Entrada, portal e shell sem demonstração
 
-- [ ] 3.1 Em `frontend/src/app/app.routes.ts`, apagar a rota `demonstracao` e apontar `inicio` para `features/portal/local-home.page.ts` → `LocalHomePage`. Em `features/portal/portal.pages.ts`:
+- [x] 3.1 Em `frontend/src/app/app.routes.ts`, apagar a rota `demonstracao` e apontar `inicio` para `features/portal/local-home.page.ts` → `LocalHomePage`. Em `features/portal/portal.pages.ts`:
   - apagar `HomePage` (com o import de `OperationsDemoService`) e `DemoSelectorPage`;
   - tirar de `AccessPage` o cartão de demonstração, `providers: [DemoEntry]`, a chamada a `deactivate()` e os estilos `.access-demo` e `.demo-options`. A página fica sempre no layout `solo`, com "Ajuda para acessar", a orientação de troca de senha e a mensagem de produção para login indisponível, como já acontece hoje em produção;
   - tirar os ramos `session.active()` de `HelpPage`, `ProfilePage` e `DeniedPage`, junto com `ProfilePage.label`, usado só no ramo da demonstração.
 
   Apagar `features/portal/demo-entry.service.ts`. Em `features/portal/portal.pages.spec.ts`, os testes do início passam a montar `LocalHomePage`, e sai "mostra contagens que acompanham os registros…". Verificar com `npm test -- --watch=false --include=src/app/features/portal/portal.pages.spec.ts`.
-- [ ] 3.2 No shell:
+- [x] 3.2 No shell:
   - em `frontend/src/app/app.html`, tirar os seletores de perfil e de cenário (desktop e `.sidebar-demo-controls`) e os textos que dependem de `active()` (selo, "Sair da demonstração" e rodapé);
   - em `app.ts`, apagar `setRoleFromSelect`, `setScenarioFromSelect`, os ramos `active()` de `navItems`, `userName` e `signOut`, e `demonstracao` da expressão de página pública;
   - renomear `.demo-flag` para `.environment-flag` em `app.html`, `portal.pages.ts` e `app.scss`, apagar de `app.scss` os estilos usados só pelos seletores e trocar o comentário de `src/styles.scss:676`.

@@ -1,16 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { SessionService } from '../../core/session.service';
 import { LocalAuthService } from '../../core/local-auth.service';
-import { OperationsDemoService } from '../operations/operations-demo.service';
-import { HelpPage, HomePage, ProfilePage } from './portal.pages';
+import { LocalHomePage } from './local-home.page';
+import { HelpPage, ProfilePage } from './portal.pages';
 
-describe('HomePage', () => {
-  it('na conta local usa atividades autorizadas sem contagens demonstrativas', async () => {
+describe('LocalHomePage', () => {
+  it('na conta local usa atividades autorizadas sem contagens fictícias', async () => {
     TestBed.configureTestingModule({ providers: [provideRouter([])] });
-    const session = TestBed.inject(SessionService);
     const auth = TestBed.inject(LocalAuthService);
-    session.deactivate();
     auth.principal.set({
       id: '00000000-0000-0000-0000-000000000001',
       nome: 'Supervisora Sintética',
@@ -21,13 +18,12 @@ describe('HomePage', () => {
       residenteId: null,
       supervisorId: null,
     });
-    const fixture = TestBed.createComponent(HomePage);
+    const fixture = TestBed.createComponent(LocalHomePage);
     await fixture.whenStable();
     const element = fixture.nativeElement as HTMLElement;
     expect(element.textContent).toContain('Supervisora Sintética');
     expect(element.querySelector('a[href="/chamada"]')).not.toBeNull();
     expect(element.querySelector('a[href="/saidas"]')).not.toBeNull();
-    expect(element.textContent).not.toContain('Cenário de demonstração');
     expect(element.textContent).not.toContain('Dados fictícios');
     expect(element.textContent).not.toContain('22h30');
     auth.principal.set({ ...auth.principal()!, perfis: ['residente'] });
@@ -39,7 +35,6 @@ describe('HomePage', () => {
 
   it('apresenta a jornada de saúde sem ações pessoais de residente', async () => {
     TestBed.configureTestingModule({ providers: [provideRouter([])] });
-    TestBed.inject(SessionService).deactivate();
     TestBed.inject(LocalAuthService).principal.set({
       id: '00000000-0000-0000-0000-000000000001',
       nome: 'Profissional Sintética',
@@ -50,51 +45,18 @@ describe('HomePage', () => {
       residenteId: null,
       supervisorId: null,
     });
-    const fixture = TestBed.createComponent(HomePage);
+    const fixture = TestBed.createComponent(LocalHomePage);
     await fixture.whenStable();
     const page = fixture.nativeElement as HTMLElement;
     expect(page.querySelector('a[href="/saude"]')).toBeTruthy();
     expect(page.textContent).toContain('Atendimento de saúde');
     expect(page.textContent).not.toContain('Minhas saídas');
   });
-  it('mostra contagens que acompanham os registros e não antecipa a análise de saída longa', () => {
-    const home = TestBed.runInInjectionContext(() => new HomePage());
-    const operations = TestBed.inject(OperationsDemoService);
-    const session = TestBed.inject(SessionService);
-
-    expect(home.pendingExitCount()).toBe(1);
-    expect(home.shortReturnCount()).toBe(1);
-    expect(home.notificationCount()).toBe(2);
-
-    operations.exits.update((items) =>
-      items.map((item) => (item.id === 'S-1045' ? { ...item, status: 'Aprovada' } : item)),
-    );
-    operations.exits.update((items) =>
-      items.map((item) =>
-        item.id === 'S-1048' ? { ...item, status: 'Aguardando análise' } : item,
-      ),
-    );
-    expect(home.pendingExitCount()).toBe(0);
-
-    operations.exits.update((items) =>
-      items.map((item) => (item.id === 'S-1048' ? { ...item, signed: true } : item)),
-    );
-    expect(home.pendingExitCount()).toBe(1);
-
-    operations.notifications.update((items) =>
-      items.map((item) => ({ ...item, status: 'Arquivada' })),
-    );
-    expect(home.notificationCount()).toBe(0);
-
-    session.setScenario('erro');
-    expect(home.countsAvailable()).toBe(false);
-  });
 });
 
 describe('ProfilePage', () => {
   it('explica a habilitação separada para a conta de saúde', async () => {
     TestBed.configureTestingModule({ providers: [provideRouter([])] });
-    TestBed.inject(SessionService).deactivate();
     TestBed.inject(LocalAuthService).principal.set({
       id: '00000000-0000-0000-0000-000000000001',
       nome: 'Profissional Sintética',
@@ -112,7 +74,6 @@ describe('ProfilePage', () => {
   });
   it('apresenta o vínculo explícito da conta residente e informa quando ele está ausente', async () => {
     TestBed.configureTestingModule({ providers: [provideRouter([])] });
-    TestBed.inject(SessionService).deactivate();
     const auth = TestBed.inject(LocalAuthService);
     const linked = {
       id: '00000000-0000-0000-0000-000000000001',
@@ -140,7 +101,6 @@ describe('ProfilePage', () => {
 describe('HelpPage', () => {
   it('orienta a conta autenticada e limita os guias às tarefas do perfil', async () => {
     TestBed.configureTestingModule({ providers: [provideRouter([])] });
-    TestBed.inject(SessionService).deactivate();
     const auth = TestBed.inject(LocalAuthService);
     auth.principal.set({
       id: '00000000-0000-0000-0000-000000000001',
@@ -156,7 +116,6 @@ describe('HelpPage', () => {
     await fixture.whenStable();
     const page = fixture.nativeElement as HTMLElement;
     expect(page.textContent).toContain('Usar sua conta SAGER');
-    expect(page.querySelector('a[href="/demonstracao"]')).toBeNull();
     expect(page.querySelector('a[href="/saidas"]')).not.toBeNull();
     expect(page.querySelector('a[href="/chamada"]')).toBeNull();
     expect(page.querySelector('a[href="/relatorios"]')).toBeNull();
