@@ -692,6 +692,48 @@ tbody tr:last-child td {
   font-size: 18px;
 }
 
+/* Painel de filtro das listas longas: busca à vista, extras em "Mais filtros" com o visual do
+   resumo de Relatórios, filtros ativos fora da área recolhível. */
+.filter-panel {
+  margin-bottom: var(--space-5);
+}
+.filter-panel details {
+  margin-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.filter-panel summary {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  color: var(--green-800);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.filter-panel summary::-webkit-details-marker {
+  display: none;
+}
+.filter-panel summary::before {
+  content: '▸';
+  margin-right: 8px;
+  font-size: 1.25rem;
+}
+.filter-panel details[open] summary::before {
+  content: '▾';
+}
+.filter-panel-extra {
+  padding: 4px 0 8px;
+}
+.filter-panel-active {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+.filter-panel-active .filter-chips {
+  flex: 1 1 auto;
+}
+
 /* Início (demonstração e conta local): cartão de destaque da próxima tarefa e selo circular das
    pendências. Cada página define só o próprio layout. */
 .home-hero {

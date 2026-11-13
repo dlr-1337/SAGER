@@ -114,7 +114,7 @@ for (const config of [
     await expect(page.getByRole('heading', { name: 'Fora do filtro', exact: true })).toBeVisible();
     expect(writes).toBe(1);
     await page.locator('main a.mg-back').first().click();
-    await expect(page.getByText('1–25 de 25', { exact: true })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Paginação' })).toHaveCount(0);
     await expect(page.locator('article.mg-row')).toHaveCount(25);
     await expect(search).toHaveValue('Sintético');
     expect(queries.slice(-2).map((params) => params.get('offset'))).toEqual(['25', '0']);

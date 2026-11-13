@@ -424,7 +424,7 @@ test('redução de 26 para 25 saídas curtas retorna à página válida com filt
   await expect.poll(() => queries.at(-1)?.get('status')).toBe('APROVADA');
   await expect(pagination).toContainText('1–25 de 26');
   await pagination.getByRole('button', { name: 'Próxima' }).click();
-  await expect(pagination).toContainText('1–25 de 25');
+  await expect(pagination).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Ver pedido' })).toHaveCount(25);
   await expect(page.getByRole('heading', { name: 'Nenhum pedido ainda.' })).toHaveCount(0);
   await expect(search).toHaveValue('TESTE-001');

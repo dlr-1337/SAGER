@@ -164,7 +164,8 @@ for (const config of configs) {
         expect(memory.values.get(config.pageKey)).toBe(expectedPage);
         expect(memory.values.get(config.key)).toEqual(filters);
         for (const request of remote) expect(request).not.toHaveBeenCalled();
-        if (total === 25) expect(fixture.nativeElement.textContent).toContain('1–25 de 25');
+        if (total === 25)
+          expect(fixture.nativeElement.querySelector('sager-pagination nav')).toBeNull();
       },
     );
 
@@ -191,7 +192,7 @@ for (const config of configs) {
       await restored.whenStable();
       expect(restored.componentInstance.page()).toBe(0);
       expect(rows(restored.componentInstance)).toHaveLength(25);
-      expect(restored.nativeElement.textContent).toContain('1–25 de 25');
+      expect(restored.nativeElement.querySelector('sager-pagination nav')).toBeNull();
       expect(memory.values.get(config.pageKey)).toBe(0);
       expect(memory.values.get(config.key)).toEqual(filters);
     });

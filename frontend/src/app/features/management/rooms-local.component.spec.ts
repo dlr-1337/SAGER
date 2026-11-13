@@ -180,7 +180,8 @@ describe('Quartos em sessão local', () => {
       expect(component.filters.getRawValue()).toEqual(filters);
       expect(memory.values.get('rooms.component.ts-page')).toBe(expectedPage);
       expect(api.map).toHaveBeenCalledOnce();
-      if (total === 25) expect(fixture.nativeElement.textContent).toContain('1–25 de 25');
+      if (total === 25)
+        expect(fixture.nativeElement.querySelector('sager-pagination nav')).toBeNull();
     },
   );
 

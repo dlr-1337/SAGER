@@ -161,7 +161,7 @@ test('mapa corrige a página restaurada após a edição reduzir 26 quartos filt
   expect(writes).toHaveLength(1);
   expect(writes[0]).toMatchObject({ method: 'PUT', body: { situation: 'Manutenção', version: 0 } });
   await page.getByRole('link', { name: 'Mapa de quartos', exact: true }).click();
-  await expect(page.getByText('1–25 de 25', { exact: true })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Paginação' })).toHaveCount(0);
   await expect(page.locator('.mg-room-tile')).toHaveCount(25);
   await expect(
     page.getByRole('heading', { name: 'Nenhum quarto encontrado', exact: true }),
