@@ -35,11 +35,11 @@ Implementar na onda 3, depois de `remove-health-module` e da parte frontend de `
 
 ## 5. Demonstração
 
-- [ ] 5.1 Confirmar que a demonstração acompanha só o formulário (D11), sem mudar `management-demo.service.ts` nem os dados fictícios: ano de ingresso obrigatório e sugerido pela matrícula, e nível e duração no "Novo curso" e na tela de cursos. Etapa, saída prevista e "Concluinte" não aparecem nela. Verificar em `frontend/` com `npm test -- --watch=false --include=src/app/features/management/management-demo.service.spec.ts --include=src/app/features/management/residents-demo-rooms.spec.ts --include=src/app/features/management/resident-form.component.spec.ts` e, à mão, em `/demonstracao` com o perfil gestor: criar um residente, editar `r-ana` e criar um curso com nível e duração continuam funcionando.
+- [x] 5.1 Confirmar que a demonstração acompanha só o formulário (D11), sem mudar `management-demo.service.ts` nem os dados fictícios: ano de ingresso obrigatório e sugerido pela matrícula, e nível e duração no "Novo curso" e na tela de cursos. Etapa, saída prevista e "Concluinte" não aparecem nela. Verificar em `frontend/` com `npm test -- --watch=false --include=src/app/features/management/management-demo.service.spec.ts --include=src/app/features/management/residents-demo-rooms.spec.ts --include=src/app/features/management/resident-form.component.spec.ts` e, à mão, em `/demonstracao` com o perfil gestor: criar um residente, editar `r-ana` e criar um curso com nível e duração continuam funcionando.
 
 ## 6. Verificação geral
 
-- [ ] 6.1 Rodar `.\mvnw.cmd -B -ntp verify` em `backend/` e confirmar que tudo passa.
-- [ ] 6.2 Rodar `npm test -- --watch=false` e `npm run build` em `frontend/` e confirmar que tudo passa.
-- [ ] 6.3 Rodar `npx playwright test e2e/residents-local.spec.ts e2e/enrollment-catalog-recovery.spec.ts e2e/rooms-local.spec.ts e2e/allocations-local.spec.ts e2e/management-pagination-demo.spec.ts e2e/route-audit.spec.ts` em `frontend/` e confirmar que tudo passa. Os dois últimos são da demonstração: `management-pagination-demo.spec.ts` (linhas ~24-33 e ~80-86) cria e edita residentes com a matrícula 20261PAG…, e `route-audit.spec.ts` (linhas ~11-13 e ~36) abre o cadastro e a edição de residente.
-- [ ] 6.4 Rodar `openspec validate track-course-conclusion --strict` e confirmar que passa.
+- [x] 6.1 Rodar `.\mvnw.cmd -B -ntp verify` em `backend/` e confirmar que tudo passa.
+- [x] 6.2 Rodar `npm test -- --watch=false` e `npm run build` em `frontend/` e confirmar que tudo passa.
+- [x] 6.3 Rodar `npx playwright test e2e/residents-local.spec.ts e2e/enrollment-catalog-recovery.spec.ts e2e/rooms-local.spec.ts e2e/allocations-local.spec.ts e2e/management-pagination-demo.spec.ts e2e/route-audit.spec.ts` em `frontend/` e confirmar que tudo passa. Os dois últimos são da demonstração: `management-pagination-demo.spec.ts` (linhas ~24-33 e ~80-86) cria e edita residentes com a matrícula 20261PAG…, e `route-audit.spec.ts` (linhas ~11-13 e ~36) abre o cadastro e a edição de residente.
+- [x] 6.4 Rodar `openspec validate track-course-conclusion --strict` e confirmar que passa.
