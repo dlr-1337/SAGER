@@ -121,10 +121,29 @@ describe('HelpPage', () => {
     expect(page.querySelector('a[href="/saidas"]')).not.toBeNull();
     expect(page.querySelector('a[href="/chamada"]')).toBeNull();
     expect(page.querySelector('a[href="/relatorios"]')).toBeNull();
-    expect(page.textContent).toContain('Alguém da equipe');
+    expect(page.textContent).toContain('procure o suporte da instituição');
     auth.principal.set({ ...auth.principal()!, perfis: ['supervisor'] });
     await fixture.whenStable();
     expect(page.querySelector('a[href="/chamada"]')).not.toBeNull();
     expect(page.querySelector('a[href="/relatorios"]')).not.toBeNull();
+  });
+
+  it('manda o residente à recuperação, servidores ao suporte, e mantém a pergunta da demonstração', async () => {
+    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    const session = TestBed.inject(DemoSessionService);
+    session.deactivate();
+    const fixture = TestBed.createComponent(HelpPage);
+    await fixture.whenStable();
+    const page = fixture.nativeElement as HTMLElement;
+    const recovery = page.querySelector('a[href="/recuperar-senha"]');
+    expect(recovery?.textContent).toContain('Esqueci minha senha');
+    expect(page.textContent).toContain('Gestor ou supervisor: procure o suporte da instituição');
+    expect(page.textContent).not.toContain('Esta demonstração usa dados reais?');
+
+    session.activate('residente');
+    await fixture.whenStable();
+    expect(page.textContent).toContain('Esta demonstração usa dados reais?');
+    expect(page.querySelector('a[href="/recuperar-senha"]')).toBeNull();
+    session.deactivate();
   });
 });

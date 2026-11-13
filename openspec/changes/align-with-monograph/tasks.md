@@ -9,7 +9,7 @@ Os caminhos do frontend são relativos a `frontend/`, e os do backend, a `backen
 
 ## 2. Ajuda de senha (RF020, UC02; D2)
 
-- [ ] 2.1 Em `src/app/features/portal/portal.pages.ts` (HelpPage, ramo sem demonstração), trocar a resposta de "Como recuperar ou alterar minha senha?" pelo texto da D2, com `<a routerLink="/recuperar-senha">Esqueci minha senha</a>`. A demonstração não acompanha: o ramo `session.active()` continua com "Esta demonstração usa dados reais?". Verificar com um caso novo em `src/app/features/portal/portal.pages.spec.ts` (describe HelpPage). Sem demonstração, o caso confere o link para `/recuperar-senha` e o texto do suporte para gestor e supervisor. Com a demonstração ativa, confere que a pergunta da demonstração continua. Rodar `npm test -- --watch=false --include=src/app/features/portal/portal.pages.spec.ts`.
+- [x] 2.1 Em `src/app/features/portal/portal.pages.ts` (HelpPage, ramo sem demonstração), trocar a resposta de "Como recuperar ou alterar minha senha?" pelo texto da D2, com `<a routerLink="/recuperar-senha">Esqueci minha senha</a>`. A demonstração não acompanha: o ramo `session.active()` continua com "Esta demonstração usa dados reais?". Verificar com um caso novo em `src/app/features/portal/portal.pages.spec.ts` (describe HelpPage). Sem demonstração, o caso confere o link para `/recuperar-senha` e o texto do suporte para gestor e supervisor. Com a demonstração ativa, confere que a pergunta da demonstração continua. Rodar `npm test -- --watch=false --include=src/app/features/portal/portal.pages.spec.ts`.
 
 ## 3. Justificativas de 10 a 2.000 caracteres (RN05, UC05, UC07; D4)
 
