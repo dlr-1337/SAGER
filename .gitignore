@@ -1,6 +1,7 @@
 # Original source files kept outside the GitHub repository
 /SAGER_Corrigido.docx
-/proposta_tcc_guilherme_28629_assinado.pdf
+/proposta_tcc*.pdf
+/monografia*
 /Controle de Vagas das Residências Estudantis 2026.xlsx - Vagas Residências Est. 2026.pdf
 /RESIDÊNCIAS ESTUDANTIS 2026_1.xlsx.zip
 
@@ -11,6 +12,7 @@
 /assets/plates/
 /.impeccable/build/*
 !/.impeccable/build/spec.json
+/.impeccable/reviews/
 
 # Operator configuration, credentials and generated recovery data
 /infra/production/.env
@@ -25,3 +27,8 @@ __pycache__/
 # Local Docker secrets and operator backups
 /.env.local
 /backups/
+
+# Local agent settings and worktrees
+/.claude/settings.local.json
+/.claude/worktrees/
+/.claude/noite/
