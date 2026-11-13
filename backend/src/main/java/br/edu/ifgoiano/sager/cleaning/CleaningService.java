@@ -70,8 +70,8 @@ public class CleaningService {
  public Page<Assessment> list(UUID accommodation,UUID unit,UUID room,UUID resident,LocalDate from,LocalDate to,int size,Long cursor){
   actor.administrative();limit(size,cursor);checkRange(from,to);
   var rows=jdbc.queryForList("SELECT a.id,a.sequence FROM sager_cleaning_assessment a WHERE (?::uuid IS NULL OR a.accommodation_id=?) AND (?::uuid IS NULL OR a.room_id IN (SELECT id FROM sager_room WHERE unit_id=?)) AND (?::uuid IS NULL OR room_id=?) AND (?::uuid IS NULL OR EXISTS(SELECT 1 FROM sager_cleaning_participant p WHERE p.assessment_id=a.id AND p.resident_id=?)) AND (?::date IS NULL OR assessment_date>=?) AND (?::date IS NULL OR assessment_date<=?) AND (?::bigint IS NULL OR sequence<?) ORDER BY sequence DESC LIMIT ?",accommodation,accommodation,unit,unit,room,room,resident,resident,from,from,to,to,cursor,cursor,size+1);
-  boolean more=rows.size()>size;var selected=more?rows.subList(0,size):rows;
-  return new Page<>(selected.stream().map(r->assessment((UUID)r.get("id"),false)).toList(),more?((Number)selected.getLast().get("sequence")).longValue():null);
+  boolean more=rows.size()>size;var selected=more?rows.subList(0,size):rows;Map<LocalDate,List<RankRow>> weeks=new HashMap<>();
+  return new Page<>(selected.stream().map(r->assessment((UUID)r.get("id"),false,weeks)).toList(),more?((Number)selected.getLast().get("sequence")).longValue():null);
  }
  @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
  public Assessment get(UUID id){actor.administrative();return assessment(id,true);}
@@ -79,19 +79,21 @@ public class CleaningService {
  public Page<OwnAssessment> ownList(LocalDate from,LocalDate to,int size,Long cursor){
   UUID resident=actor.resident().residentId();limit(size,cursor);checkRange(from,to);
   var rows=jdbc.queryForList("SELECT a.id,a.sequence FROM sager_cleaning_assessment a JOIN sager_cleaning_participant p ON p.assessment_id=a.id WHERE p.resident_id=? AND (?::date IS NULL OR assessment_date>=?) AND (?::date IS NULL OR assessment_date<=?) AND (?::bigint IS NULL OR sequence<?) ORDER BY sequence DESC LIMIT ?",resident,from,from,to,to,cursor,cursor,size+1);
-  boolean more=rows.size()>size;var selected=more?rows.subList(0,size):rows;
-  return new Page<>(selected.stream().map(r->ownProjection(assessment((UUID)r.get("id"),false))).toList(),more?((Number)selected.getLast().get("sequence")).longValue():null);
+  boolean more=rows.size()>size;var selected=more?rows.subList(0,size):rows;Map<LocalDate,List<RankRow>> weeks=new HashMap<>();
+  return new Page<>(selected.stream().map(r->ownProjection(assessment((UUID)r.get("id"),false,weeks))).toList(),more?((Number)selected.getLast().get("sequence")).longValue():null);
  }
  @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
  public OwnAssessment own(UUID id){UUID resident=actor.resident().residentId();if(!Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM sager_cleaning_participant WHERE assessment_id=? AND resident_id=?)",Boolean.class,id,resident)))throw missing();return ownProjection(assessment(id,false));}
  private OwnAssessment ownProjection(Assessment a){return new OwnAssessment(a.id(),a.roomId(),a.roomCode(),a.evaluatedAt(),a.assessmentDate(),a.criteria(),a.score(),a.observation(),a.version(),a.feedback());}
- private Assessment assessment(UUID id,boolean history){
+ private Assessment assessment(UUID id,boolean history){return assessment(id,history,new HashMap<>());}
+ // A list page shares weeks, so each week's ranking of every room is aggregated once per page.
+ private Assessment assessment(UUID id,boolean history,Map<LocalDate,List<RankRow>> weeks){
   var rows=jdbc.queryForList("SELECT * FROM sager_cleaning_assessment WHERE id=?",id);if(rows.isEmpty())throw missing();var r=rows.getFirst();
   var participants=jdbc.query("SELECT * FROM sager_cleaning_participant WHERE assessment_id=? ORDER BY resident_id",(rs,n)->new Participant(rs.getObject("allocation_id",UUID.class),rs.getObject("resident_id",UUID.class),rs.getString("resident_name")),id);
   var revisions=history?jdbc.query("SELECT * FROM sager_cleaning_revision WHERE assessment_id=? ORDER BY version",(rs,n)->new Revision(rs.getLong("version"),criteria(json.readTree(rs.getString("criteria"))),rs.getBigDecimal("score"),rs.getString("observation"),rs.getString("reason"),rs.getObject("recorded_at",OffsetDateTime.class),rs.getObject("recorded_by",UUID.class)),id):List.<Revision>of();
   UUID room=(UUID)r.get("room_id");LocalDate date=((java.sql.Date)r.get("assessment_date")).toLocalDate();BigDecimal score=(BigDecimal)r.get("score");long version=((Number)r.get("version")).longValue();
   BigDecimal previous=version==0?null:jdbc.queryForObject("SELECT score FROM sager_cleaning_revision WHERE assessment_id=? AND version=?",BigDecimal.class,id,version-1);
-  var period=period("WEEK",date);var ranked=rankRows(period[0],period[1]);var rank=ranked.stream().filter(x->room.equals(x.roomId())).findFirst().orElseThrow();
+  var period=period("WEEK",date);var ranked=weeks.computeIfAbsent(period[0],week->rankRows(period[0],period[1]));var rank=ranked.stream().filter(x->room.equals(x.roomId())).findFirst().orElseThrow();
   Feedback feedback=new Feedback(previous,score,previous==null?null:score.subtract(previous).setScale(2),rank.mean(),rank.position(),"WEEK",period[0],period[1]);
   return new Assessment(id,room,(String)r.get("room_code"),(UUID)r.get("accommodation_id"),time(r.get("evaluated_at")),date,(String)r.get("time_mode"),((Number)r.get("policy_version")).longValue(),criteria(json.readTree(r.get("criteria").toString())),score,(String)r.get("observation"),version,time(r.get("recorded_at")),(UUID)r.get("recorded_by"),participants,revisions,feedback);
  }

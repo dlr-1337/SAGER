@@ -105,6 +105,22 @@ class CleaningReportsIntegrationTest {
    assertThat(count("sager_occurrence")).isZero(); // score5 belonged to an empty room.
   }
  }
+ @Test void listFeedbackMatchesWeeklyRankingWhenAPageSharesWeeks()throws Exception{
+  try(var sup=login("supervisor");var student=login("residente")){
+   for(int i=0;i<3;i++)ok(sup,"POST","/api/v1/limpeza/avaliacoes",assessment(rooms.get(i),"NOW",null,new double[]{i<2?8:5,i<2?8:5,i<2?8:5,i<2?8:5}));
+   ok(sup,"POST","/api/v1/limpeza/avaliacoes",assessment(rooms.getFirst(),"RETROACTIVE",START.minus(Duration.ofDays(1)),new double[]{8,8,8,8}));
+   // The previous week has another ranking, so one page must not reuse a single week for every item.
+   ok(sup,"POST","/api/v1/limpeza/avaliacoes",assessment(rooms.get(2),"RETROACTIVE",START.minus(Duration.ofDays(6)),new double[]{3,3,3,3}));
+   var managed=read(sup,"/api/v1/limpeza/avaliacoes").path("items");var own=read(student,"/api/v1/me/limpeza/avaliacoes").path("items");
+   assertThat(managed.size()).isEqualTo(5);assertThat(own.size()).isEqualTo(2);
+   for(var items:List.of(managed,own))for(var item:items){
+    var row=rank(read(sup,"/api/v1/limpeza/ranking?period=WEEK&referenceDate="+item.path("assessmentDate").asText()).path("items"),UUID.fromString(item.path("roomId").asText()));
+    assertThat(item.path("feedback").path("periodMean").decimalValue()).isEqualByComparingTo(row.path("mean").decimalValue());
+    assertThat(item.path("feedback").path("position").asInt()).isEqualTo(row.path("position").asInt());
+   }
+   assertThat(rank(read(sup,"/api/v1/limpeza/ranking?period=WEEK&referenceDate=2026-09-30").path("items"),rooms.get(1)).path("position").asInt()).isEqualTo(1);
+  }
+ }
  @Test void validatesCriteriaDatesBodiesAndDistinctRolePermissions()throws Exception{
   try(var sup=login("supervisor");var manager=login("gestor");var student=login("residente")){
    var payload=assessment(rooms.getFirst(),"NOW",null,new double[]{5.01,5,5,5});assertError(write(sup,"POST","/api/v1/limpeza/avaliacoes",payload),400,"invalid_input");
