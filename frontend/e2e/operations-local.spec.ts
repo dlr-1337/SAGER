@@ -564,7 +564,7 @@ test('chamada persiste após recarga, confirma alerta e preserva correção da c
   ).toEqual([0, 1, 2]);
 });
 
-test('data de nascimento ausente bloqueia abertura e falha da API não mostra demonstração', async ({
+test('data de nascimento ausente bloqueia abertura e falha da API não mostra dados substitutos', async ({
   page,
 }) => {
   const state = await mockApi(page, { missingBirthDates: true });
@@ -577,7 +577,6 @@ test('data de nascimento ausente bloqueia abertura e falha da API não mostra de
   await expect(
     page.getByRole('heading', { name: 'Não foi possível carregar a chamada' }),
   ).toBeVisible();
-  await expect(page.getByText('Dados de demonstração')).toHaveCount(0);
   state.failReads = false;
   state.missingBirthDates = false;
   await page.getByRole('button', { name: 'Tentar novamente' }).click();

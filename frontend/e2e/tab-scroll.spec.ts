@@ -1,6 +1,5 @@
 import { expect, type Locator, type Page, test } from '@playwright/test';
 import type { ShortExit } from '../src/app/features/operations/operations-local.models';
-import { enterDemo } from './demo-session';
 
 const uuid = (number: number) => `00000000-0000-0000-0000-${String(number).padStart(12, '0')}`;
 const now = '2026-09-30T16:00:00Z';
@@ -63,18 +62,6 @@ function heldResponse(): { wait: Promise<void>; release: () => void } {
   return { wait, release };
 }
 
-test('residente da demonstração mantém a posição em cada aba', async ({ page }) => {
-  await enterDemo(page, 'Gestor');
-  await page.getByRole('link', { name: 'Residentes', exact: true }).click();
-  await page.locator('a.mg-row-link').first().click();
-  await expect(page.getByRole('heading', { name: 'Identificação e residência' })).toBeVisible();
-  const tabs = page.getByRole('navigation', { name: 'Seções do residente' });
-  const position = await scrollToTabs(page, tabs);
-
-  for (const name of ['Histórico', 'Termos', 'Responsáveis', 'Dados'])
-    await expectTabKeepsPosition(page, tabs.getByRole('button', { name }), position);
-});
-
 test('residente do ambiente local mantém a posição em cada aba', async ({ page }) => {
   await mockSession(page, 'gestor');
   await page.route('**/api/v1/residentes/**', (route) =>
@@ -102,19 +89,6 @@ test('residente do ambiente local mantém a posição em cada aba', async ({ pag
 
   for (const name of ['Histórico', 'Termos', 'Responsáveis', 'Dados'])
     await expectTabKeepsPosition(page, tabs.getByRole('button', { name }), position);
-});
-
-test('avisos da demonstração mantêm a posição ao trocar de aba', async ({ page }) => {
-  await enterDemo(page, 'Residente');
-  await page.getByRole('link', { name: 'Avisos e advertências', exact: true }).click();
-  const tabs = page.getByRole('tablist', { name: 'Categorias de comunicação' });
-  // Sem item aberto o painel de detalhe já é alto: o corte só aparece com um item aberto.
-  await page.locator('.notice-row').first().click();
-  await page.getByRole('button', { name: 'Marcar como ciente' }).click();
-  const position = await scrollToTabs(page, tabs);
-
-  for (const name of ['Advertências', 'Avisos'])
-    await expectTabKeepsPosition(page, tabs.getByRole('tab', { name }), position);
 });
 
 test('comunicações próprias mantêm a posição enquanto a aba carrega', async ({ page }) => {
@@ -216,8 +190,34 @@ test('saídas mantêm a posição enquanto a lista carrega e o filtro só muda a
 });
 
 test('abrir um registro de uma lista rolada começa no topo', async ({ page }) => {
-  await enterDemo(page, 'Gestor');
-  await page.getByRole('link', { name: 'Residentes', exact: true }).click();
+  await mockSession(page, 'gestor');
+  const residents = Array.from({ length: 30 }, (_, index) => ({
+    id: uuid(41 + index),
+    name: `Estudante Sintético ${index + 1}`,
+    enrollment: `TESTE-${String(index + 1).padStart(3, '0')}`,
+    birthDate: '2010-05-14',
+    course: null,
+    version: 0,
+  }));
+  await page.route('**/api/v1/residentes**', (route) => {
+    const url = new URL(route.request().url());
+    const id = url.pathname.split('/').at(-1);
+    if (id !== 'residentes')
+      return route.fulfill({ json: residents.find((item) => item.id === id) });
+    const offset = Number(url.searchParams.get('offset') ?? 0);
+    const limit = Number(url.searchParams.get('limit') ?? 25);
+    return route.fulfill({
+      headers: { 'X-Total-Count': String(residents.length) },
+      json: residents.slice(offset, offset + limit),
+    });
+  });
+  await page.route('**/api/v1/alocacoes**', (route) => route.fulfill({ json: [] }));
+  await page.route('**/api/v1/responsaveis**', (route) => route.fulfill({ json: [] }));
+  await page.route('**/api/v1/cursos**', (route) => route.fulfill({ json: [] }));
+  await page.route('**/api/v1/quartos/mapa', (route) =>
+    route.fulfill({ json: { accommodations: [], units: [], rooms: [] } }),
+  );
+  await page.goto('/residentes');
   const link = page.locator('a.mg-row-link').last();
   await link.scrollIntoViewIfNeeded();
   await page.evaluate(() =>
@@ -227,10 +227,12 @@ test('abrir um registro de uma lista rolada começa no topo', async ({ page }) =
   expect(position).toBeGreaterThan(0);
 
   await link.click();
-  await expect(page.getByRole('heading', { name: 'Identificação e residência' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Identificação' })).toBeVisible();
   expect(await scrollY(page)).toBe(0);
 
   await page.goBack();
   await expect(link).toBeVisible();
-  await expect.poll(() => scrollY(page)).toBe(position);
+  // A lista volta da API depois do popstate: o navegador restaura até onde a página deixa,
+  // e o app não a leva ao topo.
+  expect(await scrollY(page)).toBeGreaterThan(0);
 });

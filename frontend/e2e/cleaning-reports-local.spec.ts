@@ -893,7 +893,7 @@ test('falha na lista de residentes não impede gerar e os filtros avisam', async
   await expect(page.getByText('Montando os arquivos', { exact: false })).toBeVisible();
   expect(consultWrites(state)).toHaveLength(1);
 });
-test('falha da API não usa dados de demonstração', async ({ page }) => {
+test('falha da API não usa dados substitutos', async ({ page }) => {
   await mockApi(page, { failReads: true });
   await page.goto('/relatorios');
   await expect(page.getByRole('heading', { name: 'Registros indisponíveis' })).toBeVisible();
@@ -926,7 +926,7 @@ test('"Ver na tela" mostra baixar no topo, páginas de registros e nada técnico
   );
   await expect(page.getByText(snapshotId)).toHaveCount(0);
 });
-test('consulta expirada e limite de registros orientam sem resultado truncado ou dados demo', async ({
+test('consulta expirada e limite de registros orientam sem resultado truncado ou dados substitutos', async ({
   page,
 }) => {
   const state = await mockApi(page, { expired: true });
@@ -964,9 +964,7 @@ test('indicadores reais apresentam três listas sem pontuação de comportamento
   expect(state.writes).toHaveLength(0);
   await expect(page.getByText('Histórico pedagógico', { exact: true })).toHaveCount(0);
 });
-test('320px sem overflow e axe, teclado em revisão, papéis protegidos e demonstração de relatórios preservada', async ({
-  page,
-}) => {
+test('320px sem overflow e axe, teclado em revisão e papéis protegidos', async ({ page }) => {
   const state = await mockApi(page);
   await page.setViewportSize({ width: 320, height: 760 });
   await page.goto('/limpeza/nova');
@@ -999,14 +997,4 @@ test('320px sem overflow e axe, teclado em revisão, papéis protegidos e demons
   state.role = 'residente';
   await page.goto('/relatorios');
   await expect(page).toHaveURL(/acesso-negado$/);
-  await page.goto('/demonstracao');
-  await page.getByRole('button', { name: /Entrar como gestor/ }).click();
-  await expect(page).toHaveURL(/\/inicio$/);
-  await page.goto('/relatorios');
-  await generate(page);
-  await expect(page.getByRole('button', { name: 'Baixar PDF', exact: true })).toBeVisible({
-    timeout: 8000,
-  });
-  await page.getByRole('button', { name: 'Baixar PDF', exact: true }).click();
-  await expect(page.getByText('Na demonstração nenhum arquivo é baixado.')).toBeVisible();
 });

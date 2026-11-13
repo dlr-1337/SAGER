@@ -287,9 +287,7 @@ test('conflito em duas abas exige recarregar antes de salvar', async ({ page, co
   await other.close();
 });
 
-test('erro local não carrega demo; supervisor edita; demonstração funciona offline', async ({
-  page,
-}) => {
+test('erro local não mostra registros inventados e supervisor edita', async ({ page }) => {
   await session(page);
   const data = registry([
     {
@@ -321,18 +319,6 @@ test('erro local não carrega demo; supervisor edita; demonstração funciona of
   await supervisor.goto(`/responsaveis/${guardianId}/editar`);
   await expect(supervisor.getByRole('heading', { name: 'Editar responsável' })).toBeVisible();
   await supervisor.close();
-  const demo = await page.context().newPage();
-  await demo.route('**/api/**', (route) => route.abort('failed'));
-  await demo.goto('/demonstracao');
-  await demo.getByRole('button', { name: /Entrar como gestor/i }).click();
-  await expect(demo).toHaveURL(/\/inicio$/);
-  await demo.goto('/responsaveis');
-  await expect(demo.getByText('Mariana Ribeiro')).toBeVisible();
-  await demo.goto('/responsaveis/g-1');
-  await expect(demo.getByRole('heading', { name: 'Mariana Ribeiro' })).toBeVisible();
-  await demo.goto('/responsaveis/novo');
-  await expect(demo.getByRole('heading', { name: 'Cadastrar responsável' })).toBeVisible();
-  await demo.close();
 });
 
 test('formulário local é acessível e não transborda em celular', async ({ page }) => {

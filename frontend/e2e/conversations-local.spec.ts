@@ -6,7 +6,6 @@ import type {
   OpenExit,
   SessionView,
 } from '../src/app/features/communications/conversations.models';
-import { enterDemo } from './demo-session';
 
 // Launch options force a new worker, so Playwright only accepts them at the top of the file.
 test.use({
@@ -748,22 +747,6 @@ test.describe('desktop', () => {
         await expect(page.getByRole('link', { name: 'Conversas', exact: true })).toHaveCount(0);
       }
     }
-  });
-
-  test('a demonstração não consulta o WhatsApp', async ({ page }) => {
-    const calls: string[] = [];
-    await page.route('**/api/v1/conversas**', (route) => {
-      calls.push(route.request().url());
-      return route.abort();
-    });
-    await enterDemo(page);
-    await page.goto('/conversas');
-    await expect(
-      page.getByRole('heading', { name: 'Conversas exigem o modo local' }),
-    ).toBeVisible();
-    await page.goto('/conversas/conexao');
-    await expect(page.getByRole('heading', { name: 'Conexão exige o modo local' })).toBeVisible();
-    expect(calls).toEqual([]);
   });
 });
 

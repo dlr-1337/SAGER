@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
-import { enterDemo } from './demo-session';
+import { signIn, SYNTHETIC } from './local-session';
 
-test.beforeEach(async ({ page }) => enterDemo(page));
+const { residentId, guardianId, supervisorId, exitId } = SYNTHETIC;
 
 test('alvos de ação visíveis têm pelo menos 44 × 44 px nas telas centrais', async ({ page }) => {
   test.setTimeout(60_000);
@@ -16,7 +16,7 @@ test('alvos de ação visíveis têm pelo menos 44 × 44 px nas telas centrais',
         '/quartos',
         '/chamada',
         '/saidas',
-        '/saidas/S-1048',
+        `/saidas/${exitId}`,
         '/notificacoes',
         '/limpeza',
       ],
@@ -25,13 +25,13 @@ test('alvos de ação visíveis têm pelo menos 44 × 44 px nas telas centrais',
       role: 'gestor',
       paths: [
         '/residentes',
-        '/residentes/r-ana',
+        `/residentes/${residentId}`,
         '/responsaveis',
         '/responsaveis/novo',
-        '/responsaveis/g-1',
+        `/responsaveis/${guardianId}`,
         '/supervisores',
         '/supervisores/novo',
-        '/supervisores/s-1',
+        `/supervisores/${supervisorId}`,
         '/quartos',
         '/relatorios',
       ],
@@ -41,18 +41,7 @@ test('alvos de ação visíveis têm pelo menos 44 × 44 px nas telas centrais',
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
     for (const set of routeSets) {
-      await page.goto('/demonstracao');
-      await page
-        .locator('.role-card')
-        .filter({
-          hasText:
-            set.role === 'supervisor'
-              ? 'Supervisor'
-              : set.role === 'gestor'
-                ? 'Gestor'
-                : 'Residente',
-        })
-        .click();
+      await signIn(page, set.role);
       for (const path of set.paths) {
         await page.goto(path);
         const small = await page.evaluate(() =>

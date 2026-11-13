@@ -585,7 +585,7 @@ test('saída longa agendada começa sem partida, sugere 4 h e preserva o retorno
   });
 });
 
-test('cadastro de responsável inválido e falha da API bloqueiam pedido sem dados demonstrativos', async ({
+test('cadastro de responsável inválido e falha da API bloqueiam pedido sem dados substitutos', async ({
   page,
 }) => {
   const state = await mockApi(page, { role: 'residente', guardiansEligible: false });

@@ -539,7 +539,7 @@ test('advertência manual valida data do servidor, repete intenção com a mesma
   await page
     .getByRole('dialog')
     .getByLabel('Justificativa', { exact: true })
-    .fill('Nova evidência demonstra que a advertência deve ser anulada.');
+    .fill('Nova evidência mostra que a advertência deve ser anulada.');
   await confirm(page, 'Confirmar anulação');
   await expect(page.getByText('Advertência anulada. O histórico continua guardado.')).toBeVisible();
   await page.reload();
@@ -761,7 +761,7 @@ test('residente consulta dados próprios e registra leitura e ciência separadas
   await expect(page.getByRole('button', { name: 'Já li' })).toHaveCount(0);
 });
 
-test('publicação alterada exige leitura atual; registro de outra conta e falha não expõem demo', async ({
+test('publicação alterada exige leitura atual; registro de outra conta e falha não expõem dados substitutos', async ({
   page,
 }) => {
   const state = await mockApi(page, { role: 'residente' });
@@ -784,7 +784,6 @@ test('publicação alterada exige leitura atual; registro de outra conta e falha
   state.failReads = true;
   await page.goto('/avisos');
   await expect(page.getByRole('alert').filter({ hasText: 'Verifique a internet' })).toBeVisible();
-  await expect(page.getByText('Dados de demonstração')).toHaveCount(0);
   state.failReads = false;
   await page.getByRole('button', { name: 'Tentar novamente' }).click();
   await expect(page.getByRole('link', { name: 'Ler', exact: true })).toBeVisible();
@@ -940,9 +939,7 @@ test('filtro Anulado nas próprias comunicações envia ANULADO', async ({ page 
   expect(state.writes).toHaveLength(0);
 });
 
-test('320 px e teclado acessíveis; permissões e demonstração mantêm seus escopos', async ({
-  page,
-}) => {
+test('320 px e teclado acessíveis; permissões mantêm seus escopos', async ({ page }) => {
   const state = await mockApi(page);
   await page.setViewportSize({ width: 320, height: 740 });
   await page.goto('/notificacoes/' + notificationId);
@@ -962,15 +959,5 @@ test('320 px e teclado acessíveis; permissões e demonstração mantêm seus es
   state.role = 'gestor';
   await page.goto('/notificacoes');
   await expect(page).toHaveURL('/acesso-negado');
-  expect(state.writes).toHaveLength(0);
-  await page.addInitScript(() => {
-    sessionStorage.setItem('sager.demo.active', 'true');
-    sessionStorage.setItem('sager.demo.role', 'residente');
-  });
-  await page.goto('/avisos');
-  await expect(page.getByRole('heading', { name: 'Avisos e advertências' })).toBeVisible();
-  await expect(
-    page.getByText('Os registros abaixo são fictícios.', { exact: false }),
-  ).toBeVisible();
   expect(state.writes).toHaveLength(0);
 });

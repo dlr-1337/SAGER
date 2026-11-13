@@ -146,7 +146,9 @@ test('duplicidade, conflito em duas abas e recarga não perdem a edição nem ge
   );
 });
 
-test('supervisor gerencia alojamentos; API indisponível não traz demo', async ({ page }) => {
+test('supervisor gerencia alojamentos; API indisponível não traz registros inventados', async ({
+  page,
+}) => {
   await mockSession(page, 'supervisor');
   const registry = mockRegistry(page, [
     { id: firstId, code: 'TESTE-A', name: 'Somente Leitura', version: 0 },
@@ -167,13 +169,9 @@ test('supervisor gerencia alojamentos; API indisponível não traz demo', async 
   await expect(page.getByRole('heading', { name: 'Somente Leitura' })).toHaveCount(0);
 });
 
-test('alojamentos são utilizáveis na demonstração offline e acessíveis em desktop e celular', async ({
-  page,
-}) => {
-  await page.route('**/api/**', (route) => route.abort('failed'));
-  await page.goto('/demonstracao');
-  await page.getByRole('button', { name: /Entrar como gestor/i }).click();
-  await expect(page).toHaveURL(/\/inicio$/);
+test('cadastro de alojamento é acessível em desktop e celular', async ({ page }) => {
+  await mockSession(page);
+  await mockRegistry(page).ready;
   await page.goto('/alojamentos/novo');
   for (const viewport of [
     { width: 1440, height: 900 },
@@ -189,11 +187,6 @@ test('alojamentos são utilizáveis na demonstração offline e acessíveis em d
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
   }
-  await page.getByRole('textbox', { name: /Código do alojamento/ }).fill('DEMO');
-  await page.getByRole('textbox', { name: /Nome do alojamento/ }).fill('Alojamento Fictício');
-  await page.getByRole('button', { name: 'Salvar alojamento' }).click();
-  await expect(page.getByRole('status')).toContainText('Alojamento salvo nesta demonstração');
-  await expect(page.getByRole('heading', { name: 'Alojamento Fictício' })).toBeVisible();
 });
 
 test('aguarda um salvamento pendente antes de sair do formulário', async ({ page }) => {

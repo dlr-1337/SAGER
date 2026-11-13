@@ -30,72 +30,11 @@ test('login permite conferir a senha e volta a ocultá-la ao enviar', async ({ p
   await expect(page.getByRole('button', { name: 'Mostrar senha' })).toBeVisible();
 });
 
-test('rota interna exige sessão ou entrada explícita na demonstração', async ({ page }) => {
+test('rota interna exige sessão', async ({ page }) => {
   await page.route('**/api/v1/auth/me', (route) => route.abort('failed'));
 
   await page.goto('/inicio');
   await expect(page).toHaveURL(/\/acesso$/);
-  await page.goto('/demonstracao');
-  await page.getByRole('button', { name: /Entrar como supervisor/i }).click();
-  await expect(page).toHaveURL(/\/inicio$/);
-  await page.reload();
-  await expect(page.getByRole('heading', { name: /Olá, supervisora/ })).toBeVisible();
-  expect(await page.evaluate(() => sessionStorage.getItem('sager.demo.active'))).toBe('true');
-});
-
-test('aba nova encerra cookie de sessão local antes de abrir a demonstração', async ({
-  context,
-}) => {
-  await context.addCookies([
-    {
-      name: 'SESSION',
-      value: 'sessao-de-teste',
-      url: 'http://127.0.0.1:4200',
-      httpOnly: true,
-      sameSite: 'Lax',
-    },
-  ]);
-  const requests: string[] = [];
-  await context.route('**/api/v1/auth/**', (route) => {
-    const request = route.request();
-    const path = new URL(request.url()).pathname;
-    requests.push(path);
-    expect(request.headers().cookie).toContain('SESSION=sessao-de-teste');
-    if (path.endsWith('/me')) {
-      return route.fulfill({
-        json: {
-          id: '00000000-0000-0000-0000-000000000001',
-          nome: 'Operadora Exemplo',
-          email: 'operadora@example.test',
-          matricula: 'TESTE-LOGIN',
-          fotoUrl: null,
-          perfis: ['gestor'],
-          residenteId: null,
-          supervisorId: null,
-        },
-      });
-    }
-    if (path.endsWith('/csrf')) {
-      return route.fulfill({ json: { headerName: 'X-CSRF-TOKEN', token: 'csrf-test' } });
-    }
-    if (path.endsWith('/logout')) {
-      expect(request.headers()['x-csrf-token']).toBe('csrf-test');
-      return route.fulfill({
-        status: 204,
-        headers: { 'Set-Cookie': 'SESSION=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax' },
-      });
-    }
-    return route.fulfill({ status: 404 });
-  });
-
-  const newTab = await context.newPage();
-  await newTab.goto('/demonstracao');
-  expect(await newTab.evaluate(() => sessionStorage.getItem('sager.demo.active'))).toBeNull();
-  await newTab.getByRole('button', { name: /Entrar como supervisor/i }).click();
-  await expect(newTab).toHaveURL(/\/inicio$/);
-  expect(requests).toEqual(['/api/v1/auth/me', '/api/v1/auth/csrf', '/api/v1/auth/logout']);
-  expect((await context.cookies()).some((cookie) => cookie.name === 'SESSION')).toBe(false);
-  await expect(newTab.locator('.demo-flag')).toContainText('Demonstração');
 });
 
 test('login local restaura a sessão, respeita o perfil do servidor e permite sair', async ({
@@ -151,7 +90,6 @@ test('login local restaura a sessão, respeita o perfil do servidor e permite sa
   await expect(page.getByText('Operadora Exemplo · Acesso local')).toBeVisible();
   await expect(page.locator('.demo-flag')).toContainText('Login local');
   await expect(page.getByLabel('Perfil', { exact: true })).toHaveCount(0);
-  expect(await page.evaluate(() => Object.keys(sessionStorage))).not.toContain('sager.demo.active');
 
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Atividades do SAGER' })).toBeVisible();
@@ -164,9 +102,7 @@ test('login local restaura a sessão, respeita o perfil do servidor e permite sa
   expect(requests).toContain('/api/v1/auth/logout');
 });
 
-test('senha inválida mantém o usuário fora do sistema e não impede a demonstração', async ({
-  page,
-}) => {
+test('senha inválida mantém o usuário fora do sistema', async ({ page }) => {
   await page.route('**/api/v1/auth/**', (route) => {
     const path = new URL(route.request().url()).pathname;
     return route.fulfill(
@@ -182,9 +118,6 @@ test('senha inválida mantém o usuário fora do sistema e não impede a demonst
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Matrícula ou senha errada');
   await expect(page).toHaveURL(/\/acesso$/);
-  await page.getByRole('link', { name: 'Explorar demonstração' }).click();
-  await page.getByRole('button', { name: /Entrar como residente/i }).click();
-  await expect(page.getByRole('heading', { name: 'Olá, residente' })).toBeVisible();
 });
 
 for (const profile of ['residente', 'supervisor'] as const) {

@@ -16,6 +16,11 @@
   gap: 12px;
   margin: 24px 0 12px;
 }
+.comm-links > a:not([class]) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
 .comm-definition {
   margin: 16px 0 24px;
 }

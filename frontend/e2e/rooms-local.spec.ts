@@ -353,25 +353,6 @@ test('mapa e formulário locais são acessíveis no desktop e no celular, com te
   await expect(page.getByRole('heading', { name: /Quarto 0/ })).toBeVisible();
 });
 
-test('demonstração de quartos funciona e mantém seus vínculos sem backend', async ({ page }) => {
-  let roomCalls = 0;
-  await page.route('**/api/**', (route) => {
-    if (route.request().url().includes('/quartos')) roomCalls++;
-    return route.abort('failed');
-  });
-  await page.goto('/demonstracao');
-  await page.getByRole('button', { name: /Entrar como gestor/i }).click();
-  await expect(page).toHaveURL(/\/inicio$/);
-  await page.goto('/quartos/q-102');
-  await expect(page.getByText('Ana Luísa Ribeiro')).toBeVisible();
-  await page.getByRole('link', { name: 'Editar quarto' }).click();
-  await page.getByRole('combobox', { name: 'Situação *' }).selectOption('Manutenção');
-  await page.getByRole('button', { name: 'Salvar quarto' }).click();
-  await expect(page.getByRole('status')).toContainText('Quarto salvo nesta demonstração.');
-  await expect(page.getByText('Ana Luísa Ribeiro')).toBeVisible();
-  expect(roomCalls).toBe(0);
-});
-
 test('nomes e códigos no limite cadastrado não causam rolagem horizontal no celular', async ({
   page,
   context,

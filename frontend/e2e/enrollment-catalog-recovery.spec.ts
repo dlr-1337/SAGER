@@ -1,6 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
-import { enterDemo } from './demo-session';
 
 const account = {
   id: '00000000-0000-0000-0000-000000000001',
@@ -13,83 +12,70 @@ const account = {
   supervisorId: null,
 };
 
-for (const demo of [false, true]) {
-  for (const initiallyActive of [false, true]) {
-    test(`curso em edição preserva situação e rascunho (demo=${demo}, ativo=${initiallyActive})`, async ({
-      page,
-    }) => {
-      const course = {
-        id: '00000000-0000-0000-0000-000000000201',
-        name: 'Informática',
-        active: initiallyActive,
-        version: 0,
-      };
-      const writes: { name: string; active: boolean; version: number }[] = [];
-      if (demo) {
-        await page.route('**/api/**', (route) => route.abort('failed'));
-        await enterDemo(page, 'Gestor');
-      } else {
-        await page.route('**/api/v1/auth/**', (route) =>
-          route.fulfill({
-            json: route.request().url().endsWith('/me')
-              ? account
-              : { headerName: 'X-CSRF-TOKEN', token: 'synthetic' },
-          }),
-        );
-        await page.route('**/api/v1/cursos**', (route) => {
-          if (route.request().method() === 'GET') return route.fulfill({ json: [course] });
-          const body = route.request().postDataJSON();
-          writes.push(body);
-          if (body.version !== course.version) return route.fulfill({ status: 409 });
-          Object.assign(course, {
-            name: body.name,
-            active: body.active,
-            version: course.version + 1,
-          });
-          return route.fulfill({ json: course });
-        });
-      }
-      await page.goto('/cursos');
-      const row = page
-        .locator('.course-row')
-        .filter({ has: page.getByText('Informática', { exact: true }) });
-      if (demo && !initiallyActive) {
-        await row.getByRole('button', { name: 'Desativar', exact: true }).click();
-        await expect(row).toContainText('Inativo · mantido nos cadastros existentes');
-      }
-      await row.getByRole('button', { name: 'Editar', exact: true }).click();
-      const name = page.getByLabel('Nome do curso', { exact: true });
-      await expect(name).toHaveValue('Informática');
-      await name.fill('Informática revisada');
-      await row
-        .getByRole('button', { name: initiallyActive ? 'Desativar' : 'Reativar', exact: true })
-        .click();
-      await expect(row).toContainText(
-        initiallyActive ? 'Inativo · mantido nos cadastros existentes' : 'Ativo',
-      );
-      await expect(name).toHaveValue('Informática revisada');
-      const save = page.getByRole('button', { name: 'Salvar curso', exact: true });
-      await expect(save).toBeEnabled();
-      await save.click();
-      await expect(page.getByRole('status').filter({ hasText: 'Curso salvo.' })).toBeVisible();
-      const revised = page
-        .locator('.course-row')
-        .filter({ has: page.getByText('Informática revisada', { exact: true }) });
-      await expect(revised).toContainText(
-        initiallyActive ? 'Inativo · mantido nos cadastros existentes' : 'Ativo',
-      );
-      await expect(page.getByRole('alert')).toHaveCount(0);
-      await expect(page.getByRole('alertdialog')).toHaveCount(0);
-      if (!demo) {
-        const empty = { level: null, durationYears: null };
-        expect(writes).toEqual([
-          { name: 'Informática', active: !initiallyActive, version: 0, ...empty },
-          { name: 'Informática revisada', active: !initiallyActive, version: 1, ...empty },
-        ]);
-        expect(course.version).toBe(2);
-      }
+for (const initiallyActive of [false, true]) {
+  test(`curso em edição preserva situação e rascunho (ativo=${initiallyActive})`, async ({
+    page,
+  }) => {
+    const course = {
+      id: '00000000-0000-0000-0000-000000000201',
+      name: 'Informática',
+      active: initiallyActive,
+      version: 0,
+    };
+    const writes: { name: string; active: boolean; version: number }[] = [];
+    await page.route('**/api/v1/auth/**', (route) =>
+      route.fulfill({
+        json: route.request().url().endsWith('/me')
+          ? account
+          : { headerName: 'X-CSRF-TOKEN', token: 'synthetic' },
+      }),
+    );
+    await page.route('**/api/v1/cursos**', (route) => {
+      if (route.request().method() === 'GET') return route.fulfill({ json: [course] });
+      const body = route.request().postDataJSON();
+      writes.push(body);
+      if (body.version !== course.version) return route.fulfill({ status: 409 });
+      Object.assign(course, {
+        name: body.name,
+        active: body.active,
+        version: course.version + 1,
+      });
+      return route.fulfill({ json: course });
     });
-  }
+    await page.goto('/cursos');
+    const row = page
+      .locator('.course-row')
+      .filter({ has: page.getByText('Informática', { exact: true }) });
+    await row.getByRole('button', { name: 'Editar', exact: true }).click();
+    const name = page.getByLabel('Nome do curso', { exact: true });
+    await expect(name).toHaveValue('Informática');
+    await name.fill('Informática revisada');
+    await row
+      .getByRole('button', { name: initiallyActive ? 'Desativar' : 'Reativar', exact: true })
+      .click();
+    await expect(row).toContainText(
+      initiallyActive ? 'Inativo · mantido nos cadastros existentes' : 'Ativo',
+    );
+    await expect(name).toHaveValue('Informática revisada');
+    const save = page.getByRole('button', { name: 'Salvar curso', exact: true });
+    await expect(save).toBeEnabled();
+    await save.click();
+    await expect(page.getByRole('status').filter({ hasText: 'Curso salvo.' })).toBeVisible();
+    const revised = page
+      .locator('.course-row')
+      .filter({ has: page.getByText('Informática revisada', { exact: true }) });
+    await expect(revised).toContainText(
+      initiallyActive ? 'Inativo · mantido nos cadastros existentes' : 'Ativo',
+    );
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(page.getByRole('alertdialog')).toHaveCount(0);
+    const empty = { level: null, durationYears: null };
+    expect(writes).toEqual([
+      { name: 'Informática', active: !initiallyActive, version: 0, ...empty },
+      { name: 'Informática revisada', active: !initiallyActive, version: 1, ...empty },
+    ]);
+    expect(course.version).toBe(2);
+  });
 }
 
 test('recuperação confere dados, exige confirmação e volta ao acesso sem autenticar', async ({

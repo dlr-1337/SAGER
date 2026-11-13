@@ -80,27 +80,6 @@ test('supervisor não vê o menu nem abre as telas de supervisores', async ({ pa
   expect(requests).toBe(0);
 });
 
-test('demonstração funciona sem backend e usa apenas registros fictícios', async ({ page }) => {
-  await page.route('**/api/**', (route) => route.abort('failed'));
-  await page.goto('/demonstracao');
-  await page.getByRole('button', { name: /Entrar como gestor/i }).click();
-  await expect(page).toHaveURL(/\/inicio$/);
-  await page.goto('/supervisores');
-  await expect(page.getByText('Helena Supervisora Exemplo')).toBeVisible();
-  await expect(page.getByText('Estes registros são demonstrativos')).toBeVisible();
-
-  await page.getByRole('link', { name: 'Cadastrar supervisor' }).click();
-  await page.getByRole('textbox', { name: 'Nome completo *' }).fill('Supervisora Fictícia');
-  await page
-    .getByRole('textbox', { name: 'Matrícula ou SIAPE (usada para entrar) *' })
-    .fill('DEMO-003');
-  await page.getByRole('textbox', { name: 'E-mail *' }).fill('ficticia@example.invalid');
-  await page.getByLabel('Senha *', { exact: true }).fill(password);
-  await page.getByLabel('Confirmar senha *', { exact: true }).fill(password);
-  await page.getByRole('button', { name: 'Salvar supervisor' }).click();
-  await expect(page.getByRole('status')).toContainText('Supervisor salvo nesta demonstração.');
-});
-
 test('gestor usa API e persiste criação e edição após recarga', async ({ page }) => {
   await mockSession(page);
   const records: SupervisorRecord[] = [];

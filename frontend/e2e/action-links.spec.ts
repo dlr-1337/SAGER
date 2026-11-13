@@ -1,5 +1,5 @@
 import { expect, test, type Locator } from '@playwright/test';
-import { enterDemo } from './demo-session';
+import { signIn } from './local-session';
 
 const underline = (link: Locator) =>
   link.evaluate((element) => getComputedStyle(element).textDecorationLine);
@@ -17,11 +17,7 @@ async function expectUnderlineOnlyOnHover(link: Locator): Promise<void> {
 }
 
 test('link de ação com ícone sublinha só no hover', async ({ page }) => {
-  await enterDemo(page);
-  await expectUnderlineOnlyOnHover(
-    page.getByRole('link', { name: 'Abrir ajuda', exact: true }).first(),
-  );
-
+  await signIn(page, 'supervisor');
   await page.goto('/saidas');
   await expectUnderlineOnlyOnHover(page.locator('a.op-row-link').first());
 });

@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { enterDemo } from './demo-session';
+import { signIn } from './local-session';
 
-test.beforeEach(async ({ page }) => enterDemo(page));
+test.beforeEach(async ({ page }) => signIn(page, 'supervisor'));
 
 test('menu móvel contém foco, bloqueia o fundo e mantém a marca no drawer', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 740 });
@@ -22,7 +22,7 @@ test('menu móvel contém foco, bloqueia o fundo e mantém a marca no drawer', a
   await expect(drawer.getByRole('button', { name: 'Fechar menu' })).toBeFocused();
   await expect(page.locator('.work-area')).toHaveAttribute('inert', '');
   await expect(page.locator('body')).toHaveCSS('overflow', 'hidden');
-  await expect(page.locator('#profile-select-mobile')).toBeVisible();
+  await expect(page.locator('#profile-select-mobile')).toHaveCount(0);
 
   for (let index = 0; index < 12; index++) {
     await page.keyboard.press(index === 0 ? 'Shift+Tab' : 'Tab');

@@ -380,9 +380,7 @@ test('duplicidade, entrada inválida e conflito de duas abas não anunciam suces
   await other.close();
 });
 
-test('erro local não carrega demo, supervisor edita e demonstração funciona offline', async ({
-  page,
-}) => {
+test('erro local não mostra registros inventados e supervisor edita', async ({ page }) => {
   await mockSession(page);
   const registry = mockRegistry([
     {
@@ -421,15 +419,6 @@ test('erro local não carrega demo, supervisor edita e demonstração funciona o
   await supervisor.getByRole('button', { name: 'Salvar residente' }).click();
   await expect(supervisor.getByRole('heading', { name: 'Estudante Sintético' })).toBeVisible();
   await supervisor.close();
-
-  const demo = await page.context().newPage();
-  await demo.route('**/api/**', (route) => route.abort('failed'));
-  await demo.goto('/demonstracao');
-  await demo.getByRole('button', { name: /Entrar como gestor/i }).click();
-  await expect(demo).toHaveURL(/\/inicio$/);
-  await demo.goto('/residentes');
-  await expect(demo.getByText('Ana Luísa Ribeiro')).toBeVisible();
-  await demo.close();
 });
 
 test('formulário local mantém navegação acessível no celular', async ({ page }) => {
@@ -447,27 +436,13 @@ test('formulário local mantém navegação acessível no celular', async ({ pag
   ).toEqual([]);
 });
 
-test('responsável demonstrativo não aparece no acesso local e segue na demonstração', async ({
-  page,
-}) => {
+test('responsável inexistente mostra não encontrado sem registros inventados', async ({ page }) => {
   await mockSession(page);
   await page.route('**/api/v1/responsaveis/g-1', (route) => route.fulfill({ status: 404 }));
   await page.goto('/responsaveis/g-1');
   await expect(page.getByRole('heading', { name: 'Responsável não encontrado' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Ana Luísa Ribeiro' })).toHaveCount(0);
   await expect(page.getByText('Ana Luísa Ribeiro')).toHaveCount(0);
-
-  const demo = await page.context().newPage();
-  await demo.route('**/api/**', (route) => route.abort('failed'));
-  await demo.goto('/demonstracao');
-  await demo.getByRole('button', { name: /Entrar como gestor/i }).click();
-  await expect(demo).toHaveURL(/\/inicio$/);
-  await demo.goto('/responsaveis/g-1');
-  await expect(demo.getByRole('link', { name: 'Ana Luísa Ribeiro' })).toHaveAttribute(
-    'href',
-    '/residentes/r-ana',
-  );
-  await demo.close();
 });
 
 for (const outcome of ['success', 'failure'] as const) {

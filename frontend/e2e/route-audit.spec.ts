@@ -1,30 +1,30 @@
 import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { enterDemo } from './demo-session';
+import { signIn, SYNTHETIC, type SessionRole } from './local-session';
 
-test.beforeEach(async ({ page }) => enterDemo(page));
+const { residentId, guardianId, supervisorId, exitId } = SYNTHETIC;
 
-const routes = {
+test.beforeEach(async ({ page }) => signIn(page, 'supervisor'));
+
+const routes: Record<SessionRole, string[]> = {
   gestor: [
     '/inicio',
     '/residentes',
     '/residentes/novo',
-    '/residentes/r-ana',
-    '/residentes/r-ana/editar',
+    `/residentes/${residentId}`,
+    `/residentes/${residentId}/editar`,
     '/responsaveis',
     '/responsaveis/novo',
-    '/responsaveis/g-1',
-    '/responsaveis/g-1/editar',
+    `/responsaveis/${guardianId}`,
+    `/responsaveis/${guardianId}/editar`,
     '/supervisores',
     '/supervisores/novo',
-    '/supervisores/s-1',
-    '/supervisores/s-1/editar',
+    `/supervisores/${supervisorId}`,
+    `/supervisores/${supervisorId}/editar`,
     '/quartos',
     '/quartos/novo',
-    '/quartos/q-102',
-    '/quartos/q-102/editar',
     '/relatorios',
-    '/relatorios/individual/ana',
+    `/relatorios/individual/${residentId}`,
     '/ajuda',
     '/perfil',
   ],
@@ -34,33 +34,30 @@ const routes = {
     '/alojamentos/novo',
     '/residentes',
     '/residentes/novo',
-    '/residentes/r-ana',
-    '/residentes/r-ana/editar',
+    `/residentes/${residentId}`,
+    `/residentes/${residentId}/editar`,
     '/responsaveis',
     '/responsaveis/novo',
-    '/responsaveis/g-1',
-    '/responsaveis/g-1/editar',
+    `/responsaveis/${guardianId}`,
+    `/responsaveis/${guardianId}/editar`,
     '/quartos',
     '/quartos/novo',
-    '/quartos/q-102',
-    '/quartos/q-102/editar',
     '/chamada',
     '/saidas',
-    '/saidas/S-1048',
+    `/saidas/${exitId}`,
     '/notificacoes',
-    '/notificacoes/N-201',
     '/limpeza',
     '/ranking',
     '/relatorios',
-    '/relatorios/individual/ana',
+    `/relatorios/individual/${residentId}`,
     '/ajuda',
   ],
   residente: [
     '/inicio',
     '/saidas',
     '/saidas/nova',
-    '/saidas/S-1048',
-    '/saidas/S-1048/editar',
+    `/saidas/${exitId}`,
+    `/saidas/${exitId}/editar`,
     '/avisos',
     '/ranking',
     '/perfil',
@@ -75,10 +72,7 @@ test('rotas dos três perfis renderizam sem erro e sem violações axe', async (
   page.on('pageerror', (error) => pageErrors.push(error.message));
 
   for (const [role, paths] of Object.entries(routes)) {
-    await enterDemo(
-      page,
-      role === 'gestor' ? 'Gestor' : role === 'supervisor' ? 'Supervisor' : 'Residente',
-    );
+    await signIn(page, role as SessionRole);
     for (const path of paths) {
       await page.goto(path);
       await expect(page.locator('main h1').first(), `${role} ${path}`).toBeVisible();
@@ -98,14 +92,14 @@ test('rotas dos três perfis renderizam sem erro e sem violações axe', async (
 });
 
 test('supervisor não entra nas rotas de supervisores nem as vê no menu', async ({ page }) => {
-  await enterDemo(page, 'Supervisor');
+  await page.goto('/inicio');
   await expect(page.getByRole('link', { name: 'Residentes', exact: true }).first()).toBeVisible();
   await expect(page.getByRole('link', { name: 'Supervisores', exact: true })).toHaveCount(0);
   for (const path of [
     '/supervisores',
     '/supervisores/novo',
-    '/supervisores/s-1',
-    '/supervisores/s-1/editar',
+    `/supervisores/${supervisorId}`,
+    `/supervisores/${supervisorId}/editar`,
   ]) {
     await page.goto(path);
     await expect(page, path).toHaveURL(/\/acesso-negado$/);
@@ -120,7 +114,7 @@ test('largura de 320 px e equivalência a zoom de 200% em telas principais', asy
     for (const path of [
       '/inicio',
       '/saidas',
-      '/saidas/S-1048',
+      `/saidas/${exitId}`,
       '/chamada',
       '/notificacoes',
       '/limpeza',
