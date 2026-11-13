@@ -121,6 +121,36 @@ class LocalAccountLinksIntegrationTest {
     }
 
     @Test
+    void reportsAdulthoodOnlyForALinkedResidentWithABirthDateOfEighteenOrMore() throws Exception {
+        UUID record = resident("DEMO-ADULT");
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("adult@example.invalid"), "adult@example.invalid", "Estudante Sintético", "residente", PASSWORD.toCharArray());
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("loose@example.invalid"), "loose@example.invalid", "Conta Sintética", "residente", PASSWORD.toCharArray());
+        command("link-resident", "adult@example.invalid", "--resident-id=" + record);
+        try (HttpClient client = browser(); HttpClient loose = browser()) {
+            login(client, "adult@example.invalid");
+            assertThat(me(client).path("maiorDeIdade").asBoolean()).isTrue();
+            jdbc.update("UPDATE sager_resident SET birth_date = ? WHERE id = ?",
+                    LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo")).minusYears(15), record);
+            assertThat(me(client).path("maiorDeIdade").isBoolean()).isTrue();
+            assertThat(me(client).path("maiorDeIdade").asBoolean()).isFalse();
+            jdbc.execute("ALTER TABLE sager_resident DISABLE TRIGGER ALL");
+            jdbc.execute("ALTER TABLE sager_resident DROP CONSTRAINT sager_resident_birth_date_required");
+            try {
+                jdbc.update("UPDATE sager_resident SET birth_date = NULL WHERE id = ?", record);
+            } finally {
+                jdbc.execute("ALTER TABLE sager_resident ADD CONSTRAINT sager_resident_birth_date_required"
+                        + " CHECK (birth_date IS NOT NULL) NOT VALID");
+                jdbc.execute("ALTER TABLE sager_resident ENABLE TRIGGER ALL");
+            }
+            assertThat(me(client).path("maiorDeIdade").isBoolean()).isTrue();
+            assertThat(me(client).path("maiorDeIdade").asBoolean()).isFalse();
+            login(loose, "loose@example.invalid");
+            assertThat(me(loose).path("maiorDeIdade").isBoolean()).isTrue();
+            assertThat(me(loose).path("maiorDeIdade").asBoolean()).isFalse();
+        }
+    }
+
+    @Test
     void permitsSupervisorRecordsForBothSupervisorAndGestorAccounts() throws Exception {
         for (String profile : new String[] { "supervisor", "gestor" }) {
             UUID record = supervisor("DEMO-" + profile);
@@ -134,6 +164,8 @@ class LocalAccountLinksIntegrationTest {
                 assertThat(me.path("residenteId").isNull()).isTrue();
                 assertThat(me.path("perfis").size()).isEqualTo(1);
                 assertThat(me.path("perfis").get(0).asText()).isEqualTo(profile);
+                assertThat(me.path("maiorDeIdade").isBoolean()).isTrue();
+                assertThat(me.path("maiorDeIdade").asBoolean()).isFalse();
             }
         }
     }
@@ -250,6 +282,39 @@ class LocalAccountLinksIntegrationTest {
         }
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_local_account WHERE resident_id = ?",
                 Integer.class, record)).isEqualTo(1);
+    }
+
+    @Test
+    void operatorCommandsRecordAccountEventsWithoutActorOrValues() {
+        UUID record = resident("DEMO-AUDIT");
+        String email = "audited@example.invalid";
+        // O comando create lê a senha do console, nulo no Surefire: o serviço é chamado sem requisição HTTP.
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(email), email, "Conta Sintética",
+                "residente", PASSWORD.toCharArray());
+        UUID account = accounts.findByEmail(email).orElseThrow().id();
+        command("link-resident", email, "--resident-id=" + record);
+        command("link-resident", email, "--resident-id=" + record);
+        String allAccountEvents = "SELECT COUNT(*) FROM sager_audit_event WHERE resource = 'LOCAL_ACCOUNT'";
+        int beforeList = jdbc.queryForObject(allAccountEvents, Integer.class);
+        assertThatCode(() -> commands.run(new DefaultApplicationArguments("--sager-account=list")))
+                .doesNotThrowAnyException();
+        assertThat(jdbc.queryForObject(allAccountEvents, Integer.class)).isEqualTo(beforeList);
+        assertThatCode(() -> commands.run(new DefaultApplicationArguments("--sager-account=disable",
+                "--email=" + email))).doesNotThrowAnyException();
+        assertThat(((ExitCodeGenerator) commands).getExitCode()).isZero();
+
+        assertThat(jdbc.queryForList("""
+                SELECT action || ' ' || origin || ' ' || changed_fields::text FROM sager_audit_event
+                WHERE resource = 'LOCAL_ACCOUNT' AND resource_id = ? AND actor_id IS NULL
+                    AND actor_profile IS NULL AND resulting_version = 0
+                ORDER BY sequence
+                """, String.class, account)).containsExactly(
+                        "CREATE OPERATOR_CLI {email,enrollment,name,password,profile}",
+                        "UPDATE OPERATOR_CLI {residentId}",
+                        "END OPERATOR_CLI {active}");
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(DISTINCT request_id) FROM sager_audit_event WHERE resource_id = ?
+                """, Integer.class, account)).isEqualTo(3);
     }
 
     private int concurrentLink(String email, UUID record, CountDownLatch ready, CountDownLatch start)

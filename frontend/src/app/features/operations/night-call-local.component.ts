@@ -650,7 +650,7 @@ export class NightCallLocalComponent {
             { label: 'Data', value: formatCivilDate(context.referenceDate) },
             { label: 'Residentes', value: String(context.eligibleResidents) },
           ],
-          ...this.windowReview(context),
+          ...this.windowReview(context.outsideWindow),
         },
         (result) =>
           this.api.openCall({
@@ -742,7 +742,8 @@ export class NightCallLocalComponent {
             { label: 'Ausentes', value: String(call.summary.absent) },
             { label: 'Ausências justificadas', value: String(call.summary.justified) },
           ],
-          ...this.windowReview(context),
+          // As duas datas vêm do servidor: a de hoje em America/Sao_Paulo e a da chamada.
+          ...this.windowReview(context.outsideWindow, call.referenceDate !== context.referenceDate),
         },
         (result) => this.api.closeCall(call, result.confirmed, result.reason),
         'Chamada fechada.',
@@ -753,15 +754,28 @@ export class NightCallLocalComponent {
       this.busy.set(false);
     }
   }
-  private windowReview(context: CallContext): Partial<LocalReviewData> {
-    return context.outsideWindow
+  private windowReview(outsideWindow: boolean, previousDay = false): Partial<LocalReviewData> {
+    if (!outsideWindow && !previousDay) return {};
+    const exception = { requireReason: true, requireConfirmation: true };
+    if (outsideWindow && previousDay)
+      return {
+        ...exception,
+        warning:
+          'A chamada é de um dia anterior e agora não é o horário da chamada (22h às 23h30). Marque a confirmação e escreva o motivo.',
+        confirmationLabel:
+          'Confirmo o fechamento da chamada de um dia anterior, fora do horário da chamada.',
+      };
+    return outsideWindow
       ? {
+          ...exception,
           warning:
             'Agora não é o horário da chamada (22h às 23h30). Marque a confirmação e escreva o motivo.',
-          requireReason: true,
-          requireConfirmation: true,
         }
-      : {};
+      : {
+          ...exception,
+          warning: 'A chamada é de um dia anterior. Marque a confirmação e escreva o motivo.',
+          confirmationLabel: 'Confirmo o fechamento da chamada de um dia anterior.',
+        };
   }
   private review(
     data: LocalReviewData,

@@ -28,6 +28,7 @@ import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
+import { LocalAuthService } from '../../core/local-auth.service';
 import { OperationsLocalApiService, operationsError } from './operations-local-api.service';
 import { ShortExit } from './operations-local.models';
 import { exitStatusLabels, formatOperationsTime } from './operations-local.utils';
@@ -60,7 +61,7 @@ import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
             }}
           </p>
         </div>
-        @if (session.hasRole('residente')) {
+        @if (session.hasRole('residente') && !adult()) {
           <div class="exit-requests">
             <a class="btn op-primary" routerLink="/saidas/nova">Pedir saída curta (até 3 horas)</a>
             <a class="btn op-primary" routerLink="/saidas/longas/nova"
@@ -244,6 +245,9 @@ import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
 })
 export class ExitsLocalComponent {
   readonly session = inject(DemoSessionService);
+  private readonly auth = inject(LocalAuthService);
+  /** O adulto só consulta: pedir, mudar e cancelar são do residente menor (RN02). */
+  readonly adult = computed(() => this.auth.principal()?.maiorDeIdade === true);
   private readonly api = inject(OperationsLocalApiService);
   private readonly longApi = inject(LongExitApiService);
   private readonly route = inject(ActivatedRoute);

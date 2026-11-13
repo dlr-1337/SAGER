@@ -290,6 +290,22 @@ class LongExitApiIntegrationTest {
     }
 
     @Test
+    void refusesAdultOnTheEighteenthBirthdayAndAcceptsTheEveInSaoPaulo() throws Exception {
+        // START é 22h de 30/09/2026 em Brasília e já 01/10 em UTC.
+        jdbc.update("UPDATE sager_resident SET birth_date=DATE '2008-09-30' WHERE id=?", resident);
+        try (HttpClient student = login("residente")) {
+            JsonNode adult = read(student, ROOT + "/elegibilidade");
+            assertThat(adult.path("eligible").asBoolean()).isFalse();
+            assertThat(adult.path("blockers").toString()).contains("not_minor");
+            error(post(student, ROOT, plan(4 * 3600)), 409, "not_eligible");
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_long_exit", Integer.class))
+                    .isZero();
+            jdbc.update("UPDATE sager_resident SET birth_date=DATE '2008-10-01' WHERE id=?", resident);
+            assertThat(read(student, ROOT + "/elegibilidade").path("eligible").asBoolean()).isTrue();
+        }
+    }
+
+    @Test
     void scheduledDepartureAtNowHasNoSignatureWindowAndReturnsValidationError() throws Exception {
         try (HttpClient student = login("residente")) {
             Map<String, Object> input = plan(4 * 3600);

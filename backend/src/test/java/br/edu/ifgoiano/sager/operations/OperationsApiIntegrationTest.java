@@ -411,11 +411,23 @@ class OperationsApiIntegrationTest {
             assertThat(read(student, EXITS + "/elegibilidade").path("eligible").asBoolean()).isFalse();
             assertError(post(student, EXITS, exitBody("NOW", clock.instant(),
                     clock.instant().plusSeconds(3600))), 409, "not_eligible");
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_short_exit", Integer.class)).isZero();
             assertError(get(unlinked, EXITS + "/elegibilidade"), 403, "resident_link_required");
             jdbc.update("UPDATE sager_resident SET birth_date = DATE '2009-01-01' WHERE id = ?", resident);
             jdbc.update("UPDATE sager_room_allocation SET ended_at = started_at, end_reason = 'END'");
             assertError(post(student, EXITS, exitBody("NOW", clock.instant(),
                     clock.instant().plusSeconds(3600))), 409, "not_eligible");
+        }
+    }
+
+    @Test
+    void eveOfEighteenthBirthdayInSaoPauloIsStillEligibleAlthoughUtcIsTheNextDay() throws Exception {
+        // START é 22h de 30/09/2026 em Brasília e já 01/10 em UTC.
+        jdbc.update("UPDATE sager_resident SET birth_date = DATE '2008-10-01' WHERE id = ?", resident);
+        try (HttpClient student = logged("student")) {
+            JsonNode eligibility = read(student, EXITS + "/elegibilidade");
+            assertThat(eligibility.path("eligible").asBoolean()).isTrue();
+            assertThat(eligibility.path("blockers")).isEmpty();
         }
     }
 

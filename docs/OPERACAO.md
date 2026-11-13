@@ -36,6 +36,8 @@ O segundo comando pede a senha duas vezes, sem mostrar no terminal. A senha prec
 | `assign-enrollment` | Atribui a matrícula a uma conta antiga que não tem. |
 | `help` | Mostra a ajuda. |
 
+Cada comando que grava (`create`, `reset`, `disable`, `link-*`, `unlink` e `assign-enrollment`) registra um evento de conta na auditoria, com a origem `OPERATOR_CLI`, sem autor e só com os nomes dos campos. `list` e `help` não gravam nada.
+
 ```bash
 ./sager account reset --matricula=TESTE-GESTOR
 ./sager account list

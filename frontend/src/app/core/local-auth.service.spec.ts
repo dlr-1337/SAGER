@@ -74,6 +74,7 @@ describe('LocalAuthService', () => {
         residenteId: '00000000-0000-0000-0000-000000000002',
         supervisorId: '00000000-0000-0000-0000-000000000003',
       },
+      { ...principal, maiorDeIdade: 'sim' },
     ];
     const auth = TestBed.inject(LocalAuthService);
     for (const value of invalidPrincipals) {
@@ -91,6 +92,12 @@ describe('LocalAuthService', () => {
         ...principal,
         perfis: ['residente'],
         residenteId: '00000000-0000-0000-0000-000000000002',
+      },
+      {
+        ...principal,
+        perfis: ['residente'],
+        residenteId: '00000000-0000-0000-0000-000000000002',
+        maiorDeIdade: true,
       },
       {
         ...principal,

@@ -12,6 +12,8 @@ export interface LocalPrincipal {
   perfis: Role[];
   residenteId: string | null;
   supervisorId: string | null;
+  /** Calculado pelo servidor; ausente vale falso (menor ou sem data). */
+  maiorDeIdade?: boolean;
 }
 
 const roles: Role[] = ['gestor', 'supervisor', 'residente'];
@@ -38,6 +40,7 @@ function validPrincipal(value: unknown): value is LocalPrincipal {
     principal.perfis.every((profile) => roles.includes(profile)) &&
     nullableRecordId(principal.residenteId) &&
     nullableRecordId(principal.supervisorId) &&
+    (principal.maiorDeIdade === undefined || typeof principal.maiorDeIdade === 'boolean') &&
     !(principal.residenteId && principal.supervisorId) &&
     (!principal.residenteId || principal.perfis[0] === 'residente') &&
     (!principal.supervisorId || ['gestor', 'supervisor'].includes(principal.perfis[0]))

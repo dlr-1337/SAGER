@@ -254,7 +254,7 @@ export class OperationsDemoService {
       source: 'Limpeza',
       at: offset(-36),
       reason: 'Avaliação sinalizada para revisão humana',
-      evidence: 'Critério institucional de alerta ainda pendente de definição.',
+      evidence: 'Nota de limpeza abaixo de 6,00.',
       status: 'Em análise',
       timeline: [
         { label: 'Notificação interna gerada', at: offset(-36) },
@@ -468,8 +468,8 @@ export class OperationsDemoService {
     )
       return false;
     if (decision === 'approve' && item.kind === 'Longa' && !item.signed) return false;
-    if (decision === 'reject' && item.kind === 'Longa' && !item.signed) return false;
-    if (decision === 'reject' && !justification.trim()) return false;
+    const reason = justification.trim().length;
+    if (decision === 'reject' && (reason < 10 || reason > 2000)) return false;
     this.replaceExit({
       ...item,
       status: decision === 'approve' ? 'Aprovada' : 'Rejeitada',

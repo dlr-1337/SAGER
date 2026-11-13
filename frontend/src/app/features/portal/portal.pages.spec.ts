@@ -121,10 +121,61 @@ describe('HelpPage', () => {
     expect(page.querySelector('a[href="/saidas"]')).not.toBeNull();
     expect(page.querySelector('a[href="/chamada"]')).toBeNull();
     expect(page.querySelector('a[href="/relatorios"]')).toBeNull();
-    expect(page.textContent).toContain('Alguém da equipe');
+    expect(page.textContent).toContain('procure o suporte da instituição');
     auth.principal.set({ ...auth.principal()!, perfis: ['supervisor'] });
     await fixture.whenStable();
     expect(page.querySelector('a[href="/chamada"]')).not.toBeNull();
     expect(page.querySelector('a[href="/relatorios"]')).not.toBeNull();
+  });
+
+  it('manda o residente à recuperação, servidores ao suporte, e mantém a pergunta da demonstração', async () => {
+    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    const session = TestBed.inject(DemoSessionService);
+    session.deactivate();
+    const fixture = TestBed.createComponent(HelpPage);
+    await fixture.whenStable();
+    const page = fixture.nativeElement as HTMLElement;
+    const recovery = page.querySelector('a[href="/recuperar-senha"]');
+    expect(recovery?.textContent).toContain('Esqueci minha senha');
+    expect(page.textContent).toContain('Gestor ou supervisor: procure o suporte da instituição');
+    expect(page.textContent).not.toContain('Esta demonstração usa dados reais?');
+
+    session.activate('residente');
+    await fixture.whenStable();
+    expect(page.textContent).toContain('Esta demonstração usa dados reais?');
+    expect(page.querySelector('a[href="/recuperar-senha"]')).toBeNull();
+    session.deactivate();
+  });
+
+  it('tira o guia de saídas só do residente maior de idade', async () => {
+    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    const session = TestBed.inject(DemoSessionService);
+    session.deactivate();
+    const auth = TestBed.inject(LocalAuthService);
+    const resident = {
+      id: '00000000-0000-0000-0000-000000000001',
+      nome: 'Residente Sintético',
+      email: null,
+      matricula: 'TESTE-LOGIN',
+      fotoUrl: null,
+      perfis: ['residente' as const],
+      residenteId: '00000000-0000-0000-0000-000000000002',
+      supervisorId: null,
+    };
+    auth.principal.set({ ...resident, maiorDeIdade: true });
+    const fixture = TestBed.createComponent(HelpPage);
+    await fixture.whenStable();
+    const page = fixture.nativeElement as HTMLElement;
+    expect(page.querySelector('a[href="/saidas"]')).toBeNull();
+    expect(page.querySelector('a[href="/avisos"]')).not.toBeNull();
+    auth.principal.set({ ...resident, maiorDeIdade: false });
+    await fixture.whenStable();
+    expect(page.querySelector('a[href="/saidas"]')).not.toBeNull();
+    auth.principal.set(null);
+    session.activate('residente');
+    await fixture.whenStable();
+    expect(page.textContent).toContain('Acompanhar saídas');
+    expect(page.querySelector('a[href="/saidas"]')).not.toBeNull();
+    session.deactivate();
   });
 });

@@ -43,7 +43,9 @@ public enum AuditResource {
     WHATSAPP_MESSAGE(Set.of("conversationId", "deliveryStatus", "mediaType", "fileHash", "providerMessageId", "failureCode")),
     WHATSAPP_SESSION(Set.of("started", "qrRead", "ended")),
     WHATSAPP_ATTEMPT(Set.of("bindingId", "status", "providerMessageId", "acceptedAt", "deliveredAt", "readAt", "failureCode")),
-    INTEGRATION_TASK(Set.of("bindingId", "type", "state", "attemptCount", "leaseUntil", "nextAttemptAt", "failureCode"));
+    INTEGRATION_TASK(Set.of("bindingId", "type", "state", "attemptCount", "leaseUntil", "nextAttemptAt", "failureCode")),
+    LOCAL_ACCOUNT(Set.of("enrollment", "email", "name", "profile", "password", "active", "residentId",
+            "supervisorId"));
 
     private final Set<String> fields;
 

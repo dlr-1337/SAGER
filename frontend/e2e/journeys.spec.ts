@@ -45,6 +45,7 @@ test('aprovação longa bloqueada até a conferência simulada do arquivo recebi
 }) => {
   await page.goto('/saidas/S-1048');
   await expect(page.getByRole('button', { name: 'Aprovar' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Rejeitar' })).toBeEnabled();
   await page.getByRole('button', { name: 'Simular arquivo recebido' }).click();
   await expect(
     page.getByText('Arquivo simulado recebido.', { exact: false }).first(),
@@ -58,6 +59,43 @@ test('aprovação longa bloqueada até a conferência simulada do arquivo recebi
   await dialog.getByRole('button', { name: 'Confirmar conferência' }).click();
   await expect(page.getByText('Simulada e conferida', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Aprovar' })).toBeEnabled();
+});
+
+test('saída longa pode ser rejeitada antes da conferência com 10 a 2.000 caracteres', async ({
+  page,
+}) => {
+  await page.goto('/saidas/S-1048');
+  await expect(page.getByText('Você pode rejeitar antes da conferência')).toBeVisible();
+  await page.getByRole('button', { name: 'Rejeitar' }).click();
+  const dialog = page.getByRole('dialog');
+  const reason = dialog.getByLabel('Justificativa');
+  await expect(reason).toHaveAttribute('maxlength', '2000');
+  await reason.fill('a'.repeat(9));
+  await dialog.getByRole('button', { name: 'Confirmar rejeição' }).click();
+  await expect(dialog.getByText('Escreva de 10 a 2.000 caracteres.')).toBeVisible();
+  await reason.fill('Sem vaga.!');
+  await dialog.getByRole('button', { name: 'Confirmar rejeição' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText('Rejeitada', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Sem vaga.!').first()).toBeVisible();
+});
+
+test('limpeza e ranking da demonstração descrevem a regra adotada com duas casas', async ({
+  page,
+}) => {
+  await page.goto('/limpeza');
+  await expect(page.getByRole('heading', { name: 'Regras da avaliação' })).toBeVisible();
+  await expect(page.getByText('Critérios pendentes da AE')).toHaveCount(0);
+  await page.getByLabel('Quarto').selectOption('A-102');
+  await page.getByRole('button', { name: 'Simular avaliação' }).click();
+  const summary = page.locator('.op-call-summary');
+  await expect(summary).toContainText('7,50');
+  await expect(summary).toContainText('8,00');
+  await expect(summary).toContainText('0,50 ponto(s)');
+  await page.getByRole('link', { name: 'Consultar ranking demonstrativo' }).click();
+  await expect(page.getByRole('heading', { name: 'Como o ranking é calculado' })).toBeVisible();
+  await expect(page.getByText('Fórmula pendente da AE')).toHaveCount(0);
+  await expect(page.getByText('nota ilustrativa 8,00')).toBeVisible();
 });
 
 test('endereço antigo de convite mostra página não encontrada', async ({ page }) => {

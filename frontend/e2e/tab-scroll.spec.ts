@@ -71,8 +71,9 @@ test('residente da demonstração mantém a posição em cada aba', async ({ pag
   const tabs = page.getByRole('navigation', { name: 'Seções do residente' });
   const position = await scrollToTabs(page, tabs);
 
-  for (const name of ['Histórico', 'Termos', 'Responsáveis', 'Dados'])
+  for (const name of ['Histórico', 'Responsáveis', 'Dados'])
     await expectTabKeepsPosition(page, tabs.getByRole('button', { name }), position);
+  await expect(tabs.getByRole('button', { name: 'Termos' })).toHaveCount(0);
 });
 
 test('residente do ambiente local mantém a posição em cada aba', async ({ page }) => {
@@ -100,8 +101,9 @@ test('residente do ambiente local mantém a posição em cada aba', async ({ pag
   const tabs = page.getByRole('navigation', { name: 'Seções do residente' });
   const position = await scrollToTabs(page, tabs);
 
-  for (const name of ['Histórico', 'Termos', 'Responsáveis', 'Dados'])
+  for (const name of ['Histórico', 'Responsáveis', 'Dados'])
     await expectTabKeepsPosition(page, tabs.getByRole('button', { name }), position);
+  await expect(tabs.getByRole('button', { name: 'Termos' })).toHaveCount(0);
 });
 
 test('avisos da demonstração mantêm a posição ao trocar de aba', async ({ page }) => {

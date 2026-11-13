@@ -23,12 +23,18 @@ public class AuditContextProvider {
         if (authentication == null || !authentication.isAuthenticated()
                 || !(authentication.getPrincipal() instanceof LocalAccountPrincipal principal)
                 || principal.id() == null || principal.profile() == null
-                || !PROFILES.contains(principal.profile())
-                || !(RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes)
+                || !PROFILES.contains(principal.profile())) {
+            throw new IllegalStateException("Auditoria exige uma requisição local autenticada.");
+        }
+        return new Context(principal.id(), principal.profile(), requireRequestId());
+    }
+
+    public UUID requireRequestId() {
+        if (!(RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes)
                 || !(attributes.getRequest().getAttribute(REQUEST_ID_ATTRIBUTE) instanceof UUID requestId)) {
             throw new IllegalStateException("Auditoria exige uma requisição local autenticada.");
         }
-        return new Context(principal.id(), principal.profile(), requestId);
+        return requestId;
     }
 
     public record Context(UUID actorId, String actorProfile, UUID requestId) {

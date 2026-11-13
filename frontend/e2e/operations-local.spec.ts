@@ -105,6 +105,7 @@ function callFixture(): NightCall {
 }
 interface MockState {
   role: 'supervisor' | 'residente' | 'gestor';
+  maiorDeIdade: boolean;
   now: string;
   outsideWindow: boolean;
   missingBirthDates: boolean;
@@ -118,6 +119,7 @@ interface MockState {
 async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<MockState> {
   const state: MockState = {
     role: 'supervisor',
+    maiorDeIdade: false,
     now: initialNow,
     outsideWindow: false,
     missingBirthDates: false,
@@ -174,6 +176,7 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
         perfis: [state.role],
         residenteId: state.role === 'residente' ? residentId : null,
         supervisorId: state.role === 'supervisor' ? '00000000-0000-0000-0000-000000000101' : null,
+        maiorDeIdade: state.maiorDeIdade,
       });
     if (path === '/api/v1/auth/csrf')
       return ok({ headerName: 'X-CSRF-TOKEN', token: 'synthetic-token' });
@@ -606,6 +609,36 @@ test('data de nascimento ausente bloqueia abertura e falha da API não mostra de
   await expect(page.getByRole('button', { name: 'Abrir chamada' })).toBeEnabled();
 });
 
+test('residente maior de idade consulta as saídas sem pedir, mudar nem cancelar', async ({
+  page,
+}) => {
+  const state = await mockApi(page, {
+    role: 'residente',
+    maiorDeIdade: true,
+    exits: [exitFixture()],
+  });
+  await page.goto('/inicio');
+  await expect(
+    page.getByText('Maiores de idade podem sair do IF até 23h e devem voltar até 5h.'),
+  ).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Minhas saídas' })).toHaveCount(0);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  for (const path of ['/saidas/nova', `/saidas/${exitId}/editar`]) {
+    await page.goto(path);
+    await expect(page).toHaveURL(/acesso-negado$/);
+  }
+  await page.goto('/saidas');
+  await expect(page.getByRole('link', { name: 'Ver pedido' })).toHaveCount(1);
+  await expect(page.getByRole('link', { name: /Pedir saída/ })).toHaveCount(0);
+  await page.getByRole('link', { name: 'Ver pedido' }).click();
+  await expect(page.getByRole('heading', { name: 'Pedido de saída curta' })).toBeVisible();
+  await expect(page.getByText('Aguardando análise', { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Mudar pedido' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Cancelar pedido' })).toHaveCount(0);
+  await expect(page.getByText('Nenhuma ação disponível para este pedido.')).toBeVisible();
+  expect(state.writes).toEqual([]);
+});
+
 test('residente envia NOW sem relógio do navegador, edita e consulta depois de recarregar', async ({
   page,
 }) => {
@@ -756,6 +789,26 @@ test('conflito exige recarga explícita e nunca repete a decisão com outra vers
   await expect(page.getByText('Rejeitada', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Aprovar', exact: true })).toHaveCount(0);
   expect(state.writes).toHaveLength(1);
+});
+
+test('rejeição de saída curta exige justificativa', async ({ page }) => {
+  const state = await mockApi(page, { exits: [exitFixture()] });
+  await page.goto(`/saidas/${exitId}`);
+  await page.getByRole('button', { name: 'Rejeitar', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  const confirm = dialog.getByRole('button', { name: 'Confirmar rejeição' });
+  await confirm.click();
+  await expect(dialog.getByRole('alert')).toContainText('10 a 2.000');
+  await dialog.getByLabel('Justificativa', { exact: true }).fill('a'.repeat(9));
+  await confirm.click();
+  await expect(dialog.getByRole('alert')).toContainText('10 a 2.000');
+  expect(state.writes).toHaveLength(0);
+  await dialog.getByLabel('Justificativa', { exact: true }).fill('Sem vaga.!');
+  await confirm.click();
+  await expect(page.getByText('Rejeitada', { exact: true }).first()).toBeVisible();
+  expect(state.writes).toHaveLength(1);
+  expect(state.writes[0].path).toBe(`/api/v1/saidas-curtas/${exitId}/decisao`);
+  expect(state.writes[0].body).toMatchObject({ decision: 'REJECT', comment: 'Sem vaga.!' });
 });
 
 test('layout de 320px, revisão por teclado, foco restaurado e acessibilidade', async ({ page }) => {

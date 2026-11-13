@@ -1,11 +1,14 @@
 package br.edu.ifgoiano.sager.auth;
 
+import br.edu.ifgoiano.sager.audit.AuditAction;
+import br.edu.ifgoiano.sager.audit.AuditService;
 import br.edu.ifgoiano.sager.management.FieldRules;
 
 import java.text.Normalizer;
 import java.time.LocalDate;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -19,8 +22,10 @@ public class ResidentRecoveryService {
     private final LocalAccountRepository accounts;
     private final LocalAccountProvisioningService provisioning;
     private final JdbcTemplate jdbc;
-    public ResidentRecoveryService(LocalAccountRepository accounts, LocalAccountProvisioningService provisioning, JdbcTemplate jdbc) {
-        this.accounts = accounts; this.provisioning = provisioning; this.jdbc = jdbc;
+    private final AuditService audit;
+    public ResidentRecoveryService(LocalAccountRepository accounts, LocalAccountProvisioningService provisioning, JdbcTemplate jdbc,
+            AuditService audit) {
+        this.accounts = accounts; this.provisioning = provisioning; this.jdbc = jdbc; this.audit = audit;
     }
     @Transactional
     public void recover(String enrollment, String name, LocalDate birthDate, String guardianName, String password, String confirmation) {
@@ -43,6 +48,7 @@ public class ResidentRecoveryService {
                 (r,n) -> r.getString("name"), account.residentId());
         if (!guardians.isEmpty() && guardians.stream().noneMatch(value -> !normalize(guardianName).isEmpty() && normalize(value).equals(normalize(guardianName)))) throw refused();
         if (accounts.updatePassword(account, hash) != 1) throw refused();
+        audit.recordAccount(account.id(), "residente", AuditAction.UPDATE, Set.of("password"));
     }
     static String normalize(String value) {
         return value == null ? "" : Normalizer.normalize(value.strip(), Normalizer.Form.NFD)

@@ -1,8 +1,9 @@
 import { ERROR_CONFLICT } from '../../core/error-messages';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
+import { LocalAuthService } from '../../core/local-auth.service';
 import { LongExitApiService } from './long-exit-api.service';
 import { downloadExitDocument } from './long-exit-document.utils';
 import {
@@ -558,7 +559,7 @@ const exitError = (error: unknown): string =>
                   session.hasRole('supervisor') ? 'Ações do supervisor' : 'O que você pode fazer'
                 }}
               </h2>
-              @if (session.hasRole('residente') && exit.capabilities.canEdit) {
+              @if (session.hasRole('residente') && exit.capabilities.canEdit && !adult()) {
                 <a
                   class="btn op-primary"
                   [routerLink]="busy() || conflict() ? null : ['/saidas/longas', exit.id, 'editar']"
@@ -644,7 +645,11 @@ const exitError = (error: unknown): string =>
                   }
                 </p>
               }
-              @if (session.hasRole('supervisor', 'residente') && exit.capabilities.canCancel) {
+              @if (
+                session.hasRole('supervisor', 'residente') &&
+                exit.capabilities.canCancel &&
+                !adult()
+              ) {
                 <div class="op-actions">
                   <button
                     class="btn op-secondary"
@@ -742,6 +747,9 @@ const exitError = (error: unknown): string =>
 })
 export class LongExitDetailComponent {
   readonly session = inject(DemoSessionService);
+  private readonly auth = inject(LocalAuthService);
+  /** O adulto só consulta: pedir, mudar e cancelar são do residente menor (RN02). */
+  readonly adult = computed(() => this.auth.principal()?.maiorDeIdade === true);
   private readonly api = inject(LongExitApiService);
   private readonly dialog = inject(MatDialog);
   private readonly route = inject(ActivatedRoute);

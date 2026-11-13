@@ -136,11 +136,14 @@ export class App implements OnDestroy {
     const role = this.session.role();
     const items = navByRole[role];
     if (this.session.active()) return grouped(items);
+    const adult = this.auth.principal()?.maiorDeIdade === true;
     const localItems =
       role === 'residente'
-        ? items.map((item) =>
-            item.path === '/avisos' ? { ...item, label: 'Minhas comunicações' } : item,
-          )
+        ? items
+            .filter((item) => !(adult && item.path === '/saidas'))
+            .map((item) =>
+              item.path === '/avisos' ? { ...item, label: 'Minhas comunicações' } : item,
+            )
         : items;
     const communicationItems: NavItem[] =
       role === 'supervisor'

@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import br.edu.ifgoiano.sager.management.FieldRules;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -42,8 +43,7 @@ public class OperationResidents {
         LocalDate today = now.atZone(ZONE).toLocalDate();
         List<String> blockers = new ArrayList<>();
         if (resident.birthDate() == null) blockers.add("birth_date_required");
-        else if (resident.birthDate().isAfter(today)
-                || !resident.birthDate().plusYears(18).isAfter(today)) blockers.add("not_minor");
+        else if (!FieldRules.minor(resident.birthDate(), now)) blockers.add("not_minor");
         if (resident.roomId() == null) blockers.add("active_allocation_required");
         return new Eligibility(resident.id(), resident.name(), resident.enrollment(), resident.birthDate(),
                 resident.roomId(), resident.roomNumber(), resident.accommodationId(), blockers.isEmpty(),

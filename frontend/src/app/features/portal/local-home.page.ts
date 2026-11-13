@@ -82,6 +82,14 @@ const residentTasks: HomeTask[] = [
   },
 ];
 
+// shortcut: horário fixo no texto; se a AE mudar a regra ou pedir controle, vira configuração ou registro de circulação
+const adultSchedule: HomeTask = {
+  title: 'Horário de saída e volta',
+  text: 'Maiores de idade podem sair do IF até 23h e devem voltar até 5h.',
+  icon: 'schedule',
+  links: [],
+};
+
 const staffTasks: HomeTask[] = [
   {
     title: 'Avaliações de limpeza',
@@ -135,13 +143,15 @@ const staffTasks: HomeTask[] = [
                 <p>{{ task.text }}</p>
               </div>
             </div>
-            <div class="actions">
-              @for (link of task.links; track link.to; let primary = $first) {
-                <a [class]="primary ? 'btn' : 'btn-secondary'" [routerLink]="link.to">{{
-                  link.label
-                }}</a>
-              }
-            </div>
+            @if (task.links.length) {
+              <div class="actions">
+                @for (link of task.links; track link.to; let primary = $first) {
+                  <a [class]="primary ? 'btn' : 'btn-secondary'" [routerLink]="link.to">{{
+                    link.label
+                  }}</a>
+                }
+              </div>
+            }
           </article>
         }
       </section>
@@ -222,6 +232,8 @@ export class LocalHomePage {
   );
   readonly tasks = computed(() => {
     const role = this.session.role();
+    if (role === 'residente' && this.auth.principal()?.maiorDeIdade === true)
+      return [...residentTasks.filter((task) => task.links[0].to !== '/saidas'), adultSchedule];
     const own = role === 'supervisor' ? supervisorTasks : role === 'residente' ? residentTasks : [];
     return role === 'gestor' || role === 'supervisor' ? [...own, ...staffTasks] : own;
   });
