@@ -88,9 +88,11 @@ Os caminhos do frontend são relativos a `frontend/`, e os do backend, a `backen
 
 ## 10. Verificação geral
 
-- [ ] 10.1 Frontend completo, com a demonstração preservada. Rodar `npm run build`, `npm test -- --watch=false` e `npx playwright test tab-scroll operations-local journeys route-audit management-pagination-demo visual-review`, todos sem falhas. Em /demonstracao, conferir à mão que a ficha, as saídas, a limpeza, o ranking e a chamada abrem com os perfis gestor, supervisor e residente.
-- [ ] 10.2 Backend completo. Rodar `.\mvnw.cmd -B -ntp verify` sem falhas.
-- [ ] 10.3 Rodar `openspec validate align-with-monograph --strict` na raiz e conferir que passa.
+- [x] 10.1 Frontend completo, com a demonstração preservada. Rodar `npm run build`, `npm test -- --watch=false` e `npx playwright test tab-scroll operations-local journeys route-audit management-pagination-demo visual-review`, todos sem falhas. Em /demonstracao, conferir à mão que a ficha, as saídas, a limpeza, o ranking e a chamada abrem com os perfis gestor, supervisor e residente.
+  - Feito em 13/11/2026: `npm run build`, `npm test -- --watch=false` (67 arquivos, 659 testes) e a e2e inteira (`SAGER_E2E_PORT=4325 CI=1 npm run test:e2e`, 198 testes, que inclui as sete suítes citadas). A conferência da demonstração nos três perfis ficou com `route-audit` e `journeys` (ficha, saídas, limpeza, ranking e chamada abertos com gestor, supervisor e residente), não com um navegador à mão.
+- [x] 10.2 Backend completo. Rodar `.\mvnw.cmd -B -ntp verify` sem falhas.
+  - Feito em 13/11/2026: 485 testes, 0 falhas, 2 ignorados.
+- [x] 10.3 Rodar `openspec validate align-with-monograph --strict` na raiz e conferir que passa.
 
 ## Workflow follow-up
 
