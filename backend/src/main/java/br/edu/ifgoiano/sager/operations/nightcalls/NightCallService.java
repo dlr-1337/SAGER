@@ -56,7 +56,7 @@ public class NightCallService {
         actors.supervisor();
         Instant now = now();
         LocalDate today = today(now);
-        List<NightCall.AccommodationOption> accommodations = calls.accommodations();
+        List<NightCall.AccommodationOption> accommodations = calls.accommodations(today);
         List<NightCall.MissingBirthDate> missing = new ArrayList<>();
         int minors = 0;
         UUID existing = null;
@@ -93,7 +93,7 @@ public class NightCallService {
         LocalDate today = today(now);
         boolean exceptional = outsideWindow(now);
         String reason = exceptionReason(exceptional, confirmed, justification);
-        NightCall.AccommodationOption accommodation = accommodation(accommodationId, calls.accommodations());
+        NightCall.AccommodationOption accommodation = accommodation(accommodationId, calls.accommodations(today));
         if (calls.existing(accommodationId, today) != null) throw exists();
         List<NightCallRepository.RosterResident> all = calls.roster(accommodationId, now);
         if (all.stream().anyMatch(resident -> resident.birthDate() == null)) {

@@ -26,10 +26,17 @@ public class NightCallRepository {
         this.jdbc = jdbc;
     }
 
-    public List<NightCall.AccommodationOption> accommodations() {
-        return jdbc.query("SELECT id, code, name FROM sager_accommodation ORDER BY code, id",
-                (result, row) -> new NightCall.AccommodationOption(result.getObject("id", UUID.class),
-                result.getString("code"), result.getString("name")));
+    /** Alojamento de maiores fica de fora, salvo enquanto tiver menor alocado (design D10). */
+    public List<NightCall.AccommodationOption> accommodations(LocalDate today) {
+        return jdbc.query("""
+                SELECT id, code, name FROM sager_accommodation
+                WHERE age_group IS DISTINCT FROM 'MAIORES' OR EXISTS (SELECT 1 FROM sager_room q
+                    JOIN sager_room_allocation a ON a.room_id = q.id AND a.ended_at IS NULL
+                    JOIN sager_resident r ON r.id = a.resident_id
+                    WHERE q.accommodation_id = sager_accommodation.id AND r.birth_date > ?)
+                ORDER BY code, id
+                """, (result, row) -> new NightCall.AccommodationOption(result.getObject("id", UUID.class),
+                result.getString("code"), result.getString("name")), today.minusYears(18));
     }
 
     public List<RosterResident> roster(UUID accommodationId, Instant now) {
