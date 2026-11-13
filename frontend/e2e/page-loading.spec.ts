@@ -133,9 +133,8 @@ function chunks(page: Page): Set<string> {
   return names;
 }
 
-test('a conta pergunta /auth/me uma vez e as telas vêm do pré-carregamento', async ({ page }) => {
+test('a conta pergunta /auth/me uma vez ao navegar pelo menu', async ({ page }) => {
   const state = await mockApi(page);
-  const requested = chunks(page);
   await login(page);
   const afterLogin = state.requests.length;
   await expect(page).toHaveURL(/\/inicio$/);
@@ -150,12 +149,28 @@ test('a conta pergunta /auth/me uma vez e as telas vêm do pré-carregamento', a
   }
   const me = state.requests.slice(afterLogin).filter((seen) => seen.path === '/auth/me');
   expect(me).toHaveLength(1);
+});
 
-  await page.waitForLoadState('networkidle');
+test('a primeira visita aos quartos usa o código pré-carregado', async ({ page }) => {
+  const state = await mockApi(page);
+  const requested = chunks(page);
+  await login(page);
+  await expect(page).toHaveURL(/\/inicio$/);
+  // networkidle já passou numa SPA aberta: espera a lista de arquivos parar de crescer.
+  await expect
+    .poll(
+      async () => {
+        const before = requested.size;
+        await page.waitForTimeout(500);
+        return requested.size === before;
+      },
+      { timeout: 20_000 },
+    )
+    .toBe(true);
   const preloaded = new Set(requested);
   await menu(page, 'Quartos').click();
   await expect(page).toHaveURL(/\/quartos$/);
-  await page.waitForLoadState('networkidle');
+  await expect(page.getByRole('heading', { name: 'Nenhum quarto cadastrado' })).toBeVisible();
   expect([...requested].filter((name) => !preloaded.has(name))).toEqual([]);
 
   await page.goto('/relatorios/individual/' + state.residents[0].id);
