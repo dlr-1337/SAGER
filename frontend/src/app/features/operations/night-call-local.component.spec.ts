@@ -1,6 +1,8 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatDialog } from '@angular/material/dialog';
 import { provideRouter } from '@angular/router';
+import { of } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { FilterState } from '../../core/filter-state';
@@ -267,6 +269,42 @@ describe('Filtros de casa ou bloco e quarto na chamada noturna', () => {
       ]);
       const fixture = await create();
       expect(fixture.nativeElement.textContent).not.toContain('Residentes com saída em andamento');
+    });
+  });
+
+  describe('fechamento em data posterior', () => {
+    let open: ReturnType<typeof vi.fn>;
+    beforeEach(() => {
+      open = vi.fn().mockReturnValue({ afterClosed: () => of(undefined) });
+      TestBed.overrideProvider(MatDialog, { useValue: { open } });
+    });
+    const closeWith = async (referenceDate: string) => {
+      calls.mockResolvedValue([
+        {
+          ...structuredClone(call),
+          referenceDate,
+          summary: { total: 3, present: 3, absent: 0, justified: 0, unmarked: 0 },
+        },
+      ]);
+      const fixture = await create();
+      await fixture.componentInstance.close();
+      return open.mock.calls[0][1].data;
+    };
+
+    it('pede confirmação e justificativa para a chamada de um dia anterior dentro da janela', async () => {
+      expect(await closeWith('2026-09-29')).toMatchObject({
+        requireReason: true,
+        requireConfirmation: true,
+        warning: 'A chamada é de um dia anterior. Marque a confirmação e escreva o motivo.',
+        confirmationLabel: 'Confirmo o fechamento da chamada de um dia anterior.',
+      });
+    });
+
+    it('fecha a chamada do mesmo dia dentro da janela sem justificativa', async () => {
+      const data = await closeWith('2026-09-30');
+      expect(data.requireReason).toBeUndefined();
+      expect(data.requireConfirmation).toBeUndefined();
+      expect(data.warning).toBeUndefined();
     });
   });
 
