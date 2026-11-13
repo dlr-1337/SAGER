@@ -34,7 +34,7 @@ import { ageFromBirthDate, formattedDate } from './management.utils';
 import { ResidentApiError, ResidentApiService, ResidentRecord } from './resident-api.service';
 import { RoomApiService } from './room-api.service';
 
-type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
+type ResidentTab = 'dados' | 'responsaveis' | 'historico';
 
 @Component({
   selector: 'app-resident-detail',
@@ -119,14 +119,6 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
               (click)="tab.set('historico')"
             >
               Histórico
-            </button>
-            <button
-              type="button"
-              [class.active]="tab() === 'termos'"
-              [attr.aria-current]="tab() === 'termos' ? 'page' : null"
-              (click)="tab.set('termos')"
-            >
-              Termos
             </button>
           </nav>
           <div class="mg-tab-panel">
@@ -424,23 +416,6 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
                   </div>
                 }
               </section>
-            } @else {
-              <section class="panel mg-panel" aria-labelledby="resident-pending-heading">
-                <h2 id="resident-pending-heading">
-                  {{
-                    tab() === 'responsaveis'
-                      ? 'Responsáveis legais'
-                      : tab() === 'historico'
-                        ? 'Histórico individual'
-                        : 'Termos de Compromisso'
-                  }}
-                </h2>
-                <div class="mg-empty mg-empty-inline" role="status">
-                  <span class="material-symbols-rounded" aria-hidden="true">schedule</span>
-                  <h3>Ainda não integrado</h3>
-                  <p>Esta seção depende de definição e integração em outra entrega da Fase 2.</p>
-                </div>
-              </section>
             }
           </div>
         } @else {
@@ -497,14 +472,6 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
             (click)="tab.set('historico')"
           >
             Histórico
-          </button>
-          <button
-            type="button"
-            [class.active]="tab() === 'termos'"
-            [attr.aria-current]="tab() === 'termos' ? 'page' : null"
-            (click)="tab.set('termos')"
-          >
-            Termos
           </button>
         </nav>
 
@@ -736,20 +703,6 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
                   <p>O histórico aparecerá aqui quando existirem registros da operação.</p>
                 </div>
               }
-            </section>
-          }
-
-          @if (tab() === 'termos') {
-            <section class="panel mg-panel" aria-labelledby="terms-title">
-              <h2 id="terms-title">Termos de Compromisso</h2>
-              <div class="mg-empty mg-empty-inline">
-                <span class="material-symbols-rounded" aria-hidden="true">description</span>
-                <h3>Nenhum termo disponível</h3>
-                <p>
-                  Critérios de emissão, ciência e assinatura do Termo de Compromisso dependem de
-                  homologação pela AE. Nenhum documento é gerado nesta demonstração.
-                </p>
-              </div>
             </section>
           }
         </div>

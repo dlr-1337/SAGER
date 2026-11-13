@@ -4,8 +4,8 @@ Os caminhos do frontend são relativos a `frontend/`, e os do backend, a `backen
 
 ## 1. Ficha do residente sem a aba Termos (RF002, RF022; D1)
 
-- [ ] 1.1 Em `src/app/features/management/resident-detail.component.ts`, tirar `'termos'` de `ResidentTab`, os dois botões "Termos", o `@else` "Ainda não integrado" e o painel `@if (tab() === 'termos')` da demonstração. A demonstração acompanha a mudança. Verificar com `npm run build`.
-- [ ] 1.2 Em `e2e/tab-scroll.spec.ts`, tirar `'Termos'` das duas listas de abas e conferir, nos dois testes (demonstração e acesso por conta), que `tabs.getByRole('button', { name: 'Termos' })` tem contagem 0. Verificar com `npx playwright test tab-scroll`.
+- [x] 1.1 Em `src/app/features/management/resident-detail.component.ts`, tirar `'termos'` de `ResidentTab`, os dois botões "Termos", o `@else` "Ainda não integrado" e o painel `@if (tab() === 'termos')` da demonstração. A demonstração acompanha a mudança. Verificar com `npm run build`.
+- [x] 1.2 Em `e2e/tab-scroll.spec.ts`, tirar `'Termos'` das duas listas de abas e conferir, nos dois testes (demonstração e acesso por conta), que `tabs.getByRole('button', { name: 'Termos' })` tem contagem 0. Verificar com `npx playwright test tab-scroll`.
 
 ## 2. Ajuda de senha (RF020, UC02; D2)
 
