@@ -208,6 +208,7 @@ interface State {
   zeroRows: boolean;
   failResidents: boolean;
   leakRanking: boolean;
+  paged: boolean;
   jobs: Map<string, ReportExport>;
   writes: { path: string; body: Record<string, any>; csrf: string | undefined }[];
   gets: string[];
@@ -230,6 +231,7 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
     zeroRows: false,
     failResidents: false,
     leakRanking: false,
+    paged: false,
     jobs: new Map(),
     writes: [],
     gets: [],
@@ -284,6 +286,15 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
           : ok([resident]);
       if (path === '/alojamentos')
         return ok([{ id: accommodationId, code: 'T', name: 'Alojamento Sintético', version: 0 }]);
+      if (path === '/limpeza/avaliacoes' && state.paged) {
+        const second = url.searchParams.get('beforeSequence') === '50';
+        const items = Array.from({ length: second ? 3 : 25 }, (_, i) => ({
+          ...state.item,
+          id: uuid(2000 + i + (second ? 25 : 0)),
+          roomCode: `P-${i + 1 + (second ? 25 : 0)}`,
+        }));
+        return ok({ items, nextCursor: second ? null : 50 });
+      }
       if (path === '/limpeza/avaliacoes')
         return ok({ items: state.exists ? [state.item] : [], nextCursor: null });
       if (path === '/me/limpeza/avaliacoes')
@@ -623,7 +634,10 @@ test('lista de limpeza filtra por alojamento com quarto dependente', async ({ pa
   await page.getByRole('combobox', { name: 'Alojamento', exact: true }).selectOption(uuid(12));
   await expect(room).toHaveValue('');
   await expect(room.locator('option')).toHaveText(['Todos os quartos', 'U-201']);
-  await page.getByRole('button', { name: 'Buscar avaliações', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Buscar avaliações' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Remover filtro Alojamento' })).toContainText(
+    'Alojamento: Outro Alojamento',
+  );
   await expect
     .poll(() =>
       state.gets.some(
@@ -648,7 +662,6 @@ test('lista de limpeza filtra por casa ou bloco, com opções distinguíveis e c
   await expect(unit.locator('option')).toHaveText(['Todos', 'Casa 1 · Alojamento Sintético']);
   await unit.selectOption(uuid(13));
   await expect(room.locator('option')).toHaveText(['Todos os quartos']);
-  await page.getByRole('button', { name: 'Buscar avaliações', exact: true }).click();
   await expect
     .poll(() =>
       state.gets.some(
@@ -659,6 +672,30 @@ test('lista de limpeza filtra por casa ou bloco, com opções distinguíveis e c
   await accommodation.selectOption(accommodationId);
   await expect(unit).toHaveValue('');
   await expect(unit.locator('option')).toHaveText(['Todos', 'Casa 1']);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+});
+test('lista de limpeza no celular recolhe os filtros extras e troca páginas sem crescer', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const state = await mockApi(page, { paged: true });
+  await page.goto('/limpeza');
+  await expect(page.locator('sager-filter-panel details')).not.toHaveAttribute('open');
+  await expect(page.getByLabel('Data inicial')).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Alojamento', exact: true })).toBeHidden();
+  const rows = page.locator('article.op-row');
+  await expect(rows.first()).toContainText('Quarto P-1');
+  expect((await rows.first().boundingBox())!.y).toBeLessThan(844);
+  await page.getByRole('button', { name: 'Próxima', exact: true }).click();
+  await expect(rows.first()).toContainText('Quarto P-26');
+  await expect(rows).toHaveCount(3);
+  await expect(page.getByText('Página 2', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Avaliações registradas' })).toBeFocused();
+  await page.getByRole('button', { name: 'Anterior', exact: true }).click();
+  await expect(rows.first()).toContainText('Quarto P-1');
+  await expect(rows).toHaveCount(25);
+  expect(state.gets.filter((path) => path.startsWith('/limpeza/avaliacoes?'))).toHaveLength(2);
+  await noOverflow(page);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });
 test('registro de limpeza escolhe alojamento e casa antes do quarto', async ({ page }) => {

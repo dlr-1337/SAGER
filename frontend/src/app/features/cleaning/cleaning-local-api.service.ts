@@ -141,7 +141,7 @@ export class CleaningLocalApiService {
     beforeSequence?: number,
   ): Promise<CleaningPage<CleaningAssessment>> {
     return this.transport.get(
-      '/limpeza/avaliacoes' + query({ ...filters, limit: 20, beforeSequence }),
+      '/limpeza/avaliacoes' + query({ ...filters, limit: 25, beforeSequence }),
       page(assessment),
     );
   }
@@ -154,7 +154,7 @@ export class CleaningLocalApiService {
     beforeSequence?: number,
   ): Promise<CleaningPage<OwnCleaningAssessment>> {
     return this.transport.get(
-      '/me/limpeza/avaliacoes' + query({ from, to, limit: 20, beforeSequence }),
+      '/me/limpeza/avaliacoes' + query({ from, to, limit: 25, beforeSequence }),
       page(own),
     );
   }

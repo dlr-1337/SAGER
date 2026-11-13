@@ -42,6 +42,20 @@ describe('Projeções e gravação de limpeza', () => {
     vi.unstubAllGlobals();
     resetSession();
   });
+  it('pede páginas de 25 avaliações, com o cursor da página anterior', async () => {
+    const fetch = vi.fn().mockImplementation(async () => json({ items: [], nextCursor: null }));
+    vi.stubGlobal('fetch', fetch);
+    const api = TestBed.inject(CleaningLocalApiService);
+    await api.list({ roomId: id }, 40);
+    await api.ownList('2026-09-01', '', 12);
+    const [list, ownList] = fetch.mock.calls.map(
+      (call) => new URL(String(call[0]), 'http://local').searchParams,
+    );
+    expect(list.get('limit')).toBe('25');
+    expect(list.get('beforeSequence')).toBe('40');
+    expect(ownList.get('limit')).toBe('25');
+    expect(ownList.get('beforeSequence')).toBe('12');
+  });
   it('consulta própria exige projeção sem participantes, revisões ou autoria de terceiros', async () => {
     const fetch = vi.fn().mockResolvedValueOnce(json(own)).mockResolvedValueOnce(json(item));
     vi.stubGlobal('fetch', fetch);
