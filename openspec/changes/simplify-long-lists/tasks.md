@@ -26,7 +26,7 @@
 
 ## 5. Saídas
 
-- [ ] 5.1 Em `frontend/src/app/features/operations/exits-local.component.ts`, usar `<sager-filter-panel>` só para o supervisor, com nome ou matrícula visível e situação, datas, alojamento, casa ou bloco e quarto nos extras; montar os chips com nomes legíveis; apagar o botão "Buscar"; e pôr `anchor` no título da lista. A troca entre curtas e longas não move o foco. Verificar em `frontend/src/app/features/operations/exits-local.component.spec.ts` e em `frontend/e2e/operations-local.spec.ts` (440–460), sem o clique em "Buscar" e com a espera pela resposta filtrada: `npm test -- --watch=false` e `npx playwright test operations-local long-exits-local tab-scroll`.
+- [x] 5.1 Em `frontend/src/app/features/operations/exits-local.component.ts`, usar `<sager-filter-panel>` só para o supervisor, com nome ou matrícula visível e situação, datas, alojamento, casa ou bloco e quarto nos extras; montar os chips com nomes legíveis; apagar o botão "Buscar"; e pôr `anchor` no título da lista. A troca entre curtas e longas não move o foco. Verificar em `frontend/src/app/features/operations/exits-local.component.spec.ts` e em `frontend/e2e/operations-local.spec.ts` (440–460), sem o clique em "Buscar" e com a espera pela resposta filtrada: `npm test -- --watch=false` e `npx playwright test operations-local long-exits-local tab-scroll`.
 
 ## 6. Cadastros
 

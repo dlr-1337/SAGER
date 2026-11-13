@@ -366,4 +366,33 @@ describe('Critérios restaurados da lista de saídas', () => {
       expect(restored.componentInstance.filters.controls.status.value).toBe('');
     },
   );
+
+  it('mostra os filtros ativos pelo nome, sem botão de busca, e a troca de modalidade não move o foco', async () => {
+    const fixture = TestBed.createComponent(ExitsLocalComponent);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const element: HTMLElement = fixture.nativeElement;
+    expect(
+      [...element.querySelectorAll('button')].some(
+        (button) => button.textContent?.trim() === 'Buscar',
+      ),
+    ).toBe(false);
+    expect(fixture.componentInstance.chips().map((chip) => `${chip.label}: ${chip.value}`)).toEqual(
+      [
+        'Busca: Estudante Sintético',
+        'Situação: Aprovada',
+        'Saída a partir de: 01/10/2026',
+        'Saída até: 31/10/2026',
+        'Alojamento: Alojamento Um',
+        'Casa ou bloco: Bloco A',
+        'Quarto: A-101 · Bloco A',
+      ],
+    );
+    const search = element.querySelector<HTMLInputElement>('input[type=search]')!;
+    search.focus();
+    params.next(convertToParamMap({ tipo: 'longa' }));
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(document.activeElement).toBe(search);
+  });
 });

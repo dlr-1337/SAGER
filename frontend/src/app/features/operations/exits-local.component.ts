@@ -1,4 +1,6 @@
 import { PaginationComponent } from '../../shared/pagination.component';
+import { FilterChip, FilterPanelComponent } from '../../shared/filter-panel.component';
+import { formatCivilDate } from '../communications/communications-local.utils';
 import { debounceTime } from 'rxjs';
 import { RoomApiService } from '../management/room-api.service';
 import {
@@ -36,7 +38,13 @@ import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
 @Component({
   standalone: true,
   selector: 'app-exits-local',
-  imports: [PaginationComponent, SearchableSelectDirective, ReactiveFormsModule, RouterLink],
+  imports: [
+    PaginationComponent,
+    FilterPanelComponent,
+    SearchableSelectDirective,
+    ReactiveFormsModule,
+    RouterLink,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page">
@@ -90,12 +98,20 @@ import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
         </section>
       } @else {
         @if (session.hasRole('supervisor')) {
-          <section class="panel op-panel" aria-labelledby="local-exit-filters">
-            <h2 id="local-exit-filters">Buscar pedidos</h2>
-            <form class="op-filters" [formGroup]="filters" (ngSubmit)="load()">
+          <sager-filter-panel
+            heading="Buscar pedidos"
+            key="exits"
+            [chips]="chips()"
+            (remove)="filters.get($event)?.setValue('')"
+            (clear)="clear()"
+          >
+            <div filterMain class="op-filters" [formGroup]="filters">
               <label class="field"
-                >Nome ou matrícula<input type="search" formControlName="search" /></label
-              ><label class="field"
+                >Nome ou matrícula<input type="search" formControlName="search"
+              /></label>
+            </div>
+            <div class="op-filters" [formGroup]="filters">
+              <label class="field"
                 >Situação<select sagerSearchable formControlName="status">
                   <option value="">Todas</option>
                   @for (status of statuses; track status) {
@@ -128,19 +144,15 @@ import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
                   }
                 </select></label
               >
-              <button type="button" class="btn op-secondary" (click)="clear()">
-                Limpar filtros
-              </button>
-              <button type="submit" class="btn op-secondary" [disabled]="loading()">Buscar</button>
-            </form>
-          </section>
+            </div>
+          </sager-filter-panel>
         }
         @if (optionsError()) {
           <p class="op-help">{{ optionsError() }}</p>
         }
         <section class="op-section mg-tab-panel" aria-labelledby="local-exit-results">
           <div class="op-section-heading">
-            <h2 id="local-exit-results">
+            <h2 id="local-exit-results" tabindex="-1">
               {{ longMode() ? 'Pedidos de saída longa' : 'Pedidos de saída curta' }}
             </h2>
             @if (!loading() && !error() && total()) {
@@ -209,6 +221,7 @@ import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
             [page]="page()"
             [total]="total()"
             [busy]="loading()"
+            anchor="local-exit-results"
             (pageChange)="changePage($event)"
           />
         </section>
@@ -268,6 +281,27 @@ export class ExitsLocalComponent {
     initialValue: this.filters.getRawValue(),
   });
   readonly visibleUnits = computed(() => unitsIn(this.housing(), this.location().accommodationId));
+  readonly chips = computed<FilterChip[]>(() => {
+    const value = { ...this.filters.getRawValue(), ...this.location() };
+    const housing = this.housing();
+    const room = housing.rooms.find((item) => item.id === value.roomId);
+    const chips: [string, string, string | undefined][] = [
+      ['search', 'Busca', value.search],
+      ['status', 'Situação', value.status && this.labels[value.status as keyof typeof this.labels]],
+      ['from', 'Saída a partir de', value.from && formatCivilDate(value.from)],
+      ['to', 'Saída até', value.to && formatCivilDate(value.to)],
+      [
+        'accommodationId',
+        'Alojamento',
+        housing.accommodations.find((item) => item.id === value.accommodationId)?.name,
+      ],
+      ['unitId', 'Casa ou bloco', housing.units.find((item) => item.id === value.unitId)?.name],
+      ['roomId', 'Quarto', room && this.roomLabel(room)],
+    ];
+    return chips
+      .filter((chip): chip is [string, string, string] => !!chip[2])
+      .map(([key, label, chipValue]) => ({ key, label, value: chipValue }));
+  });
   readonly visibleRooms = computed(() =>
     roomsIn(this.housing(), this.location().accommodationId, this.location().unitId),
   );

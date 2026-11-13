@@ -484,14 +484,13 @@ test('situação Aprovada permanece no retorno à lista longa e limpa ao trocar 
 }) => {
   await mockApi(page, { role: 'supervisor', exits: [{ ...exitFixture(), status: 'APROVADA' }] });
   await page.goto('/saidas?tipo=longa');
-  await page.getByLabel('Situação', { exact: true }).selectOption('APROVADA');
   const filtered = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return (
       url.pathname === '/api/v1/saidas-longas' && url.searchParams.get('status') === 'APROVADA'
     );
   });
-  await page.getByRole('button', { name: 'Buscar', exact: true }).click();
+  await page.getByLabel('Situação', { exact: true }).selectOption('APROVADA');
   await filtered;
   await page.getByRole('link', { name: 'Ver pedido' }).click();
   await expect(page.getByRole('heading', { name: 'Pedido de saída longa' })).toBeVisible();

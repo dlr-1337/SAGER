@@ -441,15 +441,18 @@ test('situação Aprovada permanece ao abrir uma saída curta e retornar à list
 }) => {
   await mockApi(page, { exits: [{ ...exitFixture(), status: 'APROVADA' }] });
   await page.goto('/saidas');
-  await page.getByLabel('Situação', { exact: true }).selectOption('APROVADA');
+  await expect(page.getByRole('button', { name: 'Buscar', exact: true })).toHaveCount(0);
   const filtered = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return (
       url.pathname === '/api/v1/saidas-curtas' && url.searchParams.get('status') === 'APROVADA'
     );
   });
-  await page.getByRole('button', { name: 'Buscar', exact: true }).click();
+  await page.getByLabel('Situação', { exact: true }).selectOption('APROVADA');
   await filtered;
+  await expect(page.getByRole('button', { name: 'Remover filtro Situação' })).toContainText(
+    'Situação: Aprovada',
+  );
   await page.getByRole('link', { name: 'Ver pedido' }).click();
   await expect(page.getByRole('heading', { name: 'Pedido de saída curta' })).toBeVisible();
   const restored = page.waitForRequest(
