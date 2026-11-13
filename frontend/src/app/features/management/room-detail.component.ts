@@ -183,7 +183,8 @@ import { formattedDate } from './management.utils';
         <div class="mg-note">
           <span class="material-symbols-rounded" aria-hidden="true">info</span>
           <p>
-            A situação do quarto é escolhida por você. O quarto não recebe mais moradores do que a
+            Disponível e Ocupado mudam sozinhos com os moradores. Manutenção e Indisponível são
+            escolhidos no cadastro do quarto. O quarto não recebe mais moradores do que a
             capacidade.
           </p>
         </div>

@@ -113,7 +113,6 @@ for (const config of configs) {
                 situation: 'Disponível',
                 accommodationId: '',
                 unitId: '',
-                occupancy: '',
               }
             : 'Sintético';
       memory.values.set(config.key, filters);
