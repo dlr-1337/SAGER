@@ -16,6 +16,7 @@ import { DemoSessionService } from '../../core/demo-session.service';
 import { FilterState, rememberFilters } from '../../core/filter-state';
 import { normalizeSearch } from '../../shared/search';
 import { PaginationComponent } from '../../shared/pagination.component';
+import { FilterPanelComponent } from '../../shared/filter-panel.component';
 import { ManagementDemoService } from './management-demo.service';
 import { ResidentApiError, ResidentApiService, ResidentRecord } from './resident-api.service';
 import { Course, CourseApiService } from './course-api.service';
@@ -35,7 +36,13 @@ import {
 @Component({
   selector: 'app-residents',
   standalone: true,
-  imports: [SearchableSelectDirective, RouterLink, ReactiveFormsModule, PaginationComponent],
+  imports: [
+    SearchableSelectDirective,
+    RouterLink,
+    ReactiveFormsModule,
+    PaginationComponent,
+    FilterPanelComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: ` <main class="page mg-page">
     <header class="mg-heading">
@@ -46,9 +53,14 @@ import {
       </div>
       <a class="btn mg-primary" routerLink="/residentes/novo">Cadastrar residente</a>
     </header>
-    <section class="panel mg-panel" aria-labelledby="resident-search-title">
-      <h2 id="resident-search-title">Buscar residentes</h2>
-      <form class="mg-filters" [formGroup]="filters" (submit)="$event.preventDefault()">
+    <sager-filter-panel
+      heading="Buscar residentes"
+      key="residents"
+      [chips]="applied()"
+      (remove)="removeFilter($event)"
+      (clear)="clearFilters()"
+    >
+      <div filterMain class="mg-filters" [formGroup]="filters">
         <label class="field mg-field mg-grow"
           >Nome, matrícula ou e-mail<input
             type="search"
@@ -57,6 +69,8 @@ import {
             maxlength="200"
             autocomplete="off"
         /></label>
+      </div>
+      <div class="mg-filters" [formGroup]="filters">
         <label class="field mg-field"
           >Curso<select sagerSearchable formControlName="courseId">
             <option value="">Todos os cursos</option>
@@ -111,34 +125,15 @@ import {
             <option value="false">Sem quarto</option>
           </select></label
         >
-        <button class="btn mg-secondary" type="button" (click)="clearFilters()">
-          Limpar filtros
-        </button>
-      </form>
-      @if (applied().length) {
-        <ul class="filter-chips" aria-label="Filtros aplicados">
-          @for (chip of applied(); track chip.key) {
-            <li>
-              <button
-                type="button"
-                (click)="removeFilter(chip.key)"
-                [attr.aria-label]="'Remover filtro ' + chip.label"
-              >
-                {{ chip.label }}: {{ chip.value }}
-                <span class="material-symbols-rounded" aria-hidden="true">close</span>
-              </button>
-            </li>
-          }
-        </ul>
-      }
-      @if (optionsError()) {
-        <p role="alert">{{ optionsError() }}</p>
-        <button class="btn mg-secondary" (click)="loadOptions()">Recarregar opções</button>
-      }
-    </section>
+      </div>
+    </sager-filter-panel>
+    @if (optionsError()) {
+      <p role="alert">{{ optionsError() }}</p>
+      <button class="btn mg-secondary" (click)="loadOptions()">Recarregar opções</button>
+    }
     <section class="mg-section" aria-labelledby="resident-results-title">
       <div class="mg-section-heading">
-        <h2 id="resident-results-title">Cadastros</h2>
+        <h2 id="resident-results-title" tabindex="-1">Cadastros</h2>
         <p role="status">
           {{ total() === 1 ? '1 residente encontrado' : total() + ' residentes encontrados' }}
         </p>
@@ -211,6 +206,7 @@ import {
         [page]="page()"
         [total]="total()"
         [busy]="loading()"
+        anchor="resident-results-title"
         (pageChange)="changePage($event)"
       />
     </section>
