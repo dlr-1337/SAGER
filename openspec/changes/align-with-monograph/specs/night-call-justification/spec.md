@@ -12,6 +12,12 @@ Ao fechar uma chamada cuja data é anterior à data civil atual de America/Sao_P
 - **WHEN** o supervisor revisa o fechamento
 - **THEN** a tela avisa que a chamada é de um dia anterior e pede a confirmação e a justificativa antes de fechar
 
+#### Scenario: Chamada do dia anterior fora da janela
+
+- **GIVEN** uma chamada aberta de 29/09/2026 e o relógio do servidor em 30/09/2026, às 8h
+- **WHEN** o supervisor revisa o fechamento
+- **THEN** a tela avisa que a chamada é de um dia anterior e que não é o horário da chamada, e pede a confirmação e a justificativa antes de fechar
+
 #### Scenario: Chamada do mesmo dia dentro da janela
 
 - **GIVEN** uma chamada aberta de 30/09/2026 e o relógio do servidor em 30/09/2026, às 22h30

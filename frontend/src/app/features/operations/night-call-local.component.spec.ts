@@ -278,7 +278,7 @@ describe('Filtros de casa ou bloco e quarto na chamada noturna', () => {
       open = vi.fn().mockReturnValue({ afterClosed: () => of(undefined) });
       TestBed.overrideProvider(MatDialog, { useValue: { open } });
     });
-    const closeWith = async (referenceDate: string) => {
+    const closeWith = async (referenceDate: string, outsideWindow = false) => {
       calls.mockResolvedValue([
         {
           ...structuredClone(call),
@@ -287,6 +287,8 @@ describe('Filtros de casa ou bloco e quarto na chamada noturna', () => {
         },
       ]);
       const fixture = await create();
+      const context = vi.mocked(TestBed.inject(OperationsLocalApiService).callContext);
+      context.mockResolvedValue({ ...(await context()), outsideWindow });
       await fixture.componentInstance.close();
       return open.mock.calls[0][1].data;
     };
@@ -297,6 +299,17 @@ describe('Filtros de casa ou bloco e quarto na chamada noturna', () => {
         requireConfirmation: true,
         warning: 'A chamada é de um dia anterior. Marque a confirmação e escreva o motivo.',
         confirmationLabel: 'Confirmo o fechamento da chamada de um dia anterior.',
+      });
+    });
+
+    it('avisa o dia anterior e o horário quando a chamada antiga é fechada fora da janela', async () => {
+      expect(await closeWith('2026-09-29', true)).toMatchObject({
+        requireReason: true,
+        requireConfirmation: true,
+        warning:
+          'A chamada é de um dia anterior e agora não é o horário da chamada (22h às 23h30). Marque a confirmação e escreva o motivo.',
+        confirmationLabel:
+          'Confirmo o fechamento da chamada de um dia anterior, fora do horário da chamada.',
       });
     });
 

@@ -54,8 +54,9 @@ Os caminhos do frontend são relativos a `frontend/`, e os do backend, a `backen
 
 ## 7. Fechamento da chamada em data posterior (RN09, diagrama de sequência da chamada, passo 9; D7)
 
-- [x] 7.1 Em `src/app/features/operations/night-call-local.component.ts`, `windowReview` passa a receber o motivo da exceção. `open()` usa `context.outsideWindow`. `close()` usa `context.outsideWindow || call.referenceDate !== context.referenceDate`, com o aviso e a declaração da D7 quando só a data difere. A demonstração não acompanha: a chamada dela é uma simulação com alerta próprio. Verificar com casos novos em `night-call-local.component.spec.ts`, com `MatDialog.open` substituído por um dublê que captura os dados:
+- [x] 7.1 Em `src/app/features/operations/night-call-local.component.ts`, `windowReview` passa a receber o motivo da exceção. `open()` usa `context.outsideWindow`. `close()` usa `context.outsideWindow || call.referenceDate !== context.referenceDate`, com o aviso e a declaração da D7 quando só a data difere ou quando a data e o horário diferem. A demonstração não acompanha: a chamada dela é uma simulação com alerta próprio. Verificar com casos novos em `night-call-local.component.spec.ts`, com `MatDialog.open` substituído por um dublê que captura os dados:
   - com a chamada de 2026-09-29, o contexto de 2026-09-30 e `outsideWindow: false`, os dados têm `requireReason`, `requireConfirmation` e o aviso "A chamada é de um dia anterior…";
+  - com a chamada de 2026-09-29, o contexto de 2026-09-30 e `outsideWindow: true`, o aviso e a declaração citam o dia anterior e o horário da chamada;
   - com a chamada e o contexto de 2026-09-30, os dados não pedem justificativa.
 
   Rodar `npm test -- --watch=false --include=src/app/features/operations/night-call-local.component.spec.ts`.

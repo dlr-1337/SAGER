@@ -61,7 +61,7 @@ Em `operations-demo.service.ts:257`, a evidência passa a "Nota de limpeza abaix
 - **Alternativa rejeitada:** calcular nota e ranking de verdade na demonstração. Isso dá mais código sem ganho, porque o RF027 só pede dados fictícios e a monografia mostra cenários preparados.
 
 ### D7. O fechamento em data posterior usa a data do servidor
-`windowReview` passa a receber o motivo da exceção. `open()` usa `context.outsideWindow`. `close()` usa `context.outsideWindow || call.referenceDate !== context.referenceDate`, e as duas datas vêm do servidor. Quando só a data difere, o aviso é "A chamada é de um dia anterior. Marque a confirmação e escreva o motivo.", e a declaração é "Confirmo o fechamento da chamada de um dia anterior.".
+`windowReview` passa a receber o motivo da exceção. `open()` usa `context.outsideWindow`. `close()` usa `context.outsideWindow || call.referenceDate !== context.referenceDate`, e as duas datas vêm do servidor. Quando só a data difere, o aviso é "A chamada é de um dia anterior. Marque a confirmação e escreva o motivo.", e a declaração é "Confirmo o fechamento da chamada de um dia anterior.". Quando as duas diferem, o aviso é "A chamada é de um dia anterior e agora não é o horário da chamada (22h às 23h30). Marque a confirmação e escreva o motivo.", e a declaração é "Confirmo o fechamento da chamada de um dia anterior, fora do horário da chamada.".
 - **Alternativa rejeitada:** comparar com a data do navegador. A monografia manda usar o relógio do servidor (cap4.tex:218).
 - **Demonstração:** não acompanha. A chamada da demonstração é uma simulação com o próprio alerta de registro tardio, descrito em cap7.tex:41.
 

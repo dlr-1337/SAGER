@@ -709,6 +709,14 @@ export class NightCallLocalComponent {
   private windowReview(outsideWindow: boolean, previousDay = false): Partial<LocalReviewData> {
     if (!outsideWindow && !previousDay) return {};
     const exception = { requireReason: true, requireConfirmation: true };
+    if (outsideWindow && previousDay)
+      return {
+        ...exception,
+        warning:
+          'A chamada é de um dia anterior e agora não é o horário da chamada (22h às 23h30). Marque a confirmação e escreva o motivo.',
+        confirmationLabel:
+          'Confirmo o fechamento da chamada de um dia anterior, fora do horário da chamada.',
+      };
     return outsideWindow
       ? {
           ...exception,
