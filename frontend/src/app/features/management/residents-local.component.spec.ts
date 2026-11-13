@@ -67,6 +67,28 @@ const map: HousingMap = {
   })),
 };
 
+const ageMap: HousingMap = {
+  accommodations: [
+    { id: 'am', code: 'AM', name: 'Residência Menores', ageGroup: 'MENORES', version: 0 },
+    { id: 'aM', code: 'AX', name: 'Residência Maiores', ageGroup: 'MAIORES', version: 0 },
+    { id: 'a0', code: 'A0', name: 'Residência Livre', version: 0 },
+  ],
+  units: [],
+  rooms: ['am', 'aM', 'a0'].map((accommodationId, index) => ({
+    ...map.rooms[0],
+    id: `q-${accommodationId}`,
+    code: `QF${index}`,
+    number: `F${index}`,
+    accommodationId,
+    occupancy: 0,
+    vacancies: 2,
+  })),
+};
+
+function bornYearsAgo(years: number): string {
+  return `${Number(civilToday().slice(0, 4)) - years}-01-01`;
+}
+
 describe('Residentes em sessão local', () => {
   const active = signal(false);
   const role = signal<Role>('gestor');
@@ -217,6 +239,25 @@ describe('Residentes em sessão local', () => {
     expect(controls.roomId.value).toBe('');
   });
 
+  it('marca o concluinte na lista com os dados do servidor', async () => {
+    api.page.mockResolvedValue({
+      items: [
+        { ...resident, concluded: true, stage: 'Concluinte', expectedExit: '2026-06-30' },
+        { ...resident, id: 'outro', name: 'Outra Pessoa', concluded: false },
+      ],
+      total: 2,
+    });
+    const fixture = TestBed.createComponent(ResidentsComponent);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const rows = Array.from(
+      fixture.nativeElement.querySelectorAll('article.mg-row'),
+    ) as HTMLElement[];
+    expect(rows).toHaveLength(2);
+    expect(rows[0].textContent).toContain('Concluinte');
+    expect(rows[1].textContent).not.toContain('Concluinte');
+  });
+
   it('erro da API não exibe residentes da demonstração', async () => {
     api.page.mockRejectedValue(new Error('offline'));
     const fixture = TestBed.createComponent(ResidentsComponent);
@@ -313,6 +354,80 @@ describe('Residentes em sessão local', () => {
     expect(fixture.nativeElement.textContent).toContain('1º piso');
   });
 
+  // A menoridade vem do servidor: com 17 anos pelo aparelho e `minor: false`, valem os quartos de maiores.
+  it.each([
+    [15, true, ['q-am', 'q-a0'], false],
+    [19, false, ['q-aM', 'q-a0'], false],
+    [17, false, ['q-aM', 'q-a0'], false],
+    [15, undefined, ['q-a0'], false],
+    [null, false, ['q-a0'], true],
+  ])(
+    'residente de %s anos (menor no servidor: %s) vê só os quartos da sua faixa e os sem faixa',
+    async (age, minor, rooms, note) => {
+      route.snapshot.paramMap = convertToParamMap({ id: resident.id });
+      api.get.mockResolvedValue({
+        ...structuredClone(resident),
+        birthDate: age === null ? null : bornYearsAgo(age),
+        minor,
+      });
+      roomApi.map.mockResolvedValue(structuredClone(ageMap));
+      const fixture = TestBed.createComponent(ResidentDetailComponent);
+      await fixture.whenStable();
+      fixture.detectChanges();
+      const offered = [...fixture.nativeElement.querySelectorAll('select option')]
+        .map((option: HTMLOptionElement) => option.value)
+        .filter(Boolean);
+      expect(offered).toEqual(rooms);
+      expect(
+        fixture.nativeElement.textContent.includes('Informe a data de nascimento para ver'),
+      ).toBe(note);
+    },
+  );
+
+  it('morador que fez 18 anos num quarto de menores vê o quarto atual, mas não como opção', async () => {
+    route.snapshot.paramMap = convertToParamMap({ id: resident.id });
+    api.get.mockResolvedValue({
+      ...structuredClone(resident),
+      birthDate: bornYearsAgo(18),
+      minor: false,
+    });
+    roomApi.map.mockResolvedValue(structuredClone(ageMap));
+    allocationApi.byResident.mockResolvedValue([
+      { ...structuredClone(allocation), roomId: 'q-am' },
+    ]);
+    const fixture = TestBed.createComponent(ResidentDetailComponent);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain(
+      'Quarto F0 (código QF0) · Residência Menores',
+    );
+    expect(fixture.nativeElement.querySelector('option[value="q-am"]')).toBeNull();
+  });
+
+  it('recusa de faixa etária na alocação mostra o motivo, sem sucesso', async () => {
+    route.snapshot.paramMap = convertToParamMap({ id: resident.id });
+    allocationApi.create.mockRejectedValue(new AllocationApiError(409, 'age_group_mismatch'));
+    const fixture = TestBed.createComponent(ResidentDetailComponent);
+    await fixture.whenStable();
+    fixture.componentInstance.selectedRoom.setValue(roomId);
+    await fixture.componentInstance.saveAllocation();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Este quarto é de outra faixa etária.');
+    expect(fixture.componentInstance.activeAllocation()).toBeNull();
+  });
+
+  it('mostra no histórico o vínculo encerrado pela conclusão do curso', async () => {
+    route.snapshot.paramMap = convertToParamMap({ id: resident.id });
+    allocationApi.byResident.mockResolvedValue([
+      { ...allocation, endedAt: '2026-07-01T03:10:00Z', endReason: 'CONCLUSION', version: 1 },
+    ]);
+    const fixture = TestBed.createComponent(ResidentDetailComponent);
+    await fixture.whenStable();
+    fixture.componentInstance.tab.set('historico');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Concluiu o curso em');
+  });
+
   it('aloca, transfere e encerra vínculo com versão do servidor, preservando histórico', async () => {
     route.snapshot.paramMap = convertToParamMap({ id: resident.id });
     const fixture = TestBed.createComponent(ResidentDetailComponent);
@@ -381,6 +496,12 @@ describe('Residentes em sessão local', () => {
     expect(form.controls.courseId.hasError('required')).toBe(true);
     form.controls.courseId.setValue('curso-1');
     await fixture.componentInstance.save();
+    expect(api.save).not.toHaveBeenCalled();
+    expect(form.controls.entryYear.errors).toMatchObject({
+      fieldRule: 'Informe o ano de ingresso.',
+    });
+    form.controls.entryYear.setValue(2026);
+    await fixture.componentInstance.save();
     expect(api.save).toHaveBeenCalledWith(
       {
         name: 'Estudante Sintético',
@@ -388,7 +509,7 @@ describe('Residentes em sessão local', () => {
         birthDate: '2009-05-14',
         courseId: 'curso-1',
         institutionalEmail: null,
-        entryYear: null,
+        entryYear: 2026,
         extraSemesters: 0,
         password: 'Senha teste 123!',
         passwordConfirmation: 'Senha teste 123!',
@@ -439,6 +560,8 @@ describe('Residentes em sessão local', () => {
       });
       component.form.markAsDirty();
       component.newCourse.setValue(course.name);
+      component.newCourseLevel.setValue('SUPERIOR');
+      component.newCourseDuration.setValue(4);
       const creating = component.createCourse();
       fixture.detectChanges();
       const submit: HTMLButtonElement =
@@ -505,6 +628,8 @@ describe('Residentes em sessão local', () => {
       });
       component.addingCourse.set(true);
       component.newCourse.setValue('Curso Sintético');
+      component.newCourseLevel.setValue('SUPERIOR');
+      component.newCourseDuration.setValue(4);
       const saving = component.save();
       fixture.detectChanges();
       const create: HTMLButtonElement = Array.from(
@@ -548,6 +673,7 @@ describe('Residentes em sessão local', () => {
     await fixture.whenStable();
     fixture.componentInstance.form.controls.birthDate.setValue('2009-05-14');
     fixture.componentInstance.form.controls.courseId.setValue('curso-1');
+    fixture.componentInstance.form.controls.entryYear.setValue(2026);
     api.save.mockRejectedValueOnce(new ResidentApiError(409, 'duplicate_enrollment'));
     await fixture.componentInstance.save();
     expect(fixture.componentInstance.error()).toContain('Já existe um cadastro');
@@ -564,6 +690,7 @@ describe('Residentes em sessão local', () => {
     });
     fixture.componentInstance.form.controls.birthDate.setValue('2009-05-14');
     fixture.componentInstance.form.controls.courseId.setValue('curso-1');
+    fixture.componentInstance.form.controls.entryYear.setValue(2026);
     await fixture.componentInstance.save();
     expect(api.save).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'Versão Atual' }), {
       id: resident.id,
@@ -590,6 +717,10 @@ describe('Residentes em sessão local', () => {
     expect(form.controls.birthDate.valid && form.controls.institutionalEmail.valid).toBe(true);
     form.controls.courseId.setValue('curso-1');
     await fixture.componentInstance.save();
+    expect(api.save).not.toHaveBeenCalled();
+    expect(form.controls.entryYear.errors).toEqual({ fieldRule: 'Informe o ano de ingresso.' });
+    form.controls.entryYear.setValue(2026);
+    await fixture.componentInstance.save();
     expect(api.save).toHaveBeenCalledOnce();
     form.controls.enrollment.setValue('SAGER-QA-2026-002');
     expect(form.controls.enrollment.errors).toEqual({ fieldRule: 'Confira a matrícula no SUAP.' });
@@ -602,7 +733,7 @@ describe('Residentes em sessão local', () => {
     const form = fixture.componentInstance.form;
     const next = Number(civilToday().slice(0, 4)) + 1;
     expect(native.querySelector('#resident-extra-semesters-help')!.textContent).toBe(
-      'Cada semestre adiciona 6 meses à previsão de formatura.',
+      'Cada semestre adia a saída prevista em 6 meses.',
     );
     form.setValue({
       name: 'Pessoa Sintética',
@@ -635,6 +766,36 @@ describe('Residentes em sessão local', () => {
     );
   });
 
+  it('sugere o ano de ingresso pela matrícula sem trocar o ano já informado', async () => {
+    const fixture = TestBed.createComponent(ResidentFormComponent);
+    await fixture.whenStable();
+    const form = fixture.componentInstance.form;
+    form.controls.enrollment.setValue('20251ABCD000123');
+    expect(form.controls.entryYear.value).toBe(2025);
+    form.controls.entryYear.setValue(2024);
+    form.controls.enrollment.setValue('20261ABCD000123');
+    expect(form.controls.entryYear.value).toBe(2024);
+  });
+
+  it('cadastro antigo sem ano abre com o ano sugerido pela matrícula', async () => {
+    route.snapshot.paramMap = convertToParamMap({ id: resident.id });
+    api.get.mockResolvedValue({
+      ...resident,
+      enrollment: '20241ABCD000123',
+      birthDate: '2009-05-14',
+      courseId: 'curso-1',
+    });
+    const fixture = TestBed.createComponent(ResidentFormComponent);
+    await fixture.whenStable();
+    const form = fixture.componentInstance.form;
+    expect(form.controls.entryYear.value).toBe(2024);
+    await fixture.componentInstance.save();
+    expect(api.save).toHaveBeenCalledWith(expect.objectContaining({ entryYear: 2024 }), {
+      id: resident.id,
+      version: 0,
+    });
+  });
+
   it('ano de ingresso antigo fora da regra continua editável se não mudar', async () => {
     route.snapshot.paramMap = convertToParamMap({ id: resident.id });
     api.get.mockResolvedValue({
@@ -658,7 +819,7 @@ describe('Residentes em sessão local', () => {
     expect(form.controls.entryYear.valid).toBe(false);
   });
 
-  it('detalhe local mostra etapa e previsão de formatura com o curso da API', async () => {
+  it('detalhe local mostra etapa e saída prevista calculadas pelo servidor', async () => {
     route.snapshot.paramMap = convertToParamMap({ id: resident.id });
     api.get.mockResolvedValue({
       ...resident,
@@ -666,25 +827,28 @@ describe('Residentes em sessão local', () => {
       course: 'Sistemas Sintéticos',
       entryYear: 2026,
       extraSemesters: 1,
+      stage: '2º período',
+      expectedExit: '2030-06-30',
+      concluded: false,
     });
-    vi.mocked(TestBed.inject(CourseApiService).list).mockResolvedValue([
-      {
-        id: 'curso-1',
-        name: 'Sistemas Sintéticos',
-        active: true,
-        version: 0,
-        level: 'SUPERIOR',
-        durationYears: 4,
-      },
-    ]);
     const fixture = TestBed.createComponent(ResidentDetailComponent);
     await fixture.whenStable();
     fixture.detectChanges();
     const text = fixture.nativeElement.textContent;
     expect(text).toContain('prorrogação de 1 semestre');
-    expect(text).toContain('2030/1');
-    expect(text).toMatch(/º período|Ingressa em 2026/);
+    expect(text).toContain('Saída prevista');
+    expect(text).toContain('30/06/2030');
+    expect(text).toContain('2º período');
     expect(text).not.toContain('Sem dados para calcular');
+    expect(TestBed.inject(CourseApiService).list).not.toHaveBeenCalled();
+  });
+
+  it('detalhe local sem os campos calculados diz que faltam dados', async () => {
+    route.snapshot.paramMap = convertToParamMap({ id: resident.id });
+    const fixture = TestBed.createComponent(ResidentDetailComponent);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent.match(/Sem dados para calcular/g)).toHaveLength(2);
   });
 
   it('não redireciona quando um salvamento termina depois de cancelar', async () => {
@@ -699,7 +863,7 @@ describe('Residentes em sessão local', () => {
       birthDate: '2009-05-14',
       courseId: 'curso-1',
       institutionalEmail: '',
-      entryYear: null,
+      entryYear: 2026,
       extraSemesters: 0,
       password: 'Senha teste 123!',
       passwordConfirmation: 'Senha teste 123!',

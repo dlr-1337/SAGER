@@ -80,8 +80,9 @@ O controller lê `ageGroup` como `JsonNode`, como já faz com `code` e `name`. A
 
 ### D8. A escolha de quarto esconde as opções incompatíveis
 
-Em `resident-detail.component.ts`, um `computed` filtra os quartos oferecidos no `select`. O sinal `allocationMap` continua inteiro, porque `roomName()` precisa dele para nomear o quarto atual, mesmo quando esse quarto é de outra faixa. A menoridade no cliente usa `ageFromBirthDate` com a data civil de `civilToday()` (America/Sao_Paulo). O servidor continua sendo a autoridade: se o cliente errar, por exemplo num aniversário em 29/02, a recusa 409 aparece com a mensagem de D9. Sem data de nascimento, a lista traz só quartos de alojamentos sem faixa, e uma nota pede a data quando algum alojamento tiver faixa.
+Em `resident-detail.component.ts`, um `computed` filtra os quartos oferecidos no `select`. O sinal `allocationMap` continua inteiro, porque `roomName()` precisa dele para nomear o quarto atual, mesmo quando esse quarto é de outra faixa. A menoridade vem do servidor: o residente lido pela API traz `minor` (somente leitura), calculado em `ResidentRepository.map` com `FieldRules.minor` na data civil de America/Sao_Paulo pelo relógio do servidor (cap4.tex:218), a mesma conta da admissão. Assim um aparelho com a data errada, ou um aniversário em 29/02, não esconde quartos que o servidor aceitaria. Sem `minor` na resposta, a lista trata o residente como sem data. Sem data de nascimento, a lista traz só quartos de alojamentos sem faixa, e uma nota pede a data quando algum alojamento tiver faixa.
 
+- Alternativa rejeitada: calcular a idade no navegador com `civilToday()`. Com o aparelho atrasado, a lista esconderia os quartos de maiores sem nenhuma recusa que explicasse.
 - Alternativa rejeitada: desabilitar as opções incompatíveis, como já se faz com os quartos lotados. A lista continuaria com até 93 opções, muitas inúteis. O dono pediu para listar só as compatíveis.
 
 ### D9. Mensagens de recusa
@@ -114,10 +115,11 @@ O formulário e o detalhe do alojamento são os mesmos na demonstração, então
 - [O preenchimento depende do texto do nome, que só vem do script não versionado `scripts/popular_estrutura_if.py`.] → Mitigação: alojamentos que o nome não classifica ficam sem faixa, ou seja, sem restrição, e o operador confere a lista depois do deploy.
 - [Um quarto de menores pode ficar com morador adulto (D6).] → Mitigação: é o comportamento decidido. A chamada noturna conta só menores pela data de nascimento, então não muda.
 - [Conflito de arquivos com outras mudanças da onda 3.] → Mitigação: com `track-course-conclusion` (mesmo executor, implementada antes), a checagem `resident_concluded` e a de faixa ficam lado a lado em `checkAdmission`. Com `hide-exits-for-adults`, ver D7. Com `simplify-room-browsing`, a edição em `room-detail.component.ts` é uma linha `<dt>`/`<dd>`. Se aquela mudança criar cartões de alojamento no mapa, eles podem mostrar a faixa com o mesmo rótulo.
-- [O cliente e o servidor podem divergir sobre a idade em 29/02.] → Mitigação: o servidor decide e a tela mostra a recusa (D8, D9).
+- [O cliente e o servidor poderiam divergir sobre a idade.] → Mitigação: a tela usa o `minor` calculado pelo servidor (D8), e a admissão confere de novo (D9).
 
 ## Migration Plan
 
+0. Mesclar antes, ou junto, a V30 da `remove-health-module` (branch `impl/saude-desempenho`). Com `outOfOrder` desligado, um banco persistente que receba a V31/V32 antes da V30 recusa a V30 depois e a aplicação não sobe. Não renumerar nem ligar `outOfOrder`.
 1. Deploy normal. A V32 roda depois da V31, adiciona a coluna, estende a constraint de auditoria e preenche pelo nome.
 2. Rollback: a coluna é nula e o código anterior a ignora. Voltar a imagem anterior não exige desfazer a V32. Nunca editar a V32 depois de aplicada.
 

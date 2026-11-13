@@ -13,12 +13,11 @@ import {
   AllocationRecord,
   allocationErrorMessage,
 } from './allocation-api.service';
-import { HousingMap, RoomRecord } from './housing.models';
+import { HousingMap, RoomRecord, ageGroupLabel } from './housing.models';
 import { ManagementDemoService } from './management-demo.service';
 import { RoomApiError, RoomApiService, roomLoadError } from './room-api.service';
 import { ResidentApiService, ResidentRecord } from './resident-api.service';
-import { Course, CourseApiService } from './course-api.service';
-import { courseProgress } from './management.utils';
+import { formattedDate } from './management.utils';
 
 @Component({
   selector: 'app-room-detail',
@@ -100,6 +99,10 @@ import { courseProgress } from './management.utils';
               <dd>{{ accommodationName() }}</dd>
             </div>
             <div>
+              <dt>Faixa etária</dt>
+              <dd>{{ ageGroup() }}</dd>
+            </div>
+            <div>
               <dt>Casa ou bloco</dt>
               <dd>{{ unitName() ?? 'Sem casa ou bloco' }}</dd>
             </div>
@@ -163,7 +166,7 @@ import { courseProgress } from './management.utils';
                     @if (occupantCourse(allocation.residentId); as course) {
                       <p>{{ course }}</p>
                     }
-                    <p>No quarto desde {{ allocationDate(allocation.startedAt) }}</p>
+                    <p>{{ occupantDates(allocation) }}</p>
                   </div>
                   <a class="mg-row-link" [routerLink]="['/residentes', allocation.residentId]"
                     >Ver cadastro
@@ -306,14 +309,18 @@ export class RoomDetailComponent {
   readonly localMap = signal<HousingMap>({ accommodations: [], units: [], rooms: [] });
   readonly occupants = signal<AllocationRecord[]>([]);
   readonly occupantResidents = signal<ResidentRecord[]>([]);
-  readonly occupantCourses = signal<Course[]>([]);
-  private readonly courseApi = inject(CourseApiService);
   readonly occupantsLoading = signal(false);
   readonly occupantsError = signal('');
   readonly loading = signal(false);
   readonly loadError = signal('');
   readonly missing = signal(false);
   readonly sessionRequired = signal(false);
+  readonly ageGroup = computed(() =>
+    ageGroupLabel(
+      this.localMap().accommodations.find((item) => item.id === this.localRoom()?.accommodationId)
+        ?.ageGroup,
+    ),
+  );
   readonly accommodationName = computed(
     () =>
       this.localMap().accommodations.find((item) => item.id === this.localRoom()?.accommodationId)
@@ -355,17 +362,14 @@ export class RoomDetailComponent {
     this.occupantsLoading.set(true);
     this.occupantsError.set('');
     try {
-      const [allocations, { items: residents }, courses] = await Promise.all([
+      const [allocations, { items: residents }] = await Promise.all([
         this.allocationApi.activeInRoom(this.id),
         // Só os moradores deste quarto, em vez da lista inteira de residentes.
         this.residentApi.page({ roomId: this.id }),
-        // Sem a lista de cursos, os moradores aparecem sem etapa e previsão.
-        this.courseApi.list().catch((): Course[] => []),
       ]);
       if (this.destroyRef.destroyed) return;
       this.occupants.set(allocations);
       this.occupantResidents.set(residents);
-      this.occupantCourses.set(courses);
     } catch (error) {
       if (this.destroyRef.destroyed) return;
       this.occupants.set([]);
@@ -383,28 +387,25 @@ export class RoomDetailComponent {
     );
   }
 
-  /** Etapa · curso · previsão de formatura, com o que estiver cadastrado. */
+  /** Etapa · curso, como o servidor calculou. */
   occupantCourse(residentId: string): string {
     const resident = this.occupantResidents().find((item) => item.id === residentId);
-    if (!resident) return '';
-    const progress = courseProgress(
-      resident.entryYear,
-      resident.extraSemesters,
-      this.occupantCourses().find((course) => course.id === resident.courseId),
-    );
-    return [
-      progress.stage,
-      resident.course,
-      progress.expectedGraduation &&
-        `formatura prevista ${progress.expectedGraduation}${progress.overdue ? ' (prazo vencido)' : ''}`,
-    ]
-      .filter(Boolean)
-      .join(' · ');
+    return resident ? [resident.stage, resident.course].filter(Boolean).join(' · ') : '';
   }
-  allocationDate(value: string): string {
-    const date = new Date(value);
-    return Number.isNaN(date.getTime())
-      ? 'Data não informada'
-      : new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(date);
+
+  /** "Entrou em dd/mm/aaaa · saída prevista dd/mm/aaaa", com a entrada no horário de Brasília. */
+  occupantDates(allocation: AllocationRecord): string {
+    const date = new Date(allocation.startedAt);
+    const entered = Number.isNaN(date.getTime())
+      ? 'Entrada não informada'
+      : 'Entrou em ' +
+        new Intl.DateTimeFormat('pt-BR', {
+          dateStyle: 'short',
+          timeZone: 'America/Sao_Paulo',
+        }).format(date);
+    const exit = this.occupantResidents().find(
+      (item) => item.id === allocation.residentId,
+    )?.expectedExit;
+    return exit ? `${entered} · saída prevista ${formattedDate(exit)}` : entered;
   }
 }

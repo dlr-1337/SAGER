@@ -55,18 +55,31 @@ public class OpenApiConfiguration {
                     .addProperty("birthDate", new StringSchema().format("date"))
                     .addProperty("courseId", uuid(false)).addProperty("institutionalEmail", new StringSchema().format("email").nullable(true))
                     .addProperty("entryYear", new IntegerSchema().minimum(BigDecimal.valueOf(1990)).maximum(BigDecimal.valueOf(2100))
-                            .nullable(true).description("Ano de ingresso; novo valor vai até o ano seguinte em America/Sao_Paulo."))
+                            .description("Ano de ingresso; novo valor vai até o ano seguinte em America/Sao_Paulo."))
                     .addProperty("extraSemesters", new IntegerSchema().minimum(BigDecimal.ZERO).maximum(BigDecimal.TEN)
                             ._default(0).description("Prorrogação em semestres; ausente vale 0.")),
-                    List.of("name", "enrollment", "birthDate", "courseId"));
+                    List.of("name", "enrollment", "birthDate", "courseId", "entryYear"));
             var residentCreate=api.getComponents().getSchemas().get("ResidentCreateRequest");
             residentCreate.addProperty("password", new StringSchema().format("password").minLength(8).maxLength(72).writeOnly(true));
             residentCreate.addProperty("passwordConfirmation", new StringSchema().format("password").minLength(8).maxLength(72).writeOnly(true));
-            residentCreate.setRequired(List.of("name","enrollment","birthDate","courseId","password","passwordConfirmation"));
+            residentCreate.setRequired(List.of("name","enrollment","birthDate","courseId","entryYear","password","passwordConfirmation"));
+            // Calculados pelo servidor na data civil de America/Sao_Paulo a cada leitura.
+            api.getComponents().getSchemas().get("Resident")
+                    .addProperty("stage", new StringSchema().nullable(true).readOnly(true)
+                            .description("Etapa do curso, ou Concluinte; nulo sem ano, nível ou duração."))
+                    .addProperty("expectedExit", new StringSchema().format("date").nullable(true).readOnly(true)
+                            .description("Saída prevista: 30/06 ou 31/12 do último semestre."))
+                    .addProperty("concluded", new BooleanSchema().readOnly(true)
+                            .description("Verdadeiro depois da saída prevista."))
+                    .addProperty("minor", new BooleanSchema().readOnly(true)
+                            .description("Menor de 18 anos; falso sem data de nascimento."));
             crud(api, "/api/v1/cursos", "Course", new ObjectSchema().addProperty("name", text(1,200,false))
-                    .addProperty("level", new StringSchema()._enum(List.of("MEDIO", "SUPERIOR")).nullable(true))
-                    .addProperty("durationYears", new IntegerSchema().minimum(BigDecimal.ONE).maximum(BigDecimal.valueOf(6)).nullable(true)),
+                    .addProperty("level", new StringSchema()._enum(List.of("MEDIO", "SUPERIOR")).nullable(true)
+                            .description("Obrigatório em curso novo ou com nome, nível ou duração alterados."))
+                    .addProperty("durationYears", new IntegerSchema().minimum(BigDecimal.ONE).maximum(BigDecimal.valueOf(6)).nullable(true)
+                            .description("Obrigatório em curso novo ou com nome, nível ou duração alterados.")),
                     List.of("name"));
+            api.getComponents().getSchemas().get("CourseCreateRequest").setRequired(List.of("name", "level", "durationYears"));
             var courseUpdate=api.getComponents().getSchemas().get("CourseUpdateRequest");
             courseUpdate.addProperty("active",new BooleanSchema()); courseUpdate.setRequired(List.of("name","active","version"));
             crud(api, "/api/v1/supervisores", "Supervisor", new ObjectSchema()
@@ -79,8 +92,10 @@ public class OpenApiConfiguration {
             supervisorCreate.addProperty("passwordConfirmation", new StringSchema().format("password").minLength(8).maxLength(72).writeOnly(true));
             supervisorCreate.setRequired(List.of("name","institutionalId","email","password","passwordConfirmation"));
             crud(api, "/api/v1/alojamentos", "Accommodation", new ObjectSchema()
-                    .addProperty("code", text(1, 64, false)).addProperty("name", text(1, 200, false)),
+                    .addProperty("code", text(1, 64, false)).addProperty("name", text(1, 200, false))
+                    .addProperty("ageGroup", ageGroup()),
                     List.of("code", "name"));
+            api.getComponents().getSchemas().get("Accommodation").addProperty("ageGroup", ageGroup());
             crud(api, "/api/v1/alojamentos/{id}/unidades", "AccommodationUnit", new ObjectSchema()
                     .addProperty("code", text(1, 64, false)).addProperty("name", text(1, 200, false)),
                     List.of("code", "name"));
@@ -147,6 +162,11 @@ public class OpenApiConfiguration {
                 }
             });
         };
+    }
+
+    private Schema<?> ageGroup() {
+        return new StringSchema()._enum(List.of("MENORES", "MAIORES")).nullable(true)
+                .description("Faixa etária do alojamento, herdada pelos quartos; ausente ou nula é sem faixa.");
     }
 
     private void crud(OpenAPI api, String path, String name, Schema<?> schema, List<String> required) {

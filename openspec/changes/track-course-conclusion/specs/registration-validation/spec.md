@@ -22,7 +22,7 @@ O ano de ingresso MUST ser obrigatório na criação e na edição de residente,
 
 ### Requirement: Ano de ingresso sugerido pela matrícula
 
-Quando o ano de ingresso estiver vazio, o formulário de residente SHALL preenchê-lo com os 4 primeiros dígitos da matrícula, ao digitar a matrícula e ao abrir um cadastro para edição, também na demonstração, e o usuário MUST poder trocar o valor antes de salvar.
+Quando o ano de ingresso estiver vazio, ou ainda com o valor que o próprio formulário sugeriu, o formulário de residente SHALL preenchê-lo com os 4 primeiros dígitos da matrícula, ao digitar a matrícula e ao abrir um cadastro para edição, também na demonstração, e o usuário MUST poder trocar o valor antes de salvar.
 
 #### Scenario: Matrícula digitada
 
@@ -35,6 +35,12 @@ Quando o ano de ingresso estiver vazio, o formulário de residente SHALL preench
 - **GIVEN** o ano de ingresso 2024 já informado
 - **WHEN** o usuário digita a matrícula 20251ABCD000123
 - **THEN** o ano de ingresso continua 2024
+
+#### Scenario: Matrícula corrigida
+
+- **GIVEN** o ano de ingresso vazio e a matrícula digitada como 20151ABCD000123, que sugeriu 2015
+- **WHEN** o usuário corrige a matrícula para 20251ABCD000123
+- **THEN** o ano de ingresso fica 2025
 
 #### Scenario: Cadastro antigo aberto para edição
 

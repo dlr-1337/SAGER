@@ -177,7 +177,7 @@ Nenhuma das escolhas abaixo tem aprovação institucional registrada. Elas permi
 | Item | Regra local adotada | A confirmar com a AE/TI |
 | --- | --- | --- |
 | D01 Perfis e permissões | Gestor e supervisor têm as mesmas permissões nos cadastros, exceto supervisores, que só o gestor gerencia (31/10/2026). Operações são do supervisor. O residente vê só o que é seu. | Matriz de recursos e operações por perfil. |
-| D02 Cadastro do residente | Cadastro manual. Nome, matrícula, nascimento e curso obrigatórios em novas gravações; regras de formato só para valor novo ou alterado; matrícula única sem diferenciar maiúsculas. SUAP adiado. | Conferência da matrícula, comprovação dos campos, correção, desligamento e ciclo do vínculo. |
+| D02 Cadastro do residente | Cadastro manual. Nome, matrícula, nascimento, curso e ano de ingresso obrigatórios em novas gravações (o ano é sugerido pelos 4 primeiros dígitos da matrícula); regras de formato só para valor novo ou alterado; matrícula única sem diferenciar maiúsculas. SUAP adiado. | Conferência da matrícula, comprovação dos campos, correção, desligamento e ciclo do vínculo. |
 | D03 Horário "agora" na saída | Vale o relógio do servidor no instante do envio; o cliente não manda a hora. | Referência de tempo e tolerância de preenchimento. |
 | D04 Modalidades de saída | Só Curta e Longa. | Se existem outras modalidades. |
 | D05 Início da saída | Aprovar não registra partida. Só o supervisor registra a partida física, que inicia a saída. | Evento que marca a saída como em andamento. |
@@ -227,3 +227,9 @@ Nenhuma das escolhas abaixo tem aprovação institucional registrada. Elas permi
 | Piloto e aceite | Homologação técnica com dados fictícios. | Piloto na VPS, disponibilidade e aceite formal. |
 | Aviso de privacidade | O sistema não tem tela de aviso de privacidade. | Texto, momento de exibição e responsável. |
 | WhatsApp | Desligado por padrão; anexo manual disponível. | Os onze itens de [whatsapp/OPERACAO.md](whatsapp/OPERACAO.md#decisões-institucionais-pendentes). |
+| Conclusão do curso: encerramento do vínculo | Depois da saída prevista, a rotina diária das 00h10 encerra o vínculo de quarto com o motivo `CONCLUSION`. | Se o vínculo é encerrado sozinho ou só marcado "Concluinte". |
+| Conclusão do curso: fim do semestre | Saída prevista em 30/06 ou 31/12, sem folga. | Outra data de fim de semestre e se deve haver folga. |
+| Conclusão do curso: semestre de ingresso | 5º caractere da matrícula: `1` é o 1º semestre; outro valor, o 2º. | Se o 5º dígito da matrícula SUAP é o semestre de ingresso. |
+| Conclusão do curso: duração | Duração em anos inteiros, de 1 a 6, sem curso com número ímpar de semestres. | Se existe curso com número ímpar de semestres. |
+| Conclusão do curso: cadastros antigos | Residente sem ano de ingresso nunca vira concluinte até a edição, que passa a exigir o ano. | Se os antigos são preenchidos de uma vez pela matrícula. |
+| Conclusão do curso: conta de acesso | A conta do concluinte continua ativa. | O que fazer com ela depois da saída. |

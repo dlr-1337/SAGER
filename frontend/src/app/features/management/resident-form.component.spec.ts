@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { Router, provideRouter } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { vi } from 'vitest';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { CourseApiService } from './course-api.service';
@@ -104,7 +104,7 @@ describe('ResidentFormComponent', () => {
     expect(service.residents().length).toBe(before);
   });
 
-  it('marks the new course field and does not call the server when it is blank', async () => {
+  it('marks the new course fields and does not call the server when they are blank', async () => {
     const save = vi.spyOn(TestBed.inject(CourseApiService), 'save');
     const fixture = TestBed.createComponent(ResidentFormComponent);
     await fixture.whenStable();
@@ -113,9 +113,26 @@ describe('ResidentFormComponent', () => {
     component.newCourse.setValue('   ');
     await component.createCourse();
     fixture.detectChanges();
+    const native = fixture.nativeElement as HTMLElement;
     expect(save).not.toHaveBeenCalled();
-    expect(fixture.nativeElement.querySelector('#new-course-error')?.textContent).toContain(
-      'Informe um nome',
+    expect(native.querySelector('#new-course-error')?.textContent).toContain('Informe um nome');
+    expect(native.querySelector('#new-course-level-error')?.textContent).toBe('Escolha o nível.');
+    expect(native.querySelector('#new-course-duration-error')?.textContent).toContain(
+      'Use um número de 1 a 6 anos.',
+    );
+    component.newCourse.setValue('Curso Demonstrativo');
+    component.newCourseLevel.setValue('SUPERIOR');
+    await component.createCourse();
+    expect(save).not.toHaveBeenCalled();
+    component.newCourseDuration.setValue(4);
+    await component.createCourse();
+    expect(save).toHaveBeenCalledWith({
+      name: 'Curso Demonstrativo',
+      level: 'SUPERIOR',
+      durationYears: 4,
+    });
+    expect(component.form.controls.courseId.value).toBe(
+      component.courses().find((course) => course.name === 'Curso Demonstrativo')?.id,
     );
   });
 
@@ -131,11 +148,45 @@ describe('ResidentFormComponent', () => {
       birthDate: '2009-05-14',
       courseId: 'course-1',
       institutionalEmail: '',
-      entryYear: null,
+      entryYear: 2026,
       extraSemesters: 0,
       password: 'gato azul',
       passwordConfirmation: 'gato azul',
     });
+    await fixture.componentInstance.save();
+    expect(service.residents().length).toBe(before + 1);
+  });
+
+  it('requires the entry year and suggests it from the enrollment', async () => {
+    vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    const service = TestBed.inject(ManagementDemoService);
+    const before = service.residents().length;
+    const fixture = TestBed.createComponent(ResidentFormComponent);
+    await fixture.whenStable();
+    const native = fixture.nativeElement as HTMLElement;
+    const form = fixture.componentInstance.form;
+    expect(native.textContent).toContain('Ano de ingresso *');
+    form.patchValue({
+      name: 'Pessoa Demonstrativa',
+      birthDate: '2009-05-14',
+      courseId: 'course-1',
+      password: 'gato azul',
+      passwordConfirmation: 'gato azul',
+    });
+    native.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
+    await fixture.whenStable();
+    expect(native.querySelector('#resident-entry-year-error')!.textContent).toBe(
+      'Informe o ano de ingresso.',
+    );
+    expect(service.residents().length).toBe(before);
+    form.controls.entryYear.setValue(2024);
+    form.controls.enrollment.setValue('20251ABCD000123');
+    expect(form.controls.entryYear.value).toBe(2024);
+    form.controls.entryYear.setValue(null);
+    form.controls.enrollment.setValue('20151PAG0000001');
+    expect(form.controls.entryYear.value).toBe(2015);
+    form.controls.enrollment.setValue('20261PAG0000001');
+    expect(form.controls.entryYear.value).toBe(2026);
     await fixture.componentInstance.save();
     expect(service.residents().length).toBe(before + 1);
   });
@@ -232,5 +283,31 @@ describe('ResidentFormComponent', () => {
     fixture.componentInstance.save();
     expect(form.controls.birthDate.invalid).toBe(true);
     expect(service.residents()).toHaveLength(before);
+  });
+});
+
+describe('ResidentFormComponent editing in the demo', () => {
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [ResidentFormComponent],
+      providers: [
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: convertToParamMap({ id: 'r-ana' }) } },
+        },
+      ],
+    }).compileComponents();
+    TestBed.inject(DemoSessionService).activate('gestor');
+  });
+
+  it('opens a resident without entry year with the year from the enrollment', async () => {
+    const fixture = TestBed.createComponent(ResidentFormComponent);
+    await fixture.whenStable();
+    const form = fixture.componentInstance.form;
+    expect(form.controls.enrollment.value).toBe('2024100000001001');
+    expect(form.controls.entryYear.value).toBe(2024);
+    form.controls.entryYear.setValue(2023);
+    expect(form.controls.entryYear.valid).toBe(true);
   });
 });

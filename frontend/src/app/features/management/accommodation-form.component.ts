@@ -12,7 +12,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { AccommodationApiError, accommodationErrorMessage } from './accommodation-api.service';
 import { AccommodationDataService } from './accommodation-data.service';
-import { Accommodation } from './housing.models';
+import { Accommodation, AgeGroup } from './housing.models';
 
 @Component({
   selector: 'app-accommodation-form',
@@ -90,6 +90,18 @@ import { Accommodation } from './housing.models';
                 <span class="mg-field-error">Informe um nome de até 200 caracteres.</span>
               }
             </label>
+            <label class="field mg-field"
+              >Faixa etária<select
+                formControlName="ageGroup"
+                aria-describedby="accommodation-age-group-help"
+              >
+                <option value="">Sem faixa definida</option>
+                <option value="MENORES">Menores de 18 anos</option>
+                <option value="MAIORES">Maiores de 18 anos</option></select
+              ><span id="accommodation-age-group-help" class="mg-muted"
+                >Define quem pode ser colocado nos quartos deste alojamento.</span
+              >
+            </label>
           </div>
           <div class="mg-note">
             <span class="material-symbols-rounded" aria-hidden="true">info</span>
@@ -149,6 +161,7 @@ export class AccommodationFormComponent {
       nonNullable: true,
       validators: [Validators.required, Validators.maxLength(200)],
     }),
+    ageGroup: new FormControl<AgeGroup | ''>('', { nonNullable: true }),
   });
   constructor() {
     if (this.editId && this.canEdit()) void this.load();
@@ -161,7 +174,7 @@ export class AccommodationFormComponent {
     try {
       const item = await this.data.get(this.editId);
       this.existing.set(item);
-      this.form.setValue({ code: item.code, name: item.name });
+      this.form.setValue({ code: item.code, name: item.name, ageGroup: item.ageGroup ?? '' });
     } catch (error) {
       this.existing.set(null);
       this.missing.set(error instanceof AccommodationApiError && error.status === 404);
@@ -176,7 +189,7 @@ export class AccommodationFormComponent {
     try {
       const item = await this.data.get(this.editId);
       this.existing.set(item);
-      this.form.setValue({ code: item.code, name: item.name });
+      this.form.setValue({ code: item.code, name: item.name, ageGroup: item.ageGroup ?? '' });
       this.error.set('');
       this.conflict.set(false);
     } catch (error) {
@@ -192,6 +205,7 @@ export class AccommodationFormComponent {
       name: this.form.controls.name.value.trim(),
     };
     this.form.patchValue(input, { emitEvent: false });
+    const ageGroup = this.form.controls.ageGroup.value || null;
     this.error.set('');
     this.conflict.set(false);
     if (this.form.invalid) {
@@ -200,7 +214,7 @@ export class AccommodationFormComponent {
     }
     this.saving.set(true);
     try {
-      const item = await this.data.save(input, this.existing() ?? undefined);
+      const item = await this.data.save({ ...input, ageGroup }, this.existing() ?? undefined);
       if (!this.destroyRef.destroyed) {
         this.saving.set(false);
         this.form.markAsPristine();

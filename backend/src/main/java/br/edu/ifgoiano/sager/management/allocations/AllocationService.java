@@ -1,6 +1,9 @@
 package br.edu.ifgoiano.sager.management.allocations;
 
 import java.sql.SQLException;
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -8,6 +11,7 @@ import java.util.UUID;
 import br.edu.ifgoiano.sager.audit.AuditAction;
 import br.edu.ifgoiano.sager.audit.AuditResource;
 import br.edu.ifgoiano.sager.audit.AuditService;
+import br.edu.ifgoiano.sager.management.FieldRules;
 import br.edu.ifgoiano.sager.management.rooms.RoomRecord;
 import br.edu.ifgoiano.sager.management.rooms.RoomRepository;
 import org.springframework.context.annotation.Profile;
@@ -22,11 +26,14 @@ public class AllocationService {
     private final AllocationRepository allocations;
     private final RoomRepository rooms;
     private final AuditService audit;
+    private final Clock clock;
 
-    public AllocationService(AllocationRepository allocations, RoomRepository rooms, AuditService audit) {
+    public AllocationService(AllocationRepository allocations, RoomRepository rooms, AuditService audit,
+            Clock clock) {
         this.allocations = allocations;
         this.rooms = rooms;
         this.audit = audit;
+        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
@@ -54,7 +61,7 @@ public class AllocationService {
         if (allocations.activeResident(residentId)) {
             throw conflict("active_conflict", "O residente já possui uma alocação ativa.");
         }
-        checkAdmission(room);
+        checkAdmission(residentId, room);
         Allocation created;
         try {
             created = allocations.insert(UUID.randomUUID(), residentId, roomId);
@@ -80,7 +87,7 @@ public class AllocationService {
             throw invalidInput("A transferência exige outro quarto.");
         }
         RoomRecord target = lockRoom(targetRoomId);
-        checkAdmission(target);
+        checkAdmission(current.residentId(), target);
         Allocation closed = allocations.close(allocationId, version, "TRANSFER");
         if (closed == null) {
             throw conflict("stale_version", "A alocação foi alterada. Recarregue o registro.");
@@ -114,6 +121,38 @@ public class AllocationService {
         return closed;
     }
 
+    /**
+     * Rotina diária: encerra o vínculo de quem passou da saída prevista. A condição é "passou",
+     * não "venceu ontem", então um dia sem execução é recuperado no seguinte.
+     */
+    @Transactional
+    public int closeConcluded() {
+        LocalDate today = today();
+        UUID requestId = UUID.randomUUID();
+        int closed = 0;
+        for (AllocationRepository.CourseFacts due : allocations.activeCourseFacts()) {
+            if (!due.concluded(today)) continue;
+            allocations.lockResident(due.residentId());
+            Allocation current = allocations.findByIdForUpdate(due.allocationId()).orElse(null);
+            if (current == null || current.endedAt() != null || !concluded(due.residentId(), today)) continue;
+            Allocation ended = allocations.close(current.id(), current.version(), "CONCLUSION");
+            if (ended == null) continue;
+            audit.recordSystem(requestId, AuditResource.ALLOCATION, ended.id(), AuditAction.END, ended.version(),
+                    Set.of("endedAt", "endReason"));
+            closed++;
+        }
+        return closed;
+    }
+
+    private boolean concluded(UUID residentId, LocalDate today) {
+        return allocations.courseFacts(residentId).map(facts -> facts.concluded(today)).orElse(false);
+    }
+
+    /** Data civil de hoje pelo relógio do servidor (cap4.tex:218). */
+    private LocalDate today() {
+        return LocalDate.now(clock.withZone(ZoneId.of("America/Sao_Paulo")));
+    }
+
     private Allocation locked(UUID id) {
         return allocations.findByIdForUpdate(id).orElseThrow(() -> new AllocationApiException(
                 HttpStatus.NOT_FOUND, "not_found", "Alocação não encontrada."));
@@ -123,7 +162,21 @@ public class AllocationService {
         return rooms.findByIdForUpdate(id).orElseThrow(() -> invalidReference("Quarto não encontrado."));
     }
 
-    private void checkAdmission(RoomRecord room) {
+    private void checkAdmission(UUID residentId, RoomRecord room) {
+        if (concluded(residentId, today())) {
+            throw conflict("resident_concluded",
+                    "Este residente concluiu o curso. Lance a prorrogação antes de colocar no quarto.");
+        }
+        AllocationRepository.AgeCheck age = allocations.ageCheck(residentId, room.id());
+        if (age.ageGroup() != null && age.birthDate() == null) {
+            throw conflict("birth_date_required",
+                    "Informe a data de nascimento do residente antes de colocá-lo neste quarto.");
+        }
+        if (age.ageGroup() != null
+                && FieldRules.minor(age.birthDate(), clock.instant()) != age.ageGroup().equals("MENORES")) {
+            throw conflict("age_group_mismatch",
+                    "Este quarto é de outra faixa etária. Escolha um quarto da faixa do residente.");
+        }
         if (room.situation().equals("Manutenção") || room.situation().equals("Indisponível")) {
             throw conflict("room_unavailable", "O quarto não recebe novas alocações nesta situação.");
         }

@@ -13,7 +13,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 @Profile({ "local", "production" })
 public class AccommodationRepository {
-    private static final String COLUMNS = "id, code, name, version";
+    private static final String COLUMNS = "id, code, name, age_group, version";
     private static final String UNIT_COLUMNS = "id, accommodation_id, code, name, version";
     private final JdbcTemplate jdbc;
 
@@ -36,16 +36,17 @@ public class AccommodationRepository {
                 (result, row) -> map(result), id).stream().findFirst();
     }
 
-    public void insert(UUID id, String code, String name) {
-        jdbc.update("INSERT INTO sager_accommodation (id, code, name) VALUES (?, ?, ?)", id, code, name);
+    public void insert(UUID id, String code, String name, String ageGroup) {
+        jdbc.update("INSERT INTO sager_accommodation (id, code, name, age_group) VALUES (?, ?, ?, ?)",
+                id, code, name, ageGroup);
     }
 
-    public int update(UUID id, String code, String name, long version) {
+    public int update(UUID id, String code, String name, String ageGroup, long version) {
         return jdbc.update("""
                 UPDATE sager_accommodation
-                SET code = ?, name = ?, version = version + 1, updated_at = CURRENT_TIMESTAMP
+                SET code = ?, name = ?, age_group = ?, version = version + 1, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ? AND version = ?
-                """, code, name, id, version);
+                """, code, name, ageGroup, id, version);
     }
 
     public List<AccommodationUnit> findAllUnits() {
@@ -83,7 +84,7 @@ public class AccommodationRepository {
 
     private Accommodation map(ResultSet result) throws SQLException {
         return new Accommodation(result.getObject("id", UUID.class), result.getString("code"),
-                result.getString("name"), result.getLong("version"));
+                result.getString("name"), result.getString("age_group"), result.getLong("version"));
     }
 
     private AccommodationUnit mapUnit(ResultSet result) throws SQLException {

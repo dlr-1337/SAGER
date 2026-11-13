@@ -12,6 +12,11 @@ export interface ResidentRecord {
   institutionalEmail?: string | null;
   entryYear?: number | null;
   extraSemesters?: number;
+  /** Calculados pelo servidor; ausentes em respostas antigas ou simuladas. */
+  stage?: string | null;
+  expectedExit?: string | null;
+  concluded?: boolean;
+  minor?: boolean;
 }
 
 export type ResidentPayload = Pick<
@@ -47,6 +52,10 @@ function isResident(value: unknown): value is ResidentRecord {
     (item.course === null || typeof item.course === 'string') &&
     (item.entryYear == null || Number.isInteger(item.entryYear)) &&
     (item.extraSemesters === undefined || Number.isInteger(item.extraSemesters)) &&
+    (item.stage == null || typeof item.stage === 'string') &&
+    (item.expectedExit == null || typeof item.expectedExit === 'string') &&
+    (item.concluded === undefined || typeof item.concluded === 'boolean') &&
+    (item.minor === undefined || typeof item.minor === 'boolean') &&
     typeof item.version === 'number'
   );
 }

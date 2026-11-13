@@ -9,7 +9,12 @@ import {
 } from '../../core/error-messages';
 import { readArrayPage } from '../../core/list-page';
 import { Injectable } from '@angular/core';
-import { Accommodation, AccommodationInput, AccommodationUnit } from './housing.models';
+import {
+  Accommodation,
+  AccommodationInput,
+  AccommodationUnit,
+  validAgeGroup,
+} from './housing.models';
 
 const baseUrl = '/api/v1/alojamentos';
 
@@ -29,6 +34,7 @@ function isAccommodation(value: unknown): value is Accommodation {
     typeof item.id === 'string' &&
     typeof item.code === 'string' &&
     typeof item.name === 'string' &&
+    validAgeGroup(item.ageGroup) &&
     Number.isInteger(item.version) &&
     (item.version ?? -1) >= 0
   );

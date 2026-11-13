@@ -49,6 +49,29 @@ describe('AccommodationApiService', () => {
     });
   });
 
+  it('envia a faixa etária ao salvar o alojamento', async () => {
+    const mock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(csrf)))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ...accommodation, ageGroup: 'MENORES' }), { status: 201 }),
+      );
+    vi.stubGlobal('fetch', mock);
+    const saved = await TestBed.inject(AccommodationApiService).save({
+      code: accommodation.code,
+      name: accommodation.name,
+      ageGroup: 'MENORES',
+    });
+    expect(saved.ageGroup).toBe('MENORES');
+    const [url, request] = mock.mock.calls[1] as [string, RequestInit];
+    expect(url).toBe('/api/v1/alojamentos');
+    expect(JSON.parse(request.body as string)).toEqual({
+      code: accommodation.code,
+      name: accommodation.name,
+      ageGroup: 'MENORES',
+    });
+  });
+
   it('não escreve quando o servidor recusa a obtenção de CSRF', async () => {
     const mock = vi.fn().mockResolvedValue(new Response('', { status: 401 }));
     vi.stubGlobal('fetch', mock);

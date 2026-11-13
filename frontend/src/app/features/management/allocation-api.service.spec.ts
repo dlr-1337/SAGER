@@ -5,6 +5,7 @@ import {
   AllocationApiError,
   AllocationApiService,
   AllocationRecord,
+  allocationErrorMessage,
 } from './allocation-api.service';
 
 const record: AllocationRecord = {
@@ -71,6 +72,29 @@ describe('AllocationApiService', () => {
     );
     await expect(TestBed.inject(AllocationApiService).create('r-1', 'q-1')).rejects.toEqual(
       new AllocationApiError(409, 'room_full'),
+    );
+  });
+
+  it('aceita vínculo encerrado pela conclusão do curso e explica a recusa do concluinte', async () => {
+    const concluded = {
+      ...record,
+      endedAt: '2026-07-01T03:10:00Z',
+      endReason: 'CONCLUSION' as const,
+      version: 1,
+    };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify([concluded]))));
+    expect(await TestBed.inject(AllocationApiService).byResident('r-1')).toEqual([concluded]);
+    expect(allocationErrorMessage(new AllocationApiError(409, 'resident_concluded'))).toBe(
+      'Este residente concluiu o curso. Lance a prorrogação antes de colocar no quarto.',
+    );
+  });
+
+  it('explica as recusas de faixa etária', () => {
+    expect(allocationErrorMessage(new AllocationApiError(409, 'age_group_mismatch'))).toBe(
+      'Este quarto é de outra faixa etária. Escolha um quarto da faixa do residente.',
+    );
+    expect(allocationErrorMessage(new AllocationApiError(409, 'birth_date_required'))).toBe(
+      'Informe a data de nascimento do residente antes de colocá-lo neste quarto.',
     );
   });
 

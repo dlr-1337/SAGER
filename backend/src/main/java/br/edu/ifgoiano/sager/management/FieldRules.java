@@ -1,6 +1,7 @@
 package br.edu.ifgoiano.sager.management;
 
 import java.text.Normalizer;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.Period;
 import java.time.ZoneId;
@@ -67,6 +68,15 @@ public final class FieldRules {
 
     public static boolean validCapacity(int capacity) {
         return capacity >= 1 && capacity <= 20;
+    }
+
+    /** Menor de 18 anos na data civil de America/Sao_Paulo do instante; sem data ou data futura não é menor. */
+    public static boolean minor(LocalDate birth, Instant at) {
+        return minor(birth, at.atZone(CIVIL_ZONE).toLocalDate());
+    }
+
+    public static boolean minor(LocalDate birth, LocalDate date) {
+        return birth != null && !birth.isAfter(date) && birth.plusYears(18).isAfter(date);
     }
 
     public static boolean validEntryYear(int year) {

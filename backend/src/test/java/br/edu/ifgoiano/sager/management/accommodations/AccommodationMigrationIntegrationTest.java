@@ -67,6 +67,55 @@ class AccommodationMigrationIntegrationTest {
                 .isEqualTo(1);
     }
 
+    @Test
+    void v32FillsAgeGroupFromTheNameWithSystemAuditAndSameVersion() {
+        String schema = "accommodation_age_group";
+        migrate(schema, "31");
+        JdbcTemplate jdbc = jdbc(schema);
+        UUID minors = accommodation(jdbc, "R2", "Residência 2 · Masculina · menores de 18");
+        UUID adults = accommodation(jdbc, "VILA", "Vila Estudantil · Masculina · MAIORES DE 18");
+        UUID plain = accommodation(jdbc, "SINT", "Alojamento Sintético");
+        UUID both = accommodation(jdbc, "MISTO", "Misto · menores de 18 e maiores de 18");
+        migrate(schema, "32");
+
+        assertThat(ageGroup(jdbc, minors)).isEqualTo("MENORES");
+        assertThat(ageGroup(jdbc, adults)).isEqualTo("MAIORES");
+        assertThat(ageGroup(jdbc, plain)).isNull();
+        assertThat(ageGroup(jdbc, both)).isNull();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_accommodation WHERE version <> 0", Integer.class))
+                .isZero();
+        for (UUID classified : new UUID[] { minors, adults }) {
+            assertThat(jdbc.queryForObject("""
+                    SELECT COUNT(*) FROM sager_audit_event WHERE resource = 'ACCOMMODATION' AND resource_id = ?
+                    AND origin = 'SYSTEM_JOB' AND actor_id IS NULL AND action = 'UPDATE' AND resulting_version = 0
+                    AND changed_fields = ARRAY['ageGroup']::text[]
+                    """, Integer.class, classified)).isOne();
+        }
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_audit_event WHERE resource_id IN (?, ?)",
+                Integer.class, plain, both)).isZero();
+
+        assertThatThrownBy(() -> jdbc.update("UPDATE sager_accommodation SET age_group = 'ADULTOS' WHERE id = ?",
+                plain)).isInstanceOf(DataIntegrityViolationException.class);
+        jdbc.update(audit("ACCOMMODATION"), UUID.randomUUID(), plain);
+        assertThatThrownBy(() -> jdbc.update(audit("ROOM"), UUID.randomUUID(), plain))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    private static String audit(String resource) {
+        return "INSERT INTO sager_audit_event (origin, request_id, resource, resource_id, action, resulting_version,"
+                + " changed_fields) VALUES ('SYSTEM_JOB', ?, '" + resource + "', ?, 'UPDATE', 1, ARRAY['ageGroup'])";
+    }
+
+    private static UUID accommodation(JdbcTemplate jdbc, String code, String name) {
+        UUID id = UUID.randomUUID();
+        jdbc.update("INSERT INTO sager_accommodation (id, code, name) VALUES (?, ?, ?)", id, code, name);
+        return id;
+    }
+
+    private static String ageGroup(JdbcTemplate jdbc, UUID id) {
+        return jdbc.queryForObject("SELECT age_group FROM sager_accommodation WHERE id = ?", String.class, id);
+    }
+
     private void migrate(String schema, String version) {
         Flyway.configure().dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                 .schemas(schema).defaultSchema(schema).locations("classpath:db/migration")

@@ -67,6 +67,27 @@ Com Docker, o mesmo comando fica `./sager account create --matricula=...`. A sen
 - Mudar ou remover o vínculo encerra as sessões da conta. Repetir o mesmo vínculo não muda nada.
 - Nenhuma matrícula é deduzida do e-mail: use `list` e `assign-enrollment` com o identificador conferido.
 
+## Rotina de conclusão do curso
+
+Todo dia às 00h10 (America/Sao_Paulo), nos perfis `local` e `production`, o backend encerra o vínculo ativo de quarto de cada residente que passou da saída prevista. A saída prevista sai do ano de ingresso, do 5º caractere da matrícula (`1` é o 1º semestre; outro valor, o 2º), da duração do curso e da prorrogação, e termina em 30/06 ou 31/12.
+
+- O vínculo fecha com o motivo `CONCLUSION`, e a auditoria registra `END` com origem `SYSTEM_JOB`, sem autor.
+- A flag `sager.operations.expiry.enabled=false` (variável `SAGER_OPERATIONS_EXPIRY_ENABLED=false`) desliga esta rotina junto com a expiração das saídas curtas.
+- A condição é "passou da saída prevista", não "venceu ontem": um dia sem execução, por servidor parado, é recuperado na execução seguinte.
+- A API recusa colocar ou transferir um concluinte (409 `resident_concluded`) até que a prorrogação seja lançada no cadastro.
+- A conta de acesso do concluinte continua ativa.
+
+Antes do deploy, rode estas consultas no banco de produção. Quem aparece nelas nunca vira concluinte até o cadastro ser completado:
+
+```sql
+SELECT id, name FROM sager_course WHERE duration_years IS NULL;
+SELECT r.id, r.enrollment FROM sager_resident r
+  JOIN sager_room_allocation a ON a.resident_id = r.id AND a.ended_at IS NULL
+ WHERE r.entry_year IS NULL;
+```
+
+Antes da primeira execução, abra a lista de residentes e confira quem aparece como "Concluinte". Para quem ainda estuda, lance a prorrogação no cadastro; senão, a vaga é liberada às 00h10 seguintes.
+
 ## Testes
 
 ```bash

@@ -65,10 +65,11 @@ export const birthDateProblem: Problem = (value) => {
     : 'Confira a data de nascimento.';
 };
 
-/** Opcional; de 1990 até o ano seguinte, como FieldRules.validEntryYear. */
+/** Obrigatório; de 1990 até o ano seguinte, como FieldRules.validEntryYear. */
 export const entryYearProblem: Problem = (value) => {
+  if (!value) return 'Informe o ano de ingresso.';
   const last = Number(civilToday().slice(0, 4)) + 1;
-  return !value || (/^\d{4}$/.test(value) && Number(value) >= 1990 && Number(value) <= last)
+  return /^\d{4}$/.test(value) && Number(value) >= 1990 && Number(value) <= last
     ? null
     : `Informe um ano de 1990 a ${last}.`;
 };

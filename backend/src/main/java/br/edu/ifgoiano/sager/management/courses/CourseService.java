@@ -51,6 +51,10 @@ public class CourseService {
         Course current = creating ? null : get(id);
         if (!creating && (version == null || version < 0 || version == Long.MAX_VALUE || current.version() != version))
             throw error(HttpStatus.CONFLICT, "stale_version", "O curso foi alterado. Recarregue a lista.");
+        // Curso antigo sem nível ou duração só pode ser ativado ou desativado sem informá-los.
+        if ((level == null || durationYears == null) && (creating || !current.name().equals(checked)
+                || !Objects.equals(current.level(), level) || !Objects.equals(current.durationYears(), durationYears)))
+            throw error(HttpStatus.BAD_REQUEST, "invalid_input", "Informe o nível e a duração do curso.");
         UUID savedId = creating ? UUID.randomUUID() : id;
         try {
             if (creating) jdbc.update("INSERT INTO sager_course(id,name,active,level,duration_years) VALUES (?,?,?,?,?)", savedId, checked, active, level, durationYears);

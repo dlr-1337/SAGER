@@ -130,10 +130,28 @@ class ApiFoundationIntegrationTest {
                     .isEqualTo(10);
             assertThat(schemas.path("ResidentCreateRequest").path("properties").path("entryYear").path("minimum").asInt())
                     .isEqualTo(1990);
+            for (String field : List.of("stage", "expectedExit", "concluded", "minor")) {
+                assertThat(schemas.path("Resident").path("properties").path(field).path("readOnly").asBoolean())
+                        .as(field).isTrue();
+                assertThat(schemas.path("ResidentCreateRequest").path("properties").has(field)).as(field).isFalse();
+            }
+            for (String request : List.of("ResidentCreateRequest", "ResidentUpdateRequest")) {
+                assertThat(schemas.path(request).path("required").toString()).as(request).contains("\"entryYear\"");
+                assertThat(schemas.path(request).path("properties").path("entryYear").path("nullable").asBoolean())
+                        .as(request).isFalse();
+            }
             assertThat(schemas.path("CourseUpdateRequest").path("properties").path("level").path("enum").toString())
                     .contains("MEDIO", "SUPERIOR");
             assertThat(schemas.path("CourseCreateRequest").path("properties").path("durationYears").path("maximum").asInt())
                     .isEqualTo(6);
+            assertThat(schemas.path("CourseCreateRequest").path("required").toString()).contains("\"level\"", "\"durationYears\"");
+            assertThat(schemas.path("CourseUpdateRequest").path("required").toString()).doesNotContain("level");
+            for (String schema : List.of("AccommodationCreateRequest", "AccommodationUpdateRequest", "Accommodation")) {
+                assertThat(schemas.path(schema).path("properties").path("ageGroup").path("enum").toString())
+                        .as(schema).contains("MENORES", "MAIORES");
+                assertThat(schemas.path(schema).path("required").toString()).as(schema).doesNotContain("ageGroup");
+            }
+            assertThat(schemas.path("AccommodationUnitCreateRequest").path("properties").has("ageGroup")).isFalse();
             JsonNode supervisorCreate = document.path("components").path("schemas").path("SupervisorCreateRequest");
             assertThat(supervisorCreate.path("properties").path("password").path("minLength").asInt()).isEqualTo(8);
             assertThat(supervisorCreate.path("properties").path("passwordConfirmation").path("writeOnly").asBoolean()).isTrue();
