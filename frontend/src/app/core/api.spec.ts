@@ -164,13 +164,19 @@ describe('api', () => {
       expect(loader).toHaveBeenCalledTimes(3);
     });
 
-    it('mantém as cópias quando a gravação falha', async () => {
+    it('mantém as cópias quando a gravação falha, menos num conflito de versão', async () => {
       const loader = vi.fn(async () => ['lista']);
-      fetchMock.mockResolvedValueOnce(token()).mockResolvedValueOnce(json({}, 409));
+      fetchMock
+        .mockResolvedValueOnce(token())
+        .mockResolvedValueOnce(json({}, 400))
+        .mockResolvedValueOnce(json({ code: 'stale_version' }, 409));
       await cached('cursos', loader);
       await expect(api('/api/v1/cursos', { method: 'POST', body: {} })).rejects.toThrow();
       await cached('cursos', loader);
       expect(loader).toHaveBeenCalledTimes(1);
+      await expect(api('/api/v1/cursos/1', { method: 'PUT', body: {} })).rejects.toThrow();
+      await cached('cursos', loader);
+      expect(loader).toHaveBeenCalledTimes(2);
     });
 
     it('não guarda uma falha', async () => {

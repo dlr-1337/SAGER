@@ -32,6 +32,15 @@ async function mockApi(page: Page) {
     institutionalEmail: null,
     version: 0,
   }));
+  const guardians = Array.from({ length: 80 }, (_, index) => ({
+    id: uuid(1001 + index),
+    residentId: residents[index % residents.length].id,
+    name: `Responsável Sintético ${index + 1}`,
+    relationship: 'Mãe',
+    phone: null,
+    active: true,
+    version: 0,
+  }));
   const state = {
     requests: [] as Seen[],
     loggedIn: false,
@@ -70,6 +79,14 @@ async function mockApi(page: Page) {
         Object.assign(item, request.postDataJSON(), { version: item.version + 1 });
       }
       return route.fulfill({ json: item });
+    }
+    if (path === '/responsaveis') {
+      const offset = Number(url.searchParams.get('offset') ?? 0);
+      const limit = Number(url.searchParams.get('limit') ?? guardians.length);
+      return route.fulfill({
+        headers: { 'X-Total-Count': String(guardians.length) },
+        json: guardians.slice(offset, offset + limit),
+      });
     }
     if (path === '/cursos') return route.fulfill({ json: [course] });
     if (path === '/quartos/mapa')
@@ -218,4 +235,40 @@ test('a demonstração navega pelo menu sem pedir nada à API', async ({ page })
   await page.waitForLoadState('networkidle');
   expect(api).toEqual([]);
   expect(urls.filter((url) => url.includes('/acesso'))).toEqual([]);
+});
+
+test('a lista de residentes vem da cópia de 60 s até uma gravação', async ({ page }) => {
+  const state = await mockApi(page);
+  await login(page);
+  await expect(page).toHaveURL(/\/inicio$/);
+  const fullLists = () =>
+    state.requests.filter((seen) => seen.path === '/residentes' && seen.search === '').length;
+  await menu(page, 'Responsáveis').click();
+  await expect(page.getByText('1–25 de 80', { exact: true })).toBeVisible();
+  for (const range of ['26–50 de 80', '51–75 de 80', '76–80 de 80']) {
+    await page.getByRole('button', { name: 'Próxima', exact: true }).click();
+    await expect(page.getByText(range, { exact: true })).toBeVisible();
+  }
+  expect(fullLists()).toBe(1);
+
+  const resident = state.residents[0];
+  await menu(page, 'Residentes').click();
+  await page
+    .locator('article.mg-row')
+    .filter({ has: page.getByRole('heading', { name: resident.name, exact: true }) })
+    .getByRole('link', { name: 'Ver cadastro' })
+    .click();
+  await page
+    .getByRole('link', { name: /^Editar/ })
+    .first()
+    .click();
+  const edited = resident.name + ' Editado';
+  await page.getByRole('textbox', { name: 'Nome completo *' }).fill(edited);
+  await page.getByRole('button', { name: 'Salvar residente', exact: true }).click();
+  await expect(page.getByRole('heading', { name: edited, exact: true })).toBeVisible();
+  const before = fullLists();
+  await menu(page, 'Responsáveis').click();
+  // A tela volta à página em que estava (76–80).
+  await expect(page.getByText('76–80 de 80', { exact: true })).toBeVisible();
+  await expect.poll(fullLists).toBe(before + 1);
 });

@@ -27,4 +27,20 @@ describe('Quarto dependente do bloco nos residentes da demonstração', () => {
       ?.querySelector('select');
     expect(select?.options.length).toBe(component.demoRooms().length + 1);
   });
+
+  it('carrega os cursos da memória sem chamar a API e sem aviso de opções', async () => {
+    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    TestBed.inject(DemoSessionService).activate('gestor');
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      const fixture = TestBed.createComponent(ResidentsComponent);
+      await fixture.whenStable();
+      expect(fixture.componentInstance.courses().length).toBeGreaterThan(0);
+      expect(fixture.componentInstance.optionsError()).toBe('');
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });

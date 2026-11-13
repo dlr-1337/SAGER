@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { api } from '../../core/api';
+import { api, cached } from '../../core/api';
 
 export interface ResidentRecord {
   id: string;
@@ -53,7 +53,12 @@ function isResident(value: unknown): value is ResidentRecord {
 
 @Injectable({ providedIn: 'root' })
 export class ResidentApiService {
-  async list(): Promise<ResidentRecord[]> {
+  /** Lista completa, em cópia de 60 s compartilhada pelas telas; não altere o array devolvido. */
+  list(): Promise<ResidentRecord[]> {
+    return cached('residentes', () => this.fetchList());
+  }
+
+  private async fetchList(): Promise<ResidentRecord[]> {
     const value = await this.read(baseUrl);
     if (!Array.isArray(value) || !value.every(isResident)) {
       throw new Error('A lista de residentes recebida é inválida.');

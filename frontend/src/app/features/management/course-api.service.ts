@@ -2,7 +2,7 @@ import { ERROR_GENERIC } from '../../core/error-messages';
 import { Injectable, inject, signal } from '@angular/core';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { ManagementDemoService } from './management-demo.service';
-import { api } from '../../core/api';
+import { api, cached } from '../../core/api';
 export const COURSE_LEVELS = { MEDIO: 'Ensino médio', SUPERIOR: 'Superior' } as const;
 export type CourseLevel = keyof typeof COURSE_LEVELS;
 export interface Course {
@@ -27,7 +27,9 @@ export class CourseApiService {
     })),
   );
   async list(): Promise<Course[]> {
-    return this.session.active() ? this.demoCourses() : this.request<Course[]>('/api/v1/cursos');
+    return this.session.active()
+      ? this.demoCourses()
+      : cached('cursos', () => this.request<Course[]>('/api/v1/cursos'));
   }
   async save(input: CourseInput, current?: Course, active = true): Promise<Course> {
     const { name, level = null, durationYears = null } = input;

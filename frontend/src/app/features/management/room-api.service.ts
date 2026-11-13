@@ -1,7 +1,7 @@
 import { ERROR_FORBIDDEN, ERROR_GENERIC, ERROR_SESSION } from '../../core/error-messages';
 import { readArrayPage } from '../../core/list-page';
 import { Injectable } from '@angular/core';
-import { api } from '../../core/api';
+import { api, cached } from '../../core/api';
 import {
   Accommodation,
   AccommodationUnit,
@@ -95,7 +95,12 @@ export class RoomApiService {
     return value;
   }
 
-  async map(): Promise<HousingMap> {
+  /** Mapa em cópia de 60 s compartilhada pelas telas; não altere o objeto devolvido. */
+  map(): Promise<HousingMap> {
+    return cached('quartos/mapa', () => this.fetchMap());
+  }
+
+  private async fetchMap(): Promise<HousingMap> {
     const value = await this.read(`${baseUrl}/mapa`);
     if (!value || typeof value !== 'object') throw new Error('O mapa recebido é inválido.');
     const map = value as Partial<HousingMap>;

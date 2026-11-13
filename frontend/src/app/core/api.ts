@@ -75,8 +75,9 @@ export async function api(url: string, init: ApiInit = {}): Promise<Response> {
     response = await send();
   }
   if (response.status === 401) unauthorized();
+  // Um 409 diz que a aba está desatualizada: o "Recarregar dados" seguinte precisa ir ao servidor.
+  if (write && (response.ok || response.status === 409)) copies.clear();
   if (!response.ok) throw await error(response);
-  if (write) copies.clear();
   return response;
 }
 

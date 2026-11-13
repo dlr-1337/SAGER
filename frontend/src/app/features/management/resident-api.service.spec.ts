@@ -87,4 +87,27 @@ describe('ResidentApiService', () => {
       'A lista de residentes recebida é inválida.',
     );
   });
+
+  it('reaproveita a lista por 60 s e pede de novo depois de gravar ou de trocar a sessão', async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === '/api/v1/auth/csrf')
+        return new Response(JSON.stringify({ headerName: 'X-CSRF-TOKEN', token: 'synthetic' }));
+      return new Response(JSON.stringify(init?.method === 'GET' ? [record] : record));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const service = TestBed.inject(ResidentApiService);
+    const reads = () =>
+      fetchMock.mock.calls.filter(
+        ([url, init]) => url === '/api/v1/residentes' && init?.method === 'GET',
+      ).length;
+    expect(await service.list()).toEqual([record]);
+    expect(await service.list()).toEqual([record]);
+    expect(reads()).toBe(1);
+    await service.save(input);
+    await service.list();
+    expect(reads()).toBe(2);
+    resetSession();
+    await service.list();
+    expect(reads()).toBe(3);
+  });
 });

@@ -68,7 +68,9 @@ describe('Quartos em sessão local', () => {
     save: ReturnType<typeof vi.fn>;
   };
   let allocationApi: { activeInRoom: ReturnType<typeof vi.fn> };
-  let residentApi: { list: ReturnType<typeof vi.fn> };
+  let residentApi: { page: ReturnType<typeof vi.fn> };
+  const occupants = (items: unknown[]) =>
+    residentApi.page.mockResolvedValue({ items, total: items.length });
   let courseApi: { list: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
@@ -83,7 +85,7 @@ describe('Quartos em sessão local', () => {
       save: vi.fn().mockResolvedValue(structuredClone(room)),
     };
     allocationApi = { activeInRoom: vi.fn().mockResolvedValue([]) };
-    residentApi = { list: vi.fn().mockResolvedValue([]) };
+    residentApi = { page: vi.fn().mockResolvedValue({ items: [], total: 0 }) };
     courseApi = { list: vi.fn().mockResolvedValue([]) };
     await TestBed.configureTestingModule({
       imports: [RoomsComponent, RoomFormComponent, RoomDetailComponent],
@@ -233,7 +235,7 @@ describe('Quartos em sessão local', () => {
         version: 0,
       },
     ]);
-    residentApi.list.mockResolvedValue([
+    occupants([
       {
         id: residentId,
         name: 'Morador Sintético',
@@ -248,6 +250,7 @@ describe('Quartos em sessão local', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Morador Sintético');
     expect(allocationApi.activeInRoom).toHaveBeenCalledWith(room.id);
+    expect(residentApi.page).toHaveBeenCalledWith({ roomId: room.id });
   });
 
   it('detalhe local mostra etapa, curso e formatura de cada morador', async () => {
@@ -264,7 +267,7 @@ describe('Quartos em sessão local', () => {
       { ...allocation, id: 'alocacao-2', residentId: 'morador-2' },
     ]);
     const base = { enrollment: 'TESTE-01', birthDate: null, version: 0 };
-    residentApi.list.mockResolvedValue([
+    occupants([
       {
         ...base,
         id: 'morador-1',
@@ -309,7 +312,7 @@ describe('Quartos em sessão local', () => {
         version: 0,
       },
     ]);
-    residentApi.list.mockResolvedValue([
+    occupants([
       {
         id: 'morador-1',
         name: 'Morador Sintético',
