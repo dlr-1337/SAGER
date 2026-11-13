@@ -73,6 +73,30 @@ describe('ResidentApiService', () => {
     );
   });
 
+  it('aceita etapa, saída prevista e conclusão calculadas pelo servidor', async () => {
+    const computed = {
+      ...record,
+      stage: 'Concluinte',
+      expectedExit: '2026-06-30',
+      concluded: true,
+    };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify([computed]))));
+    expect(await TestBed.inject(ResidentApiService).list()).toEqual([computed]);
+  });
+
+  it.each([{ concluded: 'sim' }, { expectedExit: 31 }, { stage: 2 }])(
+    'recusa campo calculado com tipo errado (%o)',
+    async (wrong) => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue(new Response(JSON.stringify([{ ...record, ...wrong }]))),
+      );
+      await expect(TestBed.inject(ResidentApiService).list()).rejects.toThrow(
+        'A lista de residentes recebida é inválida.',
+      );
+    },
+  );
+
   it('rejeita resposta malformada para não preencher a tela com dados errados', async () => {
     vi.stubGlobal(
       'fetch',

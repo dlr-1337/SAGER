@@ -9,7 +9,6 @@ import { HousingMap, RoomRecord } from './housing.models';
 import { ManagementDemoService } from './management-demo.service';
 import { RoomApiError, RoomApiService } from './room-api.service';
 import { ResidentApiService } from './resident-api.service';
-import { CourseApiService } from './course-api.service';
 import { RoomDetailComponent } from './room-detail.component';
 import { RoomFormComponent } from './room-form.component';
 import { RoomsComponent } from './rooms.component';
@@ -69,7 +68,6 @@ describe('Quartos em sessão local', () => {
   };
   let allocationApi: { activeInRoom: ReturnType<typeof vi.fn> };
   let residentApi: { list: ReturnType<typeof vi.fn> };
-  let courseApi: { list: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     active.set(false);
@@ -84,7 +82,6 @@ describe('Quartos em sessão local', () => {
     };
     allocationApi = { activeInRoom: vi.fn().mockResolvedValue([]) };
     residentApi = { list: vi.fn().mockResolvedValue([]) };
-    courseApi = { list: vi.fn().mockResolvedValue([]) };
     await TestBed.configureTestingModule({
       imports: [RoomsComponent, RoomFormComponent, RoomDetailComponent],
       providers: [
@@ -93,7 +90,6 @@ describe('Quartos em sessão local', () => {
         { provide: RoomApiService, useValue: api },
         { provide: AllocationApiService, useValue: allocationApi },
         { provide: ResidentApiService, useValue: residentApi },
-        { provide: CourseApiService, useValue: courseApi },
         {
           provide: DemoSessionService,
           useValue: {
@@ -247,14 +243,16 @@ describe('Quartos em sessão local', () => {
     await fixture.whenStable();
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Morador Sintético');
+    expect(fixture.nativeElement.textContent).toContain('Entrou em 29/09/2026');
+    expect(fixture.nativeElement.textContent).not.toContain('saída prevista');
     expect(allocationApi.activeInRoom).toHaveBeenCalledWith(room.id);
   });
 
-  it('detalhe local mostra etapa, curso e formatura de cada morador', async () => {
+  it('detalhe local mostra etapa, curso e saída prevista de cada morador', async () => {
     route.snapshot.paramMap = convertToParamMap({ id: room.id });
     const allocation = {
       roomId: room.id,
-      startedAt: '2026-09-29T12:00:00Z',
+      startedAt: '2026-02-10T02:30:00Z',
       endedAt: null,
       endReason: null,
       version: 0,
@@ -270,61 +268,23 @@ describe('Quartos em sessão local', () => {
         id: 'morador-1',
         name: 'Morador Sintético',
         course: 'Curso Médio Sintético',
-        courseId: 'curso-1',
-        entryYear: 2020,
-        extraSemesters: 0,
+        stage: '2º ano',
+        expectedExit: '2029-12-31',
+        concluded: false,
       },
       { ...base, id: 'morador-2', name: 'Moradora Sintética', course: 'Curso Sem Nível' },
     ]);
-    courseApi.list.mockResolvedValue([
-      {
-        id: 'curso-1',
-        name: 'Curso Médio Sintético',
-        active: true,
-        version: 0,
-        level: 'MEDIO',
-        durationYears: 3,
-      },
-    ]);
     const fixture = TestBed.createComponent(RoomDetailComponent);
     await fixture.whenStable();
     fixture.detectChanges();
-    const text = fixture.nativeElement.textContent;
-    expect(text).toMatch(
-      /\dº ano · Curso Médio Sintético · formatura prevista 2022\/2 \(prazo vencido\)/,
-    );
-    expect(text).toContain('Curso Sem Nível');
-  });
-
-  it('detalhe local mostra moradores mesmo se a lista de cursos falhar', async () => {
-    route.snapshot.paramMap = convertToParamMap({ id: room.id });
-    allocationApi.activeInRoom.mockResolvedValue([
-      {
-        id: 'alocacao-1',
-        residentId: 'morador-1',
-        roomId: room.id,
-        startedAt: '2026-09-29T12:00:00Z',
-        endedAt: null,
-        endReason: null,
-        version: 0,
-      },
-    ]);
-    residentApi.list.mockResolvedValue([
-      {
-        id: 'morador-1',
-        name: 'Morador Sintético',
-        enrollment: 'T-1',
-        birthDate: null,
-        course: null,
-        version: 0,
-      },
-    ]);
-    courseApi.list.mockRejectedValue(new Error('falha sintética'));
-    const fixture = TestBed.createComponent(RoomDetailComponent);
-    await fixture.whenStable();
-    fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('Morador Sintético');
-    expect(fixture.componentInstance.occupantsError()).toBe('');
+    const rows = Array.from(
+      fixture.nativeElement.querySelectorAll('article.mg-row'),
+    ) as HTMLElement[];
+    expect(rows[0].textContent).toContain('2º ano · Curso Médio Sintético');
+    expect(rows[0].textContent).toContain('Entrou em 09/02/2026 · saída prevista 31/12/2029');
+    expect(rows[1].textContent).toContain('Curso Sem Nível');
+    expect(rows[1].textContent).toContain('Entrou em 09/02/2026');
+    expect(rows[1].textContent).not.toContain('saída prevista');
   });
 
   it('detalhe e edição usam o quarto e a unidade do mesmo mapa, incluindo a versão', async () => {

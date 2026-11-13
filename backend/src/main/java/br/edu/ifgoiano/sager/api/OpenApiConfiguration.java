@@ -64,6 +64,14 @@ public class OpenApiConfiguration {
             residentCreate.addProperty("password", new StringSchema().format("password").minLength(8).maxLength(72).writeOnly(true));
             residentCreate.addProperty("passwordConfirmation", new StringSchema().format("password").minLength(8).maxLength(72).writeOnly(true));
             residentCreate.setRequired(List.of("name","enrollment","birthDate","courseId","entryYear","password","passwordConfirmation"));
+            // Calculados pelo servidor na data civil de America/Sao_Paulo a cada leitura.
+            api.getComponents().getSchemas().get("Resident")
+                    .addProperty("stage", new StringSchema().nullable(true).readOnly(true)
+                            .description("Etapa do curso, ou Concluinte; nulo sem ano, nível ou duração."))
+                    .addProperty("expectedExit", new StringSchema().format("date").nullable(true).readOnly(true)
+                            .description("Saída prevista: 30/06 ou 31/12 do último semestre."))
+                    .addProperty("concluded", new BooleanSchema().readOnly(true)
+                            .description("Verdadeiro depois da saída prevista."));
             crud(api, "/api/v1/cursos", "Course", new ObjectSchema().addProperty("name", text(1,200,false))
                     .addProperty("level", new StringSchema()._enum(List.of("MEDIO", "SUPERIOR")).nullable(true)
                             .description("Obrigatório em curso novo ou com nome, nível ou duração alterados."))

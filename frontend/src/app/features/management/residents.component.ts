@@ -187,6 +187,14 @@ import {
                 @if (resident.institutionalEmail) {
                   <p>{{ resident.institutionalEmail }}</p>
                 }
+                @if (!isDemo() && resident.concluded) {
+                  <p>
+                    <span class="mg-status" data-tone="neutral"
+                      ><span class="material-symbols-rounded" aria-hidden="true">school</span
+                      >Concluinte</span
+                    >
+                  </p>
+                }
               </div>
               <div class="mg-row-detail">
                 <strong>Curso</strong><span>{{ resident.course || 'Não informado' }}</span>

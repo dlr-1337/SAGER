@@ -199,6 +199,25 @@ describe('Residentes em sessão local', () => {
     expect(controls.roomId.value).toBe('');
   });
 
+  it('marca o concluinte na lista com os dados do servidor', async () => {
+    api.page.mockResolvedValue({
+      items: [
+        { ...resident, concluded: true, stage: 'Concluinte', expectedExit: '2026-06-30' },
+        { ...resident, id: 'outro', name: 'Outra Pessoa', concluded: false },
+      ],
+      total: 2,
+    });
+    const fixture = TestBed.createComponent(ResidentsComponent);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const rows = Array.from(
+      fixture.nativeElement.querySelectorAll('article.mg-row'),
+    ) as HTMLElement[];
+    expect(rows).toHaveLength(2);
+    expect(rows[0].textContent).toContain('Concluinte');
+    expect(rows[1].textContent).not.toContain('Concluinte');
+  });
+
   it('erro da API não exibe residentes da demonstração', async () => {
     api.page.mockRejectedValue(new Error('offline'));
     const fixture = TestBed.createComponent(ResidentsComponent);
@@ -600,7 +619,7 @@ describe('Residentes em sessão local', () => {
     const form = fixture.componentInstance.form;
     const next = Number(civilToday().slice(0, 4)) + 1;
     expect(native.querySelector('#resident-extra-semesters-help')!.textContent).toBe(
-      'Cada semestre adiciona 6 meses à previsão de formatura.',
+      'Cada semestre adia a saída prevista em 6 meses.',
     );
     form.setValue({
       name: 'Pessoa Sintética',
@@ -686,7 +705,7 @@ describe('Residentes em sessão local', () => {
     expect(form.controls.entryYear.valid).toBe(false);
   });
 
-  it('detalhe local mostra etapa e previsão de formatura com o curso da API', async () => {
+  it('detalhe local mostra etapa e saída prevista calculadas pelo servidor', async () => {
     route.snapshot.paramMap = convertToParamMap({ id: resident.id });
     api.get.mockResolvedValue({
       ...resident,
@@ -694,25 +713,28 @@ describe('Residentes em sessão local', () => {
       course: 'Sistemas Sintéticos',
       entryYear: 2026,
       extraSemesters: 1,
+      stage: '2º período',
+      expectedExit: '2030-06-30',
+      concluded: false,
     });
-    vi.mocked(TestBed.inject(CourseApiService).list).mockResolvedValue([
-      {
-        id: 'curso-1',
-        name: 'Sistemas Sintéticos',
-        active: true,
-        version: 0,
-        level: 'SUPERIOR',
-        durationYears: 4,
-      },
-    ]);
     const fixture = TestBed.createComponent(ResidentDetailComponent);
     await fixture.whenStable();
     fixture.detectChanges();
     const text = fixture.nativeElement.textContent;
     expect(text).toContain('prorrogação de 1 semestre');
-    expect(text).toContain('2030/1');
-    expect(text).toMatch(/º período|Ingressa em 2026/);
+    expect(text).toContain('Saída prevista');
+    expect(text).toContain('30/06/2030');
+    expect(text).toContain('2º período');
     expect(text).not.toContain('Sem dados para calcular');
+    expect(TestBed.inject(CourseApiService).list).not.toHaveBeenCalled();
+  });
+
+  it('detalhe local sem os campos calculados diz que faltam dados', async () => {
+    route.snapshot.paramMap = convertToParamMap({ id: resident.id });
+    const fixture = TestBed.createComponent(ResidentDetailComponent);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent.match(/Sem dados para calcular/g)).toHaveLength(2);
   });
 
   it('não redireciona quando um salvamento termina depois de cancelar', async () => {

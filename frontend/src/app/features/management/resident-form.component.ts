@@ -320,7 +320,7 @@ import {
                 aria-describedby="resident-extra-semesters-help resident-extra-semesters-error"
               />
               <small class="field-hint" id="resident-extra-semesters-help"
-                >Cada semestre adiciona 6 meses à previsão de formatura.</small
+                >Cada semestre adia a saída prevista em 6 meses.</small
               >
               @if (form.controls.extraSemesters.invalid && form.controls.extraSemesters.touched) {
                 <span class="mg-field-error" id="resident-extra-semesters-error">{{

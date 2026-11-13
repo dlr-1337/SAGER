@@ -30,8 +30,7 @@ import { GuardianApiService, GuardianRecord } from './guardian-api.service';
 import { HousingMap, RoomRecord } from './housing.models';
 import { LegalGuardian } from './management.models';
 import { ManagementDemoService } from './management-demo.service';
-import { ageFromBirthDate, courseProgress, formattedDate } from './management.utils';
-import { Course, CourseApiService } from './course-api.service';
+import { ageFromBirthDate, formattedDate } from './management.utils';
 import { ResidentApiError, ResidentApiService, ResidentRecord } from './resident-api.service';
 import { RoomApiService } from './room-api.service';
 
@@ -163,15 +162,16 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
                   </div>
                   <div>
                     <dt>Etapa do curso</dt>
-                    <dd>{{ progress().stage ?? 'Sem dados para calcular' }}</dd>
+                    <dd>{{ item.stage ?? 'Sem dados para calcular' }}</dd>
                   </div>
                   <div>
-                    <dt>Previsão de formatura</dt>
+                    <dt>Saída prevista</dt>
                     <dd>
-                      {{ progress().expectedGraduation ?? 'Sem dados para calcular' }}
-                      @if (progress().overdue) {
-                        · prazo vencido
-                      }
+                      {{
+                        item.expectedExit
+                          ? formattedDate(item.expectedExit)
+                          : 'Sem dados para calcular'
+                      }}
                     </dd>
                   </div>
                   <div>
@@ -773,16 +773,6 @@ export class ResidentDetailComponent {
   readonly canEdit = computed(() => this.session.hasRole('gestor', 'supervisor'));
   readonly resident = computed(() => this.service.resident(this.id));
   readonly localResident = signal<ResidentRecord | null>(null);
-  private readonly courseApi = inject(CourseApiService);
-  readonly courses = signal<Course[]>([]);
-  readonly progress = computed(() => {
-    const item = this.localResident();
-    return courseProgress(
-      item?.entryYear,
-      item?.extraSemesters,
-      this.courses().find((course) => course.id === item?.courseId),
-    );
-  });
   readonly loading = signal(false);
   readonly loadError = signal('');
   readonly missing = signal(false);
@@ -849,12 +839,6 @@ export class ResidentDetailComponent {
     this.missing.set(false);
     try {
       this.localResident.set(await this.api.get(this.id));
-      // Sem a lista de cursos, a ficha abre sem etapa e previsão.
-      if (!this.destroyRef.destroyed)
-        void this.courseApi.list().then(
-          (items) => this.courses.set(items),
-          () => undefined,
-        );
       if (!this.destroyRef.destroyed) void this.loadLocalGuardians();
       if (!this.destroyRef.destroyed) void this.loadAllocations();
     } catch (error) {
