@@ -33,7 +33,6 @@ const registryPaths = [
   '/supervisores',
   '/quartos',
   '/relatorios',
-  '/saude/acessos',
 ];
 const navGroup = (path: string) =>
   path === '/perfil' || path === '/ajuda' ? 2 : registryPaths.includes(path) ? 1 : 0;
@@ -49,7 +48,6 @@ const roleLabels: Record<Role, string> = {
   gestor: 'Gestão',
   supervisor: 'Supervisão',
   residente: 'Residente',
-  saude: 'Saúde',
 };
 
 const commonItems: NavItem[] = [{ label: 'Início', path: '/inicio', icon: 'home' }];
@@ -103,12 +101,6 @@ const navByRole: Record<Role, NavItem[]> = {
     { label: 'Meu perfil', path: '/perfil', icon: 'person' },
     { label: 'Ajuda', path: '/ajuda', icon: 'help' },
   ],
-  saude: [
-    ...commonItems,
-    { label: 'Saúde', path: '/saude', icon: 'health_and_safety' },
-    { label: 'Meu perfil', path: '/perfil', icon: 'person' },
-    { label: 'Ajuda', path: '/ajuda', icon: 'help' },
-  ],
 };
 
 @Component({
@@ -127,7 +119,6 @@ export class App implements OnDestroy {
   private readonly document = inject(DOCUMENT);
   private readonly breakpointObserver = inject(BreakpointObserver);
   readonly publicPage = signal(false);
-  readonly healthAccessPage = signal(false);
   readonly exitError = signal('');
   readonly isMobile = signal(false);
   readonly menuOpen = signal(false);
@@ -161,18 +152,10 @@ export class App implements OnDestroy {
           : role === 'supervisor'
             ? [{ label: 'Ranking', path: '/ranking', icon: 'leaderboard' }]
             : [];
-    // Saúde fica fora dos menus de gestão e do residente (a monografia prevê só três perfis);
-    // as rotas continuam, e só quem tem habilitação profissional vê /saude.
-    const healthProfessional = this.auth.principal()?.perfis.includes('saude') ?? false;
-    const healthItems: NavItem[] =
-      (role === 'gestor' || role === 'supervisor') && healthProfessional
-        ? [{ label: 'Saúde', path: '/saude', icon: 'health_and_safety' }]
-        : [];
     return grouped([
       ...localItems.slice(0, -1),
       ...communicationItems,
       ...cleaningItems,
-      ...healthItems,
       localItems[localItems.length - 1],
     ]);
   });
@@ -324,7 +307,6 @@ export class App implements OnDestroy {
       route = route.firstChild;
     }
     const path = this.router.url.split('?')[0];
-    this.healthAccessPage.set(path === '/saude/acessos');
     this.publicPage.set(isPublic || /^\/(acesso|demonstracao|ajuda)(\/|$)/.test(path));
   }
 }

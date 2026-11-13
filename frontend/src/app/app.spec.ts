@@ -20,28 +20,6 @@ describe('App', () => {
     expect(app).toBeTruthy();
   });
 
-  it('mantém a navegação de saúde sem recursos de gestão ou de residente', async () => {
-    TestBed.inject(DemoSessionService).deactivate();
-    TestBed.inject(LocalAuthService).principal.set({
-      id: '00000000-0000-0000-0000-000000000001',
-      nome: 'Profissional Sintética',
-      email: 'saude@example.test',
-      matricula: 'TESTE-LOGIN',
-      fotoUrl: null,
-      perfis: ['saude'],
-      residenteId: null,
-      supervisorId: null,
-    });
-    const fixture = TestBed.createComponent(App);
-    await fixture.whenStable();
-    expect(fixture.componentInstance.navItems().map((item) => item.path)).toEqual([
-      '/inicio',
-      '/saude',
-      '/perfil',
-      '/ajuda',
-    ]);
-  });
-
   it('agrupa o menu em rotina, cadastros e apoio, com separador no início de cada grupo', async () => {
     TestBed.inject(DemoSessionService).deactivate();
     TestBed.inject(LocalAuthService).principal.set({
@@ -65,13 +43,6 @@ describe('App', () => {
       '/ajuda',
     ]);
     expect(fixture.componentInstance.userName()).toBe('Supervisora Sintética');
-    // Saúde fica fora do menu da gestão; só a habilitação profissional mostra /saude.
-    expect(paths).not.toContain('/saude');
-    expect(paths).not.toContain('/saude/acessos');
-    TestBed.inject(LocalAuthService).principal.update((account) =>
-      account ? { ...account, perfis: ['supervisor', 'saude'] } : account,
-    );
-    expect(fixture.componentInstance.navItems().map((item) => item.path)).toContain('/saude');
   });
 
   it('identifica a demonstração e a marca no shell', async () => {

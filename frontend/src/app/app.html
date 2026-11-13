@@ -149,7 +149,7 @@
               routerLinkActive="active"
               ariaCurrentWhenActive="page"
               [routerLinkActiveOptions]="{
-                exact: item.path === '/inicio' || (item.path === '/saude' && healthAccessPage()),
+                exact: item.path === '/inicio',
               }"
               (click)="navigateFromMenu()"
             >

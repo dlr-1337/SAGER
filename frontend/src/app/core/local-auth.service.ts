@@ -18,7 +18,7 @@ interface CsrfToken {
   token: string;
 }
 
-const roles: Role[] = ['gestor', 'supervisor', 'residente', 'saude'];
+const roles: Role[] = ['gestor', 'supervisor', 'residente'];
 
 function nullableRecordId(value: unknown): value is string | null {
   return (

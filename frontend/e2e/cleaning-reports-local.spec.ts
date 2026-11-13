@@ -960,7 +960,6 @@ test('indicadores reais apresentam três listas sem pontuação de comportamento
       (path) => path.includes('/limpeza/indicadores') && path.includes('residentId=' + residentId),
     ),
   ).toBe(true);
-  expect(state.gets.some((path) => path.includes('/saude'))).toBe(false);
   expect(state.writes).toHaveLength(0);
   await expect(page.getByText('Histórico pedagógico', { exact: true })).toHaveCount(0);
 });
