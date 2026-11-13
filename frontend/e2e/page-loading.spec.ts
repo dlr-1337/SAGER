@@ -29,6 +29,7 @@ async function mockApi(page: Page) {
     birthDate: '2009-05-14',
     course: course.name,
     courseId: course.id,
+    entryYear: 2024,
     institutionalEmail: null,
     version: 0,
   }));
