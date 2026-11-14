@@ -27,7 +27,7 @@ describe('Estados dos filtros de comunicação', () => {
   it.each([
     { mode: 'warnings', statuses: ['VIGENTE', 'ANULADA'] },
     { mode: 'notices', statuses: ['RASCUNHO', 'PUBLICADO', 'RETIRADO'] },
-    { mode: 'own', statuses: ['PUBLICADO', 'RETIRADO', 'SUPERADO', 'ANULADO'] },
+    { mode: 'own', statuses: ['PUBLICADO', 'SUPERADO', 'RETIRADO', 'ANULADO'] },
     {
       mode: 'notifications',
       statuses: ['PENDENTE', 'VISUALIZADA', 'EM_ANALISE', 'ARQUIVADA', 'CONVERTIDA'],
@@ -46,6 +46,34 @@ describe('Estados dos filtros de comunicação', () => {
       expect(changed).toHaveBeenLastCalledWith({ status });
     }
   });
+
+  it.each([
+    { mode: 'warnings', names: ['Valendo', 'Anulada'], code: 'VIGENTE' },
+    {
+      mode: 'own',
+      names: ['Valendo', 'Versão anterior', 'Retirado', 'Anulado'],
+      code: 'PUBLICADO',
+    },
+  ] as const)(
+    'usa no filtro e no chip os nomes da lista em $mode',
+    async ({ mode, names, code }) => {
+      const { fixture, changed } = create(mode);
+      await fixture.whenStable();
+      const select: HTMLSelectElement = fixture.nativeElement.querySelector(
+        'select[formControlName=status]',
+      );
+      expect(Array.from(select.options).map((option) => option.text.trim())).toEqual([
+        'Todas',
+        ...names,
+      ]);
+      fixture.componentInstance.form.controls.status.setValue(code);
+      fixture.componentInstance.apply();
+      expect(changed).toHaveBeenLastCalledWith({ status: code });
+      expect(fixture.componentInstance.active()).toEqual([
+        { key: 'status', label: 'Situação', value: 'Valendo' },
+      ]);
+    },
+  );
 
   it('mantém a busca à vista e os demais filtros em "Mais filtros"', async () => {
     const { fixture } = create('notifications');
