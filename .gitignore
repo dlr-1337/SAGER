@@ -32,3 +32,6 @@ __pycache__/
 /.claude/settings.local.json
 /.claude/worktrees/
 /.claude/noite/
+
+# Local CI logs (./sager ci)
+/.ci/

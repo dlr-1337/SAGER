@@ -35,6 +35,30 @@ prepare() {
     fi
   done
 }
+# Jobs of .github/workflows/ci.yml, run on this machine (./sager ci).
+ci_openspec() { npx -y @fission-ai/openspec@2.0.0 validate --all --strict; }
+# clean: the GitHub job started from a fresh checkout, with no stale migrations in target/.
+ci_backend() { cd backend && ./mvnw -B -ntp clean verify; }
+ci_frontend() {
+  # CI=1 and a port of its own: Playwright must never reuse ./sager up on port 4200.
+  cd frontend && npm ci && npm test -- --watch=false && npm run build &&
+    npx playwright install chromium &&
+    CI=1 SAGER_E2E_PORT="${SAGER_E2E_PORT:-4323}" npx playwright test --grep-invert 'captura telas centrais' --workers=1
+}
+ci_infra() {
+  bash -n infra/production/smoke.sh infra/production/initialize-runtime.sh infra/production/start-gateway.sh infra/coolify/start.sh infra/coolify/start-gateway.sh &&
+    "$python" -B -m unittest discover -s infra/production -p 'test_recovery.py' -v &&
+    "$python" -B -m unittest discover -s infra/production -p 'test_whatsapp_gateway.py' -v &&
+    "$python" -B -m unittest discover -s infra/coolify -p 'test_*.py' -v &&
+    "${engine[@]}" compose version &&
+    bash infra/production/smoke.sh --build &&
+    "$python" -B infra/coolify/smoke.py --build
+  local result=$?
+  # The smokes remove their containers, volumes and networks, but not the images they build.
+  "${engine[@]}" images --format '{{.Repository}}:{{.Tag}}' | grep -E ':sager-(coolify-)?smoke-' |
+    xargs -r "${engine[@]}" rmi >/dev/null 2>&1 || true
+  return "$result"
+}
 command=${1:-help}
 case "$command" in
   up)
@@ -71,7 +95,52 @@ case "$command" in
     "${compose[@]}" exec -T postgres pg_dump -U sager -d sager > "$destination"
     printf 'Backup salvo em %s\n' "$destination"
     ;;
+  ci)
+    shift
+    unset MSYS_NO_PATHCONV
+    jobs=("$@")
+    if [[ ${#jobs[@]} -eq 0 ]]; then jobs=(openspec backend frontend infra); fi
+    for job in "${jobs[@]}"; do
+      case "$job" in
+        openspec | backend | frontend | infra) ;;
+        *)
+          printf 'Job desconhecido: %s. Use openspec, backend, frontend ou infra.\n' "$job" >&2
+          exit 2
+          ;;
+      esac
+    done
+    # On Windows, python3 opens the Store instead of running.
+    python=python3
+    "$python" -c '' >/dev/null 2>&1 || python=python
+    mkdir -p .ci
+    commit=$(git rev-parse --short HEAD)
+    tree=$(git status --porcelain)
+    results=()
+    status=0
+    for job in "${jobs[@]}"; do
+      printf '\n== CI local: %s (log em .ci/%s.log)\n' "$job" "$job"
+      if ("ci_$job") 2>&1 | tee ".ci/$job.log"; then
+        results+=("$job: ok")
+      else
+        results+=("$job: falhou (veja .ci/$job.log)")
+        status=1
+      fi
+    done
+    state=''
+    if [[ -n $tree ]] && grep -qv '^??' <<<"$tree"; then state=' com alterações sem commit'; fi
+    untracked=$(grep -c '^??' <<<"$tree" || true)
+    if ((untracked > 0)); then
+      if [[ -n $state ]]; then state+=' e'; else state=' com'; fi
+      state+=" $untracked caminho(s) fora do Git"
+    fi
+    printf '\nCI local no commit %s%s:\n' "$commit" "$state"
+    printf '  %s\n' "${results[@]}"
+    if [[ $(git rev-parse --short HEAD) != "$commit" || $(git status --porcelain) != "$tree" ]]; then
+      printf '%s\n' 'Atenção: o commit ou os arquivos mudaram durante a verificação; rode de novo.'
+    fi
+    exit "$status"
+    ;;
   *)
-    printf '%s\n' './sager up [--force-recreate]  Iniciar/reconstruir tudo em Docker' './sager down                  Parar sem apagar volumes' './sager logs [backend]        Acompanhar logs' './sager status                Consultar serviços' './sager backup                Copiar o banco para backups/' './sager account --sager-account=help  Administrar contas pelo terminal'
+    printf '%s\n' './sager up [--force-recreate]  Iniciar/reconstruir tudo em Docker' './sager down                  Parar sem apagar volumes' './sager logs [backend]        Acompanhar logs' './sager status                Consultar serviços' './sager backup                Copiar o banco para backups/' './sager ci [openspec|backend|frontend|infra]  Rodar no PC as verificações da CI' './sager account --sager-account=help  Administrar contas pelo terminal'
     ;;
 esac
