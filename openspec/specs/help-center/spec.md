@@ -17,7 +17,7 @@ A página de ajuda SHALL abrir sem login e ter link na página de acesso. As per
 
 ### Requirement: Guias do perfil em uso
 
-Com sessão de conta ou na demonstração, a ajuda SHALL mostrar guias só das tarefas que o perfil em uso pode fazer, levando à tela de cada tarefa (RF026; cap. 4, tabela de permissões).
+Com sessão de conta ou na demonstração, a ajuda SHALL mostrar guias só das tarefas que o perfil em uso pode fazer, levando à tela de cada tarefa; na demonstração, só das tarefas que ela oferece (RF026; cap. 4, tabela de permissões).
 
 #### Scenario: Gestor na ajuda
 
@@ -30,3 +30,15 @@ Com sessão de conta ou na demonstração, a ajuda SHALL mostrar guias só das t
 - **GIVEN** a demonstração com o perfil residente
 - **WHEN** o visitante abre a ajuda
 - **THEN** vê os guias de saídas, comunicações e limpeza e não vê o de relatórios
+
+#### Scenario: Supervisor na demonstração sem o guia Comunicações
+
+- **GIVEN** a demonstração com o perfil supervisor
+- **WHEN** o visitante abre a ajuda
+- **THEN** vê os guias da chamada, das saídas e de relatórios e não vê o de comunicações, cuja tela não faz parte da demonstração
+
+#### Scenario: Nenhum guia leva ao acesso negado
+
+- **GIVEN** a demonstração com qualquer um dos três perfis
+- **WHEN** o visitante abre cada guia da ajuda
+- **THEN** nenhum deles leva ao acesso negado nem a uma tela que não faz parte da demonstração

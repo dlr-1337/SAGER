@@ -7,7 +7,7 @@ Permitir que um visitante explore o sistema com os três perfis e dados fictíci
 
 ### Requirement: Entrada pela escolha de um perfil
 
-Fora de produção, a página de acesso SHALL oferecer a demonstração com os perfis gestor, supervisor e residente, e a demonstração MUST começar só pela escolha expressa de um deles. Se houver sessão de conta aberta, ela MUST ser encerrada antes, e a demonstração não começa se o encerramento falhar (RF027; cap. 6, Navegação e Perfis de Acesso).
+Fora de produção, a página de acesso SHALL oferecer a demonstração com os perfis gestor, supervisor e residente, e ela MUST começar só pela escolha expressa de um deles. Uma sessão de conta aberta MUST ser encerrada antes. A demonstração não começa se o encerramento falhar, nem se o servidor não responder enquanto a conta puder estar aberta: conhecida na aba, ou que entrou neste navegador, não saiu e teve resposta aceita nos últimos 30 minutos (RF027; cap. 6, Navegação e Perfis de Acesso).
 
 #### Scenario: Visitante escolhe o perfil residente
 
@@ -25,6 +25,32 @@ Fora de produção, a página de acesso SHALL oferecer a demonstração com os p
 - **GIVEN** uma sessão de conta aberta e o servidor sem resposta
 - **WHEN** o usuário escolhe um perfil de demonstração
 - **THEN** a demonstração não começa e a página pede para tentar de novo
+
+#### Scenario: Conta aberta em outra aba e servidor com erro
+
+- **GIVEN** um gestor que entrou com a conta neste navegador e não saiu
+- **AND** o servidor responde com erro à consulta da sessão
+- **WHEN** ele abre a demonstração numa aba nova e escolhe um perfil
+- **THEN** a demonstração não começa, a página pede para tentar de novo e a saída da conta não é pedida
+
+#### Scenario: Servidor sem resposta e nenhuma conta neste navegador
+
+- **GIVEN** um navegador em que nenhuma conta entrou, em que a última conta já saiu ou em que nenhuma resposta do servidor foi aceita nos últimos 30 minutos
+- **AND** o servidor sem resposta
+- **WHEN** o visitante escolhe um perfil de demonstração
+- **THEN** a demonstração começa sem pedir mais nada ao servidor
+
+#### Scenario: Login aceito e consulta da conta sem resposta
+
+- **GIVEN** um login que o servidor aceitou, seguido de uma consulta da conta sem resposta
+- **WHEN** o usuário escolhe um perfil de demonstração com o servidor ainda sem resposta
+- **THEN** a demonstração não começa e a página pede para tentar de novo
+
+#### Scenario: Sessão já encerrada no servidor
+
+- **GIVEN** uma conta que entrou neste navegador e cuja sessão o servidor já encerrou
+- **WHEN** o usuário escolhe um perfil de demonstração
+- **THEN** a demonstração começa sem pedir a saída da conta
 
 ### Requirement: Dados fictícios em memória
 

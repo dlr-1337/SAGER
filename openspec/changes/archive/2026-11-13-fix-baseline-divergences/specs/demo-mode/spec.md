@@ -2,7 +2,7 @@
 
 ### Requirement: Entrada pela escolha de um perfil
 
-Fora de produção, a página de acesso SHALL oferecer a demonstração com os perfis gestor, supervisor e residente, e a demonstração MUST começar só pela escolha expressa de um deles. Se houver sessão de conta aberta, ela MUST ser encerrada antes. A demonstração não começa se o encerramento falhar, nem se o servidor não responder quando a aba conhece a conta ou quando uma conta entrou neste navegador, ainda não saiu e teve resposta aceita do servidor nos últimos 30 minutos, o tempo da sessão sem uso (RF027; cap. 6, Navegação e Perfis de Acesso).
+Fora de produção, a página de acesso SHALL oferecer a demonstração com os perfis gestor, supervisor e residente, e ela MUST começar só pela escolha expressa de um deles. Uma sessão de conta aberta MUST ser encerrada antes. A demonstração não começa se o encerramento falhar, nem se o servidor não responder enquanto a conta puder estar aberta: conhecida na aba, ou que entrou neste navegador, não saiu e teve resposta aceita nos últimos 30 minutos (RF027; cap. 6, Navegação e Perfis de Acesso).
 
 #### Scenario: Visitante escolhe o perfil residente
 
