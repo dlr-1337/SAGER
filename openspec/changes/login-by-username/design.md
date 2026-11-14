@@ -6,7 +6,7 @@ Motivação em proposal.md. Estado atual, conferido no código:
 - A página de acesso (`portal.pages.ts`) mostra "Matrícula", "Entre com sua matrícula e a senha do SAGER.", "Informe sua matrícula e senha." e "Matrícula ou senha errada...". O 401 do servidor (`SecurityConfiguration`) diz "Matrícula ou senha inválidos.". O 429 do limite diz "Muitas tentativas. Aguarde e tente novamente." e não cita matrícula.
 - O cadastro de supervisor mostra "Matrícula ou SIAPE (usada para entrar)", e o servidor responde "Matrícula já utilizada por uma conta." e "Matrícula ou SIAPE já cadastrada." nos conflitos.
 - `passwordProblem` (frontend) e `hashAndClear` (backend) dizem "A senha não pode ser igual à matrícula." para qualquer perfil, inclusive no cadastro do supervisor.
-- A monografia diz "login por matrícula e senha" (cap4.tex:36, :107, :199, :216, :360, :396; cap5.tex:128, :157, :159, :163; cap6.tex:71; cap8.tex:137) e as figuras `25_seq_login.png` e `12_classes_gestao.png` têm "matrícula" no login e na classe Conta local.
+- A monografia diz "login por matrícula e senha" (cap4.tex:36, :107, :199, :216, :360, :396; cap5.tex:128, :157, :159, :163; cap6.tex:71; cap8.tex:137) e as figuras `07_uc_acesso_gestao.png`, `25_seq_login.png` e `12_classes_gestao.png` têm "matrícula" no caso de uso UC01, no login e na classe Conta local.
 
 ## Goals / Non-Goals
 
@@ -62,11 +62,11 @@ A demonstração de relatórios gera `20241012020190` + número de 2 dígitos (1
 
 ## Risks / Trade-offs
 
-- A monografia passa a divergir do sistema até o dono atualizar o texto e as duas figuras. → O relatório da change traz cada trecho com a frase sugerida.
+- A monografia passa a divergir do sistema até o dono atualizar o texto e as três figuras. → O relatório da change traz cada trecho com a frase sugerida.
 - Clientes da API que comparem a mensagem do 401 com o texto antigo mudam de resultado. → O código `invalid_credentials` não muda; só a mensagem.
 
 ## O que o dono ou a instituição ainda decide
 
-- Aprovar e aplicar na monografia as frases sugeridas (RF001, cap. 4, 5, 6 e 8) e refazer `25_seq_login.png` (passos 1, 3 e 4) e `12_classes_gestao.png` (atributo da Conta local).
+- Aprovar e aplicar na monografia as frases sugeridas (RF001, cap. 4, 5, 6 e 8) e refazer `07_uc_acesso_gestao.png` (elipse do UC01: "usuário e senha" no lugar de "matrícula e senha", ou só "UC01 – Efetuar login", como na tabela de casos de uso, cap4.tex:249), `25_seq_login.png` (passos 1, 3 e 4) e `12_classes_gestao.png` (atributo da Conta local).
 - Se o usuário do supervisor deve ser sempre o SIAPE ou pode ser outro identificador; hoje vale qualquer valor de 4 a 20 letras, números ou hífen.
 - Se o `AGENTS.md` deve trocar "All roles log in with enrollment" por "usuário"; a frase segue correta para o dado guardado e não foi alterada.

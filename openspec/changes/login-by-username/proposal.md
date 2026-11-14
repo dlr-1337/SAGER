@@ -30,5 +30,5 @@ Nenhuma.
 
 - Frontend: `portal.pages.ts` (login e ajuda), `supervisor-form`, `supervisor-detail`, `supervisors.component.ts`, `management-demo.service.ts`, `shared/password-rules.ts`, `reports-demo-api.service.ts`, specs e e2e (`local-auth`, `page-loading`, `supervisors-local`, `management-pagination-local`).
 - Backend: `SecurityConfiguration` (401), `OpenApiConfiguration` (resumo da rota), `SupervisorService`, `LocalAccountProvisioningService`; testes `ApiFoundationIntegrationTest` e `LocalAccountPasswordPolicyTest`.
-- Documentação: `docs/ARQUITETURA.md`, `PRODUCT.md` e o Purpose de `openspec/specs/access-control/spec.md`.
-- Monografia: RF001, sequência do login, autenticação no cap. 5, fluxo de acesso no cap. 6 e as figuras do diagrama de sequência do login e da classe Conta local precisam acompanhar (ver design.md).
+- Documentação: `README.md`, `docs/ARQUITETURA.md`, `docs/OPERACAO.md`, `backend/README.md`, `infra/production/README.md`, `PRODUCT.md` e o Purpose de `openspec/specs/access-control/spec.md`.
+- Monografia: RF001, sequência do login, autenticação no cap. 5, fluxo de acesso no cap. 6 e as figuras do caso de uso UC01, do diagrama de sequência do login e da classe Conta local precisam acompanhar (ver design.md).
