@@ -17,6 +17,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.UUID;
 
 import br.edu.ifgoiano.sager.SagerApplication;
 import tools.jackson.databind.JsonNode;
@@ -31,6 +32,9 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.env.MockEnvironment;
+import org.springframework.session.Session;
+import org.springframework.session.SessionRepository;
+import org.springframework.session.jdbc.JdbcIndexedSessionRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -73,6 +77,9 @@ class AuthFlowIntegrationTest {
 
     @Autowired
     private LocalAccountStatusFilter accountStatus;
+
+    @Autowired
+    private JdbcIndexedSessionRepository sessions;
 
     private final MutableClock clock = new MutableClock();
 
@@ -191,6 +198,54 @@ class AuthFlowIntegrationTest {
             clock.value = START.plus(Duration.ofMinutes(51));
             assertThat(automatic(client, "/api/v1/auth/me").statusCode()).isEqualTo(401);
         }
+    }
+
+    @Test
+    void anIdleSessionStillGetsACsrfTokenSoTheNextLoginWorks() throws Exception {
+        String email = "supervisor-ociosa@example.invalid";
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(email), email, "Supervisor Sintetico",
+                "supervisor", PASSWORD.toCharArray());
+        try (HttpClient client = browser()) {
+            assertThat(login(client, email, PASSWORD, csrfToken(client)).statusCode()).isEqualTo(204);
+            clock.value = START.plus(Duration.ofMinutes(31));
+            assertThat(login(client, email, PASSWORD, csrfToken(client)).statusCode()).isEqualTo(204);
+            assertThat(get(client, "/api/v1/auth/me").statusCode()).isEqualTo(200);
+        }
+    }
+
+    @Test
+    void imagesTheBrowserLoadsByItselfDoNotKeepTheSessionAlive() throws Exception {
+        String email = "supervisor-imagens@example.invalid";
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(email), email, "Supervisor Sintetico",
+                "supervisor", PASSWORD.toCharArray());
+        try (HttpClient client = browser()) {
+            assertThat(login(client, email, PASSWORD, csrfToken(client)).statusCode()).isEqualTo(204);
+            clock.value = START.plus(Duration.ofMinutes(20));
+            assertThat(get(client, "/api/v1/conversas/sessao/qr").statusCode()).isNotEqualTo(401);
+            assertThat(get(client, "/api/v1/conversas/mensagens/" + UUID.randomUUID() + "/midia")
+                    .statusCode()).isNotEqualTo(401);
+            clock.value = START.plus(Duration.ofMinutes(31));
+            assertThat(automatic(client, "/api/v1/auth/me").statusCode()).isEqualTo(401);
+        }
+    }
+
+    @Test
+    void twoRequestsOfOneSessionCanAddTheSameAttribute() {
+        addTheSameAttributeTwice(sessions);
+    }
+
+    // Two copies of one stored session, as two parallel requests load it, both add the attribute.
+    private <S extends Session> void addTheSameAttributeTwice(SessionRepository<S> repository) {
+        S created = repository.createSession();
+        repository.save(created);
+        S first = repository.findById(created.getId());
+        S second = repository.findById(created.getId());
+        first.setAttribute(LocalAccountStatusFilter.LAST_ACTION, START);
+        second.setAttribute(LocalAccountStatusFilter.LAST_ACTION, START.plusSeconds(1));
+        repository.save(first);
+        repository.save(second);
+        assertThat(repository.findById(created.getId()).<Instant>getAttribute(LocalAccountStatusFilter.LAST_ACTION))
+                .isEqualTo(START.plusSeconds(1));
     }
 
     @Test

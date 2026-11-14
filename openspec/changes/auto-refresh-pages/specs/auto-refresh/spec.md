@@ -103,6 +103,26 @@ A atualização automática MUST NOT manter a sessão viva. A sessão SHALL term
 - **WHEN** ele troca a página da lista
 - **THEN** a sessão passa a terminar 30 minutos depois dessa troca
 
+### Requirement: Imagens carregadas pelo navegador
+
+Imagens que o navegador carrega sozinho, como o QR do WhatsApp e as fotos da conversa, MUST NOT contar como ação da pessoa ao medir os 30 minutos.
+
+#### Scenario: QR trocado sozinho
+
+- **GIVEN** a tela de conexão do WhatsApp aberta, trocando a imagem do QR sozinha
+- **WHEN** passam 30 minutos sem nenhuma ação do supervisor
+- **THEN** a sessão termina, mesmo com as imagens carregadas nesse tempo
+
+### Requirement: Novo acesso depois da sessão encerrada
+
+O pedido de proteção do login e a recuperação de senha MUST seguir sem a sessão encerrada, em vez de recusá-los, para que o login seguinte entre na primeira tentativa.
+
+#### Scenario: Login depois da sessão encerrada
+
+- **GIVEN** uma sessão encerrada por 30 minutos sem ação
+- **WHEN** a pessoa entra com usuário e senha certos na página de acesso
+- **THEN** o login entra na primeira tentativa
+
 ### Requirement: Sem botão "Atualizar dados"
 
 As telas que se atualizam sozinhas MUST NOT ter o botão "Atualizar dados". Quando uma gravação é recusada porque outra pessoa alterou o registro, a tela SHALL continuar oferecendo "Recarregar dados".
