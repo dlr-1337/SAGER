@@ -41,7 +41,9 @@ const EXAMPLE_RANKINGS: Record<Period, RankRow[]> = {
     <main class="page op-page op-narrow">
       <header class="op-heading">
         <div>
-          <a routerLink="/inicio" class="op-back">← Início</a>
+          <a routerLink="/inicio" class="op-back"
+            ><span class="back-arrow" aria-hidden="true">←</span>Início</a
+          >
           <h1>Ranking de organização</h1>
           <p>Consulte a posição dos quartos por período.</p>
         </div>

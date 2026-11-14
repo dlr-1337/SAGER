@@ -17,7 +17,9 @@ import { OperationsDemoService } from './operations-demo.service';
       @if (session.hasRole('supervisor')) {
         <header class="op-heading">
           <div>
-            <a routerLink="/inicio" class="op-back">← Início</a>
+            <a routerLink="/inicio" class="op-back"
+              ><span class="back-arrow" aria-hidden="true">←</span>Início</a
+            >
             <h1>Avaliação de limpeza</h1>
             <p>Explore o feedback imediato da avaliação de um quarto.</p>
           </div>

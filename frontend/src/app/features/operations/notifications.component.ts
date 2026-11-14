@@ -28,7 +28,9 @@ import { NotificationsLocalPage } from '../communications/notifications-local.pa
         @if (session.hasRole('supervisor', 'gestor')) {
           <header class="op-heading">
             <div>
-              <a routerLink="/inicio" class="op-back">← Início</a>
+              <a routerLink="/inicio" class="op-back"
+                ><span class="back-arrow" aria-hidden="true">←</span>Início</a
+              >
               <h1>Notificações internas</h1>
               <p>Ocorrências aguardam análise humana antes de qualquer decisão.</p>
             </div>

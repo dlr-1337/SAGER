@@ -20,7 +20,9 @@ async function expectUnderlineOnlyOnHover(link: Locator): Promise<void> {
 async function expectIconOutsideUnderline(link: Locator): Promise<void> {
   await link.hover();
   const layout = await link.evaluate((element) => {
-    const icon = element.querySelector('.material-symbols-rounded, .material-symbols-outlined');
+    const icon = element.querySelector(
+      '.material-symbols-rounded, .material-symbols-outlined, .back-arrow',
+    );
     if (!icon) throw new Error('Link sem ícone.');
     const box = icon.getBoundingClientRect();
     const range = document.createRange();
@@ -72,6 +74,15 @@ test('ícone antes do texto: só a palavra do link de voltar fica sublinhada', a
   const back = page.locator('a.mg-back', { hasText: 'Alojamentos' });
   await expectUnderlineOnlyOnHover(back);
   await expectIconOutsideUnderline(back);
+});
+
+test('seta de texto do link de voltar fica fora do sublinhado', async ({ page }) => {
+  await enterDemo(page);
+  await page.goto('/saidas');
+  const back = page.locator('a.op-back', { hasText: 'Início' });
+  await expectUnderlineOnlyOnHover(back);
+  await expectIconOutsideUnderline(back);
+  await expect(back.locator('.back-arrow')).toHaveCSS('text-decoration-line', 'none');
 });
 
 test('link de texto, sem ícone, continua sublinhado em repouso', async ({ page }) => {

@@ -43,7 +43,9 @@ type ExitStep = 'Decisão' | 'Saída' | 'Volta';
   template: `
     <main class="page op-page op-exit-page">
       <header class="op-heading op-exit-heading">
-        <a routerLink="/saidas" class="op-back">← Saídas</a>
+        <a routerLink="/saidas" class="op-back"
+          ><span class="back-arrow" aria-hidden="true">←</span>Saídas</a
+        >
         <div class="op-exit-title-row">
           <h1>Pedido de saída curta</h1>
           @if (item(); as exit) {

@@ -52,7 +52,9 @@ const termLegend = ['Termo valendo', 'Termo anulado'];
     <main class="page op-page comm-page">
       <header class="op-heading">
         <div>
-          <a class="op-back" routerLink="/advertencias">← Advertências</a>
+          <a class="op-back" routerLink="/advertencias"
+            ><span class="back-arrow" aria-hidden="true">←</span>Advertências</a
+          >
           <h1>Revisar possível reincidência</h1>
           @if (resident(); as person) {
             <p>{{ person.name }} · {{ person.enrollment }}</p>
@@ -386,7 +388,9 @@ export class RecurrenceLocalPage {
     <main class="page op-page comm-narrow">
       <header class="op-heading">
         <div>
-          <a class="op-back" routerLink="/advertencias">← Advertências</a>
+          <a class="op-back" routerLink="/advertencias"
+            ><span class="back-arrow" aria-hidden="true">←</span>Advertências</a
+          >
           <h1>Termo de compromisso</h1>
           @if (item(); as term) {
             <p>{{ term.residentName }} · emitido em {{ formatTime(term.issuedAt) }}</p>

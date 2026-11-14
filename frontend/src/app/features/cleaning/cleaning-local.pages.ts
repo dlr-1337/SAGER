@@ -85,7 +85,9 @@ export class CleaningPage {
     <main class="page op-page comm-page">
       <header class="op-heading">
         <div>
-          <a class="op-back" routerLink="/inicio">← Início</a>
+          <a class="op-back" routerLink="/inicio"
+            ><span class="back-arrow" aria-hidden="true">←</span>Início</a
+          >
           <h1>{{ own ? 'Minhas avaliações de limpeza' : 'Avaliações de limpeza' }}</h1>
           <p>
             {{
@@ -367,7 +369,7 @@ export class CleaningListLocalPage {
       <header class="op-heading">
         <div>
           <a class="op-back" [routerLink]="own ? '/minha-limpeza' : '/limpeza'"
-            >← Avaliações de limpeza</a
+            ><span class="back-arrow" aria-hidden="true">←</span>Avaliações de limpeza</a
           >
           <h1>Avaliação do quarto</h1>
           @if (item(); as assessment) {
@@ -604,7 +606,9 @@ export class RankingPage {
     <main class="page op-page comm-narrow">
       <header class="op-heading">
         <div>
-          <a class="op-back" routerLink="/inicio">← Início</a>
+          <a class="op-back" routerLink="/inicio"
+            ><span class="back-arrow" aria-hidden="true">←</span>Início</a
+          >
           <h1>Ranking de limpeza</h1>
           <p>Veja a posição de cada quarto pela média das notas.</p>
         </div>

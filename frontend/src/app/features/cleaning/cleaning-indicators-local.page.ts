@@ -25,7 +25,9 @@ import { reportingError } from './reporting-local.transport';
   template: `<main class="page op-page comm-narrow">
     <header class="op-heading">
       <div>
-        <a class="op-back" routerLink="/relatorios">← Relatórios</a>
+        <a class="op-back" routerLink="/relatorios"
+          ><span class="back-arrow" aria-hidden="true">←</span>Relatórios</a
+        >
         <h1>Evolução do residente</h1>
         <p>Veja, mês a mês, faltas sem justificativa, voltas com atraso e advertências valendo.</p>
       </div>

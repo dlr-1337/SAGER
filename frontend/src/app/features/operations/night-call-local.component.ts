@@ -43,7 +43,9 @@ import {
     <main class="page op-page">
       <header class="op-heading">
         <div>
-          <a routerLink="/inicio" class="op-back">← Início</a>
+          <a routerLink="/inicio" class="op-back"
+            ><span class="back-arrow" aria-hidden="true">←</span>Início</a
+          >
           <h1>Chamada noturna</h1>
           <p>Marque quem está presente hoje à noite.</p>
         </div>

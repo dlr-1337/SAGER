@@ -56,7 +56,9 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
     <main class="page op-page comm-page">
       <header class="op-heading">
         <div>
-          <a class="op-back" routerLink="/inicio">← Início</a>
+          <a class="op-back" routerLink="/inicio"
+            ><span class="back-arrow" aria-hidden="true">←</span>Início</a
+          >
           <h1>Notificações</h1>
           <p>Veja o que aconteceu antes de decidir.</p>
         </div>
@@ -185,7 +187,9 @@ export class NotificationsLocalPage {
     <main class="page op-page comm-page">
       <header class="op-heading">
         <div>
-          <a class="op-back" routerLink="/notificacoes">← Notificações</a>
+          <a class="op-back" routerLink="/notificacoes"
+            ><span class="back-arrow" aria-hidden="true">←</span>Notificações</a
+          >
           <h1>Analisar notificação</h1>
           @if (item(); as notification) {
             <p>{{ notification.residentName }} · {{ categories[notification.category] }}</p>
