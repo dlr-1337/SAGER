@@ -465,7 +465,10 @@ export class ConversationsPage {
   });
   /** Set by the open thread so one timer serves both, at the shorter interval. */
   thread: { refresh(): Promise<void> } | null = null;
-  readonly refresh = autoRefresh(() => this.tick(), { delayMs: THREAD_DELAY_MS });
+  readonly refresh = autoRefresh(() => this.tick(), {
+    delayMs: THREAD_DELAY_MS,
+    whileEditing: true,
+  });
   readonly kinds = kindLabels;
   readonly name = contactName;
   readonly residents = residentNames;

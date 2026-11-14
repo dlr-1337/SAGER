@@ -280,7 +280,7 @@ type LongExitStep = 'Autorização do responsável' | 'Decisão' | 'Saída' | 'V
                   }
                   @if (exit.capabilities.canAttachAuthorization) {
                     <label class="field"
-                      >Anexar arquivo recebido por outro meio<input
+                      >Anexar arquivo<input
                         type="file"
                         accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
                         aria-describedby="long-exit-attach-hint"

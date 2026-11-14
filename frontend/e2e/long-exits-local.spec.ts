@@ -635,7 +635,7 @@ test('documento lido não habilita aprovação; supervisor rejeita antes da conf
   await expect(page.getByRole('heading', { name: 'Autorização do responsável' })).toBeVisible();
   await expectShortGuidance(page);
   await expect(page.getByText('Aguardando o responsável enviar pelo WhatsApp.')).toBeVisible();
-  await expect(page.getByLabel('Anexar arquivo recebido por outro meio')).toBeVisible();
+  await expect(page.getByLabel('Anexar arquivo')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Aprovar saída' })).toHaveCount(0);
   const more = page.locator('main > details.more-details');
   await expect(more).not.toHaveAttribute('open', '');
@@ -905,7 +905,7 @@ test('WhatsApp desligado: anexo manual em multipart com CSRF, sem link de conver
   await page.goto(`/saidas/longas/${exitId}`);
   await expect(page.getByText('O WhatsApp está indisponível.', { exact: false })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Abrir conversa com o responsável' })).toHaveCount(0);
-  const input = page.getByLabel('Anexar arquivo recebido por outro meio');
+  const input = page.getByLabel('Anexar arquivo');
   await input.setInputFiles({
     name: 'grande.pdf',
     mimeType: 'application/pdf',
@@ -958,7 +958,7 @@ test('sem confirmação de entrega avisa; arquivo sem vínculo é escolhido pelo
   await expect(conversation).toHaveCSS('text-decoration-line', 'none');
   await conversation.hover();
   await expect(conversation).toHaveCSS('text-decoration-line', 'underline');
-  await expect(page.getByLabel('Anexar arquivo recebido por outro meio')).toBeVisible();
+  await expect(page.getByLabel('Anexar arquivo')).toBeVisible();
   const more = page.getByText('Mais detalhes', { exact: true });
   await more.click();
   await expect(page.getByText('Outro número', { exact: true })).toBeVisible();

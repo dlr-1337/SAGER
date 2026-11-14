@@ -13,6 +13,8 @@ export interface AutoRefreshOptions {
   delayMs?: number | (() => number);
   /** Tela ocupada: gravação, conflito à vista ou texto digitado fora de formulário `sagerUnsaved`. */
   busy?: () => boolean;
+  /** Continua com formulário alterado: a consulta não toca no que está sendo digitado (conversa). */
+  whileEditing?: boolean;
 }
 
 export type AutoRefresh = ReturnType<typeof autoRefresh>;
@@ -25,7 +27,7 @@ export type AutoRefresh = ReturnType<typeof autoRefresh>;
  * injeção (campo do componente): começa na hora, para no destroy e nunca liga na demonstração.
  */
 export function autoRefresh(tick: () => Promise<unknown>, options: AutoRefreshOptions = {}) {
-  const { delayMs = AUTO_REFRESH_MS, busy = () => false } = options;
+  const { delayMs = AUTO_REFRESH_MS, busy = () => false, whileEditing = false } = options;
   const doc = inject(DOCUMENT);
   const forms = inject(UnsavedForms);
   const dialog = inject(MatDialog);
@@ -46,7 +48,7 @@ export function autoRefresh(tick: () => Promise<unknown>, options: AutoRefreshOp
   const blocked = () =>
     busy() ||
     dialog.openDialogs.length > 0 ||
-    [...forms.forms].some((form) => form.dirty() || form.saving());
+    [...forms.forms].some((form) => (!whileEditing && form.dirty()) || form.saving());
 
   function schedule(): void {
     clearTimeout(timer);

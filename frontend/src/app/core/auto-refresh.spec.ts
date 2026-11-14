@@ -113,6 +113,18 @@ describe('Atualização automática', () => {
     expect(tick).toHaveBeenCalledTimes(1);
   });
 
+  it('com whileEditing, segue consultando com texto digitado, mas não durante o envio', async () => {
+    const forms = TestBed.inject(UnsavedForms);
+    let saving = false;
+    forms.forms.add({ dirty: () => true, saving: () => saving });
+    start({ whileEditing: true });
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(tick).toHaveBeenCalledTimes(1);
+    saving = true;
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(tick).toHaveBeenCalledTimes(1);
+  });
+
   it('pausa depois de 30 minutos sem interação e "Retomar" consulta na hora, sem marca', async () => {
     const { refresh } = start();
     await vi.advanceTimersByTimeAsync(SESSION_IDLE_MS + 15_000);
