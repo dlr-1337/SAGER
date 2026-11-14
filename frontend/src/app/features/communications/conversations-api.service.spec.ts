@@ -21,6 +21,7 @@ const message = {
   failureCode: null,
   sentAt: '2026-10-30T12:00:00Z',
   linkable: false,
+  linkedExit: null,
 };
 const conversation = {
   id,
@@ -144,6 +145,24 @@ describe('ConversationsApiService', () => {
     await expect(service.list()).rejects.toThrow('dados inválidos');
     fetchMock.mockResolvedValueOnce(json({ ...session, canSend: 'nao' }));
     await expect(service.session()).rejects.toThrow('dados inválidos');
+  });
+
+  it('aceita o arquivo ligado a uma saída longa e recusa o vínculo fora do contrato', async () => {
+    const linkedExit = { id, residentName: 'Residente Sintético', fileState: 'ACCEPTED' };
+    fetchMock.mockResolvedValueOnce(
+      json({ items: [{ ...message, linkedExit }], nextCursor: null }),
+    );
+    await expect(service.messages(id)).resolves.toMatchObject({ items: [{ linkedExit }] });
+    for (const wrong of [
+      { ...linkedExit, fileState: 'REFUSED' },
+      { id, fileState: 'CANDIDATE' },
+      undefined,
+    ]) {
+      fetchMock.mockResolvedValueOnce(
+        json({ items: [{ ...message, linkedExit: wrong }], nextCursor: null }),
+      );
+      await expect(service.messages(id)).rejects.toThrow('dados inválidos');
+    }
   });
 
   it('aceita estado de sessão desconhecido, sem aceitar motivo desconhecido', async () => {
