@@ -1072,7 +1072,8 @@ export class HomePage {
             <h2>Usar sua conta SAGER</h2>
             <p>
               Entre com seu usuário e a senha do SAGER; o residente usa a matrícula. O que aparece
-              na tela depende da sua função. Confira os dados antes de confirmar.
+              na tela depende da sua função. Confira os dados antes de confirmar. As telas se
+              atualizam sozinhas; não precisa recarregar a página.
             </p>
             <a routerLink="/perfil">Ver meu perfil</a>
           }
@@ -1115,6 +1116,89 @@ export class HomePage {
           >
         }
       </div>
+      @if (!session.active()) {
+        <section class="faq" aria-labelledby="steps-title">
+          <h2 id="steps-title">Passo a passo</h2>
+          @if (localRole() === 'supervisor') {
+            <details class="cleaning-steps">
+              <summary>Avaliar a limpeza</summary>
+              <p>Em Limpeza, clique em Registrar avaliação. A tela mostra um passo por vez.</p>
+              <ol>
+                <li>
+                  <strong>Qual quarto?</strong> Escolha o alojamento, a casa ou bloco e o quarto.
+                  Foi em outro dia? Abra essa opção e escolha a data.
+                </li>
+                <li>
+                  <strong>Notas.</strong> Dê de 0 a 10 nos quatro itens. A média aparece sozinha.
+                </li>
+                <li>
+                  <strong>Conferir e salvar.</strong> Confira o resumo e clique em Salvar avaliação.
+                  Para mudar algo, clique em Voltar.
+                </li>
+              </ol>
+            </details>
+            <details class="long-exit-steps">
+              <summary>Conferir e aprovar a saída longa</summary>
+              <p>O detalhe da saída mostra só o passo da vez.</p>
+              <ol>
+                <li>
+                  <strong>Autorização do responsável.</strong> Abra o arquivo com Baixar arquivo. Se
+                  for a autorização certa, clique em Confirmar conferência; se não, em Recusar
+                  arquivo. Recebeu por outro meio? Use Anexar arquivo.
+                </li>
+                <li>
+                  <strong>Decisão.</strong> Clique em Aprovar saída ou em Rejeitar. No pedido para
+                  sair agora, aprovar já registra a saída.
+                </li>
+                <li>
+                  <strong>Saída.</strong> Só na saída agendada: quando chegar a hora marcada, clique
+                  em Registrar saída.
+                </li>
+                <li>
+                  <strong>Volta.</strong> Quando o residente chegar, clique em Registrar volta.
+                </li>
+              </ol>
+              <p>Histórico, arquivos antigos e Cancelar pedido ficam em Mais detalhes.</p>
+            </details>
+          }
+          <details class="color-guide">
+            <summary>O que significa cada cor?</summary>
+            <p>O texto da etiqueta diz a situação; a cor ajuda a achar o que pede atenção.</p>
+            <ul>
+              <li>
+                <span class="status" data-tone="warning">Amarelo</span> Espera alguém agir, como
+                Aguardando análise.
+              </li>
+              <li>
+                <span class="status" data-tone="info">Azul</span> Está em curso, como Em andamento.
+              </li>
+              <li>
+                <span class="status" data-tone="success">Verde</span> Deu certo ou está valendo,
+                como Retorno confirmado.
+              </li>
+              <li>
+                <span class="status" data-tone="danger">Vermelho</span> Foi negado ou deu problema,
+                como Rejeitada.
+              </li>
+              <li>
+                <span class="status">Cinza</span> Encerrado, sem nada a fazer, como Cancelada.
+              </li>
+            </ul>
+            <p>Em cada lista, abra “O que significa cada cor?” para ver os nomes daquela tela.</p>
+          </details>
+          <details class="filter-guide">
+            <summary>Onde ficam os filtros?</summary>
+            <ol>
+              <li>A busca fica sempre à vista, acima da lista.</li>
+              <li>Os outros filtros ficam em Mais filtros, que abre fechado. Clique para abrir.</li>
+              <li>
+                Os filtros escolhidos aparecem acima da lista. Tire um de cada vez ou clique em
+                Limpar filtros.
+              </li>
+            </ol>
+          </details>
+        </section>
+      }
       <section class="faq" aria-labelledby="faq-title">
         <h2 id="faq-title">Perguntas frequentes</h2>
         @if (session.active()) {
@@ -1140,6 +1224,13 @@ export class HomePage {
           </details>
         }
         <details>
+          <summary>Quando a saída começa?</summary>
+          <p>
+            No pedido para sair agora, a aprovação do supervisor já registra a saída. No pedido
+            agendado, o supervisor registra a saída a partir do horário marcado.
+          </p>
+        </details>
+        <details>
           <summary>Quem confirma o retorno de uma saída curta?</summary>
           <p>O supervisor registra a volta depois de ver o residente chegar.</p>
         </details>
@@ -1155,6 +1246,15 @@ export class HomePage {
             }
           </p>
         </details>
+        @if (localRole() === 'supervisor') {
+          <details>
+            <summary>Por que um arquivo da conversa não tem o botão Vincular?</summary>
+            <p>
+              Ele já está numa saída longa. O balão diz de qual residente. Clique em Abrir saída
+              para conferir ou recusar o arquivo.
+            </p>
+          </details>
+        }
         <details>
           <summary>Uma notificação vira advertência sozinha?</summary>
           <p>Não. O supervisor vê o que aconteceu e decide se arquiva ou dá uma advertência.</p>
@@ -1261,11 +1361,25 @@ export class HomePage {
         font-weight: 700;
         cursor: pointer;
       }
-      .faq p {
+      .faq p,
+      .faq ol,
+      .faq ul {
         margin: 0;
         padding: 0 0 16px;
         color: var(--muted);
         line-height: 1.6;
+      }
+      .faq ol {
+        padding-inline-start: 1.5em;
+      }
+      .faq ul {
+        list-style: none;
+      }
+      .faq li + li {
+        margin-top: 8px;
+      }
+      .faq + .faq {
+        margin-top: 24px;
       }
       @media (max-width: 760px) {
         .guide-grid a,
@@ -1280,6 +1394,10 @@ export class HelpPage {
   readonly session = inject(DemoSessionService);
   private readonly auth = inject(LocalAuthService);
   readonly adult = computed(() => this.auth.principal()?.maiorDeIdade === true);
+  /** Perfil da conta conectada; nulo na demonstração e para o visitante sem conta. */
+  readonly localRole = computed(() =>
+    this.session.active() ? null : (this.auth.principal()?.perfis[0] ?? null),
+  );
 }
 
 /** "R2 · Casa 3 · Quarto 43"; sem casa ou bloco (ou sem alojamento), a parte some. */

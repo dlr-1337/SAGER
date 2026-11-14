@@ -115,6 +115,18 @@ describe('HomePage', () => {
     session.setScenario('erro');
     expect(home.countsAvailable()).toBe(false);
   });
+
+  it('o início da demonstração do supervisor continua com a próxima atividade e as pendências', async () => {
+    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    const session = TestBed.inject(DemoSessionService);
+    session.activate('supervisor');
+    const fixture = TestBed.createComponent(HomePage);
+    await fixture.whenStable();
+    const page = fixture.nativeElement as HTMLElement;
+    expect(page.textContent).toContain('Próxima atividade');
+    expect(page.textContent).toContain('Pendências para revisar');
+    session.deactivate();
+  });
 });
 
 describe('ProfilePage', () => {
@@ -258,6 +270,108 @@ describe('ProfilePage', () => {
 });
 
 describe('HelpPage', () => {
+  async function openHelp(principal: Parameters<LocalAuthService['principal']['set']>[0]) {
+    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    TestBed.inject(DemoSessionService).deactivate();
+    TestBed.inject(LocalAuthService).principal.set(principal);
+    const fixture = TestBed.createComponent(HelpPage);
+    await fixture.whenStable();
+    return fixture.nativeElement as HTMLElement;
+  }
+  const supervisor = {
+    ...syntheticResident,
+    perfis: ['supervisor' as const],
+    residenteId: null,
+    supervisorId: '00000000-0000-0000-0000-000000000003',
+  };
+  const whatsappQuestion = 'Por que um arquivo da conversa não tem o botão Vincular?';
+
+  it('o visitante sem conta lê quando a saída começa, antes de quem confirma o retorno', async () => {
+    const page = await openHelp(null);
+    const questions = [...page.querySelectorAll('.faq summary')].map((item) =>
+      item.textContent!.trim(),
+    );
+    const start = questions.indexOf('Quando a saída começa?');
+    expect(start).toBeGreaterThan(-1);
+    expect(questions[start + 1]).toBe('Quem confirma o retorno de uma saída curta?');
+    expect(page.textContent).toContain(
+      'No pedido para sair agora, a aprovação do supervisor já registra a saída. No pedido agendado, o supervisor registra a saída a partir do horário marcado.',
+    );
+    expect(page.textContent).not.toContain(whatsappQuestion);
+  });
+
+  it('o guia do supervisor traz os passos da saída longa e da limpeza', async () => {
+    const page = await openHelp(supervisor);
+    const steps = (selector: string) =>
+      [...page.querySelectorAll(`${selector} ol > li strong`)].map((item) =>
+        item.textContent!.trim(),
+      );
+    expect(steps('.long-exit-steps')).toEqual([
+      'Autorização do responsável.',
+      'Decisão.',
+      'Saída.',
+      'Volta.',
+    ]);
+    expect(steps('.cleaning-steps')).toEqual(['Qual quarto?', 'Notas.', 'Conferir e salvar.']);
+    const longExit = page.querySelector('.long-exit-steps')!.textContent!;
+    for (const name of [
+      'Baixar arquivo',
+      'Confirmar conferência',
+      'Recusar arquivo',
+      'Anexar arquivo',
+      'Registrar saída',
+      'Registrar volta',
+    ])
+      expect(longExit).toContain(name);
+    expect(page.textContent).toContain(whatsappQuestion);
+    expect(page.textContent).toContain(
+      'As telas se atualizam sozinhas; não precisa recarregar a página.',
+    );
+  });
+
+  it('o guia de cores lista os cinco tons e nenhum guia fala em Atualizar dados ou Marcação', async () => {
+    const page = await openHelp(supervisor);
+    const tones = [...page.querySelectorAll('.color-guide .status')].map((item) => [
+      item.textContent!.trim(),
+      item.getAttribute('data-tone'),
+    ]);
+    expect(tones).toEqual([
+      ['Amarelo', 'warning'],
+      ['Azul', 'info'],
+      ['Verde', 'success'],
+      ['Vermelho', 'danger'],
+      ['Cinza', null],
+    ]);
+    expect(page.querySelector('.filter-guide')?.textContent).toContain('Mais filtros');
+    expect(page.textContent).not.toContain('Atualizar dados');
+    expect(page.textContent).not.toContain('Marcação');
+  });
+
+  it('gestor e residente não veem os passos do supervisor nem a pergunta da conversa', async () => {
+    for (const principal of [{ ...supervisor, perfis: ['gestor' as const] }, syntheticResident]) {
+      const page = await openHelp(principal);
+      expect(page.querySelector('.long-exit-steps')).toBeNull();
+      expect(page.querySelector('.cleaning-steps')).toBeNull();
+      expect(page.querySelector('.color-guide')).not.toBeNull();
+      expect(page.textContent).not.toContain(whatsappQuestion);
+      TestBed.resetTestingModule();
+    }
+  });
+
+  it('a demonstração do supervisor não tem os guias da conta nem a pergunta da conversa', async () => {
+    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    const session = TestBed.inject(DemoSessionService);
+    session.activate('supervisor');
+    const fixture = TestBed.createComponent(HelpPage);
+    await fixture.whenStable();
+    const page = fixture.nativeElement as HTMLElement;
+    expect(page.querySelector('.long-exit-steps')).toBeNull();
+    expect(page.querySelector('.color-guide')).toBeNull();
+    expect(page.textContent).not.toContain(whatsappQuestion);
+    expect(page.textContent).toContain('Quando a saída começa?');
+    session.deactivate();
+  });
+
   it('orienta a conta autenticada e limita os guias às tarefas do perfil', async () => {
     TestBed.configureTestingModule({ providers: [provideRouter([])] });
     TestBed.inject(DemoSessionService).deactivate();
