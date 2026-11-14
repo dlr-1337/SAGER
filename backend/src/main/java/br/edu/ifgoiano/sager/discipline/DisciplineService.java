@@ -218,7 +218,7 @@ public class DisciplineService {
     @Transactional
     public Term issueTerm(UUID resident,JsonNode body) {
         fields(body,"warningIds","decision","confirmed","idempotencyKey");
-        var account=actor.supervisor();List<UUID> warningIds=ids(body,"warningIds",2);String decision=text(body,"decision",10,2000);UUID key=uuid(body,"idempotencyKey");
+        var account=actor.supervisor();List<UUID> warningIds=ids(body,"warningIds",2,100);String decision=text(body,"decision",10,2000);UUID key=uuid(body,"idempotencyKey");
         if(!body.has("confirmed") || !body.get("confirmed").isBoolean() || !body.get("confirmed").asBoolean()) throw invalid("Confirme expressamente a análise humana da reincidência.");
         String action="TERM_ISSUE:"+resident;UUID replay=keys.replay(account.id(),action,key,body);if(replay!=null) return term(replay);
         lockResident(resident);

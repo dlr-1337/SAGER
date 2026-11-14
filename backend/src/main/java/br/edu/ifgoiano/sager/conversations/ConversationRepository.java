@@ -40,9 +40,10 @@ FROM sager_whatsapp_conversation c LEFT JOIN LATERAL (
 """;
     private static final String MESSAGE =
             """
-SELECT m.*,NOT EXISTS(SELECT 1 FROM sager_guardian_authorization_file f
-    WHERE f.message_id=m.id AND f.state<>'REFUSED') AS unlinked
+SELECT m.*,f.exit_id AS linked_exit_id,f.state AS linked_file_state,e.resident_name AS linked_resident_name
 FROM sager_whatsapp_message m
+LEFT JOIN sager_guardian_authorization_file f ON f.message_id=m.id AND f.state<>'REFUSED'
+LEFT JOIN sager_long_exit e ON e.id=f.exit_id
 """;
     private final JdbcTemplate jdbc;
 
@@ -276,6 +277,8 @@ WHERE g.active AND g.phone IS NOT NULL AND (position(sager_search_text(?) in sag
     private Message message(ResultSet r) throws SQLException {
         String state = r.getString("media_state"), type = r.getString("media_mime_type");
         String direction = r.getString("direction");
+        // At most one file that is not refused per message (sager_authorization_file_message_unique).
+        UUID linked = r.getObject("linked_exit_id", UUID.class);
         return new Message(
                 r.getObject("id", UUID.class),
                 r.getObject("conversation_id", UUID.class),
@@ -297,7 +300,13 @@ WHERE g.active AND g.phone IS NOT NULL AND (position(sager_search_text(?) in sag
                 "IN".equals(direction)
                         && "STORED".equals(state)
                         && !type.startsWith("audio/")
-                        && r.getBoolean("unlinked"));
+                        && linked == null,
+                linked == null
+                        ? null
+                        : new LinkedExit(
+                                linked,
+                                r.getString("linked_resident_name"),
+                                r.getString("linked_file_state")));
     }
 
     private static String kind(String state, String type) {
@@ -345,7 +354,11 @@ WHERE g.active AND g.phone IS NOT NULL AND (position(sager_search_text(?) in sag
             String deliveryStatus,
             String failureCode,
             Instant sentAt,
-            boolean linkable) {}
+            boolean linkable,
+            LinkedExit linkedExit) {}
+
+    /** Long exit that holds the file of this message, with the file state CANDIDATE or ACCEPTED. */
+    public record LinkedExit(UUID id, String residentName, String fileState) {}
 
     public record StoredMedia(StoredFile file, String mediaType, String filename) {}
 

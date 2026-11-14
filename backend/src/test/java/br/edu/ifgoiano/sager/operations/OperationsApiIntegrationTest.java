@@ -458,19 +458,108 @@ class OperationsApiIntegrationTest {
     }
 
     @Test
-    void physicalTimesRequireJustificationAndLateReturnObservationWithoutAutomaticSanction() throws Exception {
+    void approvingARequestToLeaveNowRecordsTheDepartureInTheSupervisorsName() throws Exception {
         try (HttpClient student = logged("student"); HttpClient supervisor = logged("supervisor")) {
             String id = createExit(student, "NOW", 0, 3600).path("id").asText();
+            JsonNode approved = json.readTree(post(supervisor, EXITS + "/" + id + "/decisao",
+                    Map.of("version", 0, "decision", "APPROVE")).body());
+            assertThat(approved.path("status").asText()).isEqualTo("EM_ANDAMENTO");
+            assertThat(approved.path("version").asLong()).isEqualTo(2);
+            assertThat(Instant.parse(approved.path("actualDepartureAt").asText())).isEqualTo(START)
+                    .isEqualTo(Instant.parse(approved.path("decidedAt").asText()));
+            assertThat(approved.path("capabilities").path("canDepart").asBoolean()).isFalse();
+            assertThat(approved.path("capabilities").path("canReturn").asBoolean()).isTrue();
+            JsonNode history = approved.path("history");
+            assertThat(history).extracting(event -> event.path("event").asText())
+                    .containsExactly("CREATE", "APPROVE", "DEPARTURE");
+            UUID supervisorId = jdbc.queryForObject("SELECT id FROM sager_local_account WHERE email=?",
+                    UUID.class, "supervisor@example.invalid");
+            for (int index = 1; index <= 2; index++) {
+                assertThat(history.get(index).path("actorProfile").asText()).isEqualTo("supervisor");
+                assertThat(history.get(index).path("actorId").asText()).isEqualTo(supervisorId.toString());
+            }
+            assertThat(Instant.parse(history.get(2).path("effectiveAt").asText())).isEqualTo(START);
+            List<String> audits = jdbc.queryForList("SELECT changed_fields::text FROM sager_audit_event"
+                    + " WHERE resource = 'SHORT_EXIT' AND resource_id = ? AND action = 'UPDATE' ORDER BY sequence",
+                    String.class, UUID.fromString(id));
+            assertThat(audits).hasSize(2);
+            assertThat(audits.get(1)).contains("status", "actualDepartureAt");
+        }
+    }
+
+    @Test
+    void scheduledApprovalWaitsForTheSupervisorToRecordTheDepartureFromTheRequestedTime() throws Exception {
+        try (HttpClient student = logged("student"); HttpClient supervisor = logged("supervisor")) {
+            String id = createExit(student, "SCHEDULED", 3600, 7200).path("id").asText();
+            JsonNode approved = json.readTree(post(supervisor, EXITS + "/" + id + "/decisao",
+                    Map.of("version", 0, "decision", "APPROVE")).body());
+            assertThat(approved.path("status").asText()).isEqualTo("APROVADA");
+            assertThat(approved.path("version").asLong()).isEqualTo(1);
+            assertThat(approved.path("actualDepartureAt").isNull()).isTrue();
+            assertThat(approved.path("capabilities").path("canDepart").asBoolean()).isFalse();
+            assertThat(approved.path("capabilities").path("canCancel").asBoolean()).isTrue();
+            String other = createExit(student, "SCHEDULED", 7200, 9000).path("id").asText();
+            approve(supervisor, other);
+            assertThat(post(supervisor, EXITS + "/" + other + "/cancelamento",
+                    Map.of("version", 1, "comment", "Cancelamento antes do horário marcado"))
+                    .statusCode()).isEqualTo(200);
+            clock.set(START.plusSeconds(3600));
+            assertThat(read(supervisor, EXITS + "/" + id).path("capabilities").path("canDepart").asBoolean())
+                    .isTrue();
+            JsonNode departed = json.readTree(post(supervisor, EXITS + "/" + id + "/partida",
+                    Map.of("version", 1, "timeMode", "NOW")).body());
+            assertThat(departed.path("status").asText()).isEqualTo("EM_ANDAMENTO");
+            assertThat(Instant.parse(departed.path("actualDepartureAt").asText())).isEqualTo(clock.instant());
+        }
+    }
+
+    @Test
+    void immediateApprovalIsRefusedWhileAnotherExitIsPhysicallyOpen() throws Exception {
+        try (HttpClient student = logged("student"); HttpClient supervisor = logged("supervisor")) {
+            String id = createExit(student, "NOW", 0, 3600).path("id").asText();
+            // A late long exit still without return keeps the resident physically out.
+            longExits.resident = resident;
+            longExits.physical = true;
+            assertError(post(supervisor, EXITS + "/" + id + "/decisao",
+                    Map.of("version", 0, "decision", "APPROVE")), 409, "physical_exit_conflict");
+            JsonNode unchanged = read(supervisor, EXITS + "/" + id);
+            assertThat(unchanged.path("status").asText()).isEqualTo("AGUARDANDO_ANALISE");
+            assertThat(unchanged.path("version").asLong()).isZero();
+            assertThat(unchanged.path("history").size()).isEqualTo(1);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_audit_event"
+                    + " WHERE resource = 'SHORT_EXIT' AND resource_id = ? AND action = 'UPDATE'",
+                    Integer.class, UUID.fromString(id))).isZero();
+        }
+    }
+
+    @Test
+    void scheduledApprovalWithoutDepartureLeavesTheResidentPendingAtOpening() throws Exception {
+        clock.set(START.minusSeconds(3600));
+        try (HttpClient student = logged("student"); HttpClient supervisor = logged("supervisor")) {
+            String exit = createExit(student, "SCHEDULED", 1800, 5400).path("id").asText();
+            approve(supervisor, exit);
+            clock.set(START);
+            JsonNode mark = open(supervisor).path("records").get(0);
+            assertThat(mark.path("mark").isNull()).isTrue();
+            assertThat(mark.path("authorizedExits").size()).isZero();
+        }
+    }
+
+    @Test
+    void physicalTimesRequireJustificationAndLateReturnObservationWithoutAutomaticSanction() throws Exception {
+        try (HttpClient student = logged("student"); HttpClient supervisor = logged("supervisor")) {
+            String id = createExit(student, "SCHEDULED", 3600, 7200).path("id").asText();
             approve(supervisor, id);
-            clock.set(START.plusSeconds(60));
+            Instant departure = START.plusSeconds(3600);
+            clock.set(departure.plusSeconds(60));
             assertError(post(supervisor, EXITS + "/" + id + "/partida",
-                    Map.of("version", 1, "timeMode", "RETROACTIVE", "occurredAt", START.toString(),
+                    Map.of("version", 1, "timeMode", "RETROACTIVE", "occurredAt", departure.toString(),
                             "justification", "breve")), 400, "invalid_input");
             assertError(post(supervisor, EXITS + "/" + id + "/partida",
-                    Map.of("version", 1, "timeMode", "RETROACTIVE", "occurredAt", START.minusSeconds(1).toString(),
+                    Map.of("version", 1, "timeMode", "RETROACTIVE", "occurredAt", departure.minusSeconds(1).toString(),
                             "justification", "Conferência retroativa presencial")), 400, "invalid_input");
             assertThat(post(supervisor, EXITS + "/" + id + "/partida",
-                    Map.of("version", 1, "timeMode", "RETROACTIVE", "occurredAt", START.toString(),
+                    Map.of("version", 1, "timeMode", "RETROACTIVE", "occurredAt", departure.toString(),
                             "justification", "Conferência retroativa presencial")).statusCode()).isEqualTo(200);
             clock.set(START.plusSeconds(12000));
             expire();
@@ -508,9 +597,10 @@ class OperationsApiIntegrationTest {
             clock.set(START.plusSeconds(7200));
             expire();
             assertThat(read(supervisor, EXITS + "/" + now).path("status").asText()).isEqualTo("EXPIRADA");
-            String approved = createExit(student, "NOW", 0, 3600).path("id").asText();
+            // A scheduled exit approved and never started by the supervisor.
+            String approved = createExit(student, "SCHEDULED", 3600, 7200).path("id").asText();
             approve(supervisor, approved);
-            clock.set(START.plusSeconds(10800));
+            clock.set(START.plusSeconds(14400));
             assertError(post(supervisor, EXITS + "/" + approved + "/partida",
                     Map.of("version", 1, "timeMode", "NOW")), 409, "deadline_passed");
             expire();
@@ -531,7 +621,7 @@ class OperationsApiIntegrationTest {
     void onlyDepartureAuthorizedAtOpeningCanJustifyAbsence() throws Exception {
         clock.set(START.minusSeconds(3600));
         try (HttpClient student = logged("student"); HttpClient supervisor = logged("supervisor")) {
-            String exit = createExit(student, "NOW", 0, 7200).path("id").asText();
+            String exit = createExit(student, "SCHEDULED", 1800, 7200).path("id").asText();
             approve(supervisor, exit);
             clock.set(START);
             JsonNode opened = open(supervisor);
@@ -611,7 +701,7 @@ class OperationsApiIntegrationTest {
             clock.set(START.minusSeconds(60));
             assertThat(post(supervisor, EXITS + "/" + returned + "/retorno",
                     Map.of("version", 2, "timeMode", "NOW")).statusCode()).isEqualTo(200);
-            String late = createExit(student, "NOW", 0, 3600).path("id").asText();
+            String late = createExit(student, "SCHEDULED", 120, 3600).path("id").asText();
             approve(supervisor, late);
             clock.set(START);
             JsonNode opened = open(supervisor);
@@ -682,8 +772,6 @@ class OperationsApiIntegrationTest {
             assertThat(List.of(first.join(), second.join())).containsExactlyInAnyOrder(201, 409);
             String id = read(supervisor, EXITS).get(0).path("id").asText();
             approve(supervisor, id);
-            assertThat(post(supervisor, EXITS + "/" + id + "/partida",
-                    Map.of("version", 1, "timeMode", "NOW")).statusCode()).isEqualTo(200);
             clock.set(START.plusSeconds(60));
             String staffToken = csrf(supervisor);
             String returning = "{\"version\":2,\"timeMode\":\"NOW\"}";
@@ -731,8 +819,9 @@ class OperationsApiIntegrationTest {
             assertError(post(student, EXITS, exitBody("NOW", START, START.plusSeconds(3600))),
                     409, "overlapping_exit");
             longExits.overlap = false;
-            String id = createExit(student, "NOW", 0, 3600).path("id").asText();
+            String id = createExit(student, "SCHEDULED", 3600, 7200).path("id").asText();
             approve(supervisor, id);
+            clock.set(START.plusSeconds(3600));
             longExits.physical = true;
             assertError(post(supervisor, EXITS + "/" + id + "/partida",
                     Map.of("version", 1, "timeMode", "NOW")), 409, "physical_exit_conflict");
@@ -827,8 +916,6 @@ class OperationsApiIntegrationTest {
         try (HttpClient student = logged("student"); HttpClient supervisor = logged("supervisor")) {
             String exit = createExit(student, "NOW", 0, 1800).path("id").asText();
             approve(supervisor, exit);
-            assertThat(post(supervisor, EXITS + "/" + exit + "/partida",
-                    Map.of("version", 1, "timeMode", "NOW")).statusCode()).isEqualTo(200);
             clock.set(START);
             JsonNode opened = open(supervisor);
             assertThat(opened.path("records").get(0).path("authorizedExitId").asText()).isEqualTo(exit);
@@ -850,8 +937,6 @@ class OperationsApiIntegrationTest {
         try (HttpClient student = logged("student"); HttpClient supervisor = logged("supervisor")) {
             String exit = createExit(student, "NOW", 0, 3600).path("id").asText();
             approve(supervisor, exit);
-            assertThat(post(supervisor, EXITS + "/" + exit + "/partida",
-                    Map.of("version", 1, "timeMode", "NOW")).statusCode()).isEqualTo(200);
             clock.set(START);
             JsonNode opened = open(supervisor);
             assertThat(opened.path("records").get(0).path("mark").isNull()).isTrue();
@@ -963,10 +1048,11 @@ class OperationsApiIntegrationTest {
                 assertError(postRaw(student, EXITS, body, token), 400, "invalid_input");
             }
             assertThat(count("sager_short_exit")).isZero();
-            String id = createExit(student, "NOW", 0, 3600).path("id").asText();
+            String id = createExit(student, "SCHEDULED", 3600, 7200).path("id").asText();
             approve(supervisor, id);
+            clock.set(START.plusSeconds(3600));
             assertError(post(supervisor, EXITS + "/" + id + "/partida", Map.of("version", 1,
-                    "timeMode", "RETROACTIVE", "occurredAt", START.plusSeconds(1).toString(),
+                    "timeMode", "RETROACTIVE", "occurredAt", START.plusSeconds(3601).toString(),
                     "justification", "Horário informado ainda futuro")), 400, "invalid_input");
             assertThat(read(supervisor, EXITS + "/" + id).path("version").asLong()).isEqualTo(1);
             provisioning.disable("student@example.invalid");
@@ -1050,13 +1136,11 @@ class OperationsApiIntegrationTest {
                 .statusCode()).isEqualTo(200);
     }
 
-    /** Registers a real departure one hour before the call and leaves the clock at START. */
+    /** Approves a request to leave now one hour before the call, which records the departure, and leaves the clock at START. */
     private String departedExit(HttpClient student, HttpClient supervisor) throws Exception {
         clock.set(START.minusSeconds(3600));
         String exit = createExit(student, "NOW", 0, 7200).path("id").asText();
         approve(supervisor, exit);
-        assertThat(post(supervisor, EXITS + "/" + exit + "/partida",
-                Map.of("version", 1, "timeMode", "NOW")).statusCode()).isEqualTo(200);
         clock.set(START);
         return exit;
     }

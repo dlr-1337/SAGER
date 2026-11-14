@@ -50,12 +50,12 @@ public class CommunicationOpenApiConfiguration {
             body(api, "/advertencias/{id}/anular", "WarningAnnulRequest", motivated);
             body(api, "/termos/{id}/anular", "TermAnnulRequest", copy(motivated));
             body(api, "/residentes/{id}/termos", "TermIssueRequest", new ObjectSchema()
-                    .addProperty("warningIds", ids(2)).addProperty("decision", text(10, 2000))
+                    .addProperty("warningIds", ids(2, 100)).addProperty("decision", text(10, 2000))
                     .addProperty("confirmed", new BooleanSchema()._enum(List.of(true)))
                     .addProperty("idempotencyKey", uuid())
                     .required(List.of("warningIds", "decision", "confirmed", "idempotencyKey")));
             var notice = new ObjectSchema().addProperty("title", text(3, 200))
-                    .addProperty("body", text(3, 4000)).addProperty("residentIds", ids(1))
+                    .addProperty("body", text(3, 4000)).addProperty("residentIds", ids(1, 2000))
                     .addProperty("idempotencyKey", uuid())
                     .required(List.of("title", "body", "residentIds", "idempotencyKey"));
             body(api, "/avisos", "NoticeCreateRequest", notice);
@@ -124,7 +124,7 @@ public class CommunicationOpenApiConfiguration {
     private Schema<?> uuid() { return new StringSchema().format("uuid"); }
     private Schema<?> text(int min, int max) { return new StringSchema().minLength(min).maxLength(max); }
     private Schema<?> choice(String... values) { return new StringSchema()._enum(List.of(values)); }
-    private Schema<?> ids(int minimum) {
-        return new ArraySchema().items(uuid()).minItems(minimum).maxItems(100).uniqueItems(true);
+    private Schema<?> ids(int minimum, int maximum) {
+        return new ArraySchema().items(uuid()).minItems(minimum).maxItems(maximum).uniqueItems(true);
     }
 }

@@ -287,6 +287,10 @@ public class LongExitService {
             verify(doc.original());
             verify(doc.signed());
         }
+        // A request whose departure has arrived is approved and departed in the same act (RN06).
+        boolean departNow =
+                "APPROVE".equals(decision) && !now.isBefore(current.requestedDepartureAt());
+        if (departNow) noPhysicalExitOpen(current.residentId());
         Map<String, Object> changes = new HashMap<>();
         changes.put("status", "APPROVE".equals(decision) ? LongExit.APPROVED : "REJEITADA");
         changes.put("decision", decision);
@@ -305,6 +309,22 @@ public class LongExitService {
                 Objects.equals(current.decisionComment(), comment)
                         ? Set.of("status", "decision")
                         : Set.of("status", "decision", "decisionComment"));
+        if (departNow) {
+            updated =
+                    changed(
+                            updated,
+                            Map.of("status", LongExit.IN_PROGRESS, "actual_departure_at", now),
+                            now);
+            record(
+                    updated,
+                    "DEPARTURE",
+                    now,
+                    now,
+                    a,
+                    null,
+                    AuditAction.UPDATE,
+                    Set.of("status", "actualDepartureAt"));
+        }
         return view(updated, a);
     }
 
@@ -354,9 +374,7 @@ public class LongExitService {
             throw OpsInput.invalid(
                     "A partida física deve seguir a solicitação e a aprovação, antes do retorno"
                             + " previsto.");
-        if (occupancies.stream().anyMatch(p -> p.physicalOpenFor(current.residentId())))
-            throw conflict(
-                    "physical_exit_conflict", "O residente possui outra saída em andamento.");
+        noPhysicalExitOpen(current.residentId());
         Row updated =
                 changed(
                         current,
@@ -1008,6 +1026,12 @@ public class LongExitService {
     private void deadline(Row e, Instant now) {
         if (e.deadline() != null && !now.isBefore(e.deadline()))
             throw conflict("deadline_passed", "O prazo desta solicitação encerrou.");
+    }
+
+    private void noPhysicalExitOpen(UUID residentId) {
+        if (occupancies.stream().anyMatch(p -> p.physicalOpenFor(residentId)))
+            throw conflict(
+                    "physical_exit_conflict", "O residente possui outra saída em andamento.");
     }
 
     private void reason(String s) {

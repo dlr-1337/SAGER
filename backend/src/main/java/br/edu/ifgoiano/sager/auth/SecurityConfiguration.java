@@ -149,6 +149,7 @@ public class SecurityConfiguration {
                         .passwordParameter("password")
                         .successHandler((request, response, authentication) -> {
                             if (production) rateLimiter.getObject().succeeded(((LocalAccountPrincipal) authentication.getPrincipal()).enrollment());
+                            accountStatusFilter.recordAction(request);
                             response.setHeader("Cache-Control", "no-store");
                             response.setStatus(HttpStatus.NO_CONTENT.value());
                         })
