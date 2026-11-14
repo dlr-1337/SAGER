@@ -7,6 +7,8 @@ import { DemoSessionService } from '../../core/demo-session.service';
 import { cursorPages } from '../../core/list-page';
 import { AutoRefreshStatusComponent } from '../../shared/auto-refresh-status.component';
 import { PaginationComponent } from '../../shared/pagination.component';
+import { StatusLegendComponent } from '../../shared/status-legend.component';
+import { toneAttr } from '../../shared/status-tones';
 import { ResidentApiService, ResidentRecord } from '../management/resident-api.service';
 import {
   CommunicationsApiError,
@@ -30,11 +32,16 @@ import {
   severityLabels,
 } from './communications-local.utils';
 
+const termLabel = (term: DisciplineTerm) =>
+  term.status === 'EMITIDO' ? 'Termo valendo' : 'Termo anulado';
+const termLegend = ['Termo valendo', 'Termo anulado'];
+
 @Component({
   standalone: true,
   selector: 'sager-recurrence-local',
   imports: [
     AutoRefreshStatusComponent,
+    StatusLegendComponent,
     RouterLink,
     ReactiveFormsModule,
     CommunicationsStateComponent,
@@ -137,6 +144,7 @@ import {
         </div>
         <section class="op-section">
           <h2 id="term-results-title" tabindex="-1">Termos já emitidos</h2>
+          <sager-status-legend [names]="legendNames" />
           <sager-communications-state
             [loading]="terms.loading()"
             [error]="terms.error()"
@@ -147,7 +155,10 @@ import {
               @for (term of terms.items(); track term.id) {
                 <article class="op-row">
                   <div class="op-row-main">
-                    <h3>{{ term.status === 'EMITIDO' ? 'Termo valendo' : 'Termo anulado' }}</h3>
+                    @let label = termLabel(term);
+                    <h3>
+                      <span class="status" [attr.data-tone]="tone(label)">{{ label }}</span>
+                    </h3>
                     <p>
                       {{ formatTime(term.issuedAt) }} · {{ term.warningIds.length }} advertências
                     </p>
@@ -189,6 +200,9 @@ export class RecurrenceLocalPage {
   private readonly router = inject(Router);
   private readonly intent = new CommunicationIntent();
   private readonly id = this.route.snapshot.paramMap.get('id') ?? '';
+  readonly termLabel = termLabel;
+  readonly legendNames = termLegend;
+  readonly tone = toneAttr;
   readonly resident = signal<ResidentRecord | null>(null);
   readonly candidates = signal<RecurrenceCandidate[]>([]);
   readonly terms = cursorPages<DisciplineTerm>(
@@ -361,7 +375,12 @@ export class RecurrenceLocalPage {
 @Component({
   standalone: true,
   selector: 'sager-term-detail-local',
-  imports: [AutoRefreshStatusComponent, RouterLink, CommunicationsStateComponent],
+  imports: [
+    AutoRefreshStatusComponent,
+    StatusLegendComponent,
+    RouterLink,
+    CommunicationsStateComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page comm-narrow">
@@ -386,8 +405,12 @@ export class RecurrenceLocalPage {
         as term
       ) {
         <sager-auto-refresh-status [refresh]="refresh" />
+        <sager-status-legend [names]="legendNames" />
         <section class="panel op-panel">
-          <h2>{{ term.status === 'EMITIDO' ? 'Termo valendo' : 'Termo anulado' }}</h2>
+          @let label = termLabel(term);
+          <h2>
+            <span class="status" [attr.data-tone]="tone(label)">{{ label }}</span>
+          </h2>
           <p class="comm-message">{{ term.decision }}</p>
           <h3>Advertências que levaram a este termo</h3>
           <ul class="comm-basis">
@@ -459,6 +482,9 @@ export class TermDetailLocalPage implements OnDestroy {
   private readonly downloads = new CommunicationDownloads();
   private readonly id = this.route.snapshot.paramMap.get('id') ?? '';
   private alive = true;
+  readonly termLabel = termLabel;
+  readonly legendNames = termLegend;
+  readonly tone = toneAttr;
   readonly item = signal<DisciplineTerm | null>(null);
   readonly loading = signal(false);
   readonly loadError = signal('');

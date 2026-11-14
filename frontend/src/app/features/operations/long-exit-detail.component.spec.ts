@@ -12,6 +12,7 @@ import {
   AuthorizationFile,
   LongExit,
   LongExitCapabilities,
+  ReceivedFile,
 } from './long-exit.models';
 import { LocalReviewData, LocalReviewResult } from './review-dialog-local.component';
 
@@ -270,11 +271,59 @@ describe('Detalhe da saída longa em passos', () => {
       longExit({ authorizationFiles: [file({ state: 'REFUSED', decidedAt: now })] }),
     );
     const fixture = await create();
-    button(fixture, 'Recusar arquivo')!.click();
+    const refuse = button(fixture, 'Recusar arquivo')!;
+    refuse.focus();
+    refuse.click();
     await fixture.whenStable();
-    expect(reviewData().requireReason).toBe(true);
+    expect(reviewData()).toMatchObject({
+      title: 'O arquivo será recusado e o pedido continua aguardando autorização.',
+      requireReason: true,
+      danger: true,
+    });
     expect(heading(fixture)).toBe('Autorização do responsável');
     expect(step(fixture).textContent).toContain('Aguardando o responsável enviar pelo WhatsApp.');
+    // O botão sumiu com o arquivo, mas o passo é o mesmo: o foco vai ao título do passo.
+    expect(document.activeElement?.id).toBe('exit-step');
+    const refused = fixture.nativeElement.querySelector('.long-files .status');
+    expect(refused.textContent.trim()).toBe('Arquivo recusado');
+    expect(refused.dataset.tone).toBe('danger');
+  });
+
+  it('vincular arquivo sem vínculo leva o foco ao título do passo quando a lista volta', async () => {
+    const received: ReceivedFile = {
+      messageId: 'mensagem-sintetica',
+      senderPhone: '+55 64 90000-0000',
+      fromGuardian: true,
+      mediaState: 'STORED',
+      failureCode: null,
+      mediaType: 'application/pdf',
+      size: 1000,
+      receivedAt: now,
+    };
+    // A lista sem vínculo volta depois do pedido: o botão só some nessa hora.
+    let release!: (files: ReceivedFile[]) => void;
+    api['unlinkedFiles']
+      .mockResolvedValueOnce([received])
+      .mockReturnValueOnce(new Promise<ReceivedFile[]>((resolve) => (release = resolve)));
+    api['linkAuthorization'] = vi
+      .fn()
+      .mockResolvedValue(longExit({ authorizationFiles: [file()] }));
+    const fixture = await create();
+    const link: HTMLButtonElement = fixture.nativeElement.querySelector(
+      'button[aria-label^="Vincular a este pedido"]',
+    );
+    link.focus();
+    link.click();
+    await fixture.whenStable();
+    expect(api['linkAuthorization']).toHaveBeenCalled();
+    expect(link.isConnected).toBe(true);
+    release([]);
+    await vi.waitFor(() => expect(link.isConnected).toBe(false));
+    await fixture.whenStable();
+    expect(document.activeElement?.id).toBe('exit-step');
+    const waiting = fixture.nativeElement.querySelector('.long-files .status');
+    expect(waiting.textContent.trim()).toBe('Aguardando conferência');
+    expect(waiting.dataset.tone).toBe('warning');
   });
 
   it('autorização conferida: passo "Decisão" com "Aprovar saída" e "Rejeitar" em vermelho', async () => {
@@ -284,6 +333,14 @@ describe('Detalhe da saída longa em passos', () => {
     expect(actions(fixture)).toEqual(['Aprovar saída', 'Rejeitar']);
     expect(button(fixture, 'Rejeitar')?.classList).toContain('btn-danger');
     expect(step(fixture).textContent).toContain('Autorização conferida em');
+    const situation = fixture.nativeElement.querySelector(
+      '[aria-labelledby="long-exit-authorization"] .status',
+    );
+    expect(situation.textContent.trim()).toBe('Autorização conferida por servidor');
+    expect(situation.dataset.tone).toBe('success');
+    const legend = fixture.nativeElement.querySelector('sager-status-legend');
+    expect(legend.querySelector('summary').textContent).toBe('O que significa cada cor?');
+    expect(legend.textContent).toContain('Aguardando conferência');
   });
 
   it('a aprovação continua indisponível antes da conferência, e "Rejeitar" funciona', async () => {
@@ -294,6 +351,11 @@ describe('Detalhe da saída longa em passos', () => {
     expect(button(fixture, 'Aprovar saída')).toBeUndefined();
     button(fixture, 'Rejeitar')!.click();
     await fixture.whenStable();
+    expect(reviewData()).toMatchObject({
+      title: 'O pedido será rejeitado.',
+      action: 'Confirmar rejeição',
+      danger: true,
+    });
     expect(api['decide']).toHaveBeenCalledWith(
       expect.anything(),
       'REJECT',

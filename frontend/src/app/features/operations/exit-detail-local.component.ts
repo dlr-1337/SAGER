@@ -13,7 +13,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { autoRefresh } from '../../core/auto-refresh';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { LocalAuthService } from '../../core/local-auth.service';
-import { AutoRefreshStatusComponent, toneAttr } from '../../shared';
+import { AutoRefreshStatusComponent, StatusLegendComponent, toneAttr } from '../../shared';
 import {
   OperationsLocalApiService,
   freezesActions,
@@ -38,7 +38,7 @@ type ExitStep = 'Decisão' | 'Saída' | 'Volta';
 @Component({
   standalone: true,
   selector: 'app-exit-detail-local',
-  imports: [RouterLink, AutoRefreshStatusComponent],
+  imports: [RouterLink, AutoRefreshStatusComponent, StatusLegendComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page op-exit-page">
@@ -69,6 +69,7 @@ type ExitStep = 'Decisão' | 'Saída' | 'Volta';
           <button class="btn op-secondary" type="button" (click)="load()">Tentar novamente</button>
         </section>
       } @else if (item(); as exit) {
+        <sager-status-legend [names]="legendNames" />
         @if (saved()) {
           <p class="op-success" role="status">Pedido salvo.</p>
         }
@@ -353,6 +354,7 @@ export class ExitDetailLocalComponent {
   readonly locked = computed(() => this.busy() || this.conflict());
   readonly saved = signal(this.route.snapshot.queryParamMap.get('saved') === '1');
   readonly labels = exitStatusLabels;
+  readonly legendNames = Object.values(exitStatusLabels);
   readonly tone = toneAttr;
   /** Só a ação do momento: Decisão, Saída (agendada aprovada) e Volta (simple-screens, D12). */
   readonly step = computed<ExitStep | null>(() => {
@@ -420,7 +422,7 @@ export class ExitDetailLocalComponent {
     const approve = decision === 'APPROVE';
     this.review(
       {
-        title: approve ? 'Revisar aprovação' : 'Revisar rejeição',
+        title: approve ? 'Revisar aprovação' : 'O pedido será rejeitado.',
         action: approve
           ? leavesNow(exit)
             ? 'Aprovar e registrar a saída agora'
@@ -429,6 +431,7 @@ export class ExitDetailLocalComponent {
         lines: this.summary(exit),
         requireReason: !approve,
         comment: approve,
+        danger: !approve,
       },
       (result) => this.api.decideExit(exit, decision, result.reason),
       approve ? approvalMessage : 'Rejeição registrada.',
@@ -450,6 +453,7 @@ export class ExitDetailLocalComponent {
         action: 'Cancelar pedido',
         lines: this.summary(exit),
         requireReason: true,
+        danger: true,
       },
       (result) => this.api.cancelExit(exit, result.reason),
       'Pedido cancelado.',

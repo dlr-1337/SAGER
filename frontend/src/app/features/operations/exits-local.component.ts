@@ -157,7 +157,7 @@ import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
               <p aria-live="polite">{{ total() === 1 ? '1 pedido' : total() + ' pedidos' }}</p>
             }
           </div>
-          <sager-status-legend [names]="legendNames" />
+          <sager-status-legend [names]="legendNames()" />
           @if (loading()) {
             <div class="op-state" role="status">
               <h3>Carregando pedidos</h3>
@@ -203,8 +203,13 @@ import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
                       labels[exit.status]
                     }}</span>
                     @if (longExit(exit); as long) {
-                      <small>{{ signatures[long.signatureStatus] }}</small
-                      ><small>{{ messages[long.messageStatus] }}</small>
+                      <span
+                        class="status"
+                        [attr.data-tone]="tone(signatures[long.signatureStatus])"
+                        >{{ signatures[long.signatureStatus] }}</span
+                      ><span class="status" [attr.data-tone]="tone(messages[long.messageStatus])">{{
+                        messages[long.messageStatus]
+                      }}</span>
                     }
                   </div>
                   <a
@@ -270,7 +275,12 @@ export class ExitsLocalComponent {
   readonly loading = signal(false);
   readonly error = signal('');
   readonly labels = exitStatusLabels;
-  readonly legendNames = Object.values(exitStatusLabels);
+  readonly legendNames = computed(() => [
+    ...Object.values(exitStatusLabels),
+    ...(this.longMode()
+      ? [...Object.values(signatureStatusLabels), ...Object.values(messageStatusLabels)]
+      : []),
+  ]);
   readonly tone = toneAttr;
   readonly statuses = Object.keys(exitStatusLabels) as (keyof typeof exitStatusLabels)[];
   readonly formatTime = formatOperationsTime;

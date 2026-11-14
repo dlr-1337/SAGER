@@ -176,7 +176,12 @@ export class OwnCommunicationsLocalPage {
 @Component({
   standalone: true,
   selector: 'sager-own-communication-detail-local',
-  imports: [AutoRefreshStatusComponent, RouterLink, CommunicationsStateComponent],
+  imports: [
+    AutoRefreshStatusComponent,
+    StatusLegendComponent,
+    RouterLink,
+    CommunicationsStateComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page comm-narrow">
@@ -203,6 +208,7 @@ export class OwnCommunicationsLocalPage {
         as communication
       ) {
         <sager-auto-refresh-status [refresh]="refresh" />
+        <sager-status-legend [names]="legendNames" />
         <section class="panel op-panel">
           <h2>{{ communication.title }}</h2>
           <span class="status" [attr.data-tone]="tone(states[communication.status])">{{
@@ -326,6 +332,7 @@ export class OwnCommunicationDetailLocalPage implements OnDestroy {
   readonly conflict = signal(false);
   readonly kinds = communicationLabels;
   readonly states = communicationStateLabels;
+  readonly legendNames = Object.values(communicationStateLabels);
   readonly tone = toneAttr;
   readonly formatTime = formatCommunicationTime;
   private sequence = 0;

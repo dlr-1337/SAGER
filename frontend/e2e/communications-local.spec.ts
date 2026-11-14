@@ -497,6 +497,9 @@ test('GET não decide; supervisor registra visualização, análise e arquivamen
   await expect(page.getByText('Visualização registrada por ação explícita.')).toBeVisible();
   await page.getByRole('button', { name: 'Iniciar análise', exact: true }).click();
   await expect(page.getByText('Análise iniciada.')).toBeVisible();
+  // Em análise, só restam arquivar e criar advertência: a análise não é registrada de novo.
+  await expect(page.getByRole('button', { name: 'Iniciar análise', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Registrar visualização' })).toHaveCount(0);
   const archive = page.getByRole('button', { name: 'Arquivar com justificativa' });
   await archive.click();
   await expect(page.getByRole('dialog').getByLabel('Motivo do arquivamento')).toBeFocused();
@@ -597,7 +600,7 @@ test('advertência manual valida data do servidor, repete intenção com a mesma
   await confirm(page, 'Confirmar anulação');
   await expect(page.getByText('Advertência anulada. O histórico continua guardado.')).toBeVisible();
   await page.reload();
-  await expect(page.getByText('Anulada', { exact: true })).toBeVisible();
+  await expect(page.locator('.op-heading .status')).toHaveText('Anulada');
 });
 
 test('candidato é revisto, termo exige confirmação humana e PDF privado preserva anulação', async ({
@@ -872,7 +875,7 @@ test('supervisor publica aviso por UUID, revisa preservando destinatários e ret
     page.getByText('Aviso retirado com justificativa. Histórico preservado.'),
   ).toBeVisible();
   await page.reload();
-  await expect(page.getByText('Retirado')).toBeVisible();
+  await expect(page.locator('.op-heading .status')).toHaveText('Retirado');
 });
 
 test('residente consulta dados próprios e registra leitura e ciência separadas na versão exata', async ({
@@ -1162,11 +1165,16 @@ test('listas mostram a cor da situação com legenda, e o detalhe não tem "Atua
   await expect(row.locator('.status')).toHaveText('Pendente');
   await expect(row.locator('.status')).toHaveAttribute('data-tone', 'warning');
   await expect(page.locator('sager-status-legend')).toContainText('Pendente');
+  await expect(page.locator('sager-status-legend')).toContainText(
+    'O supervisor marcou que viu a notificação.',
+  );
   await page.goto('/advertencias');
   await expect(page.locator('.op-row .status').first()).toHaveAttribute('data-tone', 'success');
   await expect(page.locator('sager-status-legend')).toContainText('Valendo');
   await page.getByRole('link', { name: 'Ver advertência' }).first().click();
   await expect(page.getByRole('heading', { name: 'Advertência registrada' })).toBeVisible();
+  await expect(page.locator('sager-status-legend details')).not.toHaveAttribute('open', '');
+  await expect(page.locator('sager-status-legend')).toContainText('Valendo');
   await expect(page.getByRole('button', { name: 'Atualizar dados' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Recarregar dados' })).toHaveCount(0);
 });

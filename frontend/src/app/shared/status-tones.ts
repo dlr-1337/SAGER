@@ -39,8 +39,8 @@ export const statusTones: Record<string, { tone: StatusTone; meaning: string }> 
   'Documento lido': success('O responsável abriu o documento.'),
   'Falha no envio': danger('O documento não foi enviado.'),
   'Envio aguardando verificação': warning('Confira no celular se o documento foi enviado.'),
-  Conferido: success('O arquivo foi conferido como a autorização.'),
-  Recusado: danger('O arquivo foi recusado.'),
+  'Aguardando conferência': warning('O arquivo espera a conferência do supervisor.'),
+  'Arquivo recusado': danger('O arquivo foi recusado.'),
   // Chamada noturna
   Aberta: warning('A chamada ainda está sendo feita.'),
   Fechada: success('A chamada terminou.'),
@@ -49,7 +49,7 @@ export const statusTones: Record<string, { tone: StatusTone; meaning: string }> 
   Ausente: danger('O residente não estava e gera ocorrência.'),
   'Ausência justificada': info('O residente está fora com saída autorizada.'),
   // Notificações
-  Visualizada: info('Alguém já abriu a notificação.'),
+  Visualizada: info('O supervisor marcou que viu a notificação.'),
   'Em análise': info('A notificação está sendo analisada.'),
   Arquivada: neutral('A notificação foi encerrada sem advertência.'),
   'Convertida em advertência': neutral('A notificação virou uma advertência.'),
@@ -60,7 +60,10 @@ export const statusTones: Record<string, { tone: StatusTone; meaning: string }> 
   'Versão anterior': neutral('Foi substituído por uma versão nova.'),
   Rascunho: neutral('Ainda não foi publicado.'),
   Publicado: success('Os residentes escolhidos já podem ler.'),
-  Retirado: neutral('Não aparece mais para os residentes.'),
+  Retirado: neutral('Foi retirado e fica só para consulta.'),
+  // Termos de compromisso
+  'Termo valendo': success('O termo está em vigor.'),
+  'Termo anulado': neutral('O termo foi anulado.'),
 };
 
 /** Valor de `[attr.data-tone]` para o nome: null no neutro e no nome sem entrada (cinza). */

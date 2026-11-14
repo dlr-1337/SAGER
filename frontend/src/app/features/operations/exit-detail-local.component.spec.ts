@@ -233,6 +233,21 @@ describe('Detalhe da saída curta em passos', () => {
     expect(button(fixture, 'Recarregar dados')).toBeUndefined();
   });
 
+  it('"Rejeitar" confirma em uma frase, em vermelho, e a legenda das cores está no detalhe', async () => {
+    dialogResult = undefined;
+    const fixture = await create();
+    button(fixture, 'Rejeitar')!.click();
+    await fixture.whenStable();
+    expect(reviewData()).toMatchObject({
+      title: 'O pedido será rejeitado.',
+      action: 'Confirmar rejeição',
+      danger: true,
+    });
+    const legend = fixture.nativeElement.querySelector('sager-status-legend');
+    expect(legend.querySelector('summary').textContent).toBe('O que significa cada cor?');
+    expect(legend.querySelectorAll('dl > div')).toHaveLength(8);
+  });
+
   it('a volta pede que o supervisor veja o residente pessoalmente', async () => {
     api['exit'].mockResolvedValue(leaving());
     dialogResult = undefined;
