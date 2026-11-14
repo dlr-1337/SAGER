@@ -26,6 +26,8 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
+import { autoRefresh } from '../../core/auto-refresh';
+import { AutoRefreshStatusComponent } from '../../shared/auto-refresh-status.component';
 import { GuardianApiError, GuardianApiService, GuardianRecord } from './guardian-api.service';
 import { ManagementDemoService } from './management-demo.service';
 import { ResidentApiService, ResidentRecord } from './resident-api.service';
@@ -39,6 +41,7 @@ import { ResidentApiService, ResidentRecord } from './resident-api.service';
     FilterPanelComponent,
     ReactiveFormsModule,
     RouterLink,
+    AutoRefreshStatusComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -65,6 +68,7 @@ import { ResidentApiService, ResidentRecord } from './resident-api.service';
           >
         }
       </header>
+      <sager-auto-refresh-status [refresh]="refresh" />
       <sager-filter-panel
         heading="Buscar responsáveis"
         key="guardians"
@@ -347,11 +351,16 @@ export class GuardiansPage {
     this.page.set(page);
     if (!this.isDemo()) void this.load();
   }
-  async load(): Promise<void> {
+  readonly refresh = autoRefresh(() => this.load(true));
+  /** `silent`: atualização automática, mesma página e filtros, sem "Carregando"; a falha volta. */
+  async load(silent = false): Promise<void> {
     if (this.isDemo()) return;
+    if (silent && (this.loading() || this.loadError())) return;
     const generation = ++this.generation;
-    this.loading.set(true);
-    this.loadError.set(false);
+    if (!silent) {
+      this.loading.set(true);
+      this.loadError.set(false);
+    }
     try {
       const guardians = await this.api.page({
         search: this.search.value,
@@ -367,12 +376,14 @@ export class GuardiansPage {
       if (this.page() && this.page() * 25 >= guardians.total) {
         this.changePage(Math.max(0, Math.ceil(guardians.total / 25) - 1));
       }
-    } catch {
+    } catch (error) {
       if (this.destroyRef.destroyed || generation !== this.generation) return;
+      if (silent) throw error;
       this.localGuardians.set([]);
       this.loadError.set(true);
     } finally {
-      if (!this.destroyRef.destroyed && generation === this.generation) this.loading.set(false);
+      if (!silent && !this.destroyRef.destroyed && generation === this.generation)
+        this.loading.set(false);
     }
   }
 }
@@ -380,7 +391,7 @@ export class GuardiansPage {
 @Component({
   selector: 'app-guardian-detail',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, AutoRefreshStatusComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page mg-page mg-narrow">
@@ -425,6 +436,7 @@ export class GuardiansPage {
             >
           }
         </header>
+        <sager-auto-refresh-status [refresh]="refresh" />
         @if (saved()) {
           <p class="mg-success" role="status">
             <span class="material-symbols-rounded" aria-hidden="true">check_circle</span>
@@ -466,10 +478,7 @@ export class GuardiansPage {
         </section>
         <div class="mg-note">
           <span class="material-symbols-rounded" aria-hidden="true">info</span>
-          <p>
-            Este cadastro sozinho não autoriza saídas. Cada saída longa precisa da autorização do
-            responsável, conferida por um servidor.
-          </p>
+          <p>Cada saída longa precisa da autorização do responsável, conferida por um servidor.</p>
         </div>
       } @else {
         <section class="mg-empty" role="alert">
@@ -520,11 +529,16 @@ export class GuardianDetailPage {
       : 'Não autorizado nesta demonstração';
   }
 
-  async load(): Promise<void> {
+  readonly refresh = autoRefresh(() => this.load(true));
+  /** `silent`: atualização automática, sem "Carregando"; a falha volta para o aviso comum. */
+  async load(silent = false): Promise<void> {
     if (this.isDemo() || !this.canView()) return;
-    this.loading.set(true);
-    this.loadError.set('');
-    this.missing.set(false);
+    if (silent && (this.loading() || this.loadError())) return;
+    if (!silent) {
+      this.loading.set(true);
+      this.loadError.set('');
+      this.missing.set(false);
+    }
     try {
       const item = await this.api.get(this.id);
       const resident = await this.residentApi.get(item.residentId);
@@ -533,6 +547,7 @@ export class GuardianDetailPage {
       this.localResident.set(resident);
     } catch (error) {
       if (this.destroyRef.destroyed) return;
+      if (silent) throw error;
       this.localGuardian.set(null);
       this.localResident.set(null);
       this.missing.set(error instanceof GuardianApiError && error.status === 404);
@@ -542,7 +557,7 @@ export class GuardianDetailPage {
           : ERROR_GENERIC,
       );
     } finally {
-      if (!this.destroyRef.destroyed) this.loading.set(false);
+      if (!silent && !this.destroyRef.destroyed) this.loading.set(false);
     }
   }
 }

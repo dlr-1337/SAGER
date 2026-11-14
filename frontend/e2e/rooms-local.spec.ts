@@ -1,5 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { BrowserContext, expect, Page, test } from '@playwright/test';
+import { openMoreFilters } from './more-filters';
+import { expectShortGuidance } from './short-text';
 
 interface RoomRecord {
   id: string;
@@ -149,6 +151,7 @@ test('mapa corrige a página restaurada após a edição reduzir 26 quartos filt
   });
   const situation = page.getByRole('combobox', { name: 'Situação', exact: true });
   await search.fill('TESTE-Q');
+  await openMoreFilters(page);
   await situation.selectOption('Disponível');
   await expect(page.getByText('1–25 de 26', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Próxima', exact: true }).click();
@@ -168,6 +171,7 @@ test('mapa corrige a página restaurada após a edição reduzir 26 quartos filt
     page.getByRole('heading', { name: 'Nenhum quarto encontrado', exact: true }),
   ).toHaveCount(0);
   await expect(search).toHaveValue('TESTE-Q');
+  await openMoreFilters(page);
   await expect(situation).toHaveValue('Disponível');
   await expect(page.getByText('25 de 26 quartos', { exact: true })).toBeVisible();
 });
@@ -181,6 +185,7 @@ test('cadastro local preserva 01, nulos, capacidade editável e mapa após recar
   const writes = await mockRooms(context, records);
   await page.goto('/quartos');
   await expect(page.getByRole('heading', { name: 'Nenhum quarto cadastrado' })).toBeVisible();
+  await expectShortGuidance(page);
   await expect(page.locator('.mg-room-tile')).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Gerenciar alojamentos' })).toBeVisible();
   await page.getByRole('link', { name: 'Cadastrar quarto' }).click();
@@ -232,6 +237,7 @@ test('cadastro local preserva 01, nulos, capacidade editável e mapa após recar
   await expect(page.getByRole('heading', { name: 'Casa Fictícia', exact: true })).toBeFocused();
   await expect(page.getByText('Capacidade: 6 vagas', { exact: false })).toBeVisible();
   await expect(page.locator('.mg-room-tile')).toHaveCount(1);
+  await openMoreFilters(page);
   await page.getByRole('combobox', { name: 'Situação', exact: true }).selectOption('Manutenção');
   await expect(page.getByRole('heading', { name: 'Nenhum quarto encontrado' })).toBeVisible();
   await page.getByRole('button', { name: 'Limpar filtros' }).first().click();
@@ -393,7 +399,9 @@ test('demonstração de quartos funciona e mantém seus vínculos sem backend', 
   await page.getByRole('link', { name: 'Editar quarto' }).click();
   await page.getByRole('combobox', { name: 'Situação *' }).selectOption('Manutenção');
   await page.getByRole('button', { name: 'Salvar quarto' }).click();
-  await expect(page.getByRole('status')).toContainText('Quarto salvo nesta demonstração.');
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Quarto salvo nesta demonstração.' }),
+  ).toBeVisible();
   await expect(page.getByText('Ana Luísa Ribeiro')).toBeVisible();
   expect(roomCalls).toBe(0);
 });

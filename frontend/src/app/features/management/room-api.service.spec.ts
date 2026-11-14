@@ -275,4 +275,20 @@ describe('RoomApiService', () => {
     await service.map();
     expect(reads()).toBe(3);
   });
+
+  it('com a cópia guardada há 10 s, map(true) pede ao servidor e renova a cópia', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const fetchMock = vi.fn(async () => new Response(JSON.stringify(map)));
+      vi.stubGlobal('fetch', fetchMock);
+      const service = TestBed.inject(RoomApiService);
+      await service.map();
+      vi.setSystemTime(Date.now() + 10_000);
+      await service.map(true);
+      await service.map();
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

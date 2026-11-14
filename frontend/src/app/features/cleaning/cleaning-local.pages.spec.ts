@@ -1,14 +1,18 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, provideRouter } from '@angular/router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { FilterState } from '../../core/filter-state';
 import { HousingMap } from '../management/housing.models';
 import { ResidentApiService } from '../management/resident-api.service';
 import { RoomApiService } from '../management/room-api.service';
 import { CleaningLocalApiService } from './cleaning-local-api.service';
-import { CleaningListLocalPage } from './cleaning-local.pages';
+import {
+  CleaningDetailLocalPage,
+  CleaningListLocalPage,
+  RankingLocalPage,
+} from './cleaning-local.pages';
 
 const room = (id: string, code: string, accommodationId: string, unitId: string | null) => ({
   id,
@@ -293,5 +297,141 @@ describe('Filtro de alojamento na lista de limpeza', () => {
     expect(map).not.toHaveBeenCalled();
     expect(residents).not.toHaveBeenCalled();
     expect(list).not.toHaveBeenCalled();
+  });
+
+  it('tem uma só frase no cabeçalho', async () => {
+    const fixture = await create();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('header p')).toHaveLength(1);
+  });
+
+  it('mostra aos 15 s a avaliação nova na lista filtrada, sem passar por "Carregando"', async () => {
+    vi.useFakeTimers();
+    try {
+      list.mockResolvedValue({ items: [assessment('antiga')], nextCursor: null });
+      const fixture = TestBed.createComponent(CleaningListLocalPage);
+      const page = fixture.componentInstance;
+      page.filters.controls.accommodationId.setValue('a1');
+      await vi.advanceTimersByTimeAsync(300);
+      fixture.detectChanges();
+      const calls = list.mock.calls.length;
+      list.mockResolvedValue({
+        items: [assessment('nova'), assessment('antiga')],
+        nextCursor: null,
+      });
+      await vi.advanceTimersByTimeAsync(14_000);
+      expect(list).toHaveBeenCalledTimes(calls);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(page.list.loading()).toBe(false);
+      fixture.detectChanges();
+      expect(list).toHaveBeenCalledTimes(calls + 1);
+      expect(list).toHaveBeenLastCalledWith(
+        expect.objectContaining({ accommodationId: 'a1' }),
+        undefined,
+      );
+      expect(fixture.nativeElement.textContent).toContain('Quarto nova');
+      expect(page.filters.controls.accommodationId.value).toBe('a1');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+const assessment = (id: string) => ({
+  id,
+  roomCode: id,
+  assessmentDate: '2026-09-30',
+  evaluatedAt: '2026-09-30T16:00:00Z',
+  criteria: { PISO: 6, SUPERFICIES: 6, RESIDUOS: 6, ORGANIZACAO: 6 },
+  score: 6,
+  observation: null,
+  feedback: {
+    previousScore: null,
+    newScore: 6,
+    delta: null,
+    periodMean: 6,
+    position: 1,
+    rankingReference: 'MONTH',
+    from: '2026-09-01',
+    to: '2026-09-30',
+  },
+});
+
+describe('Detalhe e ranking da limpeza se atualizam sozinhos', () => {
+  let get: ReturnType<typeof vi.fn>;
+  let ranking: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    get = vi.fn().mockResolvedValue(assessment('A-101'));
+    ranking = vi.fn().mockResolvedValue({
+      period: 'MONTH',
+      from: '2026-09-01',
+      to: '2026-09-30',
+      items: [{ roomId: 'r1', roomCode: 'A-101', mean: 6, position: 1, assessmentCount: 1 }],
+    });
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              data: {},
+              paramMap: { get: () => 'avaliacao' },
+              queryParamMap: { get: () => null },
+            },
+          },
+        },
+        {
+          provide: DemoSessionService,
+          useValue: {
+            active: signal(false),
+            hasRole: (...roles: string[]) => roles.includes('gestor'),
+          },
+        },
+        {
+          provide: CleaningLocalApiService,
+          useValue: {
+            get,
+            ranking,
+            policy: vi.fn().mockResolvedValue({ currentDate: '2026-09-30' }),
+          },
+        },
+      ],
+    });
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('o detalhe mostra a correção aos 15 s e não tem "Atualizar dados"', async () => {
+    const fixture = TestBed.createComponent(CleaningDetailLocalPage);
+    await vi.advanceTimersByTimeAsync(0);
+    fixture.detectChanges();
+    const element: HTMLElement = fixture.nativeElement;
+    expect(element.textContent).toContain('Avaliação do quarto');
+    expect(element.textContent).not.toContain('Atualizar dados');
+    get.mockResolvedValue({ ...assessment('A-101'), score: 9.5 });
+    await vi.advanceTimersByTimeAsync(15_000);
+    fixture.detectChanges();
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(element.textContent).toContain('9,50');
+    expect(fixture.componentInstance.loading()).toBe(false);
+  });
+
+  it('o ranking reflete a correção aos 15 s no mesmo período', async () => {
+    const fixture = TestBed.createComponent(RankingLocalPage);
+    await vi.advanceTimersByTimeAsync(0);
+    fixture.detectChanges();
+    ranking.mockResolvedValue({
+      period: 'MONTH',
+      from: '2026-09-01',
+      to: '2026-09-30',
+      items: [{ roomId: 'r1', roomCode: 'A-101', mean: 8.25, position: 1, assessmentCount: 2 }],
+    });
+    fixture.componentInstance.form.controls.period.setValue('WEEK');
+    await vi.advanceTimersByTimeAsync(15_000);
+    fixture.detectChanges();
+    expect(ranking).toHaveBeenLastCalledWith('MONTH', '2026-09-30', false);
+    expect(fixture.nativeElement.textContent).toContain('8,25');
   });
 });
