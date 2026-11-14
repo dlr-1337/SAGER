@@ -1,9 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { resetSession } from '../../core/api';
+import { ACCOUNT_OPEN, SESSION_IDLE_MS, resetSession } from '../../core/api';
 import { DemoSessionService } from '../../core/demo-session.service';
-import { ACCOUNT_OPEN, LocalAuthService } from '../../core/local-auth.service';
+import { LocalAuthService } from '../../core/local-auth.service';
 import { DemoEntry } from './demo-entry.service';
 
 const principal = {
@@ -64,7 +64,7 @@ describe('DemoEntry', () => {
   });
 
   it('com conta aberta neste navegador e o servidor com erro, pede para tentar de novo', async () => {
-    localStorage.setItem(ACCOUNT_OPEN, '1');
+    localStorage.setItem(ACCOUNT_OPEN, String(Date.now()));
     const calls = server(async () => new Response(null, { status: 503 }));
     await entry.choose('supervisor');
     expect(session.active()).toBe(false);
@@ -72,6 +72,15 @@ describe('DemoEntry', () => {
     expect(entry.error()).toContain('tente de novo');
     expect(calls()).toEqual(['/api/v1/auth/me']);
     expect(entry.busy()).toBe(false);
+  });
+
+  it('com a chave mais velha que a sessão do servidor e sem resposta, entra', async () => {
+    localStorage.setItem(ACCOUNT_OPEN, String(Date.now() - SESSION_IDLE_MS - 1));
+    const calls = server(offline);
+    await entry.choose('gestor');
+    expect(session.active()).toBe(true);
+    expect(calls()).toEqual(['/api/v1/auth/me']);
+    expect(localStorage.getItem(ACCOUNT_OPEN)).toBeNull();
   });
 
   it('com a conta conhecida nesta aba e sem resposta, não entra', async () => {
@@ -84,7 +93,7 @@ describe('DemoEntry', () => {
   });
 
   it('com a sessão já encerrada no servidor, entra sem pedir a saída', async () => {
-    localStorage.setItem(ACCOUNT_OPEN, '1');
+    localStorage.setItem(ACCOUNT_OPEN, String(Date.now()));
     const calls = server(async () => new Response(null, { status: 401 }));
     await entry.choose('gestor');
     expect(session.active()).toBe(true);
@@ -93,7 +102,7 @@ describe('DemoEntry', () => {
   });
 
   it('com a conta aberta, sai antes de entrar', async () => {
-    localStorage.setItem(ACCOUNT_OPEN, '1');
+    localStorage.setItem(ACCOUNT_OPEN, String(Date.now()));
     const calls = server(async () => new Response(JSON.stringify(principal)));
     await entry.choose('gestor');
     expect(calls()).toEqual(['/api/v1/auth/me', '/api/v1/auth/csrf', '/api/v1/auth/logout']);

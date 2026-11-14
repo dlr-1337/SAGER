@@ -1,7 +1,7 @@
 import { FilterState } from './filter-state';
 import { Injectable, inject, signal } from '@angular/core';
 import type { Role } from './demo-session.service';
-import { api, resetSession } from './api';
+import { ACCOUNT_OPEN, SESSION_IDLE_MS, api, resetSession, touchAccount } from './api';
 
 export interface LocalPrincipal {
   id: string;
@@ -52,14 +52,11 @@ class NoSession extends Error {}
 
 /** Chave do localStorage que avisa as outras abas, que dividem o cookie, de uma entrada ou saída. */
 export const SESSION_SIGNAL = 'sager.session';
-/** Presente da entrada por login até a saída ou um 401: o cookie HttpOnly pode estar aberto. */
-export const ACCOUNT_OPEN = 'sager.account';
 
 function announce(open: boolean): void {
   try {
     localStorage.setItem(SESSION_SIGNAL, String(Date.now()));
-    if (open) localStorage.setItem(ACCOUNT_OPEN, '1');
-    else localStorage.removeItem(ACCOUNT_OPEN);
+    if (!open) localStorage.removeItem(ACCOUNT_OPEN);
   } catch {
     // Sem armazenamento, a repetição por CSRF ainda confere a conta (core/api.ts).
   }
@@ -106,14 +103,16 @@ export class LocalAuthService {
     return value;
   }
 
-  /** A conta é conhecida nesta aba ou entrou neste navegador e ainda não saiu. */
+  /** Conta conhecida nesta aba, ou que entrou neste navegador, não saiu e não expirou. */
   accountMayBeOpen(): boolean {
     if (this.principal()) return true;
     try {
-      return localStorage.getItem(ACCOUNT_OPEN) !== null;
+      if (Date.now() - Number(localStorage.getItem(ACCOUNT_OPEN)) < SESSION_IDLE_MS) return true;
+      localStorage.removeItem(ACCOUNT_OPEN);
     } catch {
-      return false;
+      // Sem armazenamento, vale só o principal desta aba.
     }
+    return false;
   }
 
   async login(matricula: string, password: string): Promise<'success' | 'invalid'> {
@@ -135,6 +134,8 @@ export class LocalAuthService {
       this.clearPrincipal();
       return 'invalid';
     }
+    // O cookie da conta já está aberto, mesmo que a consulta seguinte falhe.
+    touchAccount(true);
     // O servidor troca a sessão e o token CSRF ao entrar.
     resetSession();
     if (!(await this.refresh()))

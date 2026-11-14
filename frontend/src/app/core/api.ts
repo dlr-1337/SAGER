@@ -15,6 +15,10 @@ export interface ApiInit extends Omit<RequestInit, 'body' | 'headers'> {
 }
 
 const COPY_TTL_MS = 60_000;
+/** localStorage: hora da última resposta aceita de uma conta que entrou neste navegador. */
+export const ACCOUNT_OPEN = 'sager.account';
+/** A sessão do servidor expira depois de 30 minutos sem uso (SAGER_SESSION_TIMEOUT). */
+export const SESSION_IDLE_MS = 30 * 60_000;
 const genericError = () => new Error('Não deu certo. Verifique a internet e tente de novo.');
 
 let csrf: Promise<CsrfToken> | null = null;
@@ -90,7 +94,18 @@ export async function api(url: string, init: ApiInit = {}): Promise<Response> {
   // Um 409 diz que a aba está desatualizada: o "Recarregar dados" seguinte precisa ir ao servidor.
   if (write && (response.ok || response.status === 409)) copies.clear();
   if (!response.ok) throw await error(response);
+  touchAccount();
   return response;
+}
+
+/** Grava a hora em `ACCOUNT_OPEN`; sem `create`, só adia uma chave que já existe. */
+export function touchAccount(create = false): void {
+  try {
+    if (create || localStorage.getItem(ACCOUNT_OPEN) !== null)
+      localStorage.setItem(ACCOUNT_OPEN, String(Date.now()));
+  } catch {
+    // Sem armazenamento, vale só o principal da aba (core/local-auth.service.ts).
+  }
 }
 
 async function csrfToken(error: NonNullable<ApiInit['error']>): Promise<CsrfToken> {
