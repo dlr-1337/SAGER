@@ -659,6 +659,7 @@ test('correção motivada preserva instante e participantes, bloqueia versão al
 test('lista de limpeza filtra por alojamento com quarto dependente', async ({ page }) => {
   const state = await mockApi(page);
   await page.goto('/limpeza');
+  await expect(page.locator('sager-filter-panel summary')).toBeVisible();
   await expectShortGuidance(page);
   await openMoreFilters(page);
   const room = page.getByRole('combobox', { name: 'Quarto', exact: true });
@@ -689,6 +690,8 @@ test('lista de limpeza filtra por casa ou bloco, com opções distinguíveis e c
 }) => {
   const state = await mockApi(page);
   await page.goto('/limpeza');
+  // openMoreFilters não espera o painel aparecer: sem esta espera, não clica em nada.
+  await expect(page.locator('sager-filter-panel summary')).toBeVisible();
   await openMoreFilters(page);
   const accommodation = page.getByRole('combobox', { name: 'Alojamento', exact: true });
   const unit = page.getByRole('combobox', { name: 'Casa ou bloco', exact: true });

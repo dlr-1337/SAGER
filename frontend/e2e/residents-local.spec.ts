@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, Page, test } from '@playwright/test';
+import { expectShortGuidance } from './short-text';
 
 interface ResidentRecord {
   id: string;
@@ -135,6 +136,7 @@ test('cadastro local cria, consulta, busca e edita após recarga, sem dados inve
   await registry.attach(page);
   await page.goto('/residentes');
   await expect(page.getByRole('heading', { name: 'Nenhum residente cadastrado' })).toBeVisible();
+  await expectShortGuidance(page);
   await expect(page.getByText('Ana Luísa Ribeiro')).toHaveCount(0);
   await page.getByRole('link', { name: 'Cadastrar residente' }).click();
   await expect(page.getByRole('main')).not.toContainText(/fictíc|backend|ambiente local/i);
@@ -169,7 +171,7 @@ test('cadastro local cria, consulta, busca e edita após recarga, sem dados inve
   );
   await page.getByRole('button', { name: 'Salvar residente' }).click();
   await expect(page.getByRole('heading', { name: 'Estudante Sintético' })).toBeVisible();
-  await expect(page.getByRole('status')).toContainText('Cadastro salvo.');
+  await expect(page.getByRole('status').filter({ hasText: 'Cadastro salvo.' })).toBeVisible();
   await expect(page.getByText('Não informado')).toHaveCount(1);
   await expect(
     page.getByText('A ausência da data de nascimento não indica maioridade'),

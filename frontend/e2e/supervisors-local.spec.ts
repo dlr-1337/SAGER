@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, Page, test } from '@playwright/test';
+import { expectShortGuidance } from './short-text';
 
 interface SupervisorRecord {
   id: string;
@@ -55,6 +56,7 @@ test('gestor percorre todas as páginas dos 28 supervisores', async ({ page }) =
   await page.goto('/supervisores');
   const names = page.locator('article.mg-row h3');
   await expect(names).toHaveText(records.slice(0, 25).map((item) => item.name));
+  await expectShortGuidance(page);
   await expect(page.getByText('1–25 de 28', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Próxima', exact: true }).click();
   await expect(names).toHaveText(records.slice(25).map((item) => item.name));
@@ -96,7 +98,9 @@ test('demonstração funciona sem backend e usa apenas registros fictícios', as
   await page.getByLabel('Senha *', { exact: true }).fill(password);
   await page.getByLabel('Confirmar senha *', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Salvar supervisor' }).click();
-  await expect(page.getByRole('status')).toContainText('Supervisor salvo nesta demonstração.');
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Supervisor salvo nesta demonstração.' }),
+  ).toBeVisible();
   await expect(page.locator('dt', { hasText: /^Usuário$/ })).toBeVisible();
   await expect(page.locator('dt', { hasText: /matrícula|SIAPE/i })).toHaveCount(0);
 });
@@ -156,7 +160,7 @@ test('gestor usa API e persiste criação e edição após recarga', async ({ pa
   expect(writes).toEqual([]);
   await page.getByLabel('Confirmar senha *', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Salvar supervisor' }).click();
-  await expect(page.getByRole('status')).toContainText('Supervisor salvo.');
+  await expect(page.getByRole('status').filter({ hasText: 'Supervisor salvo.' })).toBeVisible();
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Supervisora Exemplo' })).toBeVisible();
   await page.getByRole('link', { name: 'Editar supervisor' }).click();
