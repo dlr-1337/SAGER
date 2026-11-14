@@ -80,10 +80,11 @@ describe('SupervisorFormComponent', () => {
 
   it('pede senha ao criar, explica o acesso e envia a senha à API', async () => {
     const { fixture, native, save } = await setup();
-    expect(native.textContent).toContain('Matrícula ou SIAPE (usada para entrar) *');
+    expect(native.textContent).toContain('Usuário (usado para entrar) *');
     expect(native.textContent).toContain(
-      'A pessoa entra no sistema com a matrícula ou SIAPE e a senha informadas aqui.',
+      'A pessoa entra no sistema com o usuário e a senha informados aqui.',
     );
+    expect(native.textContent).not.toMatch(/matrícula|SIAPE/i);
     expect(native.querySelectorAll('sager-password-field')).toHaveLength(2);
     fill(fixture);
     await fixture.componentInstance.save();
@@ -127,13 +128,13 @@ describe('SupervisorFormComponent', () => {
     );
   });
 
-  it('bloqueia senha fraca, igual à matrícula, diferente da confirmação e login com @', async () => {
+  it('bloqueia senha fraca, igual ao usuário, diferente da confirmação e login com @', async () => {
     const { fixture, native, save } = await setup();
     const form = fixture.componentInstance.form;
     for (const [id, value, message] of [
       ['TESTE-9', 'curta', 'A senha precisa ter pelo menos 8 letras ou números.'],
       ['TESTE-9', '12345678', 'Essa senha é fácil demais. Escolha outra.'],
-      ['TESTE-99', 'teste-99', 'A senha não pode ser igual à matrícula.'],
+      ['TESTE-99', 'teste-99', 'A senha não pode ser igual ao usuário.'],
     ]) {
       fill(fixture, value);
       form.controls.institutionalId.setValue(id);
