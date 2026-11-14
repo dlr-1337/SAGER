@@ -7,13 +7,18 @@ Oferecer uma página de ajuda acessível sem login, com perguntas frequentes sob
 
 ### Requirement: Ajuda sem login
 
-A página de ajuda SHALL abrir sem login e ter link na página de acesso. As perguntas frequentes SHALL explicar ao menos que o supervisor confirma o retorno, que a saída longa só é aprovada depois da autorização conferida e que notificação não vira advertência sozinha (RF026; cap. 4, requisito não funcional Ajuda).
+A página de ajuda SHALL abrir sem login e ter link na página de acesso. As perguntas frequentes SHALL explicar ao menos quando a saída começa, que o supervisor confirma o retorno, que a saída longa só é aprovada depois da autorização conferida e que notificação não vira advertência sozinha (RF026; cap. 4, requisito não funcional Ajuda).
 
 #### Scenario: Visitante sem conta
 
 - **GIVEN** um visitante sem sessão
 - **WHEN** ele abre a ajuda pelo link da página de acesso
 - **THEN** a ajuda aparece com as perguntas frequentes, sem pedir login
+
+#### Scenario: Quando a saída começa
+
+- **WHEN** um visitante abre a pergunta "Quando a saída começa?"
+- **THEN** ele lê que, no pedido para sair agora, a aprovação do supervisor já registra a saída e que, no pedido agendado, o supervisor registra a saída a partir do horário marcado
 
 ### Requirement: Guias do perfil em uso
 

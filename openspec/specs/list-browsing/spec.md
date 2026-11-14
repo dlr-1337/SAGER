@@ -7,7 +7,7 @@ Permitir que gestor, supervisor e residente filtrem e percorram listas longas no
 
 ### Requirement: Busca à vista e filtros extras recolhíveis
 
-No acesso por conta, cada lista com filtros SHALL ter um único painel de filtro, com a busca principal sempre visível e os demais filtros numa área recolhível "Mais filtros", aberta em telas com mais de 760 px e fechada no celular. Uma tela sem filtros além da busca mantém só a busca, sem área recolhível.
+No acesso por conta, cada lista com filtros SHALL ter um único painel de filtro, com a busca principal sempre visível e os demais filtros numa área recolhível "Mais filtros", que MUST começar fechada toda vez que a tela abre, em qualquer largura, e só abrir com o clique do usuário. Uma tela sem filtros além da busca mantém só a busca, sem área recolhível.
 
 #### Scenario: Celular
 
@@ -18,29 +18,19 @@ No acesso por conta, cada lista com filtros SHALL ter um único painel de filtro
 #### Scenario: Computador
 
 - **GIVEN** uma tela de 1280 px de largura
-- **WHEN** o gestor abre a lista de residentes pela primeira vez na sessão
-- **THEN** a área "Mais filtros" aparece aberta, com curso, alojamento, casa ou bloco, quarto e "Tem quarto?"
+- **WHEN** o gestor abre a lista de residentes
+- **THEN** a busca aparece e "Mais filtros" está fechado; depois do clique, aparecem curso, alojamento, casa ou bloco, quarto e "Tem quarto?"
 
 #### Scenario: Um único painel nas notificações
 
 - **WHEN** o supervisor abre as notificações
-- **THEN** há um só painel de filtro, com a busca visível e residente, situação, datas e categoria em "Mais filtros"
-
-### Requirement: Estado do painel lembrado por tela
-
-O painel SHALL lembrar, para cada tela, se o usuário deixou "Mais filtros" aberto ou fechado durante a sessão, sem afetar o painel das outras telas.
+- **THEN** há um só painel de filtro, com a busca visível e residente, situação, datas e categoria em "Mais filtros", fechado
 
 #### Scenario: Voltar do detalhe
 
-- **GIVEN** o supervisor fechou "Mais filtros" nas saídas, numa tela de computador
+- **GIVEN** o supervisor abriu "Mais filtros" nas saídas e escolheu a situação "Aprovada"
 - **WHEN** ele abre um pedido e volta à lista
-- **THEN** "Mais filtros" continua fechado
-
-#### Scenario: Outra tela
-
-- **GIVEN** "Mais filtros" fechado nas saídas, numa tela de computador
-- **WHEN** o supervisor abre as notificações pela primeira vez na sessão
-- **THEN** "Mais filtros" das notificações aparece aberto
+- **THEN** "Mais filtros" aparece fechado, e o filtro "Situação: Aprovada" continua à vista e aplicado
 
 ### Requirement: Filtros ativos sempre visíveis e removíveis
 
@@ -84,7 +74,7 @@ O painel de filtro MUST continuar na tela, com o foco e o valor digitado, enquan
 
 ### Requirement: Páginas de 25 que substituem a lista
 
-Listas longas, exceto a da chamada noturna, SHALL mostrar 25 itens por página, com Anterior e Próxima, e trocar de página MUST substituir os itens mostrados em vez de acrescentá-los ao fim. Só a lista de conversas, que se atualiza sozinha, mantém "Carregar mais".
+Listas longas, exceto a da chamada noturna, SHALL mostrar 25 itens por página, com Anterior e Próxima, e trocar de página MUST substituir os itens mostrados em vez de acrescentá-los ao fim. Só a lista de conversas mantém "Carregar mais".
 
 #### Scenario: Próxima página de avisos
 
