@@ -77,6 +77,10 @@ class LocalAccountLinksIntegrationTest {
     void cleanDatabase() {
         jdbc.update("DELETE FROM spring_session");
         jdbc.update("DELETE FROM sager_local_account");
+        jdbc.update("DELETE FROM sager_room_allocation");
+        jdbc.update("DELETE FROM sager_room");
+        jdbc.update("DELETE FROM sager_accommodation_unit");
+        jdbc.update("DELETE FROM sager_accommodation");
         jdbc.update("DELETE FROM sager_resident");
         jdbc.update("DELETE FROM sager_supervisor");
     }
@@ -147,6 +151,65 @@ class LocalAccountLinksIntegrationTest {
             login(loose, "loose@example.invalid");
             assertThat(me(loose).path("maiorDeIdade").isBoolean()).isTrue();
             assertThat(me(loose).path("maiorDeIdade").asBoolean()).isFalse();
+        }
+    }
+
+    @Test
+    void showsOnlyTheResidentsOwnCurrentRoomAndFollowsATransferInTheSameSession() throws Exception {
+        UUID record = resident("DEMO-ROOM");
+        String email = "quarto@example.invalid";
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(email), email, "Estudante Sintético",
+                "residente", PASSWORD.toCharArray());
+        command("link-resident", email, "--resident-id=" + record);
+        UUID accommodation = UUID.randomUUID();
+        UUID house = UUID.randomUUID();
+        UUID room43 = UUID.randomUUID();
+        UUID room44 = UUID.randomUUID();
+        jdbc.update("INSERT INTO sager_accommodation (id, code, name) VALUES (?, 'R2', 'Alojamento Sintético')",
+                accommodation);
+        jdbc.update("INSERT INTO sager_accommodation_unit (id, accommodation_id, code, name)"
+                + " VALUES (?, ?, 'C3', 'Casa 3')", house, accommodation);
+        jdbc.update("INSERT INTO sager_room (id, code, number, accommodation_id, unit_id, capacity, situation)"
+                + " VALUES (?, 'R2-C3-43', '43', ?, ?, 4, 'Disponível')", room43, accommodation, house);
+        jdbc.update("INSERT INTO sager_room (id, code, number, accommodation_id, capacity, situation)"
+                + " VALUES (?, 'R2-44', '44', ?, 4, 'Disponível')", room44, accommodation);
+        jdbc.update("INSERT INTO sager_room_allocation (id, resident_id, room_id) VALUES (?, ?, ?)",
+                UUID.randomUUID(), record, room43);
+        try (HttpClient client = browser()) {
+            login(client, email);
+            JsonNode room = me(client).path("quarto");
+            assertThat(room.path("alojamento").asText()).isEqualTo("R2");
+            assertThat(room.path("casa").asText()).isEqualTo("Casa 3");
+            assertThat(room.path("numero").asText()).isEqualTo("43");
+            assertThat(room.size()).isEqualTo(3);
+            jdbc.update("UPDATE sager_room_allocation SET ended_at = CURRENT_TIMESTAMP, end_reason = 'TRANSFER'"
+                    + " WHERE resident_id = ? AND ended_at IS NULL", record);
+            jdbc.update("INSERT INTO sager_room_allocation (id, resident_id, room_id) VALUES (?, ?, ?)",
+                    UUID.randomUUID(), record, room44);
+            room = me(client).path("quarto");
+            assertThat(room.path("alojamento").asText()).isEqualTo("R2");
+            assertThat(room.has("casa")).isTrue();
+            assertThat(room.path("casa").isNull()).isTrue();
+            assertThat(room.path("numero").asText()).isEqualTo("44");
+            jdbc.update("UPDATE sager_room_allocation SET ended_at = CURRENT_TIMESTAMP, end_reason = 'END'"
+                    + " WHERE resident_id = ? AND ended_at IS NULL", record);
+            JsonNode ended = me(client);
+            assertThat(ended.has("quarto")).isTrue();
+            assertThat(ended.path("quarto").isNull()).isTrue();
+            assertThat(get(client, "/api/v1/alocacoes").statusCode()).isEqualTo(403);
+            assertThat(get(client, "/api/v1/quartos").statusCode()).isEqualTo(403);
+        }
+    }
+
+    @Test
+    void staffAccountsHaveANullRoom() throws Exception {
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("equipe@example.invalid"),
+                "equipe@example.invalid", "Conta Sintética", "supervisor", PASSWORD.toCharArray());
+        try (HttpClient client = browser()) {
+            login(client, "equipe@example.invalid");
+            JsonNode me = me(client);
+            assertThat(me.has("quarto")).isTrue();
+            assertThat(me.path("quarto").isNull()).isTrue();
         }
     }
 

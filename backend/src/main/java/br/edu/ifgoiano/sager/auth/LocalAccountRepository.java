@@ -78,6 +78,21 @@ public class LocalAccountRepository {
                 .stream().findFirst().flatMap(value -> value);
     }
 
+    /** Room of the resident's active allocation, as shown on the resident's own profile. */
+    public Optional<CurrentRoom> currentRoom(UUID residentId) {
+        return jdbc.query("""
+                SELECT a.code, u.name, r.number FROM sager_room_allocation al
+                JOIN sager_room r ON r.id = al.room_id
+                JOIN sager_accommodation a ON a.id = r.accommodation_id
+                LEFT JOIN sager_accommodation_unit u ON u.id = r.unit_id
+                WHERE al.resident_id = ? AND al.ended_at IS NULL
+                """, (row, index) -> new CurrentRoom(row.getString(1), row.getString(2), row.getString(3)),
+                residentId).stream().findFirst();
+    }
+
+    public record CurrentRoom(String alojamento, String casa, String numero) {
+    }
+
     public Optional<LocalAccount> findByEmailForUpdate(String email) {
         return query("WHERE email = ? FOR UPDATE", email).stream().findFirst();
     }
