@@ -111,6 +111,7 @@ public class ResidentService {
         }
         Set<String> changed = new HashSet<>();
         if (!Objects.equals(current.name(), checked.name())) {
+            accounts.synchronizeResidentName(id, checked.name());
             changed.add("name");
         }
         if (!Objects.equals(current.enrollment(), checked.enrollment())) {

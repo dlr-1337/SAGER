@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { api, resetSession } from './api';
+import { ACCOUNT_OPEN, SESSION_IDLE_MS, api, resetSession } from './api';
 import { LocalAuthService, SESSION_SIGNAL } from './local-auth.service';
 
 const principal = {
@@ -15,7 +15,10 @@ const principal = {
 };
 
 describe('LocalAuthService', () => {
-  beforeEach(() => resetSession());
+  beforeEach(() => {
+    resetSession();
+    localStorage.clear();
+  });
   afterEach(() => vi.unstubAllGlobals());
 
   it('envia formulário com CSRF e aceita o perfil devolvido por /me', async () => {
@@ -156,8 +159,101 @@ describe('LocalAuthService', () => {
 
     expect(await auth.login(principal.matricula, 'senha de teste')).toBe('success');
     await auth.logout();
-    expect(setItem.mock.calls.map(([key]) => key)).toEqual([SESSION_SIGNAL, SESSION_SIGNAL]);
+    expect(setItem.mock.calls.map(([key]) => key)).toEqual([
+      ACCOUNT_OPEN,
+      SESSION_SIGNAL,
+      SESSION_SIGNAL,
+    ]);
     setItem.mockRestore();
+  });
+
+  it('marca a conta aberta do login até a saída', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) =>
+        url === '/api/v1/auth/csrf'
+          ? new Response(JSON.stringify({ headerName: 'X-CSRF-TOKEN', token: 't' }))
+          : new Response(url === '/api/v1/auth/me' ? JSON.stringify(principal) : null),
+      ),
+    );
+    const auth = TestBed.inject(LocalAuthService);
+    expect(auth.accountMayBeOpen()).toBe(false);
+
+    expect(await auth.login(principal.matricula, 'senha de teste')).toBe('success');
+    expect(localStorage.getItem(ACCOUNT_OPEN)).not.toBeNull();
+    auth.principal.set(null);
+    expect(auth.accountMayBeOpen()).toBe(true);
+    await auth.logout();
+    expect(localStorage.getItem(ACCOUNT_OPEN)).toBeNull();
+    expect(auth.accountMayBeOpen()).toBe(false);
+  });
+
+  it('marca a conta assim que o login é aceito, mesmo se a consulta seguinte falhar', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) =>
+        url === '/api/v1/auth/csrf'
+          ? new Response(JSON.stringify({ headerName: 'X-CSRF-TOKEN', token: 't' }))
+          : new Response(null, { status: url === '/api/v1/auth/me' ? 503 : 204 }),
+      ),
+    );
+    const auth = TestBed.inject(LocalAuthService);
+    await expect(auth.login(principal.matricula, 'senha de teste')).rejects.toThrow();
+    expect(auth.principal()).toBeNull();
+    expect(auth.accountMayBeOpen()).toBe(true);
+  });
+
+  it('a chave vale 30 minutos desde a última resposta aceita', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('{}')),
+    );
+    const auth = TestBed.inject(LocalAuthService);
+    await api('/api/v1/lista');
+    expect(localStorage.getItem(ACCOUNT_OPEN)).toBeNull();
+
+    const old = Date.now() - SESSION_IDLE_MS + 60_000;
+    localStorage.setItem(ACCOUNT_OPEN, String(old));
+    expect(auth.accountMayBeOpen()).toBe(true);
+    await api('/api/v1/lista');
+    expect(Number(localStorage.getItem(ACCOUNT_OPEN))).toBeGreaterThan(old);
+
+    localStorage.setItem(ACCOUNT_OPEN, String(Date.now() - SESSION_IDLE_MS - 1));
+    expect(auth.accountMayBeOpen()).toBe(false);
+    expect(localStorage.getItem(ACCOUNT_OPEN)).toBeNull();
+  });
+
+  it('só o 401 diz que não há sessão; sem resposta, a conta pode continuar aberta', async () => {
+    const auth = TestBed.inject(LocalAuthService);
+    const at = String(Date.now());
+    localStorage.setItem(ACCOUNT_OPEN, at);
+    auth.principal.set(principal);
+
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+    await expect(auth.current()).rejects.toThrow();
+    expect(auth.principal()).toEqual(principal);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 503 })));
+    await expect(auth.current()).rejects.toThrow();
+    expect(localStorage.getItem(ACCOUNT_OPEN)).toBe(at);
+    // refresh continua tratando qualquer falha como sessão ausente nesta aba.
+    expect(await auth.refresh()).toBeNull();
+    expect(auth.accountMayBeOpen()).toBe(true);
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 401 })));
+    expect(await auth.current()).toBeNull();
+    expect(localStorage.getItem(ACCOUNT_OPEN)).toBeNull();
+    expect(auth.accountMayBeOpen()).toBe(false);
+  });
+
+  it('sem armazenamento, só o principal da aba diz que a conta pode estar aberta', () => {
+    const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('bloqueado', 'SecurityError');
+    });
+    const auth = TestBed.inject(LocalAuthService);
+    expect(auth.accountMayBeOpen()).toBe(false);
+    auth.principal.set(principal);
+    expect(auth.accountMayBeOpen()).toBe(true);
+    getItem.mockRestore();
   });
 
   it('descarta o token CSRF ao entrar, ao sair e ao esquecer o usuário', async () => {

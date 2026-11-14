@@ -538,10 +538,13 @@ class ResidentApiIntegrationTest {
             assertThat(updated.statusCode()).isEqualTo(200);
             assertThat(json.readTree(updated.body()).path("name").asText()).isEqualTo("Nome Editado");
             assertThat(json.readTree(updated.body()).path("enrollment").asText()).isEqualTo("20261CADRES00001");
-            assertThat(provisioning.list()).contains(assigned);
+            var renamed = provisioning.list().stream().filter(a -> a.id().equals(assigned.id())).findFirst().orElseThrow();
+            assertThat(renamed.name()).isEqualTo("Nome Editado");
+            assertThat(renamed).usingRecursiveComparison().ignoringFields("name").isEqualTo(assigned);
             assertThat(auditRows(id).getLast().fields()).containsExactly("name");
             HttpResponse<String> me = get(resident, "/api/v1/auth/me");
             assertThat(me.statusCode()).isEqualTo(200);
+            assertThat(json.readTree(me.body()).path("nome").asText()).isEqualTo("Nome Editado");
             assertThat(json.readTree(me.body()).path("matricula").asText()).isEqualTo(assigned.enrollment());
             assertThat(json.readTree(me.body()).path("residenteId").asText()).isEqualTo(id.toString());
         }
@@ -573,7 +576,8 @@ class ResidentApiIntegrationTest {
                     body("Nome Editado", "20261NOVARES0001", BIRTH_DATE, null, 0), csrf(manager)).statusCode()).isEqualTo(200);
             var changed = provisioning.list().stream().filter(a -> a.id().equals(assigned.id())).findFirst().orElseThrow();
             assertThat(changed.enrollment()).isEqualTo("20261NOVARES0001");
-            assertThat(changed).usingRecursiveComparison().ignoringFields("enrollment").isEqualTo(assigned);
+            assertThat(changed.name()).isEqualTo("Nome Editado");
+            assertThat(changed).usingRecursiveComparison().ignoringFields("enrollment", "name").isEqualTo(assigned);
             assertThat(auditRows(id).getLast().fields()).containsExactlyInAnyOrder("name", "enrollment");
             assertThat(get(resident, "/api/v1/auth/me").statusCode()).isEqualTo(401);
             assertThat(form(resident, "/api/v1/auth/login", Map.of("matricula", assigned.enrollment(), "password", PASSWORD)).statusCode()).isEqualTo(401);
@@ -689,6 +693,9 @@ class ResidentApiIntegrationTest {
             var limited=form(visitor,"/api/v1/auth/recover",input);
             assertThat(limited.statusCode()).isEqualTo(429);
             assertThat(limited.headers().firstValue("Retry-After")).contains("900");
+            assertError(limited, 429, "rate_limited");
+            assertThat(json.readTree(limited.body()).path("requestId").asText())
+                    .isEqualTo(limited.headers().firstValue("X-Request-Id").orElseThrow());
             assertThat(limited.body()).doesNotContain("Pessoa Sintética", "gestor");
         }
     }
@@ -919,6 +926,8 @@ class ResidentApiIntegrationTest {
                     body("josé DA silva", "20261NOMERES0001", BIRTH_DATE, null, 0), csrf(manager));
             assertThat(updated.statusCode()).isEqualTo(200);
             assertThat(json.readTree(updated.body()).path("name").asText()).isEqualTo("José Da Silva");
+            assertThat(provisioning.list().stream().filter(a -> id.equals(a.residentId())).findFirst()
+                    .orElseThrow().name()).isEqualTo("José Da Silva");
         }
     }
 

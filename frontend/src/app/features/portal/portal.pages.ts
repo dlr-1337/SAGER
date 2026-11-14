@@ -1089,15 +1089,13 @@ export class HomePage {
               ><span>Entenda análise, autorização e retorno.</span></a
             >
           }
-          <a
-            [routerLink]="
-              session.role() === 'residente' || session.active()
-                ? '/avisos'
-                : '/comunicacoes/avisos'
-            "
-            ><span class="material-symbols-outlined" aria-hidden="true">campaign</span
-            ><strong>Comunicações</strong><span>Veja e confirme seus avisos.</span></a
-          >
+          <!-- A demonstração do supervisor não tem avisos (/comunicacoes/avisos fica fora dela). -->
+          @if (session.role() === 'residente' || !session.active()) {
+            <a [routerLink]="session.role() === 'residente' ? '/avisos' : '/comunicacoes/avisos'"
+              ><span class="material-symbols-outlined" aria-hidden="true">campaign</span
+              ><strong>Comunicações</strong><span>Veja e confirme seus avisos.</span></a
+            >
+          }
         }
         @if (session.hasRole('gestor', 'supervisor')) {
           <a routerLink="/relatorios"

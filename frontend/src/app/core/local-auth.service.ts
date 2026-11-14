@@ -1,7 +1,7 @@
 import { FilterState } from './filter-state';
 import { Injectable, inject, signal } from '@angular/core';
 import type { Role } from './demo-session.service';
-import { api, resetSession } from './api';
+import { ACCOUNT_OPEN, SESSION_IDLE_MS, api, resetSession, touchAccount } from './api';
 
 export interface LocalPrincipal {
   id: string;
@@ -48,13 +48,15 @@ function validPrincipal(value: unknown): value is LocalPrincipal {
 }
 
 class InvalidLogin extends Error {}
+class NoSession extends Error {}
 
 /** Chave do localStorage que avisa as outras abas, que dividem o cookie, de uma entrada ou saída. */
 export const SESSION_SIGNAL = 'sager.session';
 
-function announce(): void {
+function announce(open: boolean): void {
   try {
     localStorage.setItem(SESSION_SIGNAL, String(Date.now()));
+    if (!open) localStorage.removeItem(ACCOUNT_OPEN);
   } catch {
     // Sem armazenamento, a repetição por CSRF ainda confere a conta (core/api.ts).
   }
@@ -68,18 +70,49 @@ export class LocalAuthService {
 
   async refresh(): Promise<LocalPrincipal | null> {
     try {
-      const value: unknown = await (await api('/api/v1/auth/me')).json();
-      if (!validPrincipal(value)) {
-        this.clearPrincipal();
-        return null;
-      }
-      this.filters.setUser(value.id);
-      this.principal.set(value);
-      return value;
+      return await this.current();
     } catch {
       this.clearPrincipal();
       return null;
     }
+  }
+
+  /** Como refresh, mas lança quando o servidor não responde ou falha: aí a sessão pode existir. */
+  async current(): Promise<LocalPrincipal | null> {
+    let value: unknown = null;
+    try {
+      value = await (
+        await api('/api/v1/auth/me', {
+          error: (response) => (response.status === 401 ? new NoSession() : new Error()),
+        })
+      ).json();
+    } catch (error) {
+      if (!(error instanceof NoSession)) throw error;
+      try {
+        localStorage.removeItem(ACCOUNT_OPEN);
+      } catch {
+        // Sem armazenamento, vale só o principal desta aba.
+      }
+    }
+    if (!validPrincipal(value)) {
+      this.clearPrincipal();
+      return null;
+    }
+    this.filters.setUser(value.id);
+    this.principal.set(value);
+    return value;
+  }
+
+  /** Conta conhecida nesta aba, ou que entrou neste navegador, não saiu e não expirou. */
+  accountMayBeOpen(): boolean {
+    if (this.principal()) return true;
+    try {
+      if (Date.now() - Number(localStorage.getItem(ACCOUNT_OPEN)) < SESSION_IDLE_MS) return true;
+      localStorage.removeItem(ACCOUNT_OPEN);
+    } catch {
+      // Sem armazenamento, vale só o principal desta aba.
+    }
+    return false;
   }
 
   async login(matricula: string, password: string): Promise<'success' | 'invalid'> {
@@ -101,11 +134,13 @@ export class LocalAuthService {
       this.clearPrincipal();
       return 'invalid';
     }
+    // O cookie da conta já está aberto, mesmo que a consulta seguinte falhe.
+    touchAccount(true);
     // O servidor troca a sessão e o token CSRF ao entrar.
     resetSession();
     if (!(await this.refresh()))
       throw new Error('Não foi possível entrar. Verifique a internet e tente de novo.');
-    announce();
+    announce(true);
     return 'success';
   }
 
@@ -128,7 +163,7 @@ export class LocalAuthService {
       error: () => new Error('Não foi possível sair. Verifique a internet e tente de novo.'),
     });
     this.clearPrincipal();
-    announce();
+    announce(false);
   }
 
   clearPrincipal(): void {
