@@ -1131,7 +1131,8 @@ export class ConversationThreadComponent implements OnDestroy {
         },
         { injector: this.injector },
       );
-    if (added.some((message) => message.direction === 'IN')) void this.markRead();
+    // Read by the timer: the header keeps it from counting as the person's action (D11).
+    if (added.some((message) => message.direction === 'IN')) void this.markRead(true);
   }
   async loadOlder(): Promise<void> {
     const before = this.olderCursor();
@@ -1300,6 +1301,14 @@ export class ConversationThreadComponent implements OnDestroy {
       await this.api.link(message.id, exit);
       this.linking.set(null);
       this.linkDone.set({ residentName: exit.residentName });
+      // An older file may be outside the latest page that refresh() reloads.
+      this.merge([
+        {
+          ...message,
+          linkable: false,
+          linkedExit: { id: exit.id, residentName: exit.residentName, fileState: 'CANDIDATE' },
+        },
+      ]);
       await this.refresh().catch(() => undefined);
       // One way to the exit: the link in the file's bubble, not a second one in the notice.
       afterNextRender(() => document.getElementById(`conv-exit-${message.id}`)?.focus(), {
@@ -1324,10 +1333,10 @@ export class ConversationThreadComponent implements OnDestroy {
       this.linkError.set(failure(error, 'Não foi possível consultar as saídas abertas.'));
     }
   }
-  private async markRead(): Promise<void> {
+  private async markRead(automatic = false): Promise<void> {
     const id = this.id;
     try {
-      await this.api.markRead(id);
+      await this.api.markRead(id, automatic);
       this.page.markedRead(id);
     } catch {
       // Unread is a hint: the next message tries again.

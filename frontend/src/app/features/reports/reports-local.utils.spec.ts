@@ -169,6 +169,18 @@ describe('Consulta automática da lista', () => {
     await list.refresh();
     expect(list.error()).toContain('Sua conta não pode');
   });
+  it('com a consulta falhando e sem preparo, tenta de novo aos 15 s e não a cada 3 s', async () => {
+    vi.useFakeTimers();
+    const load = vi.fn().mockRejectedValue(new Error('rede'));
+    const list = polling(load);
+    await list.refresh();
+    await vi.advanceTimersByTimeAsync(12000);
+    expect(load).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(load).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(12000);
+    expect(load).toHaveBeenCalledTimes(2);
+  });
   it('na demonstração acompanha só o preparo simulado, sem a atualização automática', async () => {
     vi.useFakeTimers();
     const load = vi

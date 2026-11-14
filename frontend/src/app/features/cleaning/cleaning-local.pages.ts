@@ -534,7 +534,7 @@ export class CleaningDetailLocalPage {
   readonly decimal = decimal;
   readonly civil = formatCivilDate;
   readonly formatTime = formatCommunicationTime;
-  readonly refresh = autoRefresh(() => this.load(true));
+  readonly refresh = autoRefresh(() => this.load(true), { busy: () => this.loading() });
   private sequence = 0;
   constructor() {
     void this.load();
@@ -559,7 +559,10 @@ export class CleaningDetailLocalPage {
     }
     try {
       const item = this.own ? await this.api.own(this.id) : await this.api.get(this.id);
-      if (current === this.sequence) this.item.set(item);
+      if (current === this.sequence) {
+        this.item.set(item);
+        this.error.set('');
+      }
     } catch (error) {
       if (silent) throw error;
       if (current === this.sequence) this.error.set(reportingError(error));

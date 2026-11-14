@@ -518,6 +518,8 @@ export class NightCallLocalComponent {
   readonly tone = toneAttr;
   readonly legendNames = ['Aberta', 'Fechada', 'Pendente', ...Object.values(callMarkLabels)];
   private sequence = 0;
+  /** Chamada à vista: a atualização automática repete esta, não o que está nos campos. */
+  private shown: { accommodationId: string; date: string } | null = null;
   readonly refresh = autoRefresh(() => this.load(true), {
     busy: () => this.busy() || this.loading() || this.conflict(),
   });
@@ -559,9 +561,11 @@ export class NightCallLocalComponent {
   markLabel(row: CallResident): string {
     return row.mark ? this.labels[row.mark] : 'Pendente';
   }
-  /** `silent`: atualização automática; mantém alojamento, data, filtros e mensagens e lança a falha. */
+  /** `silent`: atualização automática; repete a chamada à vista, não mexe nos campos e lança a falha. */
   async load(silent = false): Promise<void> {
     if (!this.session.hasRole('supervisor') || (!silent && this.busy())) return;
+    const shown = this.shown;
+    if (silent && !shown) return;
     const seq = ++this.sequence;
     if (!silent) {
       this.loading.set(true);
@@ -572,17 +576,23 @@ export class NightCallLocalComponent {
       this.call.set(null);
     }
     try {
-      let context = await this.api.callContext(this.accommodation.value || undefined);
-      if (!this.accommodation.value && context.accommodations.length) {
+      let context = await this.api.callContext(
+        (silent ? shown!.accommodationId : this.accommodation.value) || undefined,
+      );
+      if (!silent && !this.accommodation.value && context.accommodations.length) {
         this.accommodation.setValue(context.accommodations[0].id);
         context = await this.api.callContext(this.accommodation.value);
       }
       if (seq !== this.sequence) return;
       this.context.set(context);
-      if (!this.date.value) this.date.setValue(context.referenceDate);
-      if (this.accommodation.value) {
+      if (!silent) {
+        if (!this.date.value) this.date.setValue(context.referenceDate);
+        this.shown = { accommodationId: this.accommodation.value, date: this.date.value };
+      }
+      const { accommodationId, date } = this.shown!;
+      if (accommodationId) {
         const [calls, housing] = await Promise.all([
-          this.api.calls(this.accommodation.value, this.date.value),
+          this.api.calls(accommodationId, date),
           this.roomApi.map().catch(() => null),
         ]);
         if (seq === this.sequence) {
@@ -802,7 +812,10 @@ export class NightCallLocalComponent {
     this.error.set('');
     this.success.set('');
     try {
-      this.call.set(await action());
+      const call = await action();
+      this.call.set(call);
+      // A chamada gravada é a que fica à vista, mesmo se os campos mostram outra data.
+      this.shown = { accommodationId: call.accommodationId, date: call.referenceDate };
       this.success.set(message);
     } catch (error) {
       // Este conflito diz qual residente corrigir; "outra pessoa alterou" esconderia a causa.

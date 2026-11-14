@@ -70,7 +70,8 @@ export class ReportListPolling {
   readonly auto = autoRefresh(() => this.tick(), { delayMs: POLL_INTERVAL });
   private timer?: ReturnType<typeof setTimeout>;
   private generation = 0;
-  private loadedAt = 0;
+  // Success or failure: a failing server is asked again only every 15 s, unless a file is preparing.
+  private triedAt = 0;
   private stopped = false;
   // Measured here because the browser clock may disagree with the server's createdAt.
   private firstSeen = new Map<string, number>();
@@ -90,7 +91,7 @@ export class ReportListPolling {
   }
   private async tick(): Promise<void> {
     const preparing = this.items().some(reportInProgress);
-    if (this.stopped || (!preparing && Date.now() - this.loadedAt < AUTO_REFRESH_MS)) return;
+    if (this.stopped || (!preparing && Date.now() - this.triedAt < AUTO_REFRESH_MS)) return;
     await this.fetch();
   }
   private async fetch(): Promise<void> {
@@ -100,11 +101,12 @@ export class ReportListPolling {
     try {
       items = await this.load();
     } catch (error) {
-      if (generation === this.generation) throw error;
-      return;
+      if (generation !== this.generation) return;
+      this.triedAt = Date.now();
+      throw error;
     }
     if (generation !== this.generation) return;
-    this.loadedAt = Date.now();
+    this.triedAt = Date.now();
     this.items.set(items);
     this.error.set('');
     this.trackSlow(items);
