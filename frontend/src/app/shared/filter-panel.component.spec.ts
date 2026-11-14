@@ -9,7 +9,6 @@ import { FilterChip, FilterPanelComponent } from './filter-panel.component';
   imports: [FilterPanelComponent],
   template: `<sager-filter-panel
     heading="Filtrar avaliações"
-    [key]="key"
     [chips]="chips()"
     (remove)="removed.push($event)"
     (clear)="cleared = cleared + 1"
@@ -22,18 +21,16 @@ import { FilterChip, FilterPanelComponent } from './filter-panel.component';
   </sager-filter-panel>`,
 })
 class HostComponent {
-  key = 'limpeza';
   readonly chips = signal<FilterChip[]>([]);
   readonly removed: string[] = [];
   cleared = 0;
 }
 
-function setup(width: number, key = 'limpeza') {
+function setup(width: number) {
   vi.stubGlobal('matchMedia', (query: string) => ({
     matches: query === '(min-width: 761px)' && width > 760,
   }));
   const fixture = TestBed.createComponent(HostComponent);
-  fixture.componentInstance.key = key;
   fixture.detectChanges();
   const element: HTMLElement = fixture.nativeElement;
   return { fixture, element, details: element.querySelector('details') as HTMLDetailsElement };
@@ -50,25 +47,20 @@ describe('Painel de filtro', () => {
     expect(details.querySelector('select')).not.toBeNull();
   });
 
-  it('abre no computador e fica fechado no celular', () => {
-    expect(setup(1280).details.open).toBe(true);
+  it('abre fechado no computador e no celular', () => {
+    expect(setup(1280).details.open).toBe(false);
     TestBed.resetTestingModule();
-    expect(setup(390, 'outra').details.open).toBe(false);
+    expect(setup(390).details.open).toBe(false);
   });
 
-  it('lembra por tela se o usuário fechou ou abriu a área', () => {
-    const { details } = setup(1280);
-    details.open = false;
+  it('volta fechado ao recriar a tela, sem gravar o estado do painel', () => {
+    const { fixture, details } = setup(1280);
+    details.open = true;
     details.dispatchEvent(new Event('toggle'));
-    const state = TestBed.inject(FilterState);
-    expect(state.values.get('filter-panel:limpeza')).toBe(false);
-    const again = TestBed.createComponent(HostComponent);
-    again.detectChanges();
-    expect((again.nativeElement as HTMLElement).querySelector('details')?.open).toBe(false);
-    const other = TestBed.createComponent(HostComponent);
-    other.componentInstance.key = 'saidas';
-    other.detectChanges();
-    expect((other.nativeElement as HTMLElement).querySelector('details')?.open).toBe(true);
+    fixture.destroy();
+    expect(setup(1280).details.open).toBe(false);
+    const keys = [...TestBed.inject(FilterState).values.keys()];
+    expect(keys.filter((key) => key.startsWith('filter-panel:'))).toEqual([]);
   });
 
   it('mostra os filtros ativos fora da área, remove um e limpa todos', () => {
