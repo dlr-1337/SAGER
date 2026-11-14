@@ -1106,7 +1106,11 @@ export class LongExitDetailComponent {
     const approve = decision === 'APPROVE';
     this.review(
       {
-        title: approve ? 'Revisar aprovação da saída longa' : 'O pedido será rejeitado.',
+        title: approve
+          ? leavesNow(exit)
+            ? 'A saída longa será aprovada e registrada agora.'
+            : 'A saída longa será aprovada.'
+          : 'O pedido será rejeitado.',
         action: approve
           ? leavesNow(exit)
             ? 'Aprovar e registrar a saída agora'
@@ -1155,7 +1159,7 @@ export class LongExitDetailComponent {
       return;
     this.review(
       {
-        title: 'Revisar reenvio do documento',
+        title: 'O documento será enviado de novo ao responsável.',
         action: 'Confirmar reenvio',
         warning: 'O novo envio substitui o anterior. Escreva a providência tomada.',
         lines: [
@@ -1193,7 +1197,7 @@ export class LongExitDetailComponent {
       }
       this.review(
         {
-          title: action === 'partida' ? 'Conferir saída' : 'Conferir volta',
+          title: action === 'partida' ? 'A saída será registrada.' : 'A volta será registrada.',
           action: action === 'partida' ? 'Confirmar saída' : 'Confirmar volta',
           warning:
             action === 'partida'

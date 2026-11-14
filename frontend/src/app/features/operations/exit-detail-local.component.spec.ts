@@ -200,6 +200,7 @@ describe('Detalhe da saída curta em passos', () => {
     button(fixture, 'Aprovar')!.click();
     await fixture.whenStable();
     const data: LocalReviewData = reviewData();
+    expect(data.title).toBe('A saída será aprovada e registrada agora.');
     expect(data.action).toBe('Aprovar e registrar a saída agora');
     expect(api['decideExit']).toHaveBeenCalledWith(expect.anything(), 'APPROVE', '');
     expect(text(fixture)).toContain('Aprovação e saída registradas.');
@@ -217,7 +218,10 @@ describe('Detalhe da saída curta em passos', () => {
     const fixture = await create();
     button(fixture, 'Aprovar')!.click();
     await fixture.whenStable();
-    expect(reviewData().action).toBe('Confirmar aprovação');
+    expect(reviewData()).toMatchObject({
+      title: 'A saída será aprovada.',
+      action: 'Confirmar aprovação',
+    });
     expect(text(fixture)).toContain('Aprovação registrada.');
   });
 
@@ -254,6 +258,7 @@ describe('Detalhe da saída curta em passos', () => {
     const fixture = await create();
     button(fixture, 'Registrar volta')!.click();
     await fixture.whenStable();
+    expect(reviewData().title).toBe('A volta será registrada.');
     expect(reviewData().warning).toBe('Veja o residente pessoalmente antes de confirmar a volta.');
   });
 

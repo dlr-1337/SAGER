@@ -509,7 +509,7 @@ export class NoticeFormLocalPage {
         CommunicationReviewDialogComponent,
         {
           data: {
-            title: 'Revisar rascunho do aviso',
+            title: 'O rascunho do aviso será salvo.',
             action: 'Salvar rascunho',
             lines: [
               { label: 'Título', value: input.title },
@@ -770,7 +770,7 @@ export class NoticeDetailLocalPage {
     if (!item || item.status !== 'RASCUNHO' || !(await this.fresh(item))) return;
     this.review(
       {
-        title: 'Revisar publicação do aviso',
+        title: 'O aviso será publicado.',
         action: 'Confirmar publicação',
         warning: 'Os residentes escolhidos passam a ver o aviso.',
         lines: this.summary(item),
@@ -798,7 +798,7 @@ export class NoticeDetailLocalPage {
     if (!(await this.fresh(item))) return;
     this.review(
       {
-        title: 'Conferir correção do aviso',
+        title: 'A correção do aviso será publicada.',
         action: 'Publicar correção',
         warning: 'As mesmas pessoas recebem a correção, e o texto anterior fica guardado.',
         lines: this.summary({ ...item, ...input }),
@@ -823,7 +823,7 @@ export class NoticeDetailLocalPage {
     if (!item || item.status !== 'PUBLICADO' || this.busy() || this.conflict()) return;
     this.review(
       {
-        title: 'Revisar retirada do aviso',
+        title: 'O aviso será retirado.',
         action: 'Confirmar retirada',
         requireReason: true,
         warning: 'O aviso deixa de valer, e a leitura e a ciência anteriores ficam guardadas.',

@@ -87,6 +87,7 @@ public class LocalAccountStatusFilter extends OncePerRequestFilter {
     private static boolean loadedByImage(HttpServletRequest request) {
         String path = request.getServletPath();
         return "GET".equals(request.getMethod()) && (path.equals("/api/v1/conversas/sessao/qr")
-                || path.startsWith("/api/v1/conversas/mensagens/") && path.endsWith("/midia"));
+                || path.startsWith("/api/v1/conversas/mensagens/") && path.endsWith("/midia")
+                || path.startsWith("/api/v1/saidas-longas/") && path.contains("/autorizacao/arquivos/"));
     }
 }

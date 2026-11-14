@@ -375,7 +375,10 @@ describe('Detalhe da saída longa em passos', () => {
     const fixture = await create();
     button(fixture, 'Aprovar saída')!.click();
     await fixture.whenStable();
-    expect(reviewData().action).toBe('Aprovar e registrar a saída agora');
+    expect(reviewData()).toMatchObject({
+      title: 'A saída longa será aprovada e registrada agora.',
+      action: 'Aprovar e registrar a saída agora',
+    });
     expect(step(fixture).textContent).toContain('Aprovação e saída registradas.');
     expect(actions(fixture)).toEqual(['Registrar volta']);
   });

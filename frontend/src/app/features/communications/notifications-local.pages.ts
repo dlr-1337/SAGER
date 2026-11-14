@@ -454,7 +454,7 @@ export class NotificationDetailLocalPage {
       if (!item.requiresReview || !item.valid) return;
       this.review(
         {
-          title: 'Conferir registro corrigido',
+          title: 'O registro atual será confirmado como válido.',
           action: 'Confirmar registro atual',
           lines: this.summary(item),
           requireReason: true,
@@ -484,7 +484,7 @@ export class NotificationDetailLocalPage {
     if (!item || this.terminal(item) || this.busy() || this.conflict()) return;
     this.review(
       {
-        title: 'Conferir antes de arquivar',
+        title: 'A notificação será arquivada.',
         action: 'Confirmar arquivamento',
         lines: this.summary(item),
         requireReason: true,
@@ -547,7 +547,7 @@ export class NotificationDetailLocalPage {
       }
       this.review(
         {
-          title: 'Conferir advertência',
+          title: 'A advertência será criada.',
           action: 'Criar advertência',
           lines: [
             ...this.summary(item),

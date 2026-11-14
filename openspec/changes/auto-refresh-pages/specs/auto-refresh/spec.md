@@ -105,7 +105,7 @@ A atualização automática MUST NOT manter a sessão viva. A sessão SHALL term
 
 ### Requirement: Imagens carregadas pelo navegador
 
-Imagens que o navegador carrega sozinho, como o QR do WhatsApp e as fotos da conversa, MUST NOT contar como ação da pessoa ao medir os 30 minutos.
+Imagens que o navegador carrega sozinho, como o QR do WhatsApp, as fotos da conversa e a prévia da autorização da saída longa, MUST NOT contar como ação da pessoa ao medir os 30 minutos.
 
 #### Scenario: QR trocado sozinho
 
@@ -115,7 +115,7 @@ Imagens que o navegador carrega sozinho, como o QR do WhatsApp e as fotos da con
 
 ### Requirement: Novo acesso depois da sessão encerrada
 
-O pedido de proteção do login e a recuperação de senha MUST seguir sem a sessão encerrada, em vez de recusá-los, para que o login seguinte entre na primeira tentativa.
+O pedido de proteção do login e a recuperação de senha MUST seguir sem a sessão encerrada, por inatividade ou porque a conta deixou de valer, em vez de recusá-los, para que o login seguinte entre na primeira tentativa.
 
 #### Scenario: Login depois da sessão encerrada
 

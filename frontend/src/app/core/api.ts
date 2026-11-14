@@ -55,8 +55,8 @@ export function cached<T>(key: string, loader: () => Promise<T>, fresh = false):
  * Marca as consultas feitas durante `work` como automáticas: levam `X-Sager-Auto-Refresh: 1`, que o
  * servidor não conta como ação da pessoa, e não adiam `ACCOUNT_OPEN` (auto-refresh, design D11).
  * shortcut: a marca vale para a aba inteira enquanto `work` roda, então um clique que consulta ao
- * mesmo tempo também sai marcado e não renova a sessão (erra para o lado de encerrar antes; gravações
- * nunca saem marcadas); passar o cabeçalho por serviço, ou usar AsyncContext quando os navegadores
+ * mesmo tempo também sai marcado e não renova a sessão (erra para o lado de encerrar antes; gravações só
+ * saem marcadas quando o serviço passa o cabeçalho, como a leitura da conversa); passar o cabeçalho por serviço, ou usar AsyncContext quando os navegadores
  * tiverem, se isso incomodar.
  */
 export async function asAutoRefresh<T>(work: () => Promise<T>): Promise<T> {
@@ -72,8 +72,9 @@ export async function api(url: string, init: ApiInit = {}): Promise<Response> {
   const { body, headers: extra, error = genericError, ...rest } = init;
   const method = (rest.method ?? 'GET').toUpperCase();
   const write = method !== 'GET' && method !== 'HEAD';
-  // Gravar é sempre ação da pessoa, mesmo durante uma consulta automática.
-  const automatic = autoRefreshing > 0 && !write;
+  // Gravar é ação da pessoa, mesmo durante uma consulta automática, salvo se o serviço marcar a
+  // gravação como automática no cabeçalho (leitura da conversa pela atualização).
+  const automatic = (autoRefreshing > 0 && !write) || extra?.['X-Sager-Auto-Refresh'] === '1';
   const raw =
     body === undefined ||
     typeof body === 'string' ||

@@ -323,7 +323,7 @@ export class WarningFormLocalPage {
           CommunicationReviewResult
         >(CommunicationReviewDialogComponent, {
           data: {
-            title: 'Revisar advertência manual',
+            title: 'A advertência será emitida.',
             action: 'Confirmar emissão da advertência',
             warning: 'O residente recebe a advertência, e o texto não pode mais ser mudado.',
             lines: [
@@ -569,7 +569,7 @@ export class WarningDetailLocalPage {
         CommunicationReviewDialogComponent,
         {
           data: {
-            title: 'Revisar anulação da advertência',
+            title: 'A advertência será anulada.',
             action: 'Confirmar anulação',
             warning: 'O texto e a ciência ficam guardados, e a advertência sai da reincidência.',
             requireReason: true,

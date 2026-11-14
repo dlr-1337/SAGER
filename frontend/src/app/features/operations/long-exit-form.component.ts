@@ -97,7 +97,7 @@ import { guardianBlocker, longExitFormError, longPeriodError } from './long-exit
               {{ resident.roomNumber }}
             </p>
             <p class="op-help">
-              Saída longa: mais de 3 horas. Seu responsável precisa autorizar antes de o supervisor
+              Seu responsável precisa autorizar esta saída de mais de 3 horas antes de o supervisor
               aprovar.
             </p>
             <div class="op-form-grid">

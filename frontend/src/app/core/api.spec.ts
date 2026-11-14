@@ -196,6 +196,20 @@ describe('api', () => {
     localStorage.removeItem(ACCOUNT_OPEN);
   });
 
+  it('gravação marcada como automática pelo serviço não adia ACCOUNT_OPEN', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(3000);
+    localStorage.setItem(ACCOUNT_OPEN, '1');
+    fetchMock.mockImplementation(async (url: string) =>
+      url === '/api/v1/auth/csrf' ? token() : json({}),
+    );
+    const url = '/api/v1/conversas/1/leitura';
+    await api(url, { method: 'POST', headers: { 'X-Sager-Auto-Refresh': '1' } });
+    expect(localStorage.getItem(ACCOUNT_OPEN)).toBe('1');
+    await api(url, { method: 'POST' });
+    expect(localStorage.getItem(ACCOUNT_OPEN)).toBe('3000');
+    localStorage.removeItem(ACCOUNT_OPEN);
+  });
+
   describe('cached', () => {
     let now = 1_000_000;
     beforeEach(() => {

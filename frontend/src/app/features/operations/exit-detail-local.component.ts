@@ -422,7 +422,11 @@ export class ExitDetailLocalComponent {
     const approve = decision === 'APPROVE';
     this.review(
       {
-        title: approve ? 'Revisar aprovação' : 'O pedido será rejeitado.',
+        title: approve
+          ? leavesNow(exit)
+            ? 'A saída será aprovada e registrada agora.'
+            : 'A saída será aprovada.'
+          : 'O pedido será rejeitado.',
         action: approve
           ? leavesNow(exit)
             ? 'Aprovar e registrar a saída agora'
@@ -485,7 +489,7 @@ export class ExitDetailLocalComponent {
       }
       this.review(
         {
-          title: action === 'partida' ? 'Conferir saída' : 'Conferir volta',
+          title: action === 'partida' ? 'A saída será registrada.' : 'A volta será registrada.',
           action: action === 'partida' ? 'Confirmar saída' : 'Confirmar volta',
           lines: this.summary(exit),
           warning:

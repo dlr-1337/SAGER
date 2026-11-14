@@ -561,11 +561,14 @@ export class NightCallLocalComponent {
   markLabel(row: CallResident): string {
     return row.mark ? this.labels[row.mark] : 'Pendente';
   }
-  /** `silent`: atualização automática; repete a chamada à vista, não mexe nos campos e lança a falha. */
+  /**
+   * `silent`: atualização automática; repete a chamada à vista, não mexe nos campos e lança a falha.
+   * Sem chamada à vista (a primeira carga falhou), repete a carga inicial: os campos ainda nem
+   * apareceram, então só os vazios recebem alojamento e data, como na primeira vez.
+   */
   async load(silent = false): Promise<void> {
     if (!this.session.hasRole('supervisor') || (!silent && this.busy())) return;
-    const shown = this.shown;
-    if (silent && !shown) return;
+    const shown = silent ? this.shown : null;
     const seq = ++this.sequence;
     if (!silent) {
       this.loading.set(true);
@@ -577,20 +580,21 @@ export class NightCallLocalComponent {
     }
     try {
       let context = await this.api.callContext(
-        (silent ? shown!.accommodationId : this.accommodation.value) || undefined,
+        (shown ? shown.accommodationId : this.accommodation.value) || undefined,
       );
-      if (!silent && !this.accommodation.value && context.accommodations.length) {
+      if (!shown && !this.accommodation.value && context.accommodations.length) {
         this.accommodation.setValue(context.accommodations[0].id);
         context = await this.api.callContext(this.accommodation.value);
       }
       if (seq !== this.sequence) return;
       this.context.set(context);
-      if (!silent) {
+      if (!shown) {
         if (!this.date.value) this.date.setValue(context.referenceDate);
         this.shown = { accommodationId: this.accommodation.value, date: this.date.value };
       }
       const { accommodationId, date } = this.shown!;
-      if (accommodationId) {
+      if (!accommodationId) this.loadError.set('');
+      else {
         const [calls, housing] = await Promise.all([
           this.api.calls(accommodationId, date),
           this.roomApi.map().catch(() => null),
@@ -647,7 +651,7 @@ export class NightCallLocalComponent {
       }
       this.review(
         {
-          title: 'Conferir antes de abrir a chamada',
+          title: 'A chamada será aberta.',
           action: 'Abrir chamada',
           lines: [
             {
@@ -741,7 +745,7 @@ export class NightCallLocalComponent {
       this.context.set(context);
       this.review(
         {
-          title: 'Conferir antes de fechar a chamada',
+          title: 'A chamada será fechada.',
           action: 'Fechar chamada',
           lines: [
             { label: 'Data', value: formatCivilDate(call.referenceDate) },

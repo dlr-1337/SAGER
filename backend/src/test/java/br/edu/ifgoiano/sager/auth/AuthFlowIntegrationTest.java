@@ -211,6 +211,16 @@ class AuthFlowIntegrationTest {
             assertThat(login(client, email, PASSWORD, csrfToken(client)).statusCode()).isEqualTo(204);
             assertThat(get(client, "/api/v1/auth/me").statusCode()).isEqualTo(200);
         }
+        clock.value = START;
+        try (HttpClient client = browser()) {
+            assertThat(login(client, email, PASSWORD, csrfToken(client)).statusCode()).isEqualTo(204);
+            String token = csrfToken(client);
+            clock.value = START.plus(Duration.ofMinutes(31));
+            // Reaches the recovery's own validation (400) instead of the idle session's 401.
+            assertThat(post(client, "/api/v1/auth/recover",
+                    "matricula=1&name=x&birthDate=x&password=x&passwordConfirmation=x", token).statusCode())
+                    .isEqualTo(400);
+        }
     }
 
     @Test
@@ -224,6 +234,8 @@ class AuthFlowIntegrationTest {
             assertThat(get(client, "/api/v1/conversas/sessao/qr").statusCode()).isNotEqualTo(401);
             assertThat(get(client, "/api/v1/conversas/mensagens/" + UUID.randomUUID() + "/midia")
                     .statusCode()).isNotEqualTo(401);
+            assertThat(get(client, "/api/v1/saidas-longas/" + UUID.randomUUID() + "/autorizacao/arquivos/"
+                    + UUID.randomUUID()).statusCode()).isNotEqualTo(401);
             clock.value = START.plus(Duration.ofMinutes(31));
             assertThat(automatic(client, "/api/v1/auth/me").statusCode()).isEqualTo(401);
         }

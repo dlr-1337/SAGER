@@ -318,7 +318,7 @@ export class RecurrenceLocalPage {
           CommunicationReviewResult
         >(CommunicationReviewDialogComponent, {
           data: {
-            title: 'Conferir termo de compromisso',
+            title: 'O termo de compromisso será emitido.',
             action: 'Confirmar emissão do termo',
             warning: 'O residente recebe o termo, e o texto e o PDF não podem mais ser mudados.',
             confirmation: 'Conferi as origens distintas, a categoria e a decisão sobre esta base.',
@@ -549,7 +549,7 @@ export class TermDetailLocalPage implements OnDestroy {
         CommunicationReviewDialogComponent,
         {
           data: {
-            title: 'Revisar anulação do termo',
+            title: 'O termo será anulado.',
             action: 'Confirmar anulação do termo',
             requireReason: true,
             warning: 'A decisão, a base, o PDF e a ciência ficam guardados no histórico.',

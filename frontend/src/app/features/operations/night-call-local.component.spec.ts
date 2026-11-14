@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MatDialog } from '@angular/material/dialog';
 import { provideRouter } from '@angular/router';
-import { of } from 'rxjs';
+import { Subject, of } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { FilterState } from '../../core/filter-state';
@@ -11,6 +11,7 @@ import { RoomApiService } from '../management/room-api.service';
 import { NightCallLocalComponent } from './night-call-local.component';
 import { OperationsLocalApiService } from './operations-local-api.service';
 import { CallMark, NightCall } from './operations-local.models';
+import { LocalReviewResult } from './review-dialog-local.component';
 
 const room = (id: string, code: string, unitId: string | null) => ({
   id,
@@ -435,6 +436,50 @@ describe('Filtros de casa ou bloco e quarto na chamada noturna', () => {
       expect(calls).toHaveBeenCalledTimes(before + 2);
       expect(calls).toHaveBeenLastCalledWith('a1', '2026-09-30');
       expect(component.date.value).toBe('');
+    });
+
+    it('se a primeira carga falha, a atualização tenta de novo e mostra a chamada', async () => {
+      const context = vi.mocked(TestBed.inject(OperationsLocalApiService).callContext);
+      context.mockRejectedValueOnce(new Error('Falha sintética de rede'));
+      const fixture = TestBed.createComponent(NightCallLocalComponent);
+      await settle(fixture);
+      const component = fixture.componentInstance;
+      expect(component.loadError()).not.toBe('');
+      expect(component.call()).toBeNull();
+      await settle(fixture, 15_000);
+      expect(component.loadError()).toBe('');
+      expect(component.call()?.id).toBe('c1');
+      expect(component.accommodation.value).toBe('a1');
+      expect(component.date.value).toBe('2026-09-30');
+      expect(fixture.nativeElement.textContent).not.toContain('Não foi possível carregar');
+    });
+
+    it('depois de abrir a chamada, repete a chamada aberta e não a data vista antes', async () => {
+      const closed = new Subject<LocalReviewResult>();
+      TestBed.overrideProvider(MatDialog, {
+        useValue: { open: () => ({ afterClosed: () => closed }), openDialogs: [] },
+      });
+      const fixture = TestBed.createComponent(NightCallLocalComponent);
+      await settle(fixture);
+      const component = fixture.componentInstance;
+      const api = TestBed.inject(OperationsLocalApiService);
+      calls.mockResolvedValue([]);
+      component.date.setValue('2026-09-29');
+      await component.load(); // "Ver chamada": a de 29/09 ainda não existe.
+      vi.mocked(api.callContext).mockResolvedValue({
+        ...(await api.callContext('a1')),
+        existingCallId: null,
+      });
+      Object.assign(api, { openCall: vi.fn().mockResolvedValue(structuredClone(call)) });
+      component.date.setValue('2026-09-30');
+      await component.open();
+      closed.next({ reason: '', confirmed: false });
+      await settle(fixture);
+      expect(component.call()?.id).toBe('c1');
+      calls.mockResolvedValue([structuredClone(marked)]);
+      await settle(fixture, 15_000);
+      expect(calls).toHaveBeenLastCalledWith('a1', '2026-09-30');
+      expect(component.call()?.version).toBe(1);
     });
 
     it('pula o ciclo enquanto uma marcação grava e consulta no seguinte', async () => {
