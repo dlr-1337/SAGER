@@ -1,7 +1,7 @@
 # access-control Specification
 
 ## Purpose
-Definir como as pessoas entram no SAGER com matrícula e senha, como a sessão é mantida no servidor e o que cada um dos três perfis (gestor, supervisor e residente) pode fazer, com a autorização sempre aplicada pelo servidor.
+Definir como as pessoas entram no SAGER com usuário e senha (o residente usa a matrícula), como a sessão é mantida no servidor e o que cada um dos três perfis (gestor, supervisor e residente) pode fazer, com a autorização sempre aplicada pelo servidor.
 
 ## Requirements
 

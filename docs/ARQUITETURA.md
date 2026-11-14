@@ -45,7 +45,7 @@ As rotas ficam em `frontend/src/app/app.routes.ts`. Os testes unitários ficam a
 | --- | --- |
 | `api` | Erros comuns, filtros de lista, relógio das operações e OpenAPI. |
 | `audit` | Correlação por requisição, gravação e consulta da auditoria. |
-| `auth` | Contas, login por matrícula, sessão, CSRF, limite de tentativas, recuperação e comandos de conta. |
+| `auth` | Contas, login por usuário, sessão, CSRF, limite de tentativas, recuperação e comandos de conta. |
 | `cleaning` | Avaliações de limpeza, correções, indicadores e ranking. |
 | `communications` | Avisos versionados, leitura e ciência. |
 | `conversations` | Conversas do supervisor com responsáveis pelo WhatsApp. |
@@ -70,7 +70,7 @@ As migrações ficam em `backend/src/main/resources/db/migration/` e os testes e
 
 ## Segurança
 
-- **Contas e login.** Login por matrícula e senha. Não há cadastro público: o operador cria pelo terminal só as contas de gestor, e o cadastro de residente ou de supervisor cria a conta vinculada na mesma transação. A senha tem pelo menos 8 caracteres e até 72 bytes; sequências, repetições, senhas comuns e a própria matrícula são recusadas. A recuperação do residente confere nome, nascimento e nome de um responsável ativo, quando houver. A dos servidores é administrativa.
+- **Contas e login.** Login por usuário e senha; o usuário do residente é a matrícula, e o de gestor e supervisor é o identificador definido no cadastro ou pelo operador (o parâmetro da API continua `matricula`). Não há cadastro público: o operador cria pelo terminal só as contas de gestor, e o cadastro de residente ou de supervisor cria a conta vinculada na mesma transação. A senha tem pelo menos 8 caracteres e até 72 bytes; sequências, repetições, senhas comuns e o próprio usuário são recusados. A recuperação do residente confere nome, nascimento e nome de um responsável ativo, quando houver. A dos servidores é administrativa.
 - **Sessão.** A sessão fica no PostgreSQL (Spring Session JDBC) e expira após 30 minutos sem uso. O cookie é `HttpOnly` e `SameSite=Lax`, e `Secure` em produção. Trocar senha, desativar a conta ou mudar o vínculo encerra as sessões. A cada requisição o servidor confere se a conta continua ativa e se perfil e vínculo ainda batem.
 - **CSRF.** Toda escrita feita pela interface exige o token obtido em `GET /api/v1/auth/csrf`, enviado no cabeçalho. A única exceção é o webhook do WhatsApp (`POST /api/v1/integracoes/whatsapp/webhook`), que não usa sessão e é conferido por HMAC no cabeçalho `X-Webhook-Hmac`.
 - **Tentativas de login.** Em produção, cinco tentativas por conta em 15 minutos, com limite por IP no backend e no gateway. No perfil local, o login não tem esse limite. Os contadores guardam só HMAC de conta e IP. A resposta é genérica e não revela se a conta existe.

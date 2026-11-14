@@ -33,7 +33,7 @@ Plataforma web responsiva de uso institucional no IF Goiano, em computador e cel
 - As regras de permissão e domínio estão no AGENTS.md, o comportamento esperado em `openspec/specs` e as pendências institucionais em `docs/ARQUITETURA.md`.
 - Chamada e solicitações formais de saída se aplicam a residentes menores de idade. Saída curta dura no máximo três horas. Saída longa exige autorização do responsável, conferida por um servidor, antes da aprovação, que é um ato separado. Retorno curto é confirmado presencialmente pelo supervisor.
 - Alertas internos não são advertências e não geram sanções automáticas. Ler um aviso é diferente de marcar ciência.
-- O login próprio do SAGER, por matrícula e senha, foi escolhido em 30/09/2026; integrações SUAP/Google ficam
+- O login próprio do SAGER, por usuário e senha (o residente usa a matrícula), foi escolhido em 30/09/2026; integrações SUAP/Google ficam
   adiadas. O cadastro é manual e a data de nascimento obrigatória. Para saída longa,
   uma autorização conferida de qualquer responsável cadastrado e vinculado é suficiente.
 - A auditoria tem retenção permanente. O canal com responsáveis é um gateway WhatsApp
