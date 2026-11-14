@@ -4,8 +4,21 @@ import { provideRouter } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { LocalAuthService } from '../../core/local-auth.service';
 import { OperationsDemoService } from '../operations/operations-demo.service';
-import { vi } from 'vitest';
-import { AccessPage, HelpPage, HomePage, ProfilePage } from './portal.pages';
+import { afterEach, vi } from 'vitest';
+import { AccessPage, HelpPage, HomePage, ProfilePage, roomLine } from './portal.pages';
+
+afterEach(() => vi.unstubAllGlobals());
+
+const syntheticResident = {
+  id: '00000000-0000-0000-0000-000000000001',
+  nome: 'Pessoa Sintética',
+  email: null,
+  matricula: 'TESTE-LOGIN',
+  fotoUrl: null,
+  perfis: ['residente' as const],
+  residenteId: '00000000-0000-0000-0000-000000000002',
+  supervisorId: null,
+};
 
 describe('AccessPage', () => {
   it('pede o usuário, diz ao residente que é a matrícula e fala de usuário nos erros', async () => {
@@ -105,7 +118,119 @@ describe('HomePage', () => {
 });
 
 describe('ProfilePage', () => {
+  async function openProfile(
+    principal: Parameters<LocalAuthService['principal']['set']>[0],
+    me: () => Promise<Response> = () => new Promise(() => undefined),
+  ) {
+    const fetchMock = vi.fn(me);
+    vi.stubGlobal('fetch', fetchMock);
+    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    TestBed.inject(DemoSessionService).deactivate();
+    TestBed.inject(LocalAuthService).principal.set(principal);
+    const fixture = TestBed.createComponent(ProfilePage);
+    await fixture.whenStable();
+    const panel = () =>
+      [...(fixture.nativeElement as HTMLElement).querySelectorAll('.profile-panel span')].map(
+        (span) => span.textContent!.trim(),
+      );
+    return { fixture, fetchMock, panel };
+  }
+
+  it('monta o quarto com alojamento, casa quando houver e número', () => {
+    expect(roomLine({ alojamento: 'R2', casa: 'Casa 3', numero: '43' })).toBe(
+      'R2 · Casa 3 · Quarto 43',
+    );
+    expect(roomLine({ alojamento: 'R2', casa: null, numero: '43' })).toBe('R2 · Quarto 43');
+    expect(roomLine({ casa: 'Bloco A', numero: '102' })).toBe('Bloco A · Quarto 102');
+  });
+
+  it('mostra o quarto do residente abaixo da matrícula', async () => {
+    const withHouse = await openProfile({
+      ...syntheticResident,
+      quarto: { alojamento: 'R2', casa: 'Casa 3', numero: '43' },
+    });
+    expect(withHouse.panel()).toEqual(['person', 'TESTE-LOGIN', 'R2 · Casa 3 · Quarto 43']);
+    expect(withHouse.fetchMock).toHaveBeenCalledWith('/api/v1/auth/me', expect.anything());
+    TestBed.resetTestingModule();
+    const withoutHouse = await openProfile({
+      ...syntheticResident,
+      quarto: { alojamento: 'R2', casa: null, numero: '43' },
+    });
+    expect(withoutHouse.panel()).toContain('R2 · Quarto 43');
+  });
+
+  it('não mostra linha de quarto ao residente sem alocação nem ao supervisor', async () => {
+    for (const principal of [
+      { ...syntheticResident, quarto: null },
+      syntheticResident,
+      {
+        ...syntheticResident,
+        perfis: ['supervisor' as const],
+        residenteId: null,
+        supervisorId: '00000000-0000-0000-0000-000000000003',
+      },
+    ]) {
+      const { panel } = await openProfile(principal);
+      expect(panel().some((text) => text.includes('Quarto'))).toBe(false);
+      TestBed.resetTestingModule();
+    }
+  });
+
+  it('consulta a conta ao abrir e mostra o quarto depois da transferência', async () => {
+    const { fixture, panel } = await openProfile(
+      { ...syntheticResident, quarto: { alojamento: 'R2', casa: null, numero: '43' } },
+      async () =>
+        new Response(
+          JSON.stringify({
+            ...syntheticResident,
+            quarto: { alojamento: 'R2', casa: null, numero: '44' },
+          }),
+        ),
+    );
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(panel()).toContain('R2 · Quarto 44');
+    });
+  });
+
+  it('mantém o quarto mostrado quando a consulta da conta falha', async () => {
+    const { fixture, fetchMock, panel } = await openProfile(
+      { ...syntheticResident, quarto: { alojamento: 'R2', casa: null, numero: '43' } },
+      () => Promise.reject(new TypeError('rede fora')),
+    );
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await fixture.whenStable();
+    expect(panel()).toContain('R2 · Quarto 43');
+    expect(TestBed.inject(LocalAuthService).principal()).not.toBeNull();
+  });
+
+  it('na demonstração, só o residente vê o quarto fictício, sem chamar a API', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    const session = TestBed.inject(DemoSessionService);
+    const shown: Record<string, string[]> = {};
+    for (const role of ['gestor', 'supervisor', 'residente'] as const) {
+      session.activate(role);
+      const fixture = TestBed.createComponent(ProfilePage);
+      await fixture.whenStable();
+      shown[role] = [
+        ...(fixture.nativeElement as HTMLElement).querySelectorAll('.profile-panel span'),
+      ]
+        .map((span) => span.textContent!.trim())
+        .filter((text) => text.includes('Quarto'));
+      fixture.destroy();
+    }
+    expect(shown).toEqual({ gestor: [], supervisor: [], residente: ['Bloco A · Quarto 102'] });
+    expect(fetchMock).not.toHaveBeenCalled();
+    session.deactivate();
+  });
+
   it('apresenta o vínculo explícito da conta residente e informa quando ele está ausente', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => new Promise(() => undefined)),
+    );
     TestBed.configureTestingModule({ providers: [provideRouter([])] });
     TestBed.inject(DemoSessionService).deactivate();
     const auth = TestBed.inject(LocalAuthService);

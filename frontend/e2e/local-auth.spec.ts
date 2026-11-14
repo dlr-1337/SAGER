@@ -250,6 +250,8 @@ for (const profile of ['residente', 'supervisor'] as const) {
   }) => {
     const recordId = '00000000-0000-0000-0000-000000000002';
     let active = true;
+    let quarto: { alojamento: string; casa: string | null; numero: string } | null =
+      profile === 'residente' ? { alojamento: 'R2', casa: 'Casa 3', numero: '43' } : null;
     await page.route('**/api/v1/auth/me', (route) =>
       route.fulfill(
         active
@@ -263,6 +265,7 @@ for (const profile of ['residente', 'supervisor'] as const) {
                 perfis: [profile],
                 residenteId: profile === 'residente' ? recordId : null,
                 supervisorId: profile === 'supervisor' ? recordId : null,
+                quarto,
               },
             }
           : { status: 401 },
@@ -275,6 +278,19 @@ for (const profile of ['residente', 'supervisor'] as const) {
     ).toBeVisible();
     await expect(page.locator('main')).not.toContainText(recordId);
     await expect(page.getByRole('link', { name: 'Trocar perfil' })).toHaveCount(0);
+    const panel = page.locator('.profile-panel');
+    if (profile === 'residente') {
+      await expect(panel).toContainText('R2 · Casa 3 · Quarto 43');
+      // Transferido com a sessão aberta: o perfil consulta a conta de novo ao abrir.
+      const menu = page.locator('.sidebar nav');
+      await menu.getByRole('link', { name: 'Início', exact: true }).click();
+      await expect(page).toHaveURL(/\/inicio$/);
+      quarto = { alojamento: 'R2', casa: null, numero: '44' };
+      await menu.getByRole('link', { name: 'Meu perfil', exact: true }).click();
+      await expect(panel).toContainText('R2 · Quarto 44');
+    } else {
+      await expect(panel).not.toContainText('Quarto');
+    }
     active = false;
     await page.reload();
     await expect(page).toHaveURL(/\/acesso$/);

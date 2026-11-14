@@ -3,8 +3,9 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
-import { LocalAuthService } from '../../core/local-auth.service';
+import { LocalAuthService, type LocalRoom } from '../../core/local-auth.service';
 import { PasswordFieldComponent } from '../../shared/password-field.component';
+import { ManagementDemoService } from '../management/management-demo.service';
 import { OperationsDemoService } from '../operations/operations-demo.service';
 import { DemoEntry } from './demo-entry.service';
 import { LocalHomePage } from './local-home.page';
@@ -1281,6 +1282,11 @@ export class HelpPage {
   readonly adult = computed(() => this.auth.principal()?.maiorDeIdade === true);
 }
 
+/** "R2 · Casa 3 · Quarto 43"; sem casa ou bloco (ou sem alojamento), a parte some. */
+export function roomLine(room: Partial<LocalRoom> & Pick<LocalRoom, 'numero'>): string {
+  return [room.alojamento, room.casa, `Quarto ${room.numero}`].filter(Boolean).join(' · ');
+}
+
 @Component({
   standalone: true,
   selector: 'sager-profile',
@@ -1309,6 +1315,9 @@ export class HelpPage {
         ><span>{{
           session.active() ? 'IF Goiano · Campus Urutaí' : auth.principal()?.matricula
         }}</span>
+        @if (room(); as roomText) {
+          <span>{{ roomText }}</span>
+        }
         @if (session.active()) {
           <small>Dados fictícios da demonstração</small>
         } @else {
@@ -1425,6 +1434,22 @@ export class HelpPage {
 export class ProfilePage {
   readonly session = inject(DemoSessionService);
   readonly auth = inject(LocalAuthService);
+  private readonly demo = inject(ManagementDemoService);
+  // O quarto de quem está na demonstração vem dos dados fictícios de Ana (r-ana), sem alojamento.
+  readonly room = computed(() => {
+    if (!this.session.active()) {
+      const room = this.auth.principal()?.quarto;
+      return room ? roomLine(room) : null;
+    }
+    if (this.session.role() !== 'residente') return null;
+    const room = this.demo.room(this.demo.resident('r-ana')?.roomId ?? '');
+    return room ? roomLine({ casa: `Bloco ${room.block}`, numero: room.number }) : null;
+  });
+
+  constructor() {
+    // Mostra o quarto atual depois de uma transferência; a falha de rede mantém o que já estava.
+    if (!this.session.active()) this.auth.current().catch(() => undefined);
+  }
   readonly localRoleLabel = computed(
     () =>
       ({ gestor: 'Gestor', supervisor: 'Supervisor', residente: 'Residente' })[
