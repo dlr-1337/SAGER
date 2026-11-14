@@ -1,0 +1,74 @@
+SAGER - Sistema de Apoio à Gestão de Residentes
+Licença de uso restrito (software proprietário)
+
+Copyright (c) 2026 Guilherme Pereira da Silva e Otávio de Queiroz Franco.
+Todos os direitos reservados.
+
+1. Titularidade
+
+O código-fonte, a documentação, as especificações, os diagramas e os demais
+arquivos deste repositório (o "Software") são protegidos pela Lei nº 9.609/1998
+(Lei do Software) e pela Lei nº 9.610/1998 (Lei de Direitos Autorais). Os direitos
+pertencem aos titulares indicados acima, ressalvados os itens 4 e 6.
+
+2. O que é proibido
+
+Fora dos usos do item 3 e dos que a lei permite sem autorização (art. 6º da Lei
+nº 9.609/1998 e arts. 46 a 48 da Lei nº 9.610/1998), nenhum direito é concedido.
+Sem autorização prévia e por escrito dos titulares, é proibido:
+
+  a) usar, instalar ou executar o Software, inclusive como serviço oferecido a
+     terceiros;
+  b) copiar ou reproduzir o Software, no todo ou em parte;
+  c) modificar, adaptar, traduzir ou criar obras derivadas do Software;
+  d) distribuir, publicar, sublicenciar, vender, alugar ou ceder o Software;
+  e) remover ou alterar avisos de direitos autorais ou desta licença.
+
+3. O que é permitido
+
+  3.1 Instituto Federal Goiano. Os titulares concedem ao Instituto Federal Goiano
+      licença gratuita, não exclusiva, intransferível, irrevogável (salvo
+      descumprimento dos limites deste item) e por prazo indeterminado para
+      instalar, executar, usar, manter, corrigir e adaptar o Software, em
+      infraestrutura própria ou contratada pelo Instituto, e para
+      disponibilizá-lo aos seus servidores e estudantes, exclusivamente para a
+      Assistência Estudantil e a gestão das moradias estudantis da instituição.
+      A manutenção pode ser feita por servidores, bolsistas, estagiários ou
+      prestadores de serviço que atuem em nome do Instituto, sem que isso
+      constitua cessão a terceiros. Fora disso, esta licença não permite ceder,
+      sublicenciar nem distribuir o Software a terceiros.
+
+  3.2 Avaliação acadêmica. A orientação e a banca examinadora do trabalho de
+      conclusão de curso podem ler, executar e testar o Software para avaliá-lo.
+
+  3.3 GitHub. Enquanto o repositório for público, os usuários do GitHub podem ver
+      o código e fazer fork dentro da plataforma, nos limites que os Termos de
+      Serviço do GitHub exigem. Isso não autoriza nenhum outro uso dessas cópias.
+
+4. Componentes de terceiros
+
+Bibliotecas, fontes e ferramentas de terceiros usadas pelo Software continuam
+sob as próprias licenças, indicadas nos respectivos pacotes e arquivos (por
+exemplo, backend/src/main/resources/fonts/SourceSans3-LICENSE.md e
+frontend/src/fonts/MaterialSymbols-LICENSE.txt). A marca do Instituto Federal
+Goiano pertence à instituição; esta licença não concede direito algum sobre ela.
+
+5. Sem garantia
+
+O Software é fornecido no estado em que se encontra, sem garantia de qualquer
+tipo, expressa ou implícita, inclusive de adequação a uma finalidade específica.
+Na extensão permitida em lei, os titulares não respondem por danos decorrentes
+do uso ou da impossibilidade de uso do Software.
+
+6. Titularidade definida por lei, norma ou contrato
+
+Se a lei (inclusive o art. 4º da Lei nº 9.609/1998, que alcança bolsistas e
+estagiários), norma de propriedade intelectual do Instituto Federal Goiano ou
+contrato assinado pelos titulares dispuser de outra forma sobre a titularidade
+do Software, prevalece essa disposição, e esta licença deve ser ajustada a ela.
+
+7. Lei aplicável e contato
+
+Esta licença é regida pelas leis da República Federativa do Brasil. Pedidos de
+autorização devem ser dirigidos aos titulares, por exemplo por uma issue no
+repositório do Software.
