@@ -145,6 +145,12 @@ export const exitStatusLabels: Record<ShortExitStatus, string> = {
   CANCELADA: 'Cancelada',
   EXPIRADA: 'Expirada',
 };
+/** Pedido para sair agora: a partida pedida já chegou no relógio do servidor. */
+export const leavesNow = (exit: { requestedDepartureAt: string; now: string }) =>
+  Date.parse(exit.requestedDepartureAt) <= Date.parse(exit.now);
+/** A aprovação do pedido para sair agora já volta em andamento (auto-departure-on-approval). */
+export const approvalMessage = (exit: { status: ShortExitStatus }) =>
+  exit.status === 'EM_ANDAMENTO' ? 'Aprovação e saída registradas.' : 'Aprovação registrada.';
 export const callMarkLabels = {
   PRESENTE: 'Presente',
   AUSENTE: 'Ausente',
