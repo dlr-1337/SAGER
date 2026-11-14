@@ -91,14 +91,14 @@ test('demonstração funciona sem backend e usa apenas registros fictícios', as
 
   await page.getByRole('link', { name: 'Cadastrar supervisor' }).click();
   await page.getByRole('textbox', { name: 'Nome completo *' }).fill('Supervisora Fictícia');
-  await page
-    .getByRole('textbox', { name: 'Matrícula ou SIAPE (usada para entrar) *' })
-    .fill('DEMO-003');
+  await page.getByRole('textbox', { name: 'Usuário (usado para entrar) *' }).fill('DEMO-003');
   await page.getByRole('textbox', { name: 'E-mail *' }).fill('ficticia@example.invalid');
   await page.getByLabel('Senha *', { exact: true }).fill(password);
   await page.getByLabel('Confirmar senha *', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Salvar supervisor' }).click();
   await expect(page.getByRole('status')).toContainText('Supervisor salvo nesta demonstração.');
+  await expect(page.locator('dt', { hasText: /^Usuário$/ })).toBeVisible();
+  await expect(page.locator('dt', { hasText: /matrícula|SIAPE/i })).toHaveCount(0);
 });
 
 test('gestor usa API e persiste criação e edição após recarga', async ({ page }) => {
@@ -147,9 +147,7 @@ test('gestor usa API e persiste criação e edição após recarga', async ({ pa
     accessibility.violations.filter((item) => ['critical', 'serious'].includes(item.impact ?? '')),
   ).toEqual([]);
   await page.getByRole('textbox', { name: 'Nome completo *' }).fill('Supervisora Exemplo');
-  await page
-    .getByRole('textbox', { name: 'Matrícula ou SIAPE (usada para entrar) *' })
-    .fill('TESTE-001');
+  await page.getByRole('textbox', { name: 'Usuário (usado para entrar) *' }).fill('TESTE-001');
   await page.getByRole('textbox', { name: 'E-mail *' }).fill('supervisora@example.invalid');
   await page.getByLabel('Senha *', { exact: true }).fill(password);
   await page.getByLabel('Confirmar senha *', { exact: true }).fill('Outra senha 456!');
@@ -225,9 +223,7 @@ test('validação do servidor e versão obsoleta não exibem sucesso falso', asy
 
   await page.goto('/supervisores/novo');
   await page.getByRole('textbox', { name: 'Nome completo *' }).fill('Supervisora Nova');
-  await page
-    .getByRole('textbox', { name: 'Matrícula ou SIAPE (usada para entrar) *' })
-    .fill('TESTE-012');
+  await page.getByRole('textbox', { name: 'Usuário (usado para entrar) *' }).fill('TESTE-012');
   await page.getByRole('textbox', { name: 'E-mail *' }).fill('nova@example.invalid');
   await page.getByLabel('Senha *', { exact: true }).fill(password);
   await page.getByLabel('Confirmar senha *', { exact: true }).fill(password);
@@ -242,15 +238,11 @@ test('validação do servidor e versão obsoleta não exibem sucesso falso', asy
   await expect(page.getByRole('textbox', { name: 'Nome completo *' })).toHaveValue(
     'Supervisora Original',
   );
-  await page
-    .getByRole('textbox', { name: 'Matrícula ou SIAPE (usada para entrar) *' })
-    .fill('DUPLICADO');
+  await page.getByRole('textbox', { name: 'Usuário (usado para entrar) *' }).fill('DUPLICADO');
   await page.getByRole('button', { name: 'Salvar supervisor' }).click();
   await expect(page.getByRole('alert')).toContainText('Já existe um cadastro');
   await expect(page.getByRole('button', { name: 'Recarregar dados' })).toHaveCount(0);
-  await page
-    .getByRole('textbox', { name: 'Matrícula ou SIAPE (usada para entrar) *' })
-    .fill('TESTE-011');
+  await page.getByRole('textbox', { name: 'Usuário (usado para entrar) *' }).fill('TESTE-011');
   record = { ...record, name: 'Supervisora Alterada Externamente', version: 2 };
   await page.getByRole('textbox', { name: 'Nome completo *' }).fill('Edição Local');
   await page.getByRole('button', { name: 'Salvar supervisor' }).click();

@@ -60,7 +60,7 @@ Com Docker, o mesmo comando fica `./sager account create --matricula=...`. A sen
 
 "Conta" é `--account-id=UUID` ou `--matricula=...`; `--email` ainda é aceito como seletor antigo.
 
-- O login usa a matrícula. O e-mail é só contato e não entra no login.
+- O login usa o valor de `--matricula`, que a tela de acesso chama de Usuário. O e-mail é só contato e não entra no login.
 - Esta CLI não aplica a regra de formato da matrícula do cadastro de residentes, por isso aceita valores como `TESTE-GESTOR`, que a API de residentes recusaria.
 - Cadastrar residente ou supervisor pela API (`password` e `passwordConfirmation`) já cria a conta vinculada na mesma transação. Editar o cadastro não troca a senha.
 - Uma conta tem no máximo um vínculo, e cada cadastro pertence a uma conta só. Vincular não muda o perfil. Não há vínculo automático por nome, e-mail ou matrícula.

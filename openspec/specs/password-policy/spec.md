@@ -21,7 +21,7 @@ O sistema SHALL aceitar senhas com pelo menos 8 caracteres, e MUST NOT exigir ma
 
 ### Requirement: Recusa de senhas óbvias
 
-O sistema MUST recusar sequências, um único caractere repetido, senhas de uma lista curta de senhas comuns e a própria matrícula, ignorando maiúsculas.
+O sistema MUST recusar sequências, um único caractere repetido, senhas de uma lista curta de senhas comuns e o próprio usuário, que no residente é a matrícula, ignorando maiúsculas.
 
 #### Scenario: Sequência
 
@@ -32,6 +32,11 @@ O sistema MUST recusar sequências, um único caractere repetido, senhas de uma 
 
 - **WHEN** o usuário cria uma senha igual à própria matrícula
 - **THEN** a senha é recusada
+
+#### Scenario: Usuário do supervisor como senha
+
+- **WHEN** o gestor cadastra um supervisor com senha igual ao usuário dele
+- **THEN** a tela informa "A senha não pode ser igual ao usuário."
 
 ### Requirement: Limite técnico sem jargão
 

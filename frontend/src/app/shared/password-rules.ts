@@ -23,27 +23,35 @@ function isSequenceOrRepetition(value: string): boolean {
   return true;
 }
 
-export function passwordProblem(password: string, enrollment: string): string | null {
+export function passwordProblem(
+  password: string,
+  enrollment: string,
+  sameAsLogin = 'A senha não pode ser igual à matrícula.',
+): string | null {
   if (password.length < 8) return 'A senha precisa ter pelo menos 8 letras ou números.';
   if (new TextEncoder().encode(password).length > 72) {
     return 'Essa senha é longa demais. Use uma mais curta.';
   }
   const lower = password.toLowerCase();
-  if (lower === enrollment.trim().toLowerCase()) return 'A senha não pode ser igual à matrícula.';
+  if (lower === enrollment.trim().toLowerCase()) return sameAsLogin;
   if (COMMON_PASSWORDS.has(lower) || isSequenceOrRepetition(lower)) {
     return 'Essa senha é fácil demais. Escolha outra.';
   }
   return null;
 }
 
-/** Guarda a mensagem em `errors.passwordRules`; a matrícula vem do controle irmão indicado. */
+/**
+ * Guarda a mensagem em `errors.passwordRules`; a matrícula (ou o usuário) vem do controle irmão
+ * indicado, e `sameAsLogin` troca a mensagem da senha igual a ele.
+ */
 export function passwordRules(
   enrollmentControl: string,
   normalize: (enrollment: string) => string = (enrollment) => enrollment,
+  sameAsLogin?: string,
 ): ValidatorFn {
   return (control: AbstractControl): ValidationErrors | null => {
     const enrollment = control.parent?.get(enrollmentControl)?.value ?? '';
-    const problem = passwordProblem(control.value, normalize(enrollment));
+    const problem = passwordProblem(control.value, normalize(enrollment), sameAsLogin);
     return problem ? { passwordRules: problem } : null;
   };
 }

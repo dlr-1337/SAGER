@@ -131,7 +131,7 @@ Quando uma chamada à API responder 401 enquanto há um usuário conhecido, o si
 
 #### Scenario: Senha errada
 
-- **WHEN** alguém envia matrícula e senha incorretas
+- **WHEN** alguém envia usuário e senha incorretos
 - **THEN** continua na página de acesso com a mensagem de credenciais inválidas
 
 ### Requirement: Token CSRF reaproveitado

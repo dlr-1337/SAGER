@@ -11,7 +11,7 @@ Basta ter Docker com Compose e Bash. Node, Java, Maven e PostgreSQL rodam nos co
 ./sager account create --matricula=TESTE-GESTOR --name='Gestor de Teste' --profile=gestor
 ```
 
-O segundo comando pede a senha duas vezes, sem mostrar no terminal. A senha precisa ter pelo menos 8 caracteres; senhas fáceis e a própria matrícula são recusadas. Não existe conta nem senha padrão. Depois, abra http://127.0.0.1:4200/acesso e entre com a matrícula. A primeira compilação leva alguns minutos.
+O segundo comando pede a senha duas vezes, sem mostrar no terminal. A senha precisa ter pelo menos 8 caracteres; senhas fáceis e a própria matrícula são recusadas. Não existe conta nem senha padrão. Depois, abra http://127.0.0.1:4200/acesso e entre com o valor de `--matricula` no campo Usuário. A primeira compilação leva alguns minutos.
 
 | Comando | O que faz |
 | --- | --- |

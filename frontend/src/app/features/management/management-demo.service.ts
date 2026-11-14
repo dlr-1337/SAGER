@@ -358,7 +358,7 @@ export class ManagementDemoService {
         (item) => item.institutionalId.toUpperCase() === institutionalId && item.id !== id,
       )
     ) {
-      throw new Error('Esta matrícula ou SIAPE já está cadastrada.');
+      throw new Error('Este usuário já está cadastrado.');
     }
     const supervisor: Supervisor = {
       id: existing?.id ?? newId(),

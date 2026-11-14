@@ -16,7 +16,7 @@ Não há cadastro público. O operador cria pelo terminal as contas iniciais de 
 
 ## Uso por perfil
 
-**Acesso.** Entre com a matrícula (ou SIAPE) e a senha. Se esquecer a senha, o residente usa **Esqueci minha senha**, que confere matrícula, nome, nascimento e, se houver responsável ativo, o nome de um deles; servidores procuram o operador. Muitas tentativas erradas bloqueiam o login por alguns minutos. Ao terminar, use **Sair**, principalmente em computador compartilhado.
+**Acesso.** Entre com seu usuário e a senha (o residente usa a matrícula). Se esquecer a senha, o residente usa **Esqueci minha senha**, que confere matrícula, nome, nascimento e, se houver responsável ativo, o nome de um deles; servidores procuram o operador. Muitas tentativas erradas bloqueiam o login por alguns minutos. Ao terminar, use **Sair**, principalmente em computador compartilhado.
 
 **Demonstração.** Para conhecer as telas sem conta, use a área **Explorar com um perfil fictício** da tela de acesso e escolha gestor, supervisor ou residente. Os dados são fictícios e ficam em memória, sem passar pela API, e a demonstração não existe em produção. Uma falha da API mostra erro, nunca dados de exemplo.
 
@@ -65,7 +65,7 @@ Com Docker e Compose instalados, na raiz:
 ./sager account create --matricula=TESTE-GESTOR --name='Gestor de Teste' --profile=gestor
 ```
 
-O segundo comando pede a senha duas vezes. Abra http://127.0.0.1:4200/acesso e entre com a matrícula escolhida. Não existe senha padrão. `./sager down` para tudo sem apagar os dados. Os demais comandos estão em [docs/OPERACAO.md](docs/OPERACAO.md).
+O segundo comando pede a senha duas vezes. Abra http://127.0.0.1:4200/acesso e entre com o valor de `--matricula` no campo Usuário. Não existe senha padrão. `./sager down` para tudo sem apagar os dados. Os demais comandos estão em [docs/OPERACAO.md](docs/OPERACAO.md).
 
 Para desenvolver a interface fora do Docker, com o [backend rodando no host](backend/README.md):
 

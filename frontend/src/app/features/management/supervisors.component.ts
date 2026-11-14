@@ -37,7 +37,7 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
         <section class="panel mg-panel" aria-labelledby="supervisor-search-title">
           <h2 id="supervisor-search-title">Buscar supervisores</h2>
           <label class="field mg-field"
-            >Nome, matrícula ou SIAPE<input
+            >Nome, usuário ou e-mail<input
               type="search"
               [formControl]="search"
               placeholder="Digite para buscar"

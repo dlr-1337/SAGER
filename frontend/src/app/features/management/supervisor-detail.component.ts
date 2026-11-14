@@ -61,7 +61,7 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
               <dd>{{ item.name }}</dd>
             </div>
             <div>
-              <dt>Matrícula ou SIAPE</dt>
+              <dt>Usuário</dt>
               <dd>{{ item.institutionalId }}</dd>
             </div>
             <div>

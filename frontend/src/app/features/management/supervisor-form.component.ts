@@ -105,7 +105,7 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
               }
             </label>
             <label class="field mg-field"
-              >Matrícula ou SIAPE (usada para entrar) *<input
+              >Usuário (usado para entrar) *<input
                 [attr.aria-invalid]="
                   form.controls.institutionalId.invalid && form.controls.institutionalId.touched
                     ? 'true'
@@ -185,13 +185,13 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
             <span class="material-symbols-rounded" aria-hidden="true">info</span>
             <p>
               @if (editId) {
-                Esta tela não muda a senha. Se trocar a matrícula ou SIAPE, a pessoa passa a entrar
-                com o novo número.
+                Esta tela não muda a senha. Se trocar o usuário, a pessoa passa a entrar com o novo
+                usuário.
               } @else if (isDemo()) {
-                Fora da demonstração, a pessoa entra com a matrícula ou SIAPE e a senha informadas
-                aqui. Nesta demonstração, a senha não é guardada.
+                Fora da demonstração, a pessoa entra com o usuário e a senha informados aqui. Nesta
+                demonstração, a senha não é guardada.
               } @else {
-                A pessoa entra no sistema com a matrícula ou SIAPE e a senha informadas aqui.
+                A pessoa entra no sistema com o usuário e a senha informados aqui.
               }
             </p>
           </div>
@@ -263,7 +263,9 @@ export class SupervisorFormComponent {
 
   constructor() {
     if (!this.editId) {
-      this.form.controls.password.setValidators(passwordRules('institutionalId'));
+      this.form.controls.password.setValidators(
+        passwordRules('institutionalId', undefined, 'A senha não pode ser igual ao usuário.'),
+      );
       this.form.controls.passwordConfirmation.setValidators(Validators.required);
       this.form.controls.institutionalId.valueChanges
         .pipe(takeUntilDestroyed())
@@ -352,7 +354,7 @@ export class SupervisorFormComponent {
         this.error.set(
           stale
             ? ERROR_CONFLICT
-            : 'Já existe um cadastro ou uma conta com esta matrícula ou SIAPE. Confira os dados.',
+            : 'Já existe um cadastro ou uma conta com este usuário. Confira os dados.',
         );
       } else if (error instanceof SupervisorApiError && error.status === 400) {
         this.error.set(ERROR_INVALID);

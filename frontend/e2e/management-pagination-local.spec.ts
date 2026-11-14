@@ -5,7 +5,7 @@ for (const config of [
   {
     resource: 'supervisores',
     entity: 'supervisor',
-    search: 'Nome, matrícula ou SIAPE',
+    search: 'Nome, usuário ou e-mail',
     name: 'Nome completo *',
   },
   {
