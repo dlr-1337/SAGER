@@ -171,6 +171,24 @@ class DisciplineApiIntegrationTest {
             assertThat(count("sager_communication")).isEqualTo(2);
         }
     }
+    @Test void noticeAcceptsUpTo2000RecipientsWhileTheTermKeeps100Warnings() throws Exception {
+        List<UUID> many=new ArrayList<>(List.of(resident,other));
+        while(many.size()<101) many.add(UUID.randomUUID());
+        jdbc.batchUpdate("INSERT INTO sager_resident(id,name,enrollment,birth_date) VALUES (?,'Estudante Sintético',?,'2009-01-01')",
+                many.subList(2,101).stream().map(id->new Object[]{id,id.toString()}).toList());
+        try(var sup=login("supervisor")) {
+            var notice=ok(sup,"POST","/api/v1/avisos",Map.of("title","Aviso para muitos","body","Orientação sintética para todos.","residentIds",many,"idempotencyKey",UUID.randomUUID()));
+            assertThat(notice.path("residentIds").size()).isEqualTo(101);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_notice_draft_recipient WHERE notice_id=?",Integer.class,UUID.fromString(notice.path("id").asText()))).isEqualTo(101);
+            List<UUID> tooMany=new ArrayList<>();while(tooMany.size()<2001) tooMany.add(UUID.randomUUID());
+            for(Object recipients:List.of(tooMany,List.of(),List.of(resident,resident),List.of(UUID.randomUUID())))
+                assertError(write(sup,"POST","/api/v1/avisos",Map.of("title","Aviso recusado","body","Orientação sintética recusada.","residentIds",recipients,"idempotencyKey",UUID.randomUUID())),400,"invalid_input");
+            assertThat(count("sager_notice")).isEqualTo(1);
+            var term=new LinkedHashMap<String,Object>();term.put("warningIds",many);term.put("decision","O supervisor confirmou a relação dos fatos e orientou o compromisso de convivência.");term.put("confirmed",true);term.put("idempotencyKey",UUID.randomUUID());
+            assertError(write(sup,"POST","/api/v1/residentes/"+resident+"/termos",term),400,"invalid_input");
+            assertThat(count("sager_commitment_term")).isZero();
+        }
+    }
     @Test void recurrenceRequiresHumanConfirmationAndImmutableOwnPdfNeverClaimsSignature() throws Exception {
         try(var sup=login("supervisor");var student=login("residente");var stranger=login("other")) {
             var first=manual(sup,"AUSENCIA");assertThat(read(sup,"/api/v1/residentes/"+resident+"/reincidencias").get(0).path("candidate").asBoolean()).isFalse();

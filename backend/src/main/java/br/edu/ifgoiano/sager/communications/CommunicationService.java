@@ -54,7 +54,7 @@ public class CommunicationService {
     public Notice createNotice(JsonNode body) {
         fields(body,"title","body","residentIds","idempotencyKey");
         var account=actor.supervisor();String title=text(body,"title",3,200),content=text(body,"body",3,4000);
-        var residents=ids(body,"residentIds",1);UUID key=uuid(body,"idempotencyKey");
+        var residents=ids(body,"residentIds",1,2000);UUID key=uuid(body,"idempotencyKey");
         UUID replay=keys.replay(account.id(),"NOTICE_CREATE",key,body);if(replay!=null) return notice(replay);
         residents.forEach(this::requireResident);
         UUID id=UUID.randomUUID();
