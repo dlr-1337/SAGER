@@ -197,7 +197,7 @@ export class ReportsDemoApiService implements ReportsApi {
       residents: Object.values(people).map((person, index) => ({
         id: person.residentId,
         name: person.residentName,
-        enrollment: 'DEMO-00' + (index + 1),
+        enrollment: '20241012020190' + String(index + 1).padStart(2, '0'),
         birthDate: null,
         course: null,
         version: 0,
