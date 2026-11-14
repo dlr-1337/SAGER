@@ -52,7 +52,7 @@ public class LocalAccountProvisioningService {
         try {
             id = accounts.create(normalizedEnrollment, normalizedEmail, normalizedName, hash, profile);
         } catch (DuplicateKeyException error) {
-            throw new IllegalArgumentException("Já existe uma conta com essa matrícula ou e-mail.", error);
+            throw new IllegalArgumentException("Já existe uma conta com esse usuário ou e-mail.", error);
         }
         recordOperator(id, AuditAction.CREATE, normalizedEmail == null
                 ? Set.of("enrollment", "name", "profile", "password")
@@ -194,7 +194,7 @@ public class LocalAccountProvisioningService {
             }
             String lower = value.toLowerCase(Locale.ROOT);
             if (enrollment != null && lower.equals(enrollment.trim().toLowerCase(Locale.ROOT))) {
-                throw new IllegalArgumentException("A senha não pode ser igual à matrícula.");
+                throw new IllegalArgumentException("A senha não pode ser igual ao usuário.");
             }
             if (COMMON_PASSWORDS.contains(lower) || isSequenceOrRepetition(lower)) {
                 throw new IllegalArgumentException("Essa senha é fácil demais. Escolha outra.");
@@ -247,7 +247,7 @@ public class LocalAccountProvisioningService {
         try {
             accounts.assignEnrollment(account, normalizeEnrollment(enrollment));
         } catch (DuplicateKeyException error) {
-            throw new IllegalArgumentException("Matrícula já utilizada por outra conta.", error);
+            throw new IllegalArgumentException("Usuário já utilizado por outra conta.", error);
         }
         recordOperator(account.id(), AuditAction.UPDATE, Set.of("enrollment"));
     }
@@ -255,7 +255,7 @@ public class LocalAccountProvisioningService {
     public static String normalizeEnrollment(String enrollment) {
         if (enrollment == null || enrollment.isBlank() || enrollment.trim().length() > 64
                 || enrollment.contains("@") || enrollment.chars().anyMatch(Character::isISOControl)) {
-            throw new IllegalArgumentException("Matrícula deve ter entre 1 e 64 caracteres, sem @ ou controles.");
+            throw new IllegalArgumentException("Usuário deve ter entre 1 e 64 caracteres, sem @ ou controles.");
         }
         return enrollment.trim();
     }

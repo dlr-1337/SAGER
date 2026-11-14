@@ -65,7 +65,7 @@ public class SupervisorService {
         } catch (IllegalArgumentException error) {
             if (error.getCause() instanceof DuplicateKeyException) {
                 throw new SupervisorApiException(HttpStatus.CONFLICT, "duplicate_enrollment",
-                        "Matrícula já utilizada por uma conta.");
+                        "Usuário já utilizado por uma conta.");
             }
             throw badRequest(error.getMessage());
         } catch (DataIntegrityViolationException error) {
@@ -113,7 +113,7 @@ public class SupervisorService {
                 accounts.synchronizeSupervisorEnrollment(id, checkedId);
             } catch (IllegalArgumentException error) {
                 throw new SupervisorApiException(HttpStatus.CONFLICT, "duplicate_enrollment",
-                        "Matrícula já utilizada por uma conta ou inválida para acesso.");
+                        "Usuário já utilizado por uma conta ou inválido para acesso.");
             }
             changed.add("institutionalId");
         }
@@ -162,6 +162,6 @@ public class SupervisorService {
 
     private SupervisorApiException duplicateId() {
         return new SupervisorApiException(HttpStatus.CONFLICT, "duplicate_institutional_id",
-                "Matrícula ou SIAPE já cadastrada.");
+                "Usuário já cadastrado.");
     }
 }

@@ -131,7 +131,7 @@ public class OpenApiConfiguration {
                     .addProperty("password", new StringSchema().format("password"))
                     .required(List.of("matricula", "password"));
             Operation login = new Operation()
-                    .operationId("localLogin").summary("Entrar com matrícula e senha")
+                    .operationId("localLogin").summary("Entrar com usuário e senha")
                     .security(List.of()).requestBody(new RequestBody().required(true).content(new Content()
                             .addMediaType("application/x-www-form-urlencoded", new MediaType().schema(loginBody))))
                     .responses(new ApiResponses().addApiResponse("204", new ApiResponse()

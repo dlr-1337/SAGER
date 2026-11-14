@@ -154,7 +154,7 @@ public class SecurityConfiguration {
                         })
                         .failureHandler((request, response, exception) -> {
                             apiErrors.write(request, response, 401, "invalid_credentials",
-                                    "Matrícula ou senha inválidos.");
+                                    "Usuário ou senha inválidos.");
                         }))
                 .logout(logout -> logout.logoutUrl("/api/v1/auth/logout")
                         .logoutSuccessHandler((request, response, authentication) -> {

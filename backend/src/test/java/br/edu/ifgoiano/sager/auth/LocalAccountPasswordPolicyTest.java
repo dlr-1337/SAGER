@@ -42,7 +42,7 @@ class LocalAccountPasswordPolicyTest {
     @Test
     void refusesTheOwnEnrollmentIgnoringCase() {
         assertThatThrownBy(() -> service.hashAndClear("teste-abc1".toCharArray(), " TESTE-ABC1 "))
-                .hasMessage("A senha não pode ser igual à matrícula.");
+                .hasMessage("A senha não pode ser igual ao usuário.");
     }
 
     @Test

@@ -69,10 +69,12 @@ class ApiFoundationIntegrationTest {
     void securityAndValidationErrorsUseSafeJsonWithServerCorrelation() throws Exception {
         try (HttpClient anonymous = browser()) {
             assertError(get(anonymous, "/api/v1/auth/me"), 401, "unauthorized");
-            assertError(login(anonymous, "missing@example.test", "incorrect", csrf(anonymous)),
-                    401, "invalid_credentials");
+            assertInvalidCredentials(login(anonymous, "missing@example.test", "incorrect", csrf(anonymous)));
         }
         account("gestor");
+        try (HttpClient wrongPassword = browser()) {
+            assertInvalidCredentials(login(wrongPassword, "gestor@example.test", "incorrect", csrf(wrongPassword)));
+        }
         try (HttpClient client = browser()) {
             assertThat(login(client, "gestor@example.test", PASSWORD, csrf(client)).statusCode())
                     .isEqualTo(204);
@@ -369,6 +371,12 @@ class ApiFoundationIntegrationTest {
             assertError(get(resident, "/actuator/health"), 403, "forbidden");
             assertError(get(resident, "/actuator/metrics"), 403, "forbidden");
         }
+    }
+
+    // Conta inexistente e senha errada recebem a mesma mensagem, que vale para qualquer perfil.
+    private void assertInvalidCredentials(HttpResponse<String> response) throws Exception {
+        assertError(response, 401, "invalid_credentials");
+        assertThat(json.readTree(response.body()).path("message").asText()).isEqualTo("Usuário ou senha inválidos.");
     }
 
     private void assertError(HttpResponse<String> response, int status, String code) throws Exception {
