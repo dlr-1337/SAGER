@@ -183,14 +183,14 @@ import { formattedDate } from './management.utils';
             </div>
           }
         </section>
-        <div class="mg-note">
-          <span class="material-symbols-rounded" aria-hidden="true">info</span>
-          <p>
+        <details class="learn-more">
+          <summary>Saiba mais</summary>
+          <p class="mg-muted">
             Disponível e Ocupado mudam sozinhos com os moradores. Manutenção e Indisponível são
             escolhidos no cadastro do quarto. O quarto não recebe mais moradores do que a
             capacidade.
           </p>
-        </div>
+        </details>
       } @else if (isDemo() && room(); as item) {
         <header class="mg-heading">
           <div>

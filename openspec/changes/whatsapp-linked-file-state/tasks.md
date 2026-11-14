@@ -15,7 +15,7 @@ Comandos: backend em `backend/` com `./mvnw -B -ntp verify` (JDK 21 e Docker); f
 
 ## 3. Ajuda e manual
 
-- [ ] 3.1 Na página Ajuda (`portal.pages.ts`), só para o supervisor fora da demonstração, acrescentar a pergunta "Por que um arquivo da conversa não tem o botão Vincular?" com a resposta "Ele já está numa saída longa. O balão diz de qual residente. Clique em Abrir saída para conferir ou recusar o arquivo.". Verificar com caso em `portal.pages.spec.ts` (aparece para o supervisor; não aparece para gestor, residente nem na demonstração) e `npm test -- --watch=false`.
+- [ ] 3.1 Na página Ajuda (`portal.pages.ts`), só para o supervisor fora da demonstração, acrescentar a pergunta "Por que um arquivo da conversa não tem o botão Vincular?" com a resposta "Ele já está numa saída longa; Abrir saída mostra a situação.". Verificar com caso em `portal.pages.spec.ts` (aparece para o supervisor; não aparece para gestor, residente nem na demonstração) e `npm test -- --watch=false`.
 - [ ] 3.2 Em `docs/MANUAL.md`, item "Conversas (opcional)" do supervisor, acrescentar: "Arquivo do responsável que já está numa saída longa mostra o residente e a situação, com **Abrir saída**; arquivo livre mostra **Vincular a uma saída longa**.". Verificar com `grep -n "Abrir saída" docs/MANUAL.md`.
 
 ## 4. Verificação final

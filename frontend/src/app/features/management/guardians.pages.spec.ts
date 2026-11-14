@@ -131,6 +131,9 @@ describe.each([false, true])('Envio de responsável (demo=%s)', (demo) => {
     await fixture.componentInstance.save();
     fixture.detectChanges();
     expect(save).not.toHaveBeenCalled();
+    expect(native.querySelector('.learn-more')!.textContent).toContain(
+      'Salvar este cadastro não envia mensagem.',
+    );
     expect(native.querySelector('#guardian-name-error')!.textContent).toBe(
       'Digite o nome completo, como no documento.',
     );

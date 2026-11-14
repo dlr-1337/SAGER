@@ -325,6 +325,10 @@ describe('HelpPage', () => {
       expect(longExit).toContain(name);
     expect(page.textContent).toContain(whatsappQuestion);
     expect(page.textContent).toContain(
+      'Ele já está numa saída longa; Abrir saída mostra a situação.',
+    );
+    expect(page.textContent).not.toContain('conferir ou recusar');
+    expect(page.textContent).toContain(
       'As telas se atualizam sozinhas; não precisa recarregar a página.',
     );
   });

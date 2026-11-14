@@ -67,9 +67,9 @@ Depois de 30 minutos sem clique, toque ou tecla, a atualização automática SHA
 - **THEN** a lista deixa de ser consultada
 - **AND** a tela mostra "Atualização pausada" e o botão "Retomar"
 
-#### Scenario: Retomar
+#### Scenario: Retomar com a sessão ativa
 
-- **GIVEN** a atualização pausada
+- **GIVEN** a atualização pausada e a sessão ainda ativa, por uso do sistema em outra aba
 - **WHEN** o supervisor clica em "Retomar"
 - **THEN** a lista é consultada na hora e volta a se atualizar a cada 15 segundos
 

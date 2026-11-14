@@ -99,6 +99,9 @@ describe('Formulário de saída longa', () => {
 
   it('sugere quatro horas, começa o agendamento vazio e acompanha a partida', async () => {
     const form = await create();
+    expect(form.root.querySelector('.op-heading p')!.textContent).toBe(
+      'Diga quando sai, quando volta, por quê e quem autoriza.',
+    );
     expect(form.expectedReturn().value).toBe('2026-09-30T17:00');
     await form.mode('SCHEDULED');
     expect(form.departure().value).toBe('');

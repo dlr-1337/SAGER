@@ -33,7 +33,7 @@ import { guardianBlocker, longExitFormError, longPeriodError } from './long-exit
             >← Saídas longas</a
           >
           <h1>{{ editing ? 'Mudar saída longa' : 'Pedir saída longa' }}</h1>
-          <p>Diga quando você sai e quando volta, e escolha quem vai autorizar pelo WhatsApp.</p>
+          <p>Diga quando sai, quando volta, por quê e quem autoriza.</p>
         </div>
       </header>
       @if (session.active()) {

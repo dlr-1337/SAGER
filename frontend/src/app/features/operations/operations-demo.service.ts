@@ -167,7 +167,7 @@ export class OperationsDemoService {
       signed: false,
       timeline: [
         { label: 'Solicitação registrada', at: offset(-4) },
-        { label: 'Aprovada por supervisor', at: offset(-2) },
+        { label: 'Aprovada por supervisor', at: offset(-1) },
         {
           label: 'Em andamento',
           at: offset(-1),

@@ -76,6 +76,9 @@ describe('AccommodationFormComponent', () => {
     await fixture.whenStable();
     fixture.detectChanges();
     const select: HTMLSelectElement = fixture.nativeElement.querySelector('select');
+    expect(fixture.nativeElement.querySelector('.learn-more')?.textContent).toContain(
+      'Casas e blocos são opcionais',
+    );
     expect(select.value).toBe('MAIORES');
     expect(select.selectedOptions[0].textContent).toContain('Maiores de 18 anos');
     select.value = '';
