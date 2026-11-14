@@ -6,7 +6,11 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { ReactiveFormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { autoRefresh } from '../../core/auto-refresh';
 import { DemoSessionService } from '../../core/demo-session.service';
+import { AutoRefreshStatusComponent } from '../../shared/auto-refresh-status.component';
+import { StatusLegendComponent } from '../../shared/status-legend.component';
+import { toneAttr } from '../../shared/status-tones';
 import {
   CommunicationsApiError,
   CommunicationsLocalApiService,
@@ -40,10 +44,12 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
   standalone: true,
   selector: 'sager-notifications-local',
   imports: [
+    AutoRefreshStatusComponent,
     CommunicationFiltersComponent,
     RouterLink,
     CommunicationsStateComponent,
     PaginationComponent,
+    StatusLegendComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -64,17 +70,22 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
         [blocked]="!session.hasRole('supervisor')"
       />
       @if (!session.active() && session.hasRole('supervisor')) {
+        <sager-auto-refresh-status [refresh]="refresh" />
         <sager-communication-filters
           mode="notifications"
           heading="Filtrar notificações"
           (changed)="filter($event)"
         />
-        <p class="comm-help">
-          Abrir um item não registra visualização. Uma notificação não é uma advertência e nenhuma
-          penalidade é automática.
-        </p>
+        <details class="learn-more">
+          <summary>Saiba mais</summary>
+          <p class="comm-help">
+            Abrir um item não registra visualização. Uma notificação não é uma advertência e nenhuma
+            penalidade é automática.
+          </p>
+        </details>
         <section class="op-section">
           <h2 id="notification-results-title" tabindex="-1">Notificações</h2>
+          <sager-status-legend [names]="legendNames" />
           <sager-communications-state
             [loading]="list.loading()"
             [error]="list.error()"
@@ -98,7 +109,9 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
                       }
                     </div>
                     <div class="op-row-side">
-                      <span class="op-status">{{ labels[item.status] }}</span>
+                      <span class="status" [attr.data-tone]="tone(labels[item.status])">{{
+                        labels[item.status]
+                      }}</span>
                       @if (!item.valid) {
                         <small>Origem invalidada</small>
                       }
@@ -140,7 +153,10 @@ export class NotificationsLocalPage {
       ),
     communicationsError,
   );
+  readonly refresh = autoRefresh(() => this.list.refresh());
   readonly labels = notificationLabels;
+  readonly legendNames = Object.values(notificationLabels);
+  readonly tone = toneAttr;
   readonly categories = categoryLabels;
   readonly formatTime = formatCommunicationTime;
   // A primeira carga vem da emissão inicial do painel de filtro.
@@ -155,6 +171,7 @@ export class NotificationsLocalPage {
   standalone: true,
   selector: 'sager-notification-detail-local',
   imports: [
+    AutoRefreshStatusComponent,
     UnsavedFormDirective,
     RouterLink,
     ReactiveFormsModule,
@@ -174,7 +191,9 @@ export class NotificationsLocalPage {
           }
         </div>
         @if (item(); as notification) {
-          <span class="op-status">{{ labels[notification.status] }}</span>
+          <span class="status" [attr.data-tone]="tone(labels[notification.status])">{{
+            labels[notification.status]
+          }}</span>
         }
       </header>
       <sager-communications-state
@@ -188,14 +207,10 @@ export class NotificationsLocalPage {
         !session.active() && session.hasRole('supervisor') && !loading() && !loadError() && item();
         as notification
       ) {
-        <p class="comm-help">
-          Confira o que aconteceu antes de decidir. Regra aplicada:
-          {{ categories[notification.category] }}.
-        </p>
+        <sager-auto-refresh-status [refresh]="refresh" />
         @if (notification.requiresReview) {
           <p class="comm-warning" role="alert">
-            A origem foi corrigida. Confira o registro atual antes de criar a advertência. Uma
-            advertência já criada continua no histórico.
+            A origem foi corrigida: confira o registro atual antes de criar a advertência.
           </p>
         }
         <div class="comm-grid">
@@ -324,11 +339,13 @@ export class NotificationsLocalPage {
             @if (busy()) {
               <p role="status">Processando decisão…</p>
             }
-            <div class="comm-actions">
-              <button class="btn-secondary" type="button" [disabled]="busy()" (click)="load()">
-                {{ conflict() ? 'Recarregar dados' : 'Atualizar dados' }}
-              </button>
-            </div>
+            @if (conflict()) {
+              <div class="comm-actions">
+                <button class="btn-secondary" type="button" [disabled]="busy()" (click)="load()">
+                  Recarregar dados
+                </button>
+              </div>
+            }
           </section>
         </div>
       }
@@ -356,41 +373,52 @@ export class NotificationDetailLocalPage {
   readonly showWarning = signal(false);
   readonly form = warningForm();
   readonly labels = notificationLabels;
+  readonly tone = toneAttr;
   readonly categories = categoryLabels;
   readonly events = eventLabels;
   readonly formatTime = formatCommunicationTime;
+  private sequence = 0;
+  readonly refresh = autoRefresh(() => this.load(true), {
+    busy: () => this.busy() || this.conflict() || this.loading(),
+  });
   constructor() {
     void this.load();
   }
   terminal(item: DisciplineNotification): boolean {
     return item.status === 'ARQUIVADA' || item.status === 'CONVERTIDA';
   }
-  async load(): Promise<void> {
+  /** `silent` é a atualização automática: mantém mensagens, formulário e foco, e lança a falha. */
+  async load(silent = false): Promise<void> {
     if (this.session.active() || !this.session.hasRole('supervisor') || this.busy()) return;
-    this.loading.set(true);
-    this.loadError.set('');
-    this.error.set('');
-    this.success.set('');
-    this.conflict.set(false);
-    this.item.set(null);
-    this.occurrence.set(null);
-    this.showWarning.set(false);
+    const sequence = ++this.sequence;
+    if (!silent) {
+      this.loading.set(true);
+      this.loadError.set('');
+      this.error.set('');
+      this.success.set('');
+      this.conflict.set(false);
+      this.item.set(null);
+      this.occurrence.set(null);
+      this.showWarning.set(false);
+    }
     try {
       const [item, context] = await Promise.all([
         this.api.notification(this.id),
         this.api.context(),
       ]);
       const occurrence = await this.api.occurrence(item.occurrenceId);
+      if (sequence !== this.sequence) return;
       this.item.set(item);
       this.context.set(context);
       this.occurrence.set(occurrence);
-      this.form.reset({
-        category: item.category,
-        severity: 'LEVE',
-        warningDate: context.currentDate,
-        description: '',
-        justification: '',
-      });
+      if (!silent || !this.form.dirty)
+        this.form.reset({
+          category: item.category,
+          severity: 'LEVE',
+          warningDate: context.currentDate,
+          description: '',
+          justification: '',
+        });
       if (item.occurrenceVersion !== occurrence.version || item.valid !== occurrence.valid) {
         this.conflict.set(true);
         this.error.set(
@@ -398,9 +426,10 @@ export class NotificationDetailLocalPage {
         );
       }
     } catch (error) {
-      this.loadError.set(communicationsError(error));
+      if (silent) throw error;
+      if (sequence === this.sequence) this.loadError.set(communicationsError(error));
     } finally {
-      this.loading.set(false);
+      if (!silent && sequence === this.sequence) this.loading.set(false);
     }
   }
   view(): void {
@@ -454,8 +483,7 @@ export class NotificationDetailLocalPage {
         lines: this.summary(item),
         requireReason: true,
         archive: true,
-        warning:
-          'O registro e a decisão ficam guardados. Esta notificação não abre de novo sozinha.',
+        warning: 'A notificação é encerrada, e o registro e a decisão ficam guardados.',
       },
       (result) =>
         this.mutate(async () => {
@@ -522,8 +550,7 @@ export class NotificationDetailLocalPage {
             { label: 'Gravidade', value: severityLabels[input.severity] },
             { label: 'Justificativa', value: input.justification },
           ],
-          warning:
-            'O residente vai receber esta advertência. Depois, o texto não pode ser mudado. Para anular, é preciso outra decisão com motivo.',
+          warning: 'O residente recebe a advertência, e o texto não pode mais ser mudado.',
         },
         () =>
           this.mutate(async () => {
@@ -581,6 +608,8 @@ export class NotificationDetailLocalPage {
       this.conflict()
     )
       return;
+    // Uma atualização automática em andamento traria a versão anterior por cima da gravação.
+    this.sequence++;
     this.busy.set(true);
     this.error.set('');
     this.success.set('');

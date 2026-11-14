@@ -114,7 +114,6 @@ export interface CommunicationReviewResult {
       @if (error()) {
         <p class="comm-error" role="alert">{{ error() }}</p>
       }
-      <p class="comm-help">Confira antes de confirmar. Cancelar fecha sem salvar.</p>
     </mat-dialog-content>
     <mat-dialog-actions align="end"
       ><button
