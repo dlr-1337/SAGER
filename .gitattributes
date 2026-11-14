@@ -2,3 +2,4 @@
 Dockerfile text eol=lf
 *.Dockerfile text eol=lf
 backend/mvnw text eol=lf
+sager text eol=lf
