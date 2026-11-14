@@ -484,66 +484,169 @@ class LongExitApiIntegrationTest {
     @Test
     void residentOutOnLongExitIsJustifiedBySystemWhenTheNightCallOpens() throws Exception {
         clock.value = START.minusSeconds(3600);
-        byte[] photo = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 1, 2, 3, 4};
         try (HttpClient student = login("residente");
                 HttpClient supervisor = login("supervisor")) {
-            JsonNode exit = created(post(student, ROOT, plan(4 * 3600)));
-            String id = exit.path("id").asText();
-            JsonNode attached =
-                    readResponse(attach(supervisor, id, exit.path("version").asLong(), photo), 200);
-            JsonNode confirmed =
-                    readResponse(
-                            post(
-                                    supervisor,
-                                    ROOT + "/" + id + "/autorizacao/arquivos/"
-                                            + attached.path("authorizationFiles").get(0).path("id").asText()
-                                            + "/conferencia",
-                                    Map.of(
-                                            "version",
-                                            attached.path("version").asLong(),
-                                            "confirmed",
-                                            true)),
-                            200);
-            JsonNode approved =
-                    readResponse(
-                            post(
-                                    supervisor,
-                                    ROOT + "/" + id + "/decisao",
-                                    Map.of(
-                                            "version",
-                                            confirmed.path("version").asLong(),
-                                            "decision",
-                                            "APPROVE",
-                                            "documentVersionId",
-                                            confirmed
-                                                    .path("currentDocument")
-                                                    .path("documentVersionId")
-                                                    .asText())),
-                            200);
-            readResponse(
-                    post(
-                            supervisor,
-                            ROOT + "/" + id + "/partida",
-                            Map.of("version", approved.path("version").asLong(), "timeMode", "NOW")),
-                    200);
+            JsonNode confirmed = confirmed(student, supervisor, plan(4 * 3600));
+            String id = confirmed.path("id").asText();
+            // Approving a request to leave now records the departure in the same act.
+            readResponse(approve(supervisor, confirmed), 200);
             clock.value = START;
-            JsonNode mark =
-                    created(
-                                    post(
-                                            supervisor,
-                                            "/api/v1/chamadas",
-                                            Map.of(
-                                                    "accommodationId",
-                                                    jdbc.queryForObject(
-                                                            "SELECT id FROM sager_accommodation",
-                                                            UUID.class))))
-                            .path("records")
-                            .get(0);
+            JsonNode mark = openCall(supervisor).path("records").get(0);
             assertThat(mark.path("mark").asText()).isEqualTo("AUSENCIA_JUSTIFICADA");
             assertThat(mark.path("authorizedExitId").asText()).isEqualTo(id);
             assertThat(mark.path("authorizedExitType").asText()).isEqualTo("LONG");
             assertThat(mark.path("history").get(0).path("actorProfile").asText()).isEqualTo("sistema");
         }
+    }
+
+    @Test
+    void approvingALongRequestToLeaveNowRecordsTheDepartureInTheSupervisorsName() throws Exception {
+        try (HttpClient student = login("residente");
+                HttpClient supervisor = login("supervisor")) {
+            JsonNode confirmed = confirmed(student, supervisor, plan(4 * 3600));
+            JsonNode approved = readResponse(approve(supervisor, confirmed), 200);
+            assertThat(approved.path("status").asText()).isEqualTo("EM_ANDAMENTO");
+            assertThat(approved.path("version").asLong())
+                    .isEqualTo(confirmed.path("version").asLong() + 2);
+            assertThat(Instant.parse(approved.path("actualDepartureAt").asText()))
+                    .isEqualTo(START)
+                    .isEqualTo(Instant.parse(approved.path("decidedAt").asText()));
+            assertThat(approved.path("capabilities").path("canDepart").asBoolean()).isFalse();
+            JsonNode history = approved.path("history");
+            JsonNode decision = history.get(history.size() - 2);
+            JsonNode departure = history.get(history.size() - 1);
+            assertThat(decision.path("event").asText()).isEqualTo("APPROVE");
+            assertThat(departure.path("event").asText()).isEqualTo("DEPARTURE");
+            assertThat(Instant.parse(departure.path("effectiveAt").asText())).isEqualTo(START);
+            for (JsonNode event : List.of(decision, departure))
+                assertThat(event.path("actorProfile").asText()).isEqualTo("supervisor");
+            assertThat(decision.path("actorId").asText())
+                    .isEqualTo(departure.path("actorId").asText())
+                    .isNotBlank();
+        }
+    }
+
+    @Test
+    void immediateLongApprovalIsRefusedWhileAnotherExitIsPhysicallyOpen() throws Exception {
+        try (HttpClient student = login("residente");
+                HttpClient supervisor = login("supervisor")) {
+            Map<String, Object> shortPlan = plan(3600);
+            shortPlan.remove("guardianId");
+            String shortId = created(post(student, "/api/v1/saidas-curtas", shortPlan)).path("id").asText();
+            JsonNode out =
+                    readResponse(
+                            post(
+                                    supervisor,
+                                    "/api/v1/saidas-curtas/" + shortId + "/decisao",
+                                    Map.of("version", 0, "decision", "APPROVE")),
+                            200);
+            assertThat(out.path("status").asText()).isEqualTo("EM_ANDAMENTO");
+            // The short exit is late and still without a confirmed return.
+            clock.value = START.plusSeconds(7200);
+            JsonNode confirmed = confirmed(student, supervisor, plan(4 * 3600));
+            error(approve(supervisor, confirmed), 409, "physical_exit_conflict");
+            JsonNode unchanged = read(supervisor, ROOT + "/" + confirmed.path("id").asText());
+            assertThat(unchanged.path("status").asText()).isEqualTo("AGUARDANDO_ANALISE");
+            assertThat(unchanged.path("version").asLong()).isEqualTo(confirmed.path("version").asLong());
+            assertThat(unchanged.path("history").size()).isEqualTo(confirmed.path("history").size());
+        }
+    }
+
+    @Test
+    void scheduledLongApprovalStaysApprovedUntilTheSupervisorRecordsTheDeparture() throws Exception {
+        try (HttpClient student = login("residente");
+                HttpClient supervisor = login("supervisor")) {
+            Map<String, Object> scheduled = plan(6 * 3600);
+            scheduled.put("departureMode", "SCHEDULED");
+            scheduled.put("requestedDepartureAt", START.plusSeconds(3600).toString());
+            JsonNode approved =
+                    readResponse(approve(supervisor, confirmed(student, supervisor, scheduled)), 200);
+            assertThat(approved.path("status").asText()).isEqualTo("APROVADA");
+            assertThat(approved.path("actualDepartureAt").isNull()).isTrue();
+            assertThat(approved.path("capabilities").path("canDepart").asBoolean()).isFalse();
+        }
+    }
+
+    @Test
+    void longExitOfManyDaysJustifiesEveryNightCallUntilTheExpectedReturn() throws Exception {
+        try (HttpClient student = login("residente");
+                HttpClient supervisor = login("supervisor")) {
+            JsonNode confirmed = confirmed(student, supervisor, plan(20 * 86400));
+            String id = confirmed.path("id").asText();
+            readResponse(approve(supervisor, confirmed), 200);
+            for (int day : new int[] {0, 10, 19}) {
+                clock.value = START.plusSeconds(day * 86400L);
+                JsonNode call = openCall(supervisor);
+                JsonNode mark = call.path("records").get(0);
+                assertThat(mark.path("mark").asText()).isEqualTo("AUSENCIA_JUSTIFICADA");
+                assertThat(mark.path("authorizedExitId").asText()).isEqualTo(id);
+                assertThat(mark.path("history").get(0).path("actorProfile").asText())
+                        .isEqualTo("sistema");
+                readResponse(
+                        post(
+                                supervisor,
+                                "/api/v1/chamadas/" + call.path("id").asText() + "/fechamento",
+                                Map.of("version", call.path("version").asLong())),
+                        200);
+            }
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT COUNT(*) FROM sager_occurrence WHERE resident_id=?",
+                                    Integer.class,
+                                    resident))
+                    .isZero();
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT COUNT(*) FROM sager_discipline_notification n JOIN"
+                                            + " sager_occurrence o ON o.id=n.occurrence_id WHERE"
+                                            + " o.resident_id=?",
+                                    Integer.class,
+                                    resident))
+                    .isZero();
+            clock.value = START.plusSeconds(21 * 86400L);
+            JsonNode pending = openCall(supervisor).path("records").get(0);
+            assertThat(pending.path("mark").isNull()).isTrue();
+            assertThat(pending.path("authorizedExits").size()).isZero();
+        }
+    }
+
+    JsonNode confirmed(HttpClient student, HttpClient supervisor, Map<String, Object> plan)
+            throws Exception {
+        byte[] photo = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 1, 2, 3, 4};
+        JsonNode exit = created(post(student, ROOT, plan));
+        String id = exit.path("id").asText();
+        JsonNode attached = readResponse(attach(supervisor, id, exit.path("version").asLong(), photo), 200);
+        return readResponse(
+                post(
+                        supervisor,
+                        ROOT + "/" + id + "/autorizacao/arquivos/"
+                                + attached.path("authorizationFiles").get(0).path("id").asText()
+                                + "/conferencia",
+                        Map.of("version", attached.path("version").asLong(), "confirmed", true)),
+                200);
+    }
+
+    HttpResponse<String> approve(HttpClient supervisor, JsonNode confirmed) throws Exception {
+        return post(
+                supervisor,
+                ROOT + "/" + confirmed.path("id").asText() + "/decisao",
+                Map.of(
+                        "version",
+                        confirmed.path("version").asLong(),
+                        "decision",
+                        "APPROVE",
+                        "documentVersionId",
+                        confirmed.path("currentDocument").path("documentVersionId").asText()));
+    }
+
+    JsonNode openCall(HttpClient supervisor) throws Exception {
+        return created(
+                post(
+                        supervisor,
+                        "/api/v1/chamadas",
+                        Map.of(
+                                "accommodationId",
+                                jdbc.queryForObject("SELECT id FROM sager_accommodation", UUID.class))));
     }
 
     @Test

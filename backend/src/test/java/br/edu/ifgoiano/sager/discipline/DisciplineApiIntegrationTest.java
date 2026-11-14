@@ -101,13 +101,12 @@ class DisciplineApiIntegrationTest {
         try(var sup=login("supervisor");var student=login("residente")) {
             var exit=ok(student,"POST","/api/v1/saidas-curtas",Map.of("departureMode","NOW","expectedReturnAt",START.plusSeconds(3600).toString(),"reason","Compromisso sintético"));String id=exit.path("id").asText();
             ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/decisao",Map.of("version",0,"decision","APPROVE"));
-            clock.set(START.plusSeconds(1));ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/partida",Map.of("version",1,"timeMode","NOW"));
             clock.set(START.plusSeconds(3601));read(sup,"/api/v1/saidas-curtas/"+id);assertThat(count("sager_occurrence")).isZero();
             ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/retorno",Map.of("version",2,"timeMode","NOW","lateObservation","Trânsito atrasou o retorno confirmado presencialmente."));
             assertThat(count("sager_occurrence")).isEqualTo(1);assertThat(count("sager_warning")).isZero();
             var next=ok(student,"POST","/api/v1/saidas-curtas",Map.of("departureMode","NOW","expectedReturnAt",clock.instant().plusSeconds(3600).toString(),"reason","Outra saída sintética"));id=next.path("id").asText();
             ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/decisao",Map.of("version",0,"decision","APPROVE"));
-            clock.set(clock.instant().plusSeconds(1));ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/partida",Map.of("version",1,"timeMode","NOW"));
+            clock.set(clock.instant().plusSeconds(1));
             clock.set(clock.instant().plusSeconds(30));ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/retorno",Map.of("version",2,"timeMode","NOW"));
             assertThat(count("sager_occurrence")).isEqualTo(1);
         }

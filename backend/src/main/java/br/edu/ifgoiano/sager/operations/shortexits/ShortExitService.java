@@ -141,6 +141,9 @@ public class ShortExitService {
         Instant now = now();
         checkDeadline(current, now);
         if ("APPROVE".equals(decision)) eligible(current.residentId(), now);
+        // A request whose departure has arrived is approved and departed in the same act (RN06).
+        boolean departNow = "APPROVE".equals(decision) && !now.isBefore(current.requestedDepartureAt());
+        if (departNow) noPhysicalExitOpen(current.residentId());
         Map<String, Object> changes = new HashMap<>();
         changes.put("status", "APPROVE".equals(decision) ? ShortExit.APPROVED : "REJEITADA");
         changes.put("decision", decision);
@@ -150,6 +153,11 @@ public class ShortExitService {
         record(updated, decision, now, null, actor, comment, AuditAction.UPDATE,
                 Objects.equals(current.decisionComment(), updated.decisionComment())
                         ? Set.of("status", "decision") : Set.of("status", "decision", "decisionComment"));
+        if (departNow) {
+            updated = changed(updated, Map.of("status", ShortExit.IN_PROGRESS, "actual_departure_at", now), now);
+            record(updated, "DEPARTURE", now, now, actor, null, AuditAction.UPDATE,
+                    Set.of("status", "actualDepartureAt"));
+        }
         return view(updated, actor);
     }
 
@@ -185,9 +193,7 @@ public class ShortExitService {
                 || !departure.isBefore(current.expectedReturnAt())) {
             throw OpsInput.invalid("A partida física deve seguir a partida solicitada e a aprovação, antes do retorno previsto.");
         }
-        if (occupancies.stream().anyMatch(provider -> provider.physicalOpenFor(current.residentId()))) {
-            throw OpsInput.conflict("physical_exit_conflict", "O residente possui outra saída em andamento.");
-        }
+        noPhysicalExitOpen(current.residentId());
         ShortExit updated = changed(current, Map.of("status", ShortExit.IN_PROGRESS,
                 "actual_departure_at", departure), now);
         record(updated, "DEPARTURE", now, departure, actor, request.justification(), AuditAction.UPDATE,
@@ -272,6 +278,12 @@ public class ShortExitService {
             throw OpsInput.invalid("Informe o motivo da saída, de 3 a 2000 caracteres.");
         }
         return new Plan(request.departureMode(), departure, returning, request.reason(), request.notes());
+    }
+
+    private void noPhysicalExitOpen(UUID residentId) {
+        if (occupancies.stream().anyMatch(provider -> provider.physicalOpenFor(residentId))) {
+            throw OpsInput.conflict("physical_exit_conflict", "O residente possui outra saída em andamento.");
+        }
     }
 
     private void noOverlap(UUID residentId, UUID excluded, Plan plan, Instant now) {
