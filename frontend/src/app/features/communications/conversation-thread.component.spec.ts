@@ -230,4 +230,35 @@ describe('Situação do arquivo recebido', () => {
     expect(root.querySelector('.conv-linked')!.textContent).toContain('aguardando conferência');
     expect(document.activeElement?.id).toBe('conv-exit-1');
   });
+
+  it('vincular arquivo antigo, fora da página recarregada, troca o botão pelo Abrir saída', async () => {
+    const { state, thread, harness, settle } = await setup([
+      pdf('1', { linkable: true }),
+      message('2'),
+    ]);
+    thread.openLink(state.items[0]);
+    await settle();
+    // The latest page no longer brings the file: it was loaded by "mensagens anteriores".
+    state.items = [message('2')];
+    await thread.link(thread.linking()!);
+    await settle();
+    const item = bubble(harness.routeNativeElement!, 'autorizacao-1.pdf');
+    expect(item.textContent).not.toContain('Vincular a uma saída longa');
+    expect(item.querySelector('.conv-linked')!.textContent).toContain('aguardando conferência');
+    expect(document.activeElement?.id).toBe('conv-exit-1');
+  });
+});
+
+describe('Leitura da conversa', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('marca como lida sem o cabeçalho ao abrir e com ele na atualização automática', async () => {
+    const { api, state, thread } = await setup();
+    api.get.mockResolvedValue({ ...conversation, unreadCount: 1 });
+    await thread.reload();
+    expect(api.markRead).toHaveBeenLastCalledWith('c1', false);
+    state.items = [...state.items, message('3')];
+    await thread.refresh();
+    expect(api.markRead).toHaveBeenLastCalledWith('c1', true);
+  });
 });

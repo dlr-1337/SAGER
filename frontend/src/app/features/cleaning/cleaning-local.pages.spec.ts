@@ -418,6 +418,30 @@ describe('Detalhe e ranking da limpeza se atualizam sozinhos', () => {
     expect(fixture.componentInstance.loading()).toBe(false);
   });
 
+  it('o detalhe sai de "Carregando" quando a primeira carga passa de 15 s', async () => {
+    let answer!: (value: unknown) => void;
+    get.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+    const fixture = TestBed.createComponent(CleaningDetailLocalPage);
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(get).toHaveBeenCalledTimes(1);
+    answer(assessment('A-101'));
+    await vi.advanceTimersByTimeAsync(0);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.loading()).toBe(false);
+    expect(fixture.nativeElement.textContent).toContain('Avaliação do quarto');
+  });
+
+  it('o detalhe tira o erro quando a atualização automática consegue carregar', async () => {
+    get.mockRejectedValueOnce(new Error('offline'));
+    const fixture = TestBed.createComponent(CleaningDetailLocalPage);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fixture.componentInstance.error()).not.toBe('');
+    await vi.advanceTimersByTimeAsync(15_000);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.error()).toBe('');
+    expect(fixture.nativeElement.textContent).toContain('Avaliação do quarto');
+  });
+
   it('o ranking reflete a correção aos 15 s no mesmo período', async () => {
     const fixture = TestBed.createComponent(RankingLocalPage);
     await vi.advanceTimersByTimeAsync(0);

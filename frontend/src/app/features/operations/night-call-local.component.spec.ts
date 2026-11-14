@@ -420,6 +420,23 @@ describe('Filtros de casa ou bloco e quarto na chamada noturna', () => {
       expect(fixture.nativeElement.textContent).not.toContain('Carregando chamada');
     });
 
+    it('repete a chamada à vista e não troca a data ainda não confirmada em "Ver chamada"', async () => {
+      const fixture = TestBed.createComponent(NightCallLocalComponent);
+      await settle(fixture);
+      const component = fixture.componentInstance;
+      const before = calls.mock.calls.length;
+      component.date.setValue('2026-09-29');
+      await settle(fixture, 15_000);
+      expect(calls).toHaveBeenCalledTimes(before + 1);
+      expect(calls).toHaveBeenLastCalledWith('a1', '2026-09-30');
+      expect(component.date.value).toBe('2026-09-29');
+      component.date.setValue('');
+      await settle(fixture, 15_000);
+      expect(calls).toHaveBeenCalledTimes(before + 2);
+      expect(calls).toHaveBeenLastCalledWith('a1', '2026-09-30');
+      expect(component.date.value).toBe('');
+    });
+
     it('pula o ciclo enquanto uma marcação grava e consulta no seguinte', async () => {
       const fixture = TestBed.createComponent(NightCallLocalComponent);
       await settle(fixture);

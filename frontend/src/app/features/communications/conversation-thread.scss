@@ -160,11 +160,12 @@
   width: min(300px, 100%);
   height: 44px;
 }
+// Link e ícone inline-block, como .op-row-link (D14): o sublinhado do hover não chega ao ícone.
 .conv-download {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display: inline-block;
   min-height: 44px;
+  padding-block: 10px;
+  line-height: 24px;
   overflow-wrap: anywhere;
   color: var(--green-900);
   font-weight: 600;
@@ -173,18 +174,21 @@
 .conv-download:hover {
   text-decoration: underline;
 }
+.conv-download .material-symbols-rounded {
+  vertical-align: middle;
+  margin-inline-end: 4px;
+}
 .conv-download small {
   color: var(--neutral-ink);
   font-weight: 400;
   white-space: nowrap;
 }
 .conv-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  display: inline-block;
   width: fit-content;
   min-height: 44px;
-  padding: 0;
+  padding: 10px 0;
+  line-height: 24px;
   border: 0;
   background: none;
   color: var(--green-900);
@@ -195,7 +199,8 @@
   text-decoration: underline;
 }
 .conv-inline .material-symbols-rounded {
-  flex: none;
+  vertical-align: middle;
+  margin-inline-end: 2px;
   font-size: 20px;
 }
 // Arquivo já numa saída longa: a situação e o único caminho até a saída.

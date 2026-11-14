@@ -674,6 +674,27 @@ test.describe('desktop', () => {
     await axe(page);
   });
 
+  test('baixar arquivo e ações do balão sublinham só o texto no hover', async ({ page }) => {
+    await mockApi(page);
+    await page.goto(`/conversas/${linkedId}`);
+    const bubble = page.getByRole('log').locator('.conv-msg', { hasText: 'termo-assinado.pdf' });
+    for (const link of [
+      bubble.locator('a.conv-download'),
+      bubble.getByRole('button', { name: 'Vincular a uma saída longa' }),
+    ]) {
+      await link.scrollIntoViewIfNeeded();
+      await link.hover();
+      // Num link flex o ícone vira item e herda o sublinhado; inline-block, ele fica fora (D14).
+      const layout = await link.evaluate((element) => ({
+        link: getComputedStyle(element).display,
+        icon: getComputedStyle(element.querySelector('.material-symbols-rounded')!).display,
+        underline: getComputedStyle(element).textDecorationLine,
+      }));
+      expect(layout.link).not.toMatch(/flex|grid/);
+      expect(layout).toMatchObject({ icon: 'inline-block', underline: 'underline' });
+    }
+  });
+
   test('inicia conversa só com responsável cadastrado e informa número inexistente', async ({
     page,
   }) => {

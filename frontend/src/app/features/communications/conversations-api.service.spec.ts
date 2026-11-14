@@ -116,6 +116,19 @@ describe('ConversationsApiService', () => {
   it('marca leitura com resposta 204 sem corpo', async () => {
     withCsrf(new Response(null, { status: 204 }));
     await expect(service.markRead(id)).resolves.toBeUndefined();
+    expect(fetchMock.mock.calls[1][1].headers).not.toHaveProperty('X-Sager-Auto-Refresh');
+  });
+
+  it('leitura marcada pela atualização automática leva o cabeçalho que não renova a sessão', async () => {
+    withCsrf(new Response(null, { status: 204 }));
+    await service.markRead(id, true);
+    const [url, init] = fetchMock.mock.calls[1];
+    expect(url).toBe(`/api/v1/conversas/${id}/leitura`);
+    expect(init.method).toBe('POST');
+    expect(init.headers).toMatchObject({
+      'X-CSRF-TOKEN': 'sintetico',
+      'X-Sager-Auto-Refresh': '1',
+    });
   });
 
   it('repassa o cursor sem alteração', async () => {
