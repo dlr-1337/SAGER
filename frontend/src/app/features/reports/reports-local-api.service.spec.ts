@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetSession } from '../../core/api';
 import { ReportsLocalApiService } from './reports-local-api.service';
 import { ReportingApiError, reportingError } from '../cleaning/reporting-local.transport';
 const id = '00000000-0000-0000-0000-000000000001';
@@ -30,6 +31,8 @@ const job = {
 };
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status });
 describe('Contrato dos recortes e arquivos privados', () => {
+  // O token CSRF fica em memória no módulo e passaria de outro arquivo de teste para este.
+  beforeEach(() => resetSession());
   afterEach(() => vi.unstubAllGlobals());
   it('vincula paginação ao snapshot exato, limite 25 e cursor progressivo', async () => {
     const page = { snapshotId: id, offset: 0, limit: 25, nextOffset: null, total: 1, items: [row] };
