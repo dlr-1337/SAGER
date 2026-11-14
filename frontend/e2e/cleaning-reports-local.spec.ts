@@ -1,5 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, Page, test } from '@playwright/test';
+import { openMoreFilters } from './more-filters';
+import { expectShortGuidance } from './short-text';
 import type {
   CleaningAssessment,
   CleaningCriteria,
@@ -534,11 +536,6 @@ async function grades(page: Page, value = '6') {
   for (const label of ['Piso', 'Superfícies', 'Lixo', 'Organização'])
     await page.getByRole('spinbutton', { name: label, exact: false }).fill(value);
 }
-async function confirm(page: Page, action: string) {
-  const dialog = page.getByRole('dialog');
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole('button', { name: action, exact: true }).click();
-}
 async function noOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
@@ -546,30 +543,38 @@ async function noOverflow(page: Page) {
 }
 test.use({ timezoneId: 'Pacific/Auckland' });
 
-test('supervisor registra quatro notas NOW, cancela revisão sem escrita e preserva registro após recarga', async ({
+test('supervisor avalia em três passos, Voltar mantém as notas e o registro fica após recarga', async ({
   page,
 }) => {
   const state = await mockApi(page, { exists: false });
   await page.goto('/limpeza/nova');
   await expect(page.getByRole('heading', { name: 'Registrar avaliação de limpeza' })).toBeVisible();
-  expect(state.writes).toHaveLength(0);
-  await page.getByRole('button', { name: 'Conferir avaliação', exact: true }).click();
-  await expect(page.getByRole('alert').filter({ hasText: 'quatro critérios' })).toBeVisible();
+  await expectShortGuidance(page);
+  await expect(page.getByText('Passo 1 de 3', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Qual quarto?' })).toBeVisible();
+  await expect(page.getByRole('spinbutton', { name: 'Piso', exact: false })).toHaveCount(0);
+  const next = page.getByRole('button', { name: 'Continuar', exact: true });
+  await next.click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Escolha o quarto.' })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Quarto', exact: true })).toBeFocused();
   await page.getByRole('combobox', { name: 'Quarto', exact: true }).selectOption(roomId);
+  await next.click();
+  await expect(page.getByRole('heading', { name: 'Notas' })).toBeFocused();
+  await expect(page.getByText('Passo 2 de 3', { exact: true })).toBeVisible();
+  await next.click();
+  await expect(page.getByRole('alert').filter({ hasText: 'quatro critérios' })).toBeVisible();
   await grades(page, '0');
   await page.getByRole('spinbutton', { name: 'Piso', exact: false }).fill('0.1');
   await expect(page.getByText('Média:', { exact: false })).toContainText('0,03');
-  const review = page.getByRole('button', { name: 'Conferir avaliação', exact: true });
-  await review.click();
-  await expect(page.getByRole('dialog')).toBeVisible();
-  await expect(
-    page.getByRole('dialog').getByRole('button', { name: 'Cancelar', exact: true }),
-  ).toBeFocused();
-  await page.keyboard.press('Escape');
-  await expect(review).toBeFocused();
+  await next.click();
+  await expect(page.getByRole('heading', { name: 'Conferir e salvar' })).toBeFocused();
+  await expect(page.locator('dl')).toContainText('T-101');
+  await expect(page.locator('dl')).toContainText('0,03');
+  await page.getByRole('button', { name: 'Voltar', exact: true }).click();
+  await expect(page.getByRole('spinbutton', { name: 'Piso', exact: false })).toHaveValue('0.1');
   expect(state.writes).toHaveLength(0);
-  await review.click();
-  await confirm(page, 'Confirmar avaliação');
+  await next.click();
+  await page.getByRole('button', { name: 'Salvar avaliação', exact: true }).click();
   await expect(page).toHaveURL(new RegExp('/limpeza/' + assessmentId + '$'));
   expect(state.writes[0].body).toMatchObject({
     roomId,
@@ -590,20 +595,24 @@ test('registro histórico exige instante não futuro e motivo; usa horário de S
   const state = await mockApi(page, { exists: false });
   await page.goto('/limpeza/nova');
   await page.getByRole('combobox', { name: 'Quarto', exact: true }).selectOption(roomId);
-  await grades(page);
-  await page
-    .getByRole('combobox', { name: 'Quando foi a avaliação?', exact: true })
-    .selectOption('RETROACTIVE');
-  await page.getByLabel('Data e hora da avaliação', { exact: false }).fill('2026-09-30T14:00');
+  const time = page.getByLabel('Data e hora da avaliação', { exact: false });
+  await expect(time).toBeHidden();
+  await page.getByText('Foi em outro dia?', { exact: true }).click();
+  await time.fill('2026-09-30T14:00');
   await page
     .getByLabel('Por que está registrando depois?', { exact: false })
     .fill('Avaliação presencial conferida antes do registro.');
-  await page.getByRole('button', { name: 'Conferir avaliação', exact: true }).click();
+  const next = page.getByRole('button', { name: 'Continuar', exact: true });
+  await next.click();
   await expect(page.getByRole('alert').filter({ hasText: 'no futuro' })).toBeVisible();
+  await expect(time).toBeFocused();
   expect(state.writes).toHaveLength(0);
-  await page.getByLabel('Data e hora da avaliação', { exact: false }).fill('2026-09-30T12:30');
-  await page.getByRole('button', { name: 'Conferir avaliação', exact: true }).click();
-  await confirm(page, 'Confirmar avaliação');
+  await time.fill('2026-09-30T12:30');
+  await next.click();
+  await grades(page);
+  await next.click();
+  await expect(page.locator('dl')).toContainText('Avaliação presencial conferida');
+  await page.getByRole('button', { name: 'Salvar avaliação', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(assessmentId));
   expect(state.writes[0].body).toMatchObject({
     timeMode: 'RETROACTIVE',
@@ -617,20 +626,25 @@ test('correção motivada preserva instante e participantes, bloqueia versão al
   const state = await mockApi(page);
   await page.goto('/limpeza/' + assessmentId + '/corrigir');
   await expect(page.getByRole('heading', { name: 'Corrigir avaliação de limpeza' })).toBeVisible();
+  await expectShortGuidance(page);
+  await expect(page.getByText('Passo 1 de 2', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Notas' })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Quarto', exact: true })).toHaveCount(0);
   await grades(page, '8');
+  await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+  const reason = page.getByLabel('Motivo da correção', { exact: false });
+  await reason.fill('Notas conferidas novamente com evidência presencial.');
   state.item.version = 1;
-  await page.getByRole('button', { name: 'Conferir correção', exact: true }).click();
+  const save = page.getByRole('button', { name: 'Salvar avaliação', exact: true });
+  await save.click();
   await expect(page.getByRole('alert').filter({ hasText: 'Outra pessoa alterou' })).toBeVisible();
   expect(state.writes).toHaveLength(0);
-  await expect(page.getByRole('button', { name: 'Conferir correção', exact: true })).toBeDisabled();
+  await expect(save).toBeDisabled();
   await page.getByRole('button', { name: 'Recarregar dados' }).click();
+  await page.getByRole('button', { name: 'Voltar', exact: true }).click();
   await grades(page, '8');
-  await page.getByRole('button', { name: 'Conferir correção', exact: true }).click();
-  await page
-    .getByRole('dialog')
-    .getByLabel('Justificativa', { exact: true })
-    .fill('Notas conferidas novamente com evidência presencial.');
-  await confirm(page, 'Confirmar correção');
+  await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+  await save.click();
   await expect(page).toHaveURL(new RegExp('/limpeza/' + assessmentId + '$'));
   expect(state.writes[0].body.version).toBe(1);
   expect(state.writes[0].body).not.toHaveProperty('evaluatedAt');
@@ -645,6 +659,8 @@ test('correção motivada preserva instante e participantes, bloqueia versão al
 test('lista de limpeza filtra por alojamento com quarto dependente', async ({ page }) => {
   const state = await mockApi(page);
   await page.goto('/limpeza');
+  await expectShortGuidance(page);
+  await openMoreFilters(page);
   const room = page.getByRole('combobox', { name: 'Quarto', exact: true });
   await expect(room.locator('option')).toHaveText(['Todos os quartos', 'T-101', 'U-201']);
   await room.selectOption(roomId);
@@ -673,6 +689,7 @@ test('lista de limpeza filtra por casa ou bloco, com opções distinguíveis e c
 }) => {
   const state = await mockApi(page);
   await page.goto('/limpeza');
+  await openMoreFilters(page);
   const accommodation = page.getByRole('combobox', { name: 'Alojamento', exact: true });
   const unit = page.getByRole('combobox', { name: 'Casa ou bloco', exact: true });
   const room = page.getByRole('combobox', { name: 'Quarto', exact: true });
@@ -1060,14 +1077,18 @@ test('320px sem overflow e axe, teclado em revisão, papéis protegidos e demons
   await page.setViewportSize({ width: 320, height: 760 });
   await page.goto('/limpeza/nova');
   await page.getByRole('combobox', { name: 'Quarto', exact: true }).selectOption(roomId);
+  await page.getByText('Foi em outro dia?', { exact: true }).click();
+  await noOverflow(page);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page.getByText('Foi em outro dia?', { exact: true }).click();
+  await page.getByRole('button', { name: 'Continuar', exact: true }).click();
   await grades(page);
   await noOverflow(page);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-  await page.getByRole('button', { name: 'Conferir avaliação', exact: true }).click();
-  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('spinbutton', { name: 'Organização', exact: false }).press('Enter');
+  await expect(page.getByRole('heading', { name: 'Conferir e salvar' })).toBeFocused();
   await noOverflow(page);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-  await page.keyboard.press('Escape');
   await page.goto('/relatorios');
   await generate(page);
   await expect(page.getByText('Montando os arquivos', { exact: false })).toBeVisible();

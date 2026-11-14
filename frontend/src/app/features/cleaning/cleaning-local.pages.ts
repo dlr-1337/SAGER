@@ -1,7 +1,9 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import { rememberFilters } from '../../core/filter-state';
+import { autoRefresh } from '../../core/auto-refresh';
 import { cursorPages } from '../../core/list-page';
+import { AutoRefreshStatusComponent } from '../../shared/auto-refresh-status.component';
 import { FilterChip, FilterPanelComponent } from '../../shared/filter-panel.component';
 import { PaginationComponent } from '../../shared/pagination.component';
 import {
@@ -76,6 +78,7 @@ export class CleaningPage {
     CommunicationsStateComponent,
     FilterPanelComponent,
     PaginationComponent,
+    AutoRefreshStatusComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -98,6 +101,7 @@ export class CleaningPage {
       </header>
       <sager-communications-state [demo]="session.active()" [blocked]="!allowed()" />
       @if (!session.active() && allowed()) {
+        <sager-auto-refresh-status [refresh]="refresh" />
         <nav class="comm-links" aria-label="Limpeza">
           <a routerLink="/ranking">Ver ranking</a>
           @if (!own) {
@@ -207,7 +211,7 @@ export class CleaningPage {
                   <p>
                     {{
                       own
-                        ? 'Somente avaliações com sua participação registrada aparecem aqui. Transferências posteriores não atribuem notas antigas a sua conta.'
+                        ? 'Só aparecem avaliações de quartos em que você estava.'
                         : 'Altere os filtros ou registre uma avaliação do quarto.'
                     }}
                   </p>
@@ -294,6 +298,7 @@ export class CleaningListLocalPage {
         : this.api.list(this.applied, cursor),
     reportingError,
   );
+  readonly refresh = autoRefresh(() => this.list.refresh());
   readonly filterError = signal('');
   readonly optionsError = signal('');
   private applied: CleaningFilters = {};
@@ -355,7 +360,7 @@ export class CleaningListLocalPage {
 @Component({
   standalone: true,
   selector: 'sager-cleaning-detail-local',
-  imports: [RouterLink, CommunicationsStateComponent],
+  imports: [RouterLink, CommunicationsStateComponent, AutoRefreshStatusComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page comm-narrow">
@@ -378,6 +383,7 @@ export class CleaningListLocalPage {
         (retry)="load()"
       />
       @if (!session.active() && allowed() && !loading() && !error() && item(); as assessment) {
+        <sager-auto-refresh-status [refresh]="refresh" />
         <section class="panel op-panel">
           <h2>Notas da avaliação</h2>
           <dl class="comm-definition">
@@ -452,9 +458,13 @@ export class CleaningListLocalPage {
               </div>
             </dl>
           </div>
-          <p class="comm-help">
-            A nota é a média dos quatro itens. Ninguém recebe advertência automática por causa dela.
-          </p>
+          <details class="learn-more">
+            <summary>Saiba mais</summary>
+            <p class="comm-help">
+              A nota é a média dos quatro itens. Ninguém recebe advertência automática por causa
+              dela.
+            </p>
+          </details>
           <div class="comm-actions">
             @if (!own && session.hasRole('supervisor')) {
               <a class="btn-secondary" [routerLink]="['/limpeza', assessment.id, 'corrigir']"
@@ -468,7 +478,7 @@ export class CleaningListLocalPage {
                 periodo: assessment.feedback.rankingReference,
               }"
               >Ver ranking deste período</a
-            ><button class="btn-secondary" type="button" (click)="load()">Atualizar dados</button>
+            >
           </div>
         </section>
         @if (administrative(); as admin) {
@@ -524,6 +534,8 @@ export class CleaningDetailLocalPage {
   readonly decimal = decimal;
   readonly civil = formatCivilDate;
   readonly formatTime = formatCommunicationTime;
+  readonly refresh = autoRefresh(() => this.load(true));
+  private sequence = 0;
   constructor() {
     void this.load();
   }
@@ -536,17 +548,23 @@ export class CleaningDetailLocalPage {
     const item = this.item();
     return item && 'participants' in item ? item : null;
   }
-  async load(): Promise<void> {
+  /** `silent`: atualização automática, sem "Carregando" e sem tirar a avaliação da tela. */
+  async load(silent = false): Promise<void> {
     if (this.session.active() || !this.allowed()) return;
-    this.loading.set(true);
-    this.error.set('');
-    this.item.set(null);
+    const current = ++this.sequence;
+    if (!silent) {
+      this.loading.set(true);
+      this.error.set('');
+      this.item.set(null);
+    }
     try {
-      this.item.set(this.own ? await this.api.own(this.id) : await this.api.get(this.id));
+      const item = this.own ? await this.api.own(this.id) : await this.api.get(this.id);
+      if (current === this.sequence) this.item.set(item);
     } catch (error) {
-      this.error.set(reportingError(error));
+      if (silent) throw error;
+      if (current === this.sequence) this.error.set(reportingError(error));
     } finally {
-      this.loading.set(false);
+      if (!silent && current === this.sequence) this.loading.set(false);
     }
   }
 }
@@ -576,6 +594,7 @@ export class RankingPage {
     CommunicationsStateComponent,
     NgTemplateOutlet,
     PaginationComponent,
+    AutoRefreshStatusComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -594,6 +613,7 @@ export class RankingPage {
         (retry)="load()"
       />
       @if (allowed() && !loading() && !error()) {
+        <sager-auto-refresh-status [refresh]="refresh" />
         <section class="panel op-panel">
           <h2>Escolha o período</h2>
           <form class="comm-form-grid" [formGroup]="form" (ngSubmit)="load()">
@@ -614,16 +634,19 @@ export class RankingPage {
             <h3 id="ranking-period-title" tabindex="-1">
               {{ periods[result.period] }} · {{ civil(result.from) }} a {{ civil(result.to) }}
             </h3>
-            <p class="comm-help">
-              Quartos com a mesma média ficam na mesma posição. Quarto sem avaliação fica sem
-              posição.
-            </p>
-            @if (session.hasRole('residente')) {
+            <details class="learn-more">
+              <summary>Saiba mais</summary>
               <p class="comm-help">
-                Dos outros quartos, você vê só o código e a posição. Você vê suas notas se estava no
-                quarto em uma avaliação deste período.
+                Quartos com a mesma média ficam na mesma posição. Quarto sem avaliação fica sem
+                posição.
               </p>
-            }
+              @if (session.hasRole('residente')) {
+                <p class="comm-help">
+                  Dos outros quartos, você vê só o código e a posição. Você vê suas notas se estava
+                  no quarto em uma avaliação deste período.
+                </p>
+              }
+            </details>
             <ng-template #rankRow let-row>
               <article class="cleaning-rank">
                 <strong>{{ row.position === null ? 'Sem posição' : row.position + 'º' }}</strong>
@@ -710,6 +733,10 @@ export class RankingLocalPage {
   readonly periods = periodLabels;
   readonly decimal = decimal;
   readonly civil = formatCivilDate;
+  readonly refresh = autoRefresh(() => this.update());
+  /** Período à vista: a atualização automática repete este, não o que está escolhido no campo. */
+  private shown: { period: RankingPeriod; referenceDate: string } | null = null;
+  private sequence = 0;
   constructor() {
     void this.load();
   }
@@ -727,6 +754,7 @@ export class RankingLocalPage {
       this.filterError.set('Informe uma data de referência válida.');
       return;
     }
+    const current = ++this.sequence;
     this.loading.set(true);
     this.error.set('');
     this.filterError.set('');
@@ -738,15 +766,34 @@ export class RankingLocalPage {
         referenceDate,
         this.session.hasRole('residente'),
       );
+      if (current !== this.sequence) return;
       this.policy.set(policy);
       this.form.controls.referenceDate.setValue(referenceDate);
       this.rankingPage.set(0);
       this.ranking.set(ranking);
+      this.shown = { period: value.period, referenceDate };
     } catch (error) {
+      if (current !== this.sequence) return;
       this.ranking.set(null);
+      this.shown = null;
       this.error.set(reportingError(error));
     } finally {
-      this.loading.set(false);
+      if (current === this.sequence) this.loading.set(false);
     }
+  }
+  /** Atualização automática: mesmo período e mesma página, sem "Carregando"; a falha volta. */
+  private async update(): Promise<void> {
+    const shown = this.shown;
+    if (!shown || this.loading()) return;
+    const current = this.sequence;
+    const ranking = await this.api.ranking(
+      shown.period,
+      shown.referenceDate,
+      this.session.hasRole('residente'),
+    );
+    if (current !== this.sequence) return;
+    this.ranking.set(ranking);
+    const last = Math.max(0, Math.ceil(ranking.items.length / 25) - 1);
+    this.rankingPage.update((page) => Math.min(page, last));
   }
 }
