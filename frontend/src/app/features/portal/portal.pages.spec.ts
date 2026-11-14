@@ -166,7 +166,7 @@ describe('HelpPage', () => {
     }
     expect(shown).toEqual({
       gestor: ['/relatorios'],
-      supervisor: ['/chamada', '/saidas', '/comunicacoes/avisos', '/relatorios'],
+      supervisor: ['/chamada', '/saidas', '/relatorios'],
       residente: ['/saidas', '/avisos', '/ranking'],
     });
     session.deactivate();

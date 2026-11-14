@@ -113,6 +113,7 @@ test('guias da ajuda na demonstração não levam ao acesso negado', async ({ pa
       await expect(page.locator('main h1').first(), `${profile} ${href}`).not.toHaveText(
         /acesso não disponível|página não encontrada/i,
       );
+      await expect(page.getByText('Esta tela não faz parte da demonstração')).toHaveCount(0);
     }
   }
 });
