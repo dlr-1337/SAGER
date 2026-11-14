@@ -1,7 +1,7 @@
 import { signal, Type } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { ResidentApiService } from '../management/resident-api.service';
 import { CommunicationsLocalApiService } from './communications-local-api.service';
@@ -87,8 +87,72 @@ for (const component of [
       expect(view.list.items()).toEqual(first.items);
       expect(page).toHaveBeenCalledTimes(2);
     });
+
+    describe('atualização automática', () => {
+      beforeEach(() => {
+        vi.useFakeTimers();
+        Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+      });
+      afterEach(() => {
+        vi.useRealTimers();
+        delete (document as { hidden?: boolean }).hidden;
+      });
+
+      it('na página 2 com filtro, o item novo aparece aos 15 s sem esvaziar a lista', async () => {
+        const page = setup();
+        let answer!: (result: Page) => void;
+        page.mockReturnValueOnce(new Promise<Page>((resolve) => (answer = resolve)));
+        const Component: Type<Filtered> = component;
+        const view = TestBed.runInInjectionContext(() => new Component());
+        await view.filter({ search: 'busca', residentId, status: 'PENDENTE' });
+        await view.list.go(1);
+        await vi.advanceTimersByTimeAsync(14_999);
+        expect(page).toHaveBeenCalledTimes(2);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(page).toHaveBeenCalledTimes(3);
+        expect(page.mock.calls[2]).toEqual(page.mock.calls[1]);
+        // Enquanto a resposta não chega, a página 2 continua à vista, sem "Carregando".
+        expect(view.list.items()).toEqual(second.items);
+        expect(view.list.loading()).toBe(false);
+        answer({ items: [{ id: 'nova' }], nextCursor: null });
+        await vi.advanceTimersByTimeAsync(0);
+        expect(view.list.page()).toBe(1);
+        expect(view.list.items()).toEqual([{ id: 'nova' }]);
+      });
+    });
   });
 }
+
+describe('Lista de advertências', () => {
+  it('tem "Nova advertência", nenhum <form> de cadastro e "Anulada" sem tom', async () => {
+    const page = setup();
+    page.mockReset().mockResolvedValue({
+      items: [
+        {
+          id: 'adv-1',
+          residentName: 'Residente Sintético',
+          category: 'AUSENCIA',
+          severity: 'LEVE',
+          warningDate: '2026-11-10',
+          description: 'Ausência sintética',
+          status: 'ANULADA',
+          requiresReview: false,
+        },
+      ],
+      nextCursor: null,
+    });
+    const fixture = TestBed.createComponent(WarningsLocalPage);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const element: HTMLElement = fixture.nativeElement;
+    expect(element.querySelector('form')).toBeNull();
+    expect(element.querySelector('header a.btn')?.textContent?.trim()).toBe('Nova advertência');
+    const status = element.querySelector('.op-row .status')!;
+    expect(status.textContent?.trim()).toBe('Anulada');
+    expect(status.hasAttribute('data-tone')).toBe(false);
+    fixture.destroy();
+  });
+});
 
 describe('Páginas fixas dos termos já emitidos', () => {
   it('Próxima usa o cursor e Anterior não consulta de novo', async () => {
