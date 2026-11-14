@@ -171,7 +171,7 @@ export class OperationsDemoService {
         {
           label: 'Em andamento',
           at: offset(-1),
-          detail: 'Cenário ilustrativo; evento operacional de partida ainda depende da AE.',
+          detail: 'Saída registrada na aprovação.',
         },
       ],
     },
@@ -470,9 +470,11 @@ export class OperationsDemoService {
     if (decision === 'approve' && item.kind === 'Longa' && !item.signed) return false;
     const reason = justification.trim().length;
     if (decision === 'reject' && (reason < 10 || reason > 2000)) return false;
+    // Pedido para sair agora: a aprovação já registra a saída (auto-departure-on-approval, D6).
+    const leaving = decision === 'approve' && Date.parse(item.departure) <= Date.now();
     this.replaceExit({
       ...item,
-      status: decision === 'approve' ? 'Aprovada' : 'Rejeitada',
+      status: leaving ? 'Em andamento' : decision === 'approve' ? 'Aprovada' : 'Rejeitada',
       timeline: [
         ...item.timeline,
         {
@@ -480,6 +482,7 @@ export class OperationsDemoService {
           at: now(),
           detail: justification.trim() || undefined,
         },
+        ...(leaving ? [{ label: 'Saída registrada na aprovação', at: now() }] : []),
       ],
     });
     return true;

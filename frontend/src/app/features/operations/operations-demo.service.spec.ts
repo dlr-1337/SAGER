@@ -68,6 +68,31 @@ describe('OperationsDemoService: critical operation rules', () => {
     expect(service.getExit('S-1048')?.status).toBe('Aprovada');
   });
 
+  it('approving a request to leave now records the departure; a scheduled one stays approved', () => {
+    const service = new OperationsDemoService();
+    const input = { kind: 'Curta' as const, reason: 'Compromisso', notes: '' };
+    const now = service.createExit({
+      ...input,
+      departure: dateAt(-0.01),
+      expectedReturn: dateAt(2),
+    });
+    const later = service.createExit({ ...input, departure: dateAt(1), expectedReturn: dateAt(2) });
+    expect(service.decideExit(now.id, 'approve')).toBe(true);
+    expect(service.decideExit(later.id, 'approve')).toBe(true);
+    expect(service.getExit(now.id)?.status).toBe('Em andamento');
+    expect(
+      service
+        .getExit(now.id)
+        ?.timeline.slice(-2)
+        .map((event) => event.label),
+    ).toEqual(['Aprovada por supervisor', 'Saída registrada na aprovação']);
+    expect(service.getExit(later.id)?.status).toBe('Aprovada');
+    expect(service.getExit(later.id)?.timeline.at(-1)?.label).toBe('Aprovada por supervisor');
+    expect(service.getExit('S-1047')?.timeline.at(-1)?.detail).toBe(
+      'Saída registrada na aprovação.',
+    );
+  });
+
   it('rejects a long exit before the confirmation only with 10 to 2,000 characters', () => {
     const service = new OperationsDemoService();
     expect(service.decideExit('S-1048', 'reject', 'a'.repeat(9))).toBe(false);
