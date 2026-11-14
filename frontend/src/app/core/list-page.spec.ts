@@ -63,6 +63,55 @@ describe('Páginas por cursor', () => {
     expect(list.loading()).toBe(false);
   });
 
+  it('refresh() troca só a página à vista, sem lista vazia, e esquece as seguintes', async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(pageOf(1, 75))
+      .mockResolvedValueOnce(pageOf(26, 100))
+      .mockResolvedValueOnce(pageOf(30, 90))
+      .mockResolvedValueOnce(pageOf(55, null));
+    const list = cursorPages(fetch, () => 'falhou');
+    await list.reload();
+    await list.go(1);
+    const seen: unknown[][] = [];
+    const loading: boolean[] = [];
+    const watching = list.refresh();
+    seen.push(list.items());
+    loading.push(list.loading());
+    await watching;
+    expect(fetch).toHaveBeenLastCalledWith(75);
+    expect(seen[0][0]).toBe(26);
+    expect(loading).toEqual([false]);
+    expect(list.page()).toBe(1);
+    expect(list.items()[0]).toBe(30);
+    await list.go(0);
+    expect(list.items()[0]).toBe(1);
+    expect(fetch).toHaveBeenCalledTimes(3);
+    await list.go(1);
+    await list.go(2);
+    expect(fetch).toHaveBeenLastCalledWith(90);
+    expect(list.items()[0]).toBe(55);
+  });
+
+  it('refresh() descarta a resposta atrasada e devolve a falha sem tirar os itens', async () => {
+    let late!: (value: ReturnType<typeof pageOf>) => void;
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(pageOf(1, 75))
+      .mockReturnValueOnce(new Promise((resolve) => (late = resolve)))
+      .mockRejectedValueOnce(new Error('rede'));
+    const list = cursorPages(fetch, () => 'falhou');
+    await list.reload();
+    const old = list.refresh();
+    await list.go(0);
+    late(pageOf(900, null));
+    await old;
+    expect(list.items()[0]).toBe(1);
+    await expect(list.refresh()).rejects.toThrow('rede');
+    expect(list.items()[0]).toBe(1);
+    expect(list.error()).toBe('');
+  });
+
   it('mostra a mensagem de erro recebida', async () => {
     const list = cursorPages(
       () => Promise.reject(new Error('rede')),

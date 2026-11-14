@@ -25,6 +25,7 @@ let csrf: Promise<CsrfToken> | null = null;
 let unauthorized: () => void = () => undefined;
 let knownUser: () => string | null = () => null;
 const copies = new Map<string, { at: number; value: Promise<unknown> }>();
+let autoRefreshing = 0;
 
 /** `user` diz qual conta a tela mostra; a repetição por CSRF só grava para ela. */
 export function onUnauthorized(handler: () => void, user: () => string | null = () => null): void {
@@ -38,9 +39,10 @@ export function resetSession(): void {
   copies.clear();
 }
 
-export function cached<T>(key: string, loader: () => Promise<T>): Promise<T> {
+/** `fresh` ignora a cópia e a renova: a atualização automática pede o dado principal da tela. */
+export function cached<T>(key: string, loader: () => Promise<T>, fresh = false): Promise<T> {
   const hit = copies.get(key);
-  if (hit && Date.now() - hit.at < COPY_TTL_MS) return hit.value as Promise<T>;
+  if (!fresh && hit && Date.now() - hit.at < COPY_TTL_MS) return hit.value as Promise<T>;
   const value = loader();
   copies.set(key, { at: Date.now(), value });
   value.catch(() => {
@@ -49,10 +51,29 @@ export function cached<T>(key: string, loader: () => Promise<T>): Promise<T> {
   return value;
 }
 
+/**
+ * Marca as consultas feitas durante `work` como automáticas: levam `X-Sager-Auto-Refresh: 1`, que o
+ * servidor não conta como ação da pessoa, e não adiam `ACCOUNT_OPEN` (auto-refresh, design D11).
+ * shortcut: a marca vale para a aba inteira enquanto `work` roda, então um clique que consulta ao
+ * mesmo tempo também sai marcado e não renova a sessão (erra para o lado de encerrar antes; gravações
+ * nunca saem marcadas); passar o cabeçalho por serviço, ou usar AsyncContext quando os navegadores
+ * tiverem, se isso incomodar.
+ */
+export async function asAutoRefresh<T>(work: () => Promise<T>): Promise<T> {
+  autoRefreshing++;
+  try {
+    return await work();
+  } finally {
+    autoRefreshing--;
+  }
+}
+
 export async function api(url: string, init: ApiInit = {}): Promise<Response> {
   const { body, headers: extra, error = genericError, ...rest } = init;
   const method = (rest.method ?? 'GET').toUpperCase();
   const write = method !== 'GET' && method !== 'HEAD';
+  // Gravar é sempre ação da pessoa, mesmo durante uma consulta automática.
+  const automatic = autoRefreshing > 0 && !write;
   const raw =
     body === undefined ||
     typeof body === 'string' ||
@@ -62,6 +83,7 @@ export async function api(url: string, init: ApiInit = {}): Promise<Response> {
   const send = async () => {
     const headers: Record<string, string> = { Accept: 'application/json', ...extra };
     if (!raw) headers['Content-Type'] = 'application/json';
+    if (automatic) headers['X-Sager-Auto-Refresh'] = '1';
     if (write) {
       const token = await csrfToken(error);
       headers[token.headerName] = token.token;
@@ -94,7 +116,7 @@ export async function api(url: string, init: ApiInit = {}): Promise<Response> {
   // Um 409 diz que a aba está desatualizada: o "Recarregar dados" seguinte precisa ir ao servidor.
   if (write && (response.ok || response.status === 409)) copies.clear();
   if (!response.ok) throw await error(response);
-  touchAccount();
+  if (!automatic) touchAccount();
   return response;
 }
 
