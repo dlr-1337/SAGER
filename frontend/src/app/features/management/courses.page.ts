@@ -1,7 +1,15 @@
 import { readableError } from '../../core/error-messages';
 import { rememberValue } from '../../core/filter-state';
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
-import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  Injector,
+  afterNextRender,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { trimmedLength } from '../../shared/field-rules';
 import { COURSE_LEVELS, Course, CourseApiService, CourseLevel } from './course-api.service';
@@ -22,70 +30,75 @@ import { PaginationComponent } from '../../shared/pagination.component';
     <header class="mg-heading">
       <div>
         <h1>Cursos</h1>
-        <p>Cadastre os cursos que poderão ser selecionados nos residentes.</p>
+        <p>Os cursos aparecem no cadastro dos residentes.</p>
       </div>
-    </header>
-    <form
-      class="panel mg-panel mg-form"
-      [formGroup]="form"
-      sagerUnsaved
-      [sagerSaving]="saving"
-      (ngSubmit)="save()"
-    >
-      <h2>{{ editing() ? 'Editar curso' : 'Novo curso' }}</h2>
-      <label class="mg-field"
-        >Nome do curso<input formControlName="name" maxlength="200" required
-      /></label>
-      @if (form.controls.name.invalid && form.controls.name.touched) {
-        <p class="mg-field-error">Informe um nome de até 200 caracteres.</p>
-      }
-      <div class="course-fields">
-        <label class="mg-field"
-          >Nível<select
-            sagerSearchable
-            formControlName="level"
-            required
-            aria-describedby="course-level-error"
-            [attr.aria-invalid]="
-              form.controls.level.invalid && form.controls.level.touched ? 'true' : null
-            "
-          >
-            <option value="">Selecione o nível</option>
-            <option value="MEDIO">Ensino médio</option>
-            <option value="SUPERIOR">Superior</option>
-          </select></label
-        >
-        <label class="mg-field"
-          >Duração (anos)<input
-            type="number"
-            formControlName="durationYears"
-            min="1"
-            max="6"
-            step="1"
-            required
-            aria-describedby="course-duration-error"
-            [attr.aria-invalid]="
-              form.controls.durationYears.invalid && form.controls.durationYears.touched
-                ? 'true'
-                : null
-            "
-        /></label>
-      </div>
-      @if (form.controls.level.invalid && form.controls.level.touched) {
-        <p class="mg-field-error" id="course-level-error">Escolha o nível.</p>
-      }
-      @if (form.controls.durationYears.invalid && form.controls.durationYears.touched) {
-        <p class="mg-field-error" id="course-duration-error">Use um número de 1 a 6 anos.</p>
-      }
-      <div class="action-row">
-        @if (editing()) {
-          <button type="button" class="btn mg-secondary" (click)="cancel()">Cancelar edição</button>
-        }
-        <button class="btn mg-primary" [disabled]="saving()">
-          {{ saving() ? 'Salvando…' : 'Salvar curso' }}
+      @if (!formOpen()) {
+        <button id="course-create" type="button" class="btn mg-primary" (click)="create()">
+          Cadastrar curso
         </button>
-      </div>
-    </form>
+      }
+    </header>
+    @if (formOpen()) {
+      <form
+        class="panel mg-panel mg-form"
+        [formGroup]="form"
+        sagerUnsaved
+        [sagerSaving]="saving"
+        (ngSubmit)="save()"
+      >
+        <h2>{{ editing() ? 'Editar curso' : 'Novo curso' }}</h2>
+        <label class="mg-field"
+          >Nome do curso<input id="course-name" formControlName="name" maxlength="200" required
+        /></label>
+        @if (form.controls.name.invalid && form.controls.name.touched) {
+          <p class="mg-field-error">Informe um nome de até 200 caracteres.</p>
+        }
+        <div class="course-fields">
+          <label class="mg-field"
+            >Nível<select
+              sagerSearchable
+              formControlName="level"
+              required
+              aria-describedby="course-level-error"
+              [attr.aria-invalid]="
+                form.controls.level.invalid && form.controls.level.touched ? 'true' : null
+              "
+            >
+              <option value="">Selecione o nível</option>
+              <option value="MEDIO">Ensino médio</option>
+              <option value="SUPERIOR">Superior</option>
+            </select></label
+          >
+          <label class="mg-field"
+            >Duração (anos)<input
+              type="number"
+              formControlName="durationYears"
+              min="1"
+              max="6"
+              step="1"
+              required
+              aria-describedby="course-duration-error"
+              [attr.aria-invalid]="
+                form.controls.durationYears.invalid && form.controls.durationYears.touched
+                  ? 'true'
+                  : null
+              "
+          /></label>
+        </div>
+        @if (form.controls.level.invalid && form.controls.level.touched) {
+          <p class="mg-field-error" id="course-level-error">Escolha o nível.</p>
+        }
+        @if (form.controls.durationYears.invalid && form.controls.durationYears.touched) {
+          <p class="mg-field-error" id="course-duration-error">Use um número de 1 a 6 anos.</p>
+        }
+        <div class="action-row">
+          <button type="button" class="btn mg-secondary" (click)="cancel()">Cancelar</button>
+          <button class="btn mg-primary" [disabled]="saving()">
+            {{ saving() ? 'Salvando…' : 'Salvar curso' }}
+          </button>
+        </div>
+      </form>
+    }
     @if (error()) {
       <p class="mg-alert" role="alert">{{ error() }}</p>
     }
@@ -206,6 +219,9 @@ export class CoursesPage {
   private readonly api = inject(CourseApiService);
   private readonly destroy = inject(DestroyRef);
   private readonly guard = inject(UnsavedForms);
+  private readonly injector = inject(Injector);
+  private opener: HTMLElement | null = null;
+  readonly formOpen = signal(false);
   readonly items = signal<Course[]>([]);
   readonly query = rememberValue('courses-query', '');
   readonly status = rememberValue('courses-status', '');
@@ -289,19 +305,45 @@ export class CoursesPage {
       if (!this.destroy.destroyed) this.loading.set(false);
     }
   }
-  async edit(course: Course): Promise<void> {
-    if (!(await this.guard.canLeave())) return;
-    this.editing.set(course);
-    this.form.reset({
-      name: course.name,
-      level: course.level ?? '',
-      durationYears: course.durationYears ?? null,
-    });
+  create(): Promise<void> {
+    return this.open(null);
+  }
+  edit(course: Course): Promise<void> {
+    return this.open(course);
   }
   async cancel(): Promise<void> {
     if (!(await this.guard.canLeave())) return;
+    this.close();
+  }
+  private async open(course: Course | null): Promise<void> {
+    if (!(await this.guard.canLeave())) return;
+    const active = document.activeElement;
+    this.opener = active instanceof HTMLElement && active !== document.body ? active : null;
+    this.editing.set(course);
+    this.form.reset(
+      course
+        ? {
+            name: course.name,
+            level: course.level ?? '',
+            durationYears: course.durationYears ?? null,
+          }
+        : undefined,
+    );
+    this.formOpen.set(true);
+    afterNextRender(() => document.getElementById('course-name')?.focus(), {
+      injector: this.injector,
+    });
+  }
+  /** Fecha o formulário e devolve o foco a quem o abriu (o Editar da linha ou "Cadastrar curso"). */
+  private close(): void {
     this.editing.set(null);
     this.form.reset();
+    this.formOpen.set(false);
+    const opener = this.opener;
+    afterNextRender(
+      () => (opener?.isConnected ? opener : document.getElementById('course-create'))?.focus(),
+      { injector: this.injector },
+    );
   }
   async save(): Promise<void> {
     if (this.saving()) return;
@@ -320,8 +362,7 @@ export class CoursesPage {
         this.editing()?.active ?? true,
       );
       if (this.destroy.destroyed) return;
-      this.form.reset();
-      this.editing.set(null);
+      this.close();
       this.notice.set('Curso salvo.');
       await this.load();
     } catch (e) {
