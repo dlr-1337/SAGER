@@ -38,7 +38,7 @@ body{width:1200px;height:630px;background:#0c4837;color:#fff;font-family:OS;disp
 h1{font-size:112px;font-weight:800;line-height:1;letter-spacing:.02em}
 p{font-size:40px;font-weight:600;line-height:1.3;margin-top:24px}
 small{display:block;font-size:30px;font-weight:600;margin-top:28px;color:#d9eadf}</style>
-<div class=m>${svg.replace('fill="#0c4837"', 'fill="#073b2d"')}</div><div><h1>SAGER</h1><p>Sistema de Apoio à Gestão da Residência Estudantil</p><small>IF Goiano · Campus Urutaí</small></div>`;
+<div class=m>${svg.replace('fill="#0c4837"', 'fill="#073b2d"')}</div><div><h1>SAGER</h1><p>Sistema de Apoio à<br>Gestão de Residentes</p><small>IF Goiano · Campus Urutaí</small></div>`;
 
 const favicon = await shot(32, 32, svg, true);
 writeFileSync(pub('apple-touch-icon.png'), await shot(180, 180, square));
