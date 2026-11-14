@@ -1,4 +1,7 @@
+import { signal } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { DemoSessionService } from '../../core/demo-session.service';
 import {
   ReportListPolling,
   normalizedReportInput,
@@ -92,68 +95,105 @@ describe('Períodos e nome do arquivo', () => {
 });
 describe('Consulta automática da lista', () => {
   afterEach(() => vi.useRealTimers());
-  it('consulta só enquanto há preparo e para quando fica pronto', async () => {
+  function polling(load: () => Promise<ReportListItem[]>, demo = false) {
+    TestBed.configureTestingModule({
+      providers: [{ provide: DemoSessionService, useValue: { active: signal(demo) } }],
+    });
+    return TestBed.runInInjectionContext(() => new ReportListPolling(load));
+  }
+  it('sem preparo, consulta aos 15 s e não aos 3 s', async () => {
+    vi.useFakeTimers();
+    const load = vi.fn().mockResolvedValue([item('READY')]);
+    await polling(load).refresh();
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(load).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(12000);
+    expect(load).toHaveBeenCalledTimes(2);
+  });
+  it('com preparo, consulta a cada 3 s e volta aos 15 s quando fica pronto', async () => {
     vi.useFakeTimers();
     const load = vi
       .fn()
       .mockResolvedValueOnce([item('PENDING')])
       .mockResolvedValueOnce([item('PROCESSING')])
       .mockResolvedValue([item('READY')]);
-    const polling = new ReportListPolling(load);
-    await polling.refresh();
-    expect(load).toHaveBeenCalledTimes(1);
+    const list = polling(load);
+    await list.refresh();
     await vi.advanceTimersByTimeAsync(3000);
     expect(load).toHaveBeenCalledTimes(2);
     await vi.advanceTimersByTimeAsync(3000);
     expect(load).toHaveBeenCalledTimes(3);
-    expect(polling.items()[0].exports[0].status).toBe('READY');
-    await vi.advanceTimersByTimeAsync(60000);
+    expect(list.items()[0].exports[0].status).toBe('READY');
+    await vi.advanceTimersByTimeAsync(9000);
     expect(load).toHaveBeenCalledTimes(3);
+    await vi.advanceTimersByTimeAsync(6000);
+    expect(load).toHaveBeenCalledTimes(4);
   });
-  it('não consulta quando nada está em preparo e para ao sair da tela', async () => {
+  it('com a aba oculta não consulta, nem com preparo', async () => {
     vi.useFakeTimers();
-    const idle = vi.fn().mockResolvedValue([item('READY')]);
-    await new ReportListPolling(idle).refresh();
-    await vi.advanceTimersByTimeAsync(10000);
-    expect(idle).toHaveBeenCalledTimes(1);
-    const busy = vi.fn().mockResolvedValue([item('PENDING')]);
-    const polling = new ReportListPolling(busy);
-    await polling.refresh();
-    polling.stop();
-    await vi.advanceTimersByTimeAsync(10000);
-    expect(busy).toHaveBeenCalledTimes(1);
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+    try {
+      const load = vi.fn().mockResolvedValue([item('PENDING')]);
+      await polling(load).refresh();
+      await vi.advanceTimersByTimeAsync(30000);
+      expect(load).toHaveBeenCalledTimes(1);
+    } finally {
+      delete (document as { hidden?: boolean }).hidden;
+    }
   });
-  it('ignora falha passageira durante o preparo e para em 401 e 403', async () => {
+  it('stop() encerra as consultas ao sair da tela', async () => {
+    vi.useFakeTimers();
+    const load = vi.fn().mockResolvedValue([item('PENDING')]);
+    const list = polling(load);
+    await list.refresh();
+    list.stop();
+    await vi.advanceTimersByTimeAsync(30000);
+    expect(load).toHaveBeenCalledTimes(1);
+  });
+  it('falha automática mantém a lista com o aviso comum; falha pedida mostra o erro', async () => {
     vi.useFakeTimers();
     const load = vi
       .fn()
       .mockResolvedValueOnce([item('PENDING')])
       .mockRejectedValueOnce(new Error('rede'))
+      .mockResolvedValueOnce([item('READY')])
       .mockRejectedValue(new ReportingApiError(403));
-    const polling = new ReportListPolling(load);
-    await polling.refresh();
+    const list = polling(load);
+    await list.refresh();
     await vi.advanceTimersByTimeAsync(3000);
-    expect(polling.error()).toBe('');
+    expect(list.items()).toHaveLength(1);
+    expect(list.error()).toBe('');
+    expect(list.auto.failed()).toBe(true);
     await vi.advanceTimersByTimeAsync(3000);
-    expect(polling.error()).toContain('Sua conta não pode');
-    await vi.advanceTimersByTimeAsync(10000);
-    expect(load).toHaveBeenCalledTimes(3);
+    expect(list.auto.failed()).toBe(false);
+    await list.refresh();
+    expect(list.error()).toContain('Sua conta não pode');
+  });
+  it('na demonstração acompanha só o preparo simulado, sem a atualização automática', async () => {
+    vi.useFakeTimers();
+    const load = vi
+      .fn()
+      .mockResolvedValueOnce([item('PENDING')])
+      .mockResolvedValue([item('READY')]);
+    await polling(load, true).refresh();
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(load).toHaveBeenCalledTimes(2);
   });
   it('avisa da demora só depois de 2 minutos e esquece quando o preparo recomeça', async () => {
     vi.useFakeTimers();
     let status: ReportExport['status'] = 'PENDING';
-    const polling = new ReportListPolling(async () => [item(status)]);
-    await polling.refresh();
+    const list = polling(async () => [item(status)]);
+    await list.refresh();
     await vi.advanceTimersByTimeAsync(117000);
-    expect(polling.slow().has('r1')).toBe(false);
+    expect(list.slow().has('r1')).toBe(false);
     await vi.advanceTimersByTimeAsync(6000);
-    expect(polling.slow().has('r1')).toBe(true);
+    expect(list.slow().has('r1')).toBe(true);
     status = 'FAILED';
     await vi.advanceTimersByTimeAsync(3000);
-    expect(polling.slow().has('r1')).toBe(false);
+    expect(list.slow().has('r1')).toBe(false);
     status = 'PENDING';
-    await polling.refresh();
-    expect(polling.slow().has('r1')).toBe(false);
-    polling.stop();
+    await list.refresh();
+    expect(list.slow().has('r1')).toBe(false);
+    list.stop();
   });
 });

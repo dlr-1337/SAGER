@@ -1,7 +1,9 @@
-import { signal } from '@angular/core';
+import { inject, signal } from '@angular/core';
+import { AUTO_REFRESH_MS, autoRefresh } from '../../core/auto-refresh';
+import { DemoSessionService } from '../../core/demo-session.service';
 import { validCivilDate } from '../communications/communications-local.utils';
 import { decimal } from '../cleaning/cleaning-local.utils';
-import { ReportingApiError, reportingError } from '../cleaning/reporting-local.transport';
+import { reportingError } from '../cleaning/reporting-local.transport';
 import {
   ReportCode,
   ReportColumnKey,
@@ -54,40 +56,60 @@ export const reportInProgress = (item: ReportListItem) =>
   item.exports.some((job) => job.status === 'PENDING' || job.status === 'PROCESSING');
 const POLL_INTERVAL = 3000;
 const SLOW_AFTER = 120000;
-/** One source of progress: consults the list only while a file is being prepared. */
+/**
+ * One source of the report list. Create it in an injection context: the common auto-refresh
+ * consults every 3 s while a file is being prepared and every 15 s otherwise, with its pauses.
+ */
 export class ReportListPolling {
   readonly items = signal<ReportListItem[]>([]);
   readonly error = signal('');
   readonly slow = signal<ReadonlySet<string>>(new Set());
+  // The demonstration has no auto-refresh; there only the simulated preparation is followed.
+  private readonly demo = inject(DemoSessionService).active();
+  // Ticks every 3 s so a report generated just now is followed at once; idle, it waits 15 s.
+  readonly auto = autoRefresh(() => this.tick(), { delayMs: POLL_INTERVAL });
   private timer?: ReturnType<typeof setTimeout>;
   private generation = 0;
+  private loadedAt = 0;
+  private stopped = false;
   // Measured here because the browser clock may disagree with the server's createdAt.
   private firstSeen = new Map<string, number>();
   constructor(private readonly load: () => Promise<ReportListItem[]>) {}
+  /** Asked by the screen (opening, generating, retrying): a failure shows in the list. */
   async refresh(): Promise<void> {
-    clearTimeout(this.timer);
-    const generation = ++this.generation;
     try {
-      const items = await this.load();
-      if (generation !== this.generation) return;
-      this.items.set(items);
-      this.error.set('');
-      this.trackSlow(items);
+      await this.fetch();
     } catch (error) {
-      if (generation !== this.generation) return;
-      const denied =
-        error instanceof ReportingApiError && (error.status === 401 || error.status === 403);
-      if (denied || !this.items().some(reportInProgress)) {
-        this.error.set(reportingError(error));
-        return;
-      }
+      this.error.set(reportingError(error));
     }
-    if (this.items().some(reportInProgress))
-      this.timer = setTimeout(() => void this.refresh(), POLL_INTERVAL);
   }
   stop(): void {
+    this.stopped = true;
     this.generation++;
     clearTimeout(this.timer);
+  }
+  private async tick(): Promise<void> {
+    const preparing = this.items().some(reportInProgress);
+    if (this.stopped || (!preparing && Date.now() - this.loadedAt < AUTO_REFRESH_MS)) return;
+    await this.fetch();
+  }
+  private async fetch(): Promise<void> {
+    clearTimeout(this.timer);
+    const generation = ++this.generation;
+    let items: ReportListItem[];
+    try {
+      items = await this.load();
+    } catch (error) {
+      if (generation === this.generation) throw error;
+      return;
+    }
+    if (generation !== this.generation) return;
+    this.loadedAt = Date.now();
+    this.items.set(items);
+    this.error.set('');
+    this.trackSlow(items);
+    if (this.demo && items.some(reportInProgress))
+      this.timer = setTimeout(() => void this.refresh(), POLL_INTERVAL);
   }
   private trackSlow(items: ReportListItem[]): void {
     const now = Date.now();
