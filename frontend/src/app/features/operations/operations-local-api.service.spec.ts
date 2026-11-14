@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   OperationsApiError,
   OperationsLocalApiService,
@@ -81,6 +81,8 @@ const json = (value: unknown, status = 200) => new Response(JSON.stringify(value
 const csrf = { headerName: 'X-CSRF-TOKEN', token: 'synthetic-token' };
 
 describe('OperationsLocalApiService', () => {
+  // Um token CSRF guardado por outro arquivo de teste trocaria a ordem das respostas simuladas.
+  beforeEach(() => resetSession());
   afterEach(() => {
     vi.unstubAllGlobals();
     resetSession();

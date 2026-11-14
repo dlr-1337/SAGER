@@ -48,6 +48,8 @@ describe('ConversationsApiService', () => {
   let service: ConversationsApiService;
   let fetchMock: ReturnType<typeof vi.fn>;
   beforeEach(() => {
+    // Um token CSRF guardado por outro arquivo de teste trocaria a ordem das respostas simuladas.
+    resetSession();
     service = TestBed.inject(ConversationsApiService);
     fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);

@@ -93,6 +93,8 @@ describe('LongExitApiService', () => {
   const fetchMock = vi.fn<typeof fetch>();
   const api = new LongExitApiService();
   beforeEach(() => {
+    // Um token CSRF guardado por outro arquivo de teste trocaria a ordem das respostas simuladas.
+    resetSession();
     fetchMock.mockReset();
     vi.stubGlobal('fetch', fetchMock);
   });
