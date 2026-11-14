@@ -2,9 +2,13 @@ import { CommunicationFiltersComponent } from './communication-filters.component
 import { ChangeDetectionStrategy, Component, OnDestroy, inject, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { autoRefresh } from '../../core/auto-refresh';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { cursorPages } from '../../core/list-page';
+import { AutoRefreshStatusComponent } from '../../shared/auto-refresh-status.component';
 import { PaginationComponent } from '../../shared/pagination.component';
+import { StatusLegendComponent } from '../../shared/status-legend.component';
+import { toneAttr } from '../../shared/status-tones';
 import {
   CommunicationsApiError,
   CommunicationsLocalApiService,
@@ -29,10 +33,12 @@ type OwnTab = 'avisos' | 'advertencias' | 'termos';
   standalone: true,
   selector: 'sager-own-communications-local',
   imports: [
+    AutoRefreshStatusComponent,
     CommunicationFiltersComponent,
     RouterLink,
     CommunicationsStateComponent,
     PaginationComponent,
+    StatusLegendComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -49,6 +55,7 @@ type OwnTab = 'avisos' | 'advertencias' | 'termos';
         [blocked]="!session.hasRole('residente')"
       />
       @if (!session.active() && session.hasRole('residente')) {
+        <sager-auto-refresh-status [refresh]="refresh" />
         <sager-communication-filters mode="own" (changed)="filter($event)" />
         <nav class="comm-tabs segmented" aria-label="Tipo de comunicação">
           <button
@@ -75,6 +82,7 @@ type OwnTab = 'avisos' | 'advertencias' | 'termos';
         <div class="mg-tab-panel">
           <section class="op-section">
             <h2 id="own-results-title" tabindex="-1">{{ tabLabels[tab()] }}</h2>
+            <sager-status-legend [names]="legendNames" />
             <sager-communications-state
               [loading]="list.loading()"
               [error]="list.error()"
@@ -92,7 +100,9 @@ type OwnTab = 'avisos' | 'advertencias' | 'termos';
                       }
                     </div>
                     <div class="op-row-side">
-                      <span class="op-status">{{ states[item.status] }}</span
+                      <span class="status" [attr.data-tone]="tone(states[item.status])">{{
+                        states[item.status]
+                      }}</span
                       ><small>{{
                         item.acknowledgedAt ? 'Ciente' : item.readAt ? 'Lido' : 'Não lido'
                       }}</small>
@@ -135,8 +145,11 @@ export class OwnCommunicationsLocalPage {
     (cursor) => this.api.ownList(this.tab(), cursor, this.filters),
     communicationsError,
   );
+  readonly refresh = autoRefresh(() => this.list.refresh());
   readonly kinds = communicationLabels;
   readonly states = communicationStateLabels;
+  readonly legendNames = Object.values(communicationStateLabels);
+  readonly tone = toneAttr;
   readonly formatTime = formatCommunicationTime;
   readonly tabLabels = {
     avisos: 'Seus avisos',
@@ -163,7 +176,7 @@ export class OwnCommunicationsLocalPage {
 @Component({
   standalone: true,
   selector: 'sager-own-communication-detail-local',
-  imports: [RouterLink, CommunicationsStateComponent],
+  imports: [AutoRefreshStatusComponent, RouterLink, CommunicationsStateComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page comm-narrow">
@@ -189,9 +202,12 @@ export class OwnCommunicationsLocalPage {
         !session.active() && session.hasRole('residente') && !loading() && !loadError() && item();
         as communication
       ) {
+        <sager-auto-refresh-status [refresh]="refresh" />
         <section class="panel op-panel">
           <h2>{{ communication.title }}</h2>
-          <span class="op-status">{{ states[communication.status] }}</span>
+          <span class="status" [attr.data-tone]="tone(states[communication.status])">{{
+            states[communication.status]
+          }}</span>
           <p class="comm-message">{{ communication.body }}</p>
           @if (communication.stateReason) {
             <dl class="comm-definition">
@@ -229,10 +245,13 @@ export class OwnCommunicationsLocalPage {
             </div>
           </dl>
           @if (communication.status === 'PUBLICADO') {
-            <p class="comm-help">
-              Clique em Já li quando terminar. Estou ciente mostra que você sabe do aviso; não é
-              assinatura.
-            </p>
+            <details class="learn-more">
+              <summary>Saiba mais</summary>
+              <p class="comm-help">
+                Clique em Já li quando terminar. Estou ciente mostra que você sabe do aviso; não é
+                assinatura.
+              </p>
+            </details>
             <div class="comm-actions">
               @if (!communication.readAt) {
                 <button
@@ -276,11 +295,13 @@ export class OwnCommunicationsLocalPage {
           @if (success()) {
             <p class="comm-success" role="status">{{ success() }}</p>
           }
-          <div class="comm-actions">
-            <button class="btn-secondary" type="button" [disabled]="busy()" (click)="load()">
-              {{ conflict() ? 'Recarregar dados' : 'Atualizar dados' }}
-            </button>
-          </div>
+          @if (conflict()) {
+            <div class="comm-actions">
+              <button class="btn-secondary" type="button" [disabled]="busy()" (click)="load()">
+                Recarregar dados
+              </button>
+            </div>
+          }
         </section>
       }
     </main>
@@ -305,7 +326,12 @@ export class OwnCommunicationDetailLocalPage implements OnDestroy {
   readonly conflict = signal(false);
   readonly kinds = communicationLabels;
   readonly states = communicationStateLabels;
+  readonly tone = toneAttr;
   readonly formatTime = formatCommunicationTime;
+  private sequence = 0;
+  readonly refresh = autoRefresh(() => this.load(true), {
+    busy: () => this.busy() || this.conflict() || this.loading(),
+  });
   constructor() {
     void this.load();
   }
@@ -320,20 +346,26 @@ export class OwnCommunicationDetailLocalPage implements OnDestroy {
         ? 'advertencias'
         : 'avisos';
   }
-  async load(): Promise<void> {
+  /** `silent` é a atualização automática: mantém mensagens e foco, e lança a falha. */
+  async load(silent = false): Promise<void> {
     if (this.session.active() || !this.session.hasRole('residente') || this.busy()) return;
-    this.loading.set(true);
-    this.loadError.set('');
-    this.error.set('');
-    this.success.set('');
-    this.conflict.set(false);
-    this.item.set(null);
+    const sequence = ++this.sequence;
+    if (!silent) {
+      this.loading.set(true);
+      this.loadError.set('');
+      this.error.set('');
+      this.success.set('');
+      this.conflict.set(false);
+      this.item.set(null);
+    }
     try {
-      this.item.set(await this.api.own(this.id));
+      const item = await this.api.own(this.id);
+      if (sequence === this.sequence) this.item.set(item);
     } catch (error) {
-      this.loadError.set(communicationsError(error));
+      if (silent) throw error;
+      if (sequence === this.sequence) this.loadError.set(communicationsError(error));
     } finally {
-      this.loading.set(false);
+      if (!silent && sequence === this.sequence) this.loading.set(false);
     }
   }
   async read(): Promise<void> {
@@ -395,6 +427,7 @@ export class OwnCommunicationDetailLocalPage implements OnDestroy {
       item.status !== 'PUBLICADO'
     )
       return false;
+    this.sequence++;
     this.busy.set(true);
     this.error.set('');
     try {
@@ -425,6 +458,8 @@ export class OwnCommunicationDetailLocalPage implements OnDestroy {
       !this.session.hasRole('residente')
     )
       return;
+    // Uma atualização automática em andamento traria a versão anterior por cima da gravação.
+    this.sequence++;
     this.busy.set(true);
     this.error.set('');
     this.success.set('');

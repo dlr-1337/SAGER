@@ -2,8 +2,10 @@ import { ChangeDetectionStrategy, Component, OnDestroy, inject, signal } from '@
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { autoRefresh } from '../../core/auto-refresh';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { cursorPages } from '../../core/list-page';
+import { AutoRefreshStatusComponent } from '../../shared/auto-refresh-status.component';
 import { PaginationComponent } from '../../shared/pagination.component';
 import { ResidentApiService, ResidentRecord } from '../management/resident-api.service';
 import {
@@ -31,7 +33,13 @@ import {
 @Component({
   standalone: true,
   selector: 'sager-recurrence-local',
-  imports: [RouterLink, ReactiveFormsModule, CommunicationsStateComponent, PaginationComponent],
+  imports: [
+    AutoRefreshStatusComponent,
+    RouterLink,
+    ReactiveFormsModule,
+    CommunicationsStateComponent,
+    PaginationComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page comm-page">
@@ -52,10 +60,14 @@ import {
         (retry)="load()"
       />
       @if (!session.active() && session.hasRole('supervisor') && !loading() && !loadError()) {
-        <p class="comm-help">
-          Duas advertências da mesma categoria, por fatos diferentes, em até 90 dias podem levar a
-          um termo. Quem decide é você: nada é emitido sozinho.
-        </p>
+        <sager-auto-refresh-status [refresh]="refresh" />
+        <details class="learn-more">
+          <summary>Saiba mais</summary>
+          <p class="comm-help">
+            Duas advertências da mesma categoria, por fatos diferentes, em até 90 dias podem levar a
+            um termo. Quem decide é você: nada é emitido sozinho.
+          </p>
+        </details>
         <div class="comm-grid">
           <div class="comm-stack">
             @for (candidate of candidates(); track candidate.category) {
@@ -110,10 +122,13 @@ import {
                 [disabled]="busy() || conflict()"
                 (click)="review()"
               >
-                Revisar emissão de termo</button
-              ><button class="btn-secondary" type="button" [disabled]="busy()" (click)="load()">
-                {{ conflict() ? 'Recarregar dados' : 'Atualizar dados' }}
+                Revisar emissão de termo
               </button>
+              @if (conflict()) {
+                <button class="btn-secondary" type="button" [disabled]="busy()" (click)="load()">
+                  Recarregar dados
+                </button>
+              }
             </div>
             @if (error()) {
               <p class="comm-error" role="alert">{{ error() }}</p>
@@ -192,30 +207,46 @@ export class RecurrenceLocalPage {
   readonly severities = severityLabels;
   readonly civil = formatCivilDate;
   readonly formatTime = formatCommunicationTime;
+  private sequence = 0;
+  // Uma seleção ou justificativa começada não está num formulário marcado; ela também pausa.
+  readonly refresh = autoRefresh(() => this.load(true), {
+    busy: () =>
+      this.busy() ||
+      this.conflict() ||
+      this.loading() ||
+      this.selected().length > 0 ||
+      this.decision.value.trim() !== '',
+  });
   constructor() {
     void this.load();
   }
-  async load(): Promise<void> {
+  /** `silent` é a atualização automática: mantém seleção, mensagens e foco, e lança a falha. */
+  async load(silent = false): Promise<void> {
     if (this.session.active() || !this.session.hasRole('supervisor') || this.busy()) return;
-    this.loading.set(true);
-    this.loadError.set('');
-    this.error.set('');
-    this.conflict.set(false);
-    this.selected.set([]);
-    this.selectedCategory.set('');
+    const sequence = ++this.sequence;
+    if (!silent) {
+      this.loading.set(true);
+      this.loadError.set('');
+      this.error.set('');
+      this.conflict.set(false);
+      this.selected.set([]);
+      this.selectedCategory.set('');
+    }
     try {
       // Os termos mostram o próprio erro na seção deles.
       const [resident, candidates] = await Promise.all([
         this.registry.get(this.id),
         this.api.recurrences(this.id),
-        this.terms.reload(),
+        silent ? this.terms.refresh() : this.terms.reload(),
       ]);
+      if (sequence !== this.sequence) return;
       this.resident.set(resident);
       this.candidates.set(candidates);
     } catch (error) {
-      this.loadError.set(communicationsError(error));
+      if (silent) throw error;
+      if (sequence === this.sequence) this.loadError.set(communicationsError(error));
     } finally {
-      this.loading.set(false);
+      if (!silent && sequence === this.sequence) this.loading.set(false);
     }
   }
   toggle(candidate: RecurrenceCandidate, id: string, checked: boolean): void {
@@ -275,8 +306,7 @@ export class RecurrenceLocalPage {
           data: {
             title: 'Conferir termo de compromisso',
             action: 'Confirmar emissão do termo',
-            warning:
-              'O termo terá conteúdo e PDF imutáveis e será publicado para o residente. A base e a decisão permanecerão preservadas.',
+            warning: 'O residente recebe o termo, e o texto e o PDF não podem mais ser mudados.',
             confirmation: 'Conferi as origens distintas, a categoria e a decisão sobre esta base.',
             lines: [
               { label: 'Residente', value: this.resident()?.name ?? '' },
@@ -331,7 +361,7 @@ export class RecurrenceLocalPage {
 @Component({
   standalone: true,
   selector: 'sager-term-detail-local',
-  imports: [RouterLink, CommunicationsStateComponent],
+  imports: [AutoRefreshStatusComponent, RouterLink, CommunicationsStateComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page comm-narrow">
@@ -355,6 +385,7 @@ export class RecurrenceLocalPage {
         !session.active() && session.hasRole('supervisor') && !loading() && !loadError() && item();
         as term
       ) {
+        <sager-auto-refresh-status [refresh]="refresh" />
         <section class="panel op-panel">
           <h2>{{ term.status === 'EMITIDO' ? 'Termo valendo' : 'Termo anulado' }}</h2>
           <p class="comm-message">{{ term.decision }}</p>
@@ -409,9 +440,11 @@ export class RecurrenceLocalPage {
           @if (success()) {
             <p class="comm-success" role="status">{{ success() }}</p>
           }
-          <button class="btn-secondary" type="button" [disabled]="busy()" (click)="load()">
-            {{ conflict() ? 'Recarregar dados' : 'Atualizar dados' }}
-          </button>
+          @if (conflict()) {
+            <button class="btn-secondary" type="button" [disabled]="busy()" (click)="load()">
+              Recarregar dados
+            </button>
+          }
         </section>
       }
     </main>
@@ -435,6 +468,10 @@ export class TermDetailLocalPage implements OnDestroy {
   readonly downloading = signal(false);
   readonly conflict = signal(false);
   readonly formatTime = formatCommunicationTime;
+  private sequence = 0;
+  readonly refresh = autoRefresh(() => this.load(true), {
+    busy: () => this.busy() || this.conflict() || this.loading(),
+  });
   constructor() {
     void this.load();
   }
@@ -442,20 +479,26 @@ export class TermDetailLocalPage implements OnDestroy {
     this.alive = false;
     this.downloads.destroy();
   }
-  async load(): Promise<void> {
+  /** `silent` é a atualização automática: mantém mensagens e foco, e lança a falha. */
+  async load(silent = false): Promise<void> {
     if (this.session.active() || !this.session.hasRole('supervisor') || this.busy()) return;
-    this.loading.set(true);
-    this.loadError.set('');
-    this.error.set('');
-    this.success.set('');
-    this.conflict.set(false);
-    this.item.set(null);
+    const sequence = ++this.sequence;
+    if (!silent) {
+      this.loading.set(true);
+      this.loadError.set('');
+      this.error.set('');
+      this.success.set('');
+      this.conflict.set(false);
+      this.item.set(null);
+    }
     try {
-      this.item.set(await this.api.term(this.id));
+      const item = await this.api.term(this.id);
+      if (sequence === this.sequence) this.item.set(item);
     } catch (error) {
-      this.loadError.set(communicationsError(error));
+      if (silent) throw error;
+      if (sequence === this.sequence) this.loadError.set(communicationsError(error));
     } finally {
-      this.loading.set(false);
+      if (!silent && sequence === this.sequence) this.loading.set(false);
     }
   }
   async download(): Promise<void> {
@@ -483,7 +526,7 @@ export class TermDetailLocalPage implements OnDestroy {
             title: 'Revisar anulação do termo',
             action: 'Confirmar anulação do termo',
             requireReason: true,
-            warning: 'A decisão, a base, o PDF e a ciência anterior permanecem no histórico.',
+            warning: 'A decisão, a base, o PDF e a ciência ficam guardados no histórico.',
             lines: [
               { label: 'Residente', value: item.residentName },
               { label: 'Decisão emitida', value: item.decision },
@@ -502,6 +545,8 @@ export class TermDetailLocalPage implements OnDestroy {
   }
   private async save(item: DisciplineTerm, reason: string): Promise<void> {
     if (this.busy() || this.conflict()) return;
+    // Uma atualização automática em andamento traria a versão anterior por cima da gravação.
+    this.sequence++;
     this.busy.set(true);
     this.error.set('');
     try {

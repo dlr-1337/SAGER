@@ -17,9 +17,12 @@ import { SearchableSelectDirective } from '../../shared/searchable-select.direct
 import { ResidentApiService, ResidentRecord } from '../management/resident-api.service';
 import {
   categoryLabels,
+  communicationStateLabels,
   formatCivilDate,
+  noticeStatusLabels,
   notificationLabels,
   severityLabels,
+  warningStatusLabels,
 } from './communications-local.utils';
 
 const labels: Record<string, string> = {
@@ -147,26 +150,15 @@ export class CommunicationFiltersComponent implements OnInit {
       value: this.readable(key, value),
     })),
   );
+  /** Os mesmos nomes da lista de cada tela (simple-screens, design D7). */
   statuses(): string[][] {
     return this.mode() === 'notifications'
       ? Object.entries(notificationLabels)
       : this.mode() === 'warnings'
-        ? [
-            ['VIGENTE', 'Ativa'],
-            ['ANULADA', 'Anulada'],
-          ]
+        ? Object.entries(warningStatusLabels)
         : this.mode() === 'notices'
-          ? [
-              ['RASCUNHO', 'Rascunho'],
-              ['PUBLICADO', 'Publicado'],
-              ['RETIRADO', 'Retirado'],
-            ]
-          : [
-              ['PUBLICADO', 'Publicado'],
-              ['RETIRADO', 'Retirado'],
-              ['SUPERADO', 'Versão anterior'],
-              ['ANULADO', 'Anulado'],
-            ];
+          ? Object.entries(noticeStatusLabels)
+          : Object.entries(communicationStateLabels);
   }
   ngOnInit(): void {
     const previous = this.state.values.get('communication-' + this.mode());

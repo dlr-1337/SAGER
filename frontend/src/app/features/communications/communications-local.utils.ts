@@ -59,6 +59,12 @@ export const communicationStateLabels = {
   RETIRADO: 'Retirado',
   ANULADO: 'Anulado',
 };
+export const warningStatusLabels = { VIGENTE: 'Valendo', ANULADA: 'Anulada' };
+export const noticeStatusLabels = {
+  RASCUNHO: 'Rascunho',
+  PUBLICADO: 'Publicado',
+  RETIRADO: 'Retirado',
+};
 export const formatCommunicationTime = formatOperationsTime;
 export function formatCivilDate(value: string): string {
   const [year, month, day] = value.split('-');

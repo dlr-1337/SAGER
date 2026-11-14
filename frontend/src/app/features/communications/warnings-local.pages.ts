@@ -7,7 +7,11 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { autoRefresh } from '../../core/auto-refresh';
 import { DemoSessionService } from '../../core/demo-session.service';
+import { AutoRefreshStatusComponent } from '../../shared/auto-refresh-status.component';
+import { StatusLegendComponent } from '../../shared/status-legend.component';
+import { toneAttr } from '../../shared/status-tones';
 import { ResidentApiService, ResidentRecord } from '../management/resident-api.service';
 import {
   CommunicationsApiError,
@@ -32,6 +36,7 @@ import {
   formatCommunicationTime,
   severityLabels,
   warningFormError,
+  warningStatusLabels,
 } from './communications-local.utils';
 import { EvidenceLocalComponent } from './evidence-local.component';
 import { WarningFieldsComponent, warningForm, warningInput } from './warning-fields.component';
@@ -40,10 +45,12 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
   standalone: true,
   selector: 'sager-warnings-local',
   imports: [
+    AutoRefreshStatusComponent,
     CommunicationFiltersComponent,
     RouterLink,
     CommunicationsStateComponent,
     PaginationComponent,
+    StatusLegendComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -52,7 +59,7 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
         <div>
           <a class="op-back" routerLink="/notificacoes">← Notificações</a>
           <h1>Advertências</h1>
-          <p>Advertências dadas pelo supervisor. O histórico fica guardado.</p>
+          <p>Advertências dadas pelo supervisor, com o histórico guardado.</p>
         </div>
         @if (session.hasRole('supervisor') && !session.active()) {
           <a class="btn" routerLink="/advertencias/nova">Nova advertência</a>
@@ -63,6 +70,7 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
         [blocked]="!session.hasRole('supervisor')"
       />
       @if (!session.active() && session.hasRole('supervisor')) {
+        <sager-auto-refresh-status [refresh]="refresh" />
         <sager-communication-filters
           mode="warnings"
           heading="Filtrar advertências"
@@ -71,6 +79,7 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
         />
         <section class="op-section">
           <h2 id="warning-results-title" tabindex="-1">Advertências registradas</h2>
+          <sager-status-legend [names]="legendNames" />
           @if (appliedResident()) {
             <div class="comm-actions">
               <a [routerLink]="['/residentes', appliedResident(), 'reincidencias']"
@@ -104,8 +113,8 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
                         <p>Origem em conferência · não conta para reincidência</p>
                       }
                     </div>
-                    <span class="op-status">{{
-                      item.status === 'VIGENTE' ? 'Valendo' : 'Anulada'
+                    <span class="status" [attr.data-tone]="tone(statusLabels[item.status])">{{
+                      statusLabels[item.status]
                     }}</span
                     ><a class="op-row-link" [routerLink]="['/advertencias', item.id]"
                       >Ver advertência<span class="material-symbols-outlined" aria-hidden="true"
@@ -141,6 +150,10 @@ export class WarningsLocalPage {
     (cursor) => this.api.warnings(this.filters['residentId'] ?? '', cursor, this.filters),
     communicationsError,
   );
+  readonly refresh = autoRefresh(() => this.list.refresh());
+  readonly statusLabels = warningStatusLabels;
+  readonly legendNames = Object.values(warningStatusLabels);
+  readonly tone = toneAttr;
   readonly categories = categoryLabels;
   readonly severities = severityLabels;
   readonly civil = formatCivilDate;
@@ -312,8 +325,7 @@ export class WarningFormLocalPage {
           data: {
             title: 'Revisar advertência manual',
             action: 'Confirmar emissão da advertência',
-            warning:
-              'A emissão torna o conteúdo imutável e publica a advertência para este residente. Anular depois exigirá outra decisão motivada.',
+            warning: 'O residente recebe a advertência, e o texto não pode mais ser mudado.',
             lines: [
               { label: 'Residente', value: resident.name + ' · ' + resident.enrollment },
               { label: 'Categoria', value: categoryLabels[input.category] },
@@ -365,7 +377,12 @@ export class WarningFormLocalPage {
 @Component({
   standalone: true,
   selector: 'sager-warning-detail-local',
-  imports: [RouterLink, CommunicationsStateComponent, EvidenceLocalComponent],
+  imports: [
+    AutoRefreshStatusComponent,
+    RouterLink,
+    CommunicationsStateComponent,
+    EvidenceLocalComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page comm-page">
@@ -378,7 +395,9 @@ export class WarningFormLocalPage {
           }
         </div>
         @if (item(); as warning) {
-          <span class="op-status">{{ warning.status === 'VIGENTE' ? 'Valendo' : 'Anulada' }}</span>
+          <span class="status" [attr.data-tone]="tone(statusLabels[warning.status])">{{
+            statusLabels[warning.status]
+          }}</span>
         }
       </header>
       <sager-communications-state
@@ -392,10 +411,11 @@ export class WarningFormLocalPage {
         !session.active() && session.hasRole('supervisor') && !loading() && !loadError() && item();
         as warning
       ) {
+        <sager-auto-refresh-status [refresh]="refresh" />
         @if (warning.requiresReview) {
           <p class="comm-warning" role="alert">
-            A origem está em conferência. Esta advertência continua no histórico, mas não conta para
-            reincidência por enquanto.
+            A origem está em conferência: por enquanto, esta advertência não conta para
+            reincidência.
           </p>
         }
         <div class="comm-grid">
@@ -472,11 +492,13 @@ export class WarningFormLocalPage {
             @if (success()) {
               <p class="comm-success" role="status">{{ success() }}</p>
             }
-            <div class="comm-actions">
-              <button class="btn-secondary" type="button" [disabled]="busy()" (click)="load()">
-                {{ conflict() ? 'Recarregar dados' : 'Atualizar dados' }}
-              </button>
-            </div>
+            @if (conflict()) {
+              <div class="comm-actions">
+                <button class="btn-secondary" type="button" [disabled]="busy()" (click)="load()">
+                  Recarregar dados
+                </button>
+              </div>
+            }
           </section>
         </div>
       }
@@ -498,30 +520,42 @@ export class WarningDetailLocalPage {
   readonly error = signal('');
   readonly success = signal('');
   readonly conflict = signal(false);
+  readonly statusLabels = warningStatusLabels;
+  readonly tone = toneAttr;
   readonly categories = categoryLabels;
   readonly severities = severityLabels;
   readonly civil = formatCivilDate;
   readonly formatTime = formatCommunicationTime;
+  private sequence = 0;
+  readonly refresh = autoRefresh(() => this.load(true), {
+    busy: () => this.busy() || this.conflict() || this.loading(),
+  });
   constructor() {
     void this.load();
   }
-  async load(): Promise<void> {
+  /** `silent` é a atualização automática: mantém mensagens e foco, e lança a falha. */
+  async load(silent = false): Promise<void> {
     if (this.session.active() || !this.session.hasRole('supervisor') || this.busy()) return;
-    this.loading.set(true);
-    this.loadError.set('');
-    this.error.set('');
-    this.success.set('');
-    this.conflict.set(false);
-    this.item.set(null);
+    const sequence = ++this.sequence;
+    if (!silent) {
+      this.loading.set(true);
+      this.loadError.set('');
+      this.error.set('');
+      this.success.set('');
+      this.conflict.set(false);
+      this.item.set(null);
+    }
     try {
       const item = await this.api.warning(this.id);
       const occurrence = item.occurrenceId ? await this.api.occurrence(item.occurrenceId) : null;
+      if (sequence !== this.sequence) return;
       this.item.set(item);
       this.occurrence.set(occurrence);
     } catch (error) {
-      this.loadError.set(communicationsError(error));
+      if (silent) throw error;
+      if (sequence === this.sequence) this.loadError.set(communicationsError(error));
     } finally {
-      this.loading.set(false);
+      if (!silent && sequence === this.sequence) this.loading.set(false);
     }
   }
   annul(): void {
@@ -534,8 +568,7 @@ export class WarningDetailLocalPage {
           data: {
             title: 'Revisar anulação da advertência',
             action: 'Confirmar anulação',
-            warning:
-              'A anulação preserva o conteúdo emitido e a ciência anterior. A advertência deixa de integrar a base de reincidência.',
+            warning: 'O texto e a ciência ficam guardados, e a advertência sai da reincidência.',
             requireReason: true,
             lines: [
               { label: 'Residente', value: item.residentName },
@@ -556,6 +589,8 @@ export class WarningDetailLocalPage {
   }
   private async save(item: DisciplineWarning, reason: string): Promise<void> {
     if (this.busy() || this.conflict()) return;
+    // Uma atualização automática em andamento traria a versão anterior por cima da gravação.
+    this.sequence++;
     this.busy.set(true);
     this.error.set('');
     try {

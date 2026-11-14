@@ -1,3 +1,5 @@
+@use '../../shared/back-link';
+
 // Regras comuns às três telas de Conversas. Sem encapsulamento (ver os componentes): lista e conversa
 // são rotas aninhadas e partilham estes banners, avisos e botões.
 .conv-banner {
@@ -69,20 +71,10 @@
 .conv-placeholder h2 {
   color: var(--ink);
 }
+// Mesmo padrão dos demais links de voltar: inline-block, para o sublinhado não passar sob o ícone.
 .conv-back,
 .conv-back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  color: var(--green-800);
-  font-weight: 600;
-  text-decoration: none;
-}
-.conv-back:hover,
-.conv-back-link:hover {
-  color: var(--green-950);
-  text-decoration: underline;
+  @include back-link.back-link;
 }
 .conv-back-link {
   margin-bottom: var(--space-2);
@@ -95,7 +87,7 @@
     margin-bottom: var(--space-2);
   }
   .conv-back {
-    display: inline-flex;
+    display: inline-block;
     flex: 1 1 100%;
   }
 }

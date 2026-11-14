@@ -85,7 +85,15 @@ function isMessage(value: unknown): value is ConversationMessage {
       ])) &&
     nullableStrings(value, ['failureCode']) &&
     instant(value['sentAt']) &&
-    typeof value['linkable'] === 'boolean'
+    typeof value['linkable'] === 'boolean' &&
+    (value['linkedExit'] === null || isLinkedExit(value['linkedExit']))
+  );
+}
+function isLinkedExit(value: unknown): boolean {
+  return (
+    record(value) &&
+    strings(value, ['id', 'residentName']) &&
+    oneOf(value['fileState'], ['CANDIDATE', 'ACCEPTED'])
   );
 }
 function isOpenExit(value: unknown): value is OpenExit {

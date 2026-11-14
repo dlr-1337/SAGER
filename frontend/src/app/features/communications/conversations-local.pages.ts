@@ -22,13 +22,14 @@ import {
   RouterOutlet,
 } from '@angular/router';
 import { debounceTime } from 'rxjs';
+import { autoRefresh } from '../../core/auto-refresh';
 import { DemoSessionService } from '../../core/demo-session.service';
+import { AutoRefreshStatusComponent } from '../../shared/auto-refresh-status.component';
 import { PageHeaderComponent } from '../../shared/page-header.component';
 import { UnsavedForms, UnsavedFormDirective } from '../../shared/unsaved-form';
 import { GuardianApiService, GuardianRecord } from '../management/guardian-api.service';
 import { OperationsApiError } from '../operations/operations-local-api.service';
 import { formatOperationsTime } from '../operations/operations-local.utils';
-import { ConversationPolling } from './conversation-polling';
 import { ConversationsApiService } from './conversations-api.service';
 import {
   Conversation,
@@ -199,7 +200,14 @@ export const conversationDraftGuard: CanDeactivateFn<unknown> = async () => {
 @Component({
   standalone: true,
   selector: 'sager-conversations',
-  imports: [PageHeaderComponent, ReactiveFormsModule, RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [
+    AutoRefreshStatusComponent,
+    PageHeaderComponent,
+    ReactiveFormsModule,
+    RouterLink,
+    RouterLinkActive,
+    RouterOutlet,
+  ],
   styleUrls: [
     './conversations-shared.scss',
     './conversations-list.scss',
@@ -247,30 +255,7 @@ export const conversationDraftGuard: CanDeactivateFn<unknown> = async () => {
             <a routerLink="/conversas/conexao">Ver conexão</a>
           </div>
         }
-        @switch (polling.state()) {
-          @case ('idle') {
-            <div class="conv-banner" data-tone="warning" role="status">
-              <span class="material-symbols-rounded" aria-hidden="true">pause_circle</span>
-              <span>A atualização automática parou após 30 minutos sem interação.</span>
-              <button class="btn-secondary" type="button" (click)="polling.resume()">
-                Retomar atualização
-              </button>
-            </div>
-          }
-          @case ('expired') {
-            <div class="conv-banner" data-tone="danger" role="alert">
-              <span class="material-symbols-rounded" aria-hidden="true">lock</span>
-              <span>Sua sessão expirou e a atualização automática parou.</span>
-              <a routerLink="/acesso">Entrar novamente</a>
-            </div>
-          }
-        }
-        @if (stale()) {
-          <p class="conv-banner" data-tone="neutral" role="status">
-            <span class="material-symbols-rounded" aria-hidden="true">sync_problem</span>
-            <span>Não foi possível atualizar agora. Nova tentativa em instantes.</span>
-          </p>
-        }
+        <sager-auto-refresh-status [refresh]="refresh" />
         <div class="conv-shell">
           <section class="conv-list" aria-labelledby="conv-list-title">
             <div class="conv-list-head">
@@ -428,6 +413,11 @@ export const conversationDraftGuard: CanDeactivateFn<unknown> = async () => {
                   >
                     {{ loadingMore() ? 'Carregando…' : 'Carregar mais conversas' }}
                   </button>
+                  @if (moreError()) {
+                    <p class="conv-error" role="alert">
+                      Não foi possível carregar mais conversas. Tente novamente.
+                    </p>
+                  }
                 }
               }
             </div>
@@ -447,7 +437,7 @@ export const conversationDraftGuard: CanDeactivateFn<unknown> = async () => {
     }
   `,
 })
-export class ConversationsPage implements OnDestroy {
+export class ConversationsPage {
   readonly demo = inject(DemoSessionService);
   private readonly api = inject(ConversationsApiService);
   private readonly guardianApi = inject(GuardianApiService);
@@ -462,7 +452,7 @@ export class ConversationsPage implements OnDestroy {
   readonly loading = signal(true);
   readonly loadingMore = signal(false);
   readonly listError = signal('');
-  readonly stale = signal(false);
+  readonly moreError = signal(false);
   readonly connection = signal<SessionView | null>(null);
   readonly threadOpen = signal(!!this.route.snapshot.firstChild);
   readonly starting = signal(false);
@@ -475,7 +465,7 @@ export class ConversationsPage implements OnDestroy {
   });
   /** Set by the open thread so one timer serves both, at the shorter interval. */
   thread: { refresh(): Promise<void> } | null = null;
-  readonly polling = new ConversationPolling(() => this.tick(), THREAD_DELAY_MS);
+  readonly refresh = autoRefresh(() => this.tick(), { delayMs: THREAD_DELAY_MS });
   readonly kinds = kindLabels;
   readonly name = contactName;
   readonly residents = residentNames;
@@ -497,10 +487,6 @@ export class ConversationsPage implements OnDestroy {
     if (this.demo.active()) return;
     void this.reloadList();
     void this.refreshConnection().catch(() => undefined);
-    this.polling.start();
-  }
-  ngOnDestroy(): void {
-    this.polling.destroy();
   }
   async reloadList(): Promise<void> {
     this.loading.set(true);
@@ -530,6 +516,7 @@ export class ConversationsPage implements OnDestroy {
     const before = this.cursor();
     if (!before || this.loadingMore()) return;
     this.loadingMore.set(true);
+    this.moreError.set(false);
     try {
       const page = await this.api.list({ q: this.search.value.trim(), before });
       const known = new Set(this.rows().map((item) => item.id));
@@ -537,7 +524,7 @@ export class ConversationsPage implements OnDestroy {
       this.cursor.set(page.nextCursor);
       this.loadedMore = true;
     } catch {
-      this.stale.set(true);
+      this.moreError.set(true);
     } finally {
       this.loadingMore.set(false);
     }
@@ -598,10 +585,10 @@ export class ConversationsPage implements OnDestroy {
       this.thread?.refresh(),
       ...(listDue ? [this.refreshList(), this.refreshConnection()] : []),
     ]);
+    // The 401 first, so the central handling wins over a plain failure of the other query.
     const failures = results.filter((result) => result.status === 'rejected');
-    const expired = failures.find((result) => status(result.reason) === 401);
-    if (expired) throw expired.reason;
-    this.stale.set(failures.length > 0);
+    const failed = failures.find((result) => status(result.reason) === 401) ?? failures[0];
+    if (failed) throw failed.reason;
   }
 }
 
@@ -772,6 +759,17 @@ export class ConversationsPage implements OnDestroy {
                   <span class="material-symbols-rounded" aria-hidden="true">attach_file_add</span>
                   Vincular a uma saída longa
                 </button>
+              } @else if (message.mediaState !== 'FAILED' && message.linkedExit; as linked) {
+                <p class="conv-linked">
+                  Na saída longa de {{ linked.residentName }} ·
+                  {{ linked.fileState === 'ACCEPTED' ? 'conferido' : 'aguardando conferência' }}
+                  <a
+                    class="conv-inline"
+                    [id]="'conv-exit-' + message.id"
+                    [routerLink]="['/saidas/longas', linked.id]"
+                    >Abrir saída</a
+                  >
+                </p>
               }
             </article>
           }
@@ -786,7 +784,6 @@ export class ConversationsPage implements OnDestroy {
             Arquivo vinculado à saída de {{ done.residentName }}. A autorização continua pendente
             até a conferência.
           </span>
-          <a [routerLink]="['/saidas/longas', done.id]">Abrir saída</a>
         </div>
       }
       @if (linking(); as message) {
@@ -995,7 +992,7 @@ export class ConversationThreadComponent implements OnDestroy {
   readonly chosenExit = new FormControl('', { nonNullable: true });
   readonly linkBusy = signal(false);
   readonly linkError = signal('');
-  readonly linkDone = signal<{ id: string; residentName: string } | null>(null);
+  readonly linkDone = signal<{ residentName: string } | null>(null);
   readonly isAudio = computed(() => !!this.file()?.type.startsWith('audio/'));
   readonly blockedText = computed(() => {
     const reason = this.page.connection()?.unavailableReason;
@@ -1043,6 +1040,11 @@ export class ConversationThreadComponent implements OnDestroy {
       });
     this.form.controls.text.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => {
       this.idempotencyKey = null;
+      // An emptied composer holds nothing to lose, so it must not hold the automatic refresh. The
+      // timeout runs after the form's own input listener, which marks it dirty again.
+      setTimeout(() => {
+        if (!this.form.controls.text.value && !this.file()) this.form.markAsPristine();
+      });
     });
   }
   ngOnDestroy(): void {
@@ -1215,6 +1217,7 @@ export class ConversationThreadComponent implements OnDestroy {
     this.file.set(null);
     this.setPreview(null);
     this.idempotencyKey = null;
+    if (!this.form.controls.text.value) this.form.markAsPristine();
   }
   async startRecording(): Promise<void> {
     this.micError.set('');
@@ -1291,10 +1294,14 @@ export class ConversationThreadComponent implements OnDestroy {
     this.linkBusy.set(true);
     this.linkError.set('');
     try {
-      const linked = await this.api.link(message.id, exit);
+      await this.api.link(message.id, exit);
       this.linking.set(null);
-      this.linkDone.set({ id: linked.id, residentName: exit.residentName });
+      this.linkDone.set({ residentName: exit.residentName });
       await this.refresh().catch(() => undefined);
+      // One way to the exit: the link in the file's bubble, not a second one in the notice.
+      afterNextRender(() => document.getElementById(`conv-exit-${message.id}`)?.focus(), {
+        injector: this.injector,
+      });
     } catch (error) {
       this.linkError.set(failure(error, 'Não foi possível vincular o arquivo. Tente novamente.'));
       // The exit may have changed version, or closed, while the panel was open.
@@ -1410,7 +1417,7 @@ export class ConversationThreadComponent implements OnDestroy {
 @Component({
   standalone: true,
   selector: 'sager-conversation-connection',
-  imports: [PageHeaderComponent, RouterLink],
+  imports: [AutoRefreshStatusComponent, PageHeaderComponent, RouterLink],
   styleUrls: ['./conversations-shared.scss', './conversation-connection.scss'],
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -1430,24 +1437,7 @@ export class ConversationThreadComponent implements OnDestroy {
           <p>A demonstração não usa WhatsApp e não gera QR Code.</p>
         </section>
       } @else {
-        @switch (polling.state()) {
-          @case ('idle') {
-            <div class="conv-banner" data-tone="warning" role="status">
-              <span class="material-symbols-rounded" aria-hidden="true">pause_circle</span>
-              <span>A atualização automática parou após 30 minutos sem interação.</span>
-              <button class="btn-secondary" type="button" (click)="polling.resume()">
-                Retomar atualização
-              </button>
-            </div>
-          }
-          @case ('expired') {
-            <div class="conv-banner" data-tone="danger" role="alert">
-              <span class="material-symbols-rounded" aria-hidden="true">lock</span>
-              <span>Sua sessão expirou e a atualização automática parou.</span>
-              <a routerLink="/acesso">Entrar novamente</a>
-            </div>
-          }
-        }
+        <sager-auto-refresh-status [refresh]="refresh" />
         @if (error()) {
           <p class="conv-error" role="alert">{{ error() }}</p>
         }
@@ -1543,7 +1533,7 @@ export class ConversationThreadComponent implements OnDestroy {
     </main>
   `,
 })
-export class ConversationConnectionPage implements OnDestroy {
+export class ConversationConnectionPage {
   readonly demo = inject(DemoSessionService);
   private readonly api = inject(ConversationsApiService);
   readonly session = signal<SessionView | null>(null);
@@ -1552,7 +1542,7 @@ export class ConversationConnectionPage implements OnDestroy {
   readonly qrFailed = signal(false);
   private readonly qrRevision = signal(0);
   readonly qrUrl = computed(() => this.api.qrUrl(this.qrRevision()));
-  readonly polling = new ConversationPolling(() => this.tick(), THREAD_DELAY_MS);
+  readonly refresh = autoRefresh(() => this.tick(), { delayMs: THREAD_DELAY_MS });
   readonly state = computed(() => {
     const current = this.session()?.status ?? '';
     return Object.hasOwn(sessionStates, current)
@@ -1578,7 +1568,7 @@ export class ConversationConnectionPage implements OnDestroy {
     return (
       session?.status === 'SCAN_QR_CODE' &&
       session.unavailableReason !== 'gateway_unreachable' &&
-      this.polling.state() === 'running'
+      this.refresh.state() === 'running'
     );
   });
   readonly when = formatOperationsTime;
@@ -1587,13 +1577,13 @@ export class ConversationConnectionPage implements OnDestroy {
   constructor() {
     if (this.demo.active()) return;
     void this.load();
-    this.polling.start();
   }
-  ngOnDestroy(): void {
-    this.polling.destroy();
-  }
-  load(): Promise<void> {
-    return this.refresh().catch(() => undefined);
+  async load(): Promise<void> {
+    try {
+      await this.read();
+    } catch (error) {
+      this.error.set(failure(error, 'Não foi possível consultar a conexão. Tente novamente.'));
+    }
   }
   async start(): Promise<void> {
     this.busy.set(true);
@@ -1611,17 +1601,13 @@ export class ConversationConnectionPage implements OnDestroy {
     this.lastQr = Date.now();
     this.qrRevision.update((value) => value + 1);
   }
-  private async refresh(): Promise<void> {
-    try {
-      this.session.set(await this.api.session());
-      this.error.set('');
-    } catch (error) {
-      this.error.set(failure(error, 'Não foi possível consultar a conexão. Tente novamente.'));
-      throw error;
-    }
+  private async read(): Promise<void> {
+    this.session.set(await this.api.session());
+    this.error.set('');
   }
+  /** A failed tick keeps the last known state; the shared status line reports it. */
   private async tick(): Promise<void> {
-    await this.refresh();
+    await this.read();
     if (this.showQr() && (this.qrFailed() || Date.now() - this.lastQr >= QR_REFRESH_MS))
       this.newQr();
   }

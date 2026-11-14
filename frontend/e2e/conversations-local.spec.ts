@@ -43,6 +43,7 @@ function message(id: number, values: Partial<ConversationMessage>): Conversation
     failureCode: null,
     sentAt: minutesAgo(200 - id),
     linkable: false,
+    linkedExit: null,
     ...values,
   };
 }
@@ -98,6 +99,25 @@ const history = (): ConversationMessage[] => [
     body: 'Bom dia, Maria. Pode sim. Enviei o documento para a senhora assinar.',
     deliveryStatus: 'READ',
     sentAt: minutesAgo(1495),
+  }),
+  // Two files the automatic link already put in the only open exit: no "Vincular" button.
+  message(12, {
+    kind: 'DOCUMENT',
+    mediaState: 'STORED',
+    mediaType: 'application/pdf',
+    mediaFilename: 'autorizacao-1.pdf',
+    mediaSize: 90_000,
+    sentAt: minutesAgo(1490),
+    linkedExit: { id: exitA, residentName: 'Ana Sintética', fileState: 'CANDIDATE' },
+  }),
+  message(13, {
+    kind: 'DOCUMENT',
+    mediaState: 'STORED',
+    mediaType: 'application/pdf',
+    mediaFilename: 'autorizacao-2.pdf',
+    mediaSize: 91_000,
+    sentAt: minutesAgo(1489),
+    linkedExit: { id: exitA, residentName: 'Ana Sintética', fileState: 'ACCEPTED' },
   }),
   message(3, {
     kind: 'IMAGE',
@@ -311,8 +331,16 @@ async function mockApi(page: Page, role = 'supervisor') {
     const link = /^\/mensagens\/([^/]+)\/vinculo$/.exec(rest);
     if (link) {
       state.links.push({ messageId: link[1], ...request.postDataJSON() });
+      const { exitId } = request.postDataJSON();
+      const residentName = exitId === exitB ? 'Bruno Sintético' : 'Ana Sintética';
       state.messages = state.messages.map((item) =>
-        item.id === link[1] ? { ...item, linkable: false } : item,
+        item.id === link[1]
+          ? {
+              ...item,
+              linkable: false,
+              linkedExit: { id: exitId, residentName, fileState: 'CANDIDATE' as const },
+            }
+          : item,
       );
       return ok(longExit(request.postDataJSON().exitId));
     }
@@ -603,13 +631,47 @@ test.describe('desktop', () => {
     expect(state.links).toEqual([]);
     await panel.getByRole('radio', { name: /Bruno Sintético/ }).check();
     await panel.getByRole('button', { name: 'Vincular arquivo' }).click();
-    await expect(page.getByText('A autorização continua pendente')).toBeVisible();
+    const notice = page.locator('.conv-banner', { hasText: 'A autorização continua pendente' });
+    await expect(notice).toBeVisible();
+    await expect(notice.getByRole('link')).toHaveCount(0);
     expect(state.links).toEqual([{ messageId: uuid(103), exitId: exitB, version: 7 }]);
-    await expect(page.getByRole('link', { name: 'Abrir saída' })).toHaveAttribute(
-      'href',
-      `/saidas/longas/${exitB}`,
+    const bubble = page
+      .getByRole('log')
+      .locator('.conv-msg', { hasText: 'Segue a autorização assinada' });
+    await expect(bubble).toContainText(
+      'Na saída longa de Bruno Sintético · aguardando conferência',
     );
+    const open = bubble.getByRole('link', { name: 'Abrir saída' });
+    await expect(open).toHaveAttribute('href', `/saidas/longas/${exitB}`);
+    await expect(open).toBeFocused();
     await expect(trigger).toHaveCount(0);
+  });
+
+  test('arquivo já numa saída longa mostra a situação e Abrir saída, sem Vincular', async ({
+    page,
+  }) => {
+    await mockApi(page);
+    await page.goto(`/conversas/${linkedId}`);
+    const log = page.getByRole('log');
+    for (const [file, state] of [
+      ['autorizacao-1.pdf', 'aguardando conferência'],
+      ['autorizacao-2.pdf', 'conferido'],
+    ]) {
+      const bubble = log.locator('.conv-msg', { hasText: file });
+      await expect(bubble).toContainText(`Na saída longa de Ana Sintética · ${state}`);
+      await expect(bubble.getByRole('link', { name: 'Abrir saída' })).toHaveAttribute(
+        'href',
+        `/saidas/longas/${exitA}`,
+      );
+      await expect(bubble.getByRole('button', { name: 'Vincular a uma saída longa' })).toHaveCount(
+        0,
+      );
+      await expect(bubble).not.toContainText(exitA);
+    }
+    const free = log.locator('.conv-msg', { hasText: 'termo-assinado.pdf' });
+    await expect(free.getByRole('button', { name: 'Vincular a uma saída longa' })).toBeVisible();
+    await expect(free.getByRole('link', { name: 'Abrir saída' })).toHaveCount(0);
+    await axe(page);
   });
 
   test('inicia conversa só com responsável cadastrado e informa número inexistente', async ({
@@ -662,8 +724,9 @@ test.describe('desktop', () => {
     await expect(page.getByRole('log')).toContainText('Bom dia');
     await page.clock.fastForward('31:00');
     await page.clock.runFor(6000);
-    const resume = page.getByRole('button', { name: 'Retomar atualização' });
+    const resume = page.getByRole('button', { name: 'Retomar', exact: true });
     await expect(resume).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Atualização pausada' })).toBeVisible();
     const queries = state.listQueries.length;
     await page.clock.runFor(60_000);
     expect(state.listQueries.length).toBe(queries);
