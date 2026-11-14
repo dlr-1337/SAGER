@@ -42,19 +42,7 @@ import { Accommodation } from './housing.models';
         ><button class="btn mg-secondary" (click)="search.setValue('')">Limpar filtros</button>
         <p role="status">{{ total() === 1 ? '1 alojamento' : total() + ' alojamentos' }}</p>
       </section>
-      @if (loading()) {
-        <section class="mg-empty" role="status" aria-live="polite">
-          <h2>Carregando alojamentos</h2>
-          <p>Consultando os cadastros.</p>
-        </section>
-      } @else if (error()) {
-        <section class="mg-empty" role="alert">
-          <h2>Não foi possível carregar os alojamentos</h2>
-          <p>{{ error() }}</p>
-          <button class="btn mg-primary" type="button" (click)="load()">Tentar novamente</button
-          ><a class="mg-back" routerLink="/acesso">Acesso local</a>
-        </section>
-      } @else if (!items().length) {
+      @if (!loading() && !error() && !items().length) {
         <section class="mg-empty" role="status">
           <span class="material-symbols-rounded" aria-hidden="true">domain</span>
           <h2>Nenhum alojamento cadastrado</h2>
@@ -62,27 +50,48 @@ import { Accommodation } from './housing.models';
         </section>
       } @else {
         <section class="panel mg-panel" aria-labelledby="accommodation-list-title">
-          <h2 id="accommodation-list-title">Alojamentos cadastrados</h2>
-          <div class="mg-list">
-            @for (item of paged(); track item.id) {
-              <article class="mg-row">
-                <div class="mg-avatar" aria-hidden="true">
-                  <span class="material-symbols-rounded">domain</span>
-                </div>
-                <div class="mg-row-main">
-                  <h3>{{ item.name }}</h3>
-                  <p>Código {{ item.code }}</p>
-                </div>
-                <a class="mg-row-link" [routerLink]="['/alojamentos', item.id]"
-                  >Ver alojamento
-                  <span class="material-symbols-rounded" aria-hidden="true">arrow_forward</span></a
-                >
-              </article>
-            } @empty {
-              <p role="status">Nenhum alojamento corresponde à busca.</p>
-            }
-          </div>
-          <sager-pagination [page]="page()" [total]="total()" (pageChange)="changePage($event)" />
+          <h2 id="accommodation-list-title" tabindex="-1">Alojamentos cadastrados</h2>
+          @if (loading()) {
+            <div class="mg-empty mg-empty-inline" role="status" aria-live="polite">
+              <h3>Carregando alojamentos</h3>
+              <p>Consultando os cadastros.</p>
+            </div>
+          } @else if (error()) {
+            <div class="mg-empty mg-empty-inline" role="alert">
+              <h3>Não foi possível carregar os alojamentos</h3>
+              <p>{{ error() }}</p>
+              <button class="btn mg-primary" type="button" (click)="load()">Tentar novamente</button
+              ><a class="mg-back" routerLink="/acesso">Acesso local</a>
+            </div>
+          } @else {
+            <div class="mg-list">
+              @for (item of paged(); track item.id) {
+                <article class="mg-row">
+                  <div class="mg-avatar" aria-hidden="true">
+                    <span class="material-symbols-rounded">domain</span>
+                  </div>
+                  <div class="mg-row-main">
+                    <h3>{{ item.name }}</h3>
+                    <p>Código {{ item.code }}</p>
+                  </div>
+                  <a class="mg-row-link" [routerLink]="['/alojamentos', item.id]"
+                    >Ver alojamento
+                    <span class="material-symbols-rounded" aria-hidden="true"
+                      >arrow_forward</span
+                    ></a
+                  >
+                </article>
+              } @empty {
+                <p role="status">Nenhum alojamento corresponde à busca.</p>
+              }
+            </div>
+            <sager-pagination
+              [page]="page()"
+              [total]="total()"
+              anchor="accommodation-list-title"
+              (pageChange)="changePage($event)"
+            />
+          }
         </section>
       }
       @if (isDemo()) {

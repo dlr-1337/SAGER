@@ -16,6 +16,7 @@ import br.edu.ifgoiano.sager.audit.AuditAction;
 import br.edu.ifgoiano.sager.audit.AuditResource;
 import br.edu.ifgoiano.sager.audit.AuditService;
 import br.edu.ifgoiano.sager.auth.LocalAccountPrincipal;
+import br.edu.ifgoiano.sager.management.FieldRules;
 import br.edu.ifgoiano.sager.operations.AuthorizedExitLookup;
 import br.edu.ifgoiano.sager.operations.OperationResidents;
 import br.edu.ifgoiano.sager.operations.OccurrenceEvidenceSink;
@@ -56,7 +57,7 @@ public class NightCallService {
         actors.supervisor();
         Instant now = now();
         LocalDate today = today(now);
-        List<NightCall.AccommodationOption> accommodations = calls.accommodations();
+        List<NightCall.AccommodationOption> accommodations = calls.accommodations(today);
         List<NightCall.MissingBirthDate> missing = new ArrayList<>();
         int minors = 0;
         UUID existing = null;
@@ -65,7 +66,7 @@ public class NightCallService {
             for (NightCallRepository.RosterResident resident : calls.roster(accommodationId, now)) {
                 if (resident.birthDate() == null) missing.add(new NightCall.MissingBirthDate(resident.id(),
                         resident.name(), resident.enrollment(), resident.roomNumber()));
-                else if (minor(resident.birthDate(), today)) minors++;
+                else if (FieldRules.minor(resident.birthDate(), today)) minors++;
             }
             existing = calls.existing(accommodationId, today);
         }
@@ -93,7 +94,7 @@ public class NightCallService {
         LocalDate today = today(now);
         boolean exceptional = outsideWindow(now);
         String reason = exceptionReason(exceptional, confirmed, justification);
-        NightCall.AccommodationOption accommodation = accommodation(accommodationId, calls.accommodations());
+        NightCall.AccommodationOption accommodation = accommodation(accommodationId, calls.accommodations(today));
         if (calls.existing(accommodationId, today) != null) throw exists();
         List<NightCallRepository.RosterResident> all = calls.roster(accommodationId, now);
         if (all.stream().anyMatch(resident -> resident.birthDate() == null)) {
@@ -109,7 +110,7 @@ public class NightCallService {
                 exceptional ? Set.of("accommodationId", "referenceDate", "status", "outsideWindowConfirmed", "justification")
                         : Set.of("accommodationId", "referenceDate", "status"));
         for (NightCallRepository.RosterResident resident : all) {
-            if (!minor(resident.birthDate(), today)) continue;
+            if (!FieldRules.minor(resident.birthDate(), today)) continue;
             NightCall.ResidentMark mark = calls.insertMark(created.id(), resident);
             audit.record(AuditResource.NIGHT_CALL_MARK, mark.id(), AuditAction.CREATE, 0,
                     Set.of("callId", "residentId"));
@@ -230,10 +231,6 @@ public class NightCallService {
                 || OpsInput.characters(justification) > 2000) {
             throw OpsInput.invalid("Informe justificativa de 10 a 2000 caracteres.");
         }
-    }
-
-    private boolean minor(LocalDate birth, LocalDate date) {
-        return birth != null && !birth.isAfter(date) && birth.plusYears(18).isAfter(date);
     }
 
     private boolean outsideWindow(Instant at) {

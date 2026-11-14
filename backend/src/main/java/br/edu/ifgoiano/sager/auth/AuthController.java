@@ -1,9 +1,11 @@
 package br.edu.ifgoiano.sager.auth;
 
+import java.time.Clock;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
+import br.edu.ifgoiano.sager.management.FieldRules;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,9 +20,11 @@ import org.springframework.web.server.ResponseStatusException;
 @Profile({ "local", "production" })
 public class AuthController {
     private final LocalAccountRepository accounts;
+    private final Clock clock;
 
-    public AuthController(LocalAccountRepository accounts) {
+    public AuthController(LocalAccountRepository accounts, Clock clock) {
         this.accounts = accounts;
+        this.clock = clock;
     }
 
     @GetMapping("/api/v1/auth/me")
@@ -34,8 +38,12 @@ public class AuthController {
                         && Objects.equals(value.residentId(), principal.residentId())
                         && Objects.equals(value.supervisorId(), principal.supervisorId()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+        // Lida a cada consulta: muda no aniversário e quando a secretaria corrige a data.
+        boolean adult = account.residentId() != null && accounts.residentBirthDate(account.residentId())
+                .map(birth -> !FieldRules.minor(birth, clock.instant())).orElse(false);
         MeResponse response = new MeResponse(account.id(), account.name(), account.email(),
-                null, List.of(account.profile()), account.residentId(), account.supervisorId(), account.enrollment());
+                null, List.of(account.profile()), account.residentId(), account.supervisorId(), account.enrollment(),
+                adult);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(response);
     }
 
@@ -45,6 +53,6 @@ public class AuthController {
     }
 
     public record MeResponse(UUID id, String nome, String email, String fotoUrl, List<String> perfis,
-            UUID residenteId, UUID supervisorId, String matricula) {
+            UUID residenteId, UUID supervisorId, String matricula, boolean maiorDeIdade) {
     }
 }

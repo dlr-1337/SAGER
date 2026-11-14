@@ -1,5 +1,7 @@
 import { CommunicationFiltersComponent } from './communication-filters.component';
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
+import { cursorPages } from '../../core/list-page';
+import { PaginationComponent } from '../../shared/pagination.component';
 import { UnsavedFormDirective } from '../../shared/unsaved-form';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -39,10 +41,9 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
   selector: 'sager-warnings-local',
   imports: [
     CommunicationFiltersComponent,
-    SearchableSelectDirective,
     RouterLink,
-    ReactiveFormsModule,
     CommunicationsStateComponent,
+    PaginationComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -57,31 +58,19 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
           <a class="btn" routerLink="/advertencias/nova">Nova advertência</a>
         }
       </header>
-      @if (!session.active() && session.hasRole('supervisor')) {
-        <sager-communication-filters mode="warnings" (changed)="searchFilters = $event; load()" />
-      }
       <sager-communications-state
         [demo]="session.active()"
         [blocked]="!session.hasRole('supervisor')"
-        [loading]="loading()"
-        [error]="error()"
-        (retry)="load()"
       />
-      @if (!session.active() && session.hasRole('supervisor') && !loading() && !error()) {
-        <section class="panel op-panel">
-          <h2>Buscar por residente</h2>
-          <form class="op-filters" (submit)="$event.preventDefault(); load()">
-            <label class="field"
-              >Residente<select sagerSearchable [formControl]="residentId">
-                <option value="">Todos os residentes</option>
-                @for (resident of residents(); track resident.id) {
-                  <option [value]="resident.id">
-                    {{ resident.name }} · {{ resident.enrollment }}
-                  </option>
-                }
-              </select></label
-            ><button class="btn-secondary" type="submit">Buscar</button>
-          </form>
+      @if (!session.active() && session.hasRole('supervisor')) {
+        <sager-communication-filters
+          mode="warnings"
+          heading="Filtrar advertências"
+          [resident]="linkedResident"
+          (changed)="filter($event)"
+        />
+        <section class="op-section">
+          <h2 id="warning-results-title" tabindex="-1">Advertências registradas</h2>
           @if (appliedResident()) {
             <div class="comm-actions">
               <a [routerLink]="['/residentes', appliedResident(), 'reincidencias']"
@@ -89,56 +78,52 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
               >
             </div>
           }
-        </section>
-        <section class="op-section">
-          <h2>Advertências registradas</h2>
-          @if (!items().length) {
-            <div class="op-empty" role="status">
-              <h3>Nenhuma advertência encontrada</h3>
-              <p>Uma ocorrência só gera advertência depois de análise e decisão do supervisor.</p>
-            </div>
-          } @else {
-            <div class="op-list">
-              @for (item of items(); track item.id) {
-                <article class="op-row">
-                  <div class="op-row-main">
-                    <h3>{{ item.residentName }}</h3>
-                    <p>
-                      {{ categories[item.category] }} · {{ severities[item.severity] }} ·
-                      {{ civil(item.warningDate) }}
-                    </p>
-                    <p>{{ item.description }}</p>
-                    @if (item.requiresReview) {
-                      <p>Origem em conferência · não conta para reincidência</p>
-                    }
-                  </div>
-                  <span class="op-status">{{
-                    item.status === 'VIGENTE' ? 'Valendo' : 'Anulada'
-                  }}</span
-                  ><a class="op-row-link" [routerLink]="['/advertencias', item.id]"
-                    >Ver advertência<span class="material-symbols-outlined" aria-hidden="true"
-                      >arrow_forward</span
-                    ></a
-                  >
-                </article>
-              }
-            </div>
+          <sager-communications-state
+            [loading]="list.loading()"
+            [error]="list.error()"
+            (retry)="list.reload()"
+          />
+          @if (!list.loading() && !list.error()) {
+            @if (!list.items().length) {
+              <div class="op-empty" role="status">
+                <h3>Nenhuma advertência encontrada</h3>
+                <p>Uma ocorrência só gera advertência depois de análise e decisão do supervisor.</p>
+              </div>
+            } @else {
+              <div class="op-list">
+                @for (item of list.items(); track item.id) {
+                  <article class="op-row">
+                    <div class="op-row-main">
+                      <h3>{{ item.residentName }}</h3>
+                      <p>
+                        {{ categories[item.category] }} · {{ severities[item.severity] }} ·
+                        {{ civil(item.warningDate) }}
+                      </p>
+                      <p>{{ item.description }}</p>
+                      @if (item.requiresReview) {
+                        <p>Origem em conferência · não conta para reincidência</p>
+                      }
+                    </div>
+                    <span class="op-status">{{
+                      item.status === 'VIGENTE' ? 'Valendo' : 'Anulada'
+                    }}</span
+                    ><a class="op-row-link" [routerLink]="['/advertencias', item.id]"
+                      >Ver advertência<span class="material-symbols-outlined" aria-hidden="true"
+                        >arrow_forward</span
+                      ></a
+                    >
+                  </article>
+                }
+              </div>
+            }
           }
-          @if (nextCursor() !== null) {
-            <div class="comm-actions">
-              <button
-                class="btn-secondary"
-                type="button"
-                [disabled]="moreLoading()"
-                (click)="more()"
-              >
-                Carregar mais advertências
-              </button>
-            </div>
-          }
-          @if (moreError()) {
-            <p class="comm-error" role="alert">{{ moreError() }}</p>
-          }
+          <sager-pagination
+            [page]="list.page()"
+            [hasNext]="list.hasNext()"
+            [busy]="list.loading()"
+            anchor="warning-results-title"
+            (pageChange)="list.go($event)"
+          />
         </section>
       }
     </main>
@@ -146,78 +131,25 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
   styleUrl: './communications-local.scss',
 })
 export class WarningsLocalPage {
-  searchFilters: Record<string, string> = {};
-  private appliedSearch: Record<string, string> = {};
-
   readonly session = inject(DemoSessionService);
   private readonly api = inject(CommunicationsLocalApiService);
-  private readonly registry = inject(ResidentApiService);
   private readonly route = inject(ActivatedRoute);
-  readonly residentId = new FormControl(this.route.snapshot.queryParamMap.get('residente') ?? '', {
-    nonNullable: true,
-  });
+  readonly linkedResident = this.route.snapshot.queryParamMap.get('residente') ?? '';
   readonly appliedResident = signal('');
-  readonly residents = signal<ResidentRecord[]>([]);
-  readonly items = signal<DisciplineWarning[]>([]);
-  readonly nextCursor = signal<number | null>(null);
-  readonly loading = signal(false);
-  readonly error = signal('');
-  readonly moreLoading = signal(false);
-  readonly moreError = signal('');
+  private filters: Record<string, string> = {};
+  readonly list = cursorPages<DisciplineWarning>(
+    (cursor) => this.api.warnings(this.filters['residentId'] ?? '', cursor, this.filters),
+    communicationsError,
+  );
   readonly categories = categoryLabels;
   readonly severities = severityLabels;
   readonly civil = formatCivilDate;
-  private generation = 0;
-  constructor() {
-    void this.load();
-  }
-  async load(): Promise<void> {
-    this.appliedSearch = { ...this.searchFilters };
-    if (this.session.active() || !this.session.hasRole('supervisor')) return;
-    const generation = ++this.generation;
-    const resident = this.residentId.value;
-    this.loading.set(true);
-    this.moreLoading.set(false);
-    this.error.set('');
-    this.moreError.set('');
-    this.items.set([]);
-    try {
-      const [page, residents] = await Promise.all([
-        this.api.warnings(resident, undefined, this.appliedSearch),
-        this.registry.list(),
-      ]);
-      if (generation === this.generation) {
-        this.items.set(page.items);
-        this.nextCursor.set(page.nextCursor);
-        this.residents.set(residents);
-        this.appliedResident.set(resident);
-      }
-    } catch (error) {
-      if (generation === this.generation) this.error.set(communicationsError(error));
-    } finally {
-      if (generation === this.generation) this.loading.set(false);
-    }
-  }
-  async more(): Promise<void> {
-    const cursor = this.nextCursor();
-    const generation = this.generation;
-    if (cursor === null || this.moreLoading()) return;
-    this.moreLoading.set(true);
-    this.moreError.set('');
-    try {
-      const page = await this.api.warnings(this.appliedResident(), cursor, this.appliedSearch);
-      if (generation === this.generation) {
-        this.items.update((items) => [
-          ...items,
-          ...page.items.filter((item) => !items.some((previous) => previous.id === item.id)),
-        ]);
-        this.nextCursor.set(page.nextCursor);
-      }
-    } catch (error) {
-      if (generation === this.generation) this.moreError.set(communicationsError(error));
-    } finally {
-      if (generation === this.generation) this.moreLoading.set(false);
-    }
+  // A primeira carga vem da emissão inicial do painel de filtro.
+  filter(filters: Record<string, string>): Promise<void> {
+    if (this.session.active() || !this.session.hasRole('supervisor')) return Promise.resolve();
+    this.filters = filters;
+    this.appliedResident.set(filters['residentId'] ?? '');
+    return this.list.reload();
   }
 }
 

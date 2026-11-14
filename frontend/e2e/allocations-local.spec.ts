@@ -9,7 +9,7 @@ const resident = {
   name: 'Estudante Sintético',
   enrollment: 'TESTE-01',
   birthDate: null,
-  course: null,
+  course: 'Curso Sintético',
   version: 0,
 };
 const accommodation = { id: 'a1', code: 'A1', name: 'Alojamento Sintético', version: 0 };
@@ -23,19 +23,32 @@ type Allocation = {
   version: number;
 };
 
-async function mockLocal(context: BrowserContext, role: 'gestor' | 'supervisor' = 'gestor') {
+// Com faixas: o residente tem 15 anos, o 1º quarto é de menores e o 2º, de maiores.
+async function mockLocal(
+  context: BrowserContext,
+  role: 'gestor' | 'supervisor' = 'gestor',
+  ageGroups = false,
+) {
+  const subject = ageGroups
+    ? { ...resident, birthDate: `${new Date().getFullYear() - 15}-01-01`, minor: true }
+    : resident;
+  const accommodations = ageGroups
+    ? [
+        { ...accommodation, ageGroup: 'MENORES' },
+        { id: 'a2', code: 'A2', name: 'Alojamento Maiores', ageGroup: 'MAIORES', version: 0 },
+      ]
+    : [accommodation];
   const allocations: Allocation[] = [];
   const writes: { path: string; csrf: string | undefined; body: Record<string, unknown> }[] = [];
   const rooms = [firstRoomId, secondRoomId].map((id, index) => ({
     id,
     code: `TESTE-Q0${index + 1}`,
     number: `0${index + 1}`,
-    accommodationId: accommodation.id,
+    accommodationId: ageGroups && index === 1 ? 'a2' : accommodation.id,
     unitId: null,
     floor: null,
     capacity: 1,
     situation: 'Disponível',
-    cleaningScore: null,
     version: 0,
     get occupancy() {
       return allocations.filter((item) => item.roomId === id && item.endedAt === null).length;
@@ -63,15 +76,25 @@ async function mockLocal(context: BrowserContext, role: 'gestor' | 'supervisor' 
       return route.fulfill({ json: { headerName: 'X-CSRF-TOKEN', token: 'csrf-test' } });
     return route.fulfill({ status: 404 });
   });
+  const residentQueries: URLSearchParams[] = [];
   await context.route('**/api/v1/residentes**', (route) => {
-    const path = new URL(route.request().url()).pathname;
-    return route.fulfill({ json: path.endsWith('/residentes') ? [resident] : resident });
+    const url = new URL(route.request().url());
+    if (!url.pathname.endsWith('/residentes')) return route.fulfill({ json: subject });
+    residentQueries.push(url.searchParams);
+    // O detalhe do quarto pede só os moradores dele (roomId), como a API real.
+    const roomId = url.searchParams.get('roomId');
+    const inRoom =
+      !roomId ||
+      allocations.some(
+        (item) => item.residentId === subject.id && item.roomId === roomId && item.endedAt === null,
+      );
+    return route.fulfill({ json: inRoom ? [subject] : [] });
   });
   await context.route('**/api/v1/responsaveis**', (route) => route.fulfill({ json: [] }));
   await context.route('**/api/v1/quartos**', (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path.endsWith('/mapa'))
-      return route.fulfill({ json: { accommodations: [accommodation], units: [], rooms } });
+      return route.fulfill({ json: { accommodations, units: [], rooms } });
     if (path.endsWith('/quartos')) return route.fulfill({ json: rooms });
     return route.fulfill({ json: rooms.find((room) => room.id === path.split('/').at(-1)) });
   });
@@ -115,7 +138,7 @@ async function mockLocal(context: BrowserContext, role: 'gestor' | 'supervisor' 
     allocations.unshift(allocation);
     return route.fulfill({ status: 201, json: allocation });
   });
-  return { allocations, writes };
+  return { allocations, writes, residentQueries };
 }
 
 test('gestor aloca, transfere e encerra com histórico persistido na interface', async ({
@@ -137,7 +160,11 @@ test('gestor aloca, transfere e encerra com histórico persistido na interface',
     csrf: 'csrf-test',
     body: { residentId, roomId: firstRoomId },
   });
-  await page.reload();
+  await page.goto(`/quartos/${firstRoomId}`);
+  await expect(page.getByText(resident.name, { exact: true })).toBeVisible();
+  await expect(page.getByText(resident.course, { exact: false }).first()).toBeVisible();
+  expect(state.residentQueries.map((query) => query.get('roomId'))).toContain(firstRoomId);
+  await page.goto(`/residentes/${residentId}`);
   await expect(page.getByRole('link', { name: /Quarto 01/ })).toBeVisible();
   await page.getByRole('combobox', { name: 'Mudar para' }).selectOption(secondRoomId);
   await page.getByRole('button', { name: 'Mudar de quarto' }).click();
@@ -151,6 +178,7 @@ test('gestor aloca, transfere e encerra com histórico persistido na interface',
   await expect(page.getByRole('heading', { name: 'Histórico de quartos' })).toBeVisible();
   await expect(page.locator('.mg-timeline li')).toHaveCount(2);
   await page.goto('/quartos');
+  await page.getByRole('button', { name: /^Alojamento Sintético/ }).click();
   await expect(page.getByText('0 moradores', { exact: false }).first()).toBeVisible();
 });
 
@@ -206,4 +234,22 @@ test('duas abas exibem conflito de versão e recarregam o vínculo atual', async
   await expect(second.getByRole('alert')).toContainText('Outra pessoa alterou');
   await expect(second.getByRole('link', { name: /Quarto 02/ })).toBeVisible();
   await second.close();
+});
+
+test('residente menor só vê quartos da sua faixa e é colocado no de menores', async ({
+  page,
+  context,
+}) => {
+  const state = await mockLocal(context, 'gestor', true);
+  await page.goto(`/residentes/${residentId}`);
+  const select = page.getByRole('combobox', { name: 'Colocar no quarto' });
+  await expect(select.locator(`option[value="${firstRoomId}"]`)).toHaveCount(1);
+  await expect(select.locator(`option[value="${secondRoomId}"]`)).toHaveCount(0);
+  const axe = await new AxeBuilder({ page }).analyze();
+  expect(axe.violations).toEqual([]);
+  await select.selectOption(firstRoomId);
+  await page.getByRole('button', { name: 'Colocar no quarto' }).click();
+  await expect.poll(() => state.writes.length).toBe(1);
+  expect(state.writes[0].body).toMatchObject({ residentId, roomId: firstRoomId });
+  await expect(page.getByRole('link', { name: /Quarto 01/ })).toBeVisible();
 });

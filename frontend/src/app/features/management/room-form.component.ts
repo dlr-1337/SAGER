@@ -138,8 +138,8 @@ import { RoomApiError, RoomApiService, roomLoadError } from './room-api.service'
             <div class="mg-note">
               <span class="material-symbols-rounded" aria-hidden="true">info</span>
               <p>
-                O número precisa ser único em toda a demonstração. A ocupação e a nota de limpeza
-                são mostradas no mapa e não são alteradas neste formulário.
+                O número precisa ser único em toda a demonstração. A ocupação é mostrada no mapa e
+                não é alterada neste formulário.
               </p>
             </div>
             @if (error()) {
@@ -278,7 +278,8 @@ import { RoomApiError, RoomApiService, roomLoadError } from './room-api.service'
                   }
                 </select>
                 <span class="mg-muted" id="room-situation-hint"
-                  >Ocupado aparece sozinho quando os moradores atingem a capacidade.</span
+                  >Ocupado aparece sozinho quando os moradores atingem a capacidade. Sem capacidade,
+                  o quarto aparece como Indisponível.</span
                 >
                 @if (invalid('situation')) {
                   <span class="mg-field-error" id="room-situation-error"
@@ -578,7 +579,13 @@ export class RoomFormComponent {
       unitId: item.unitId ?? '',
       floor: item.floor ?? '',
       capacity: item.capacity,
-      situation: item.situation === 'Ocupado' ? 'Disponível' : item.situation,
+      // Sem capacidade, Indisponível pode ser escolhido ou calculado; o usuário escolhe de novo.
+      situation:
+        item.situation === 'Ocupado'
+          ? 'Disponível'
+          : item.capacity === null && item.situation === 'Indisponível'
+            ? ''
+            : item.situation,
     });
     this.localForm.markAsPristine();
     this.localForm.markAsUntouched();

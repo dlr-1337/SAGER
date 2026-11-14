@@ -4,6 +4,7 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
+import { decimal } from '../cleaning/cleaning-local.utils';
 import { OperationsDemoService } from './operations-demo.service';
 
 @Component({
@@ -25,11 +26,11 @@ import { OperationsDemoService } from './operations-demo.service';
         <section class="op-alert-panel" role="note">
           <span class="material-symbols-outlined" aria-hidden="true">rule</span>
           <div>
-            <h2>Critérios pendentes da AE</h2>
+            <h2>Regras da avaliação</h2>
             <p>
-              Escala, pesos, média por período, desempate e limiar de alerta ainda não foram
-              definidos. Os exemplos abaixo mostram apenas a interação, sem estabelecer uma regra
-              institucional.
+              A nota é a média dos quatro critérios (piso, superfícies, resíduos e organização), de
+              0 a 10, com duas casas decimais. Uma nota abaixo de 6,00 gera ocorrência para análise.
+              São políticas locais que aguardam o aceite da Assistência Estudantil.
             </p>
           </div>
         </section>
@@ -73,15 +74,13 @@ import { OperationsDemoService } from './operations-demo.service';
                 <dt>Nota anterior</dt>
                 <dd>
                   {{
-                    result.previous === null
-                      ? 'Sem avaliação anterior'
-                      : (result.previous | number: '1.1-1')
+                    result.previous === null ? 'Sem avaliação anterior' : decimal(result.previous)
                   }}
                 </dd>
               </div>
               <div>
                 <dt>Nova nota</dt>
-                <dd>{{ result.next | number: '1.1-1' }}</dd>
+                <dd>{{ decimal(result.next) }}</dd>
               </div>
               <div>
                 <dt>Variação</dt>
@@ -89,7 +88,7 @@ import { OperationsDemoService } from './operations-demo.service';
                   {{
                     result.previous === null
                       ? 'Não se aplica'
-                      : (result.next - result.previous | number: '1.1-1') + ' ponto(s)'
+                      : decimal(result.next - result.previous) + ' ponto(s)'
                   }}
                 </dd>
               </div>
@@ -99,8 +98,8 @@ import { OperationsDemoService } from './operations-demo.service';
               </div>
             </dl>
             <p class="op-help">
-              Esta posição foi preparada para a demonstração. O ranking real depende de fórmula e
-              critérios homologados.
+              Esta posição foi preparada para a demonstração. No ranking, quartos com a mesma nota
+              ficam na mesma posição.
             </p>
           </section>
         }
@@ -120,6 +119,7 @@ import { OperationsDemoService } from './operations-demo.service';
 export class CleaningComponent {
   readonly service = inject(OperationsDemoService);
   readonly session = inject(DemoSessionService);
+  readonly decimal = decimal;
   readonly room = new FormControl('', { nonNullable: true });
   readonly error = signal('');
   save(): void {

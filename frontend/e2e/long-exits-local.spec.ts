@@ -137,6 +137,7 @@ function exitFixture(): LongExit {
 }
 interface MockState {
   role: 'residente' | 'supervisor' | 'gestor';
+  maiorDeIdade: boolean;
   now: string;
   exits: LongExit[];
   guardiansEligible: boolean;
@@ -153,6 +154,7 @@ interface MockState {
 async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<MockState> {
   const state: MockState = {
     role: 'supervisor',
+    maiorDeIdade: false,
     now,
     exits: [exitFixture()],
     guardiansEligible: true,
@@ -245,6 +247,7 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
         perfis: [state.role],
         residenteId: state.role === 'residente' ? residentId : null,
         supervisorId: state.role === 'supervisor' ? '00000000-0000-0000-0000-000000000101' : null,
+        maiorDeIdade: state.maiorDeIdade,
       });
     if (path === '/api/v1/auth/csrf')
       return ok({ headerName: 'X-CSRF-TOKEN', token: 'synthetic-csrf' });
@@ -463,7 +466,7 @@ test('redução de 26 para 25 saídas longas retorna à página válida com filt
   await expect.poll(() => queries.at(-1)?.get('status')).toBe('APROVADA');
   await expect(pagination).toContainText('1–25 de 26');
   await pagination.getByRole('button', { name: 'Próxima' }).click();
-  await expect(pagination).toContainText('1–25 de 25');
+  await expect(pagination).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Ver pedido' })).toHaveCount(25);
   await expect(page.getByRole('heading', { name: 'Nenhuma saída encontrada' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Saídas longas', exact: true })).toHaveAttribute(
@@ -484,14 +487,13 @@ test('situação Aprovada permanece no retorno à lista longa e limpa ao trocar 
 }) => {
   await mockApi(page, { role: 'supervisor', exits: [{ ...exitFixture(), status: 'APROVADA' }] });
   await page.goto('/saidas?tipo=longa');
-  await page.getByLabel('Situação', { exact: true }).selectOption('APROVADA');
   const filtered = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return (
       url.pathname === '/api/v1/saidas-longas' && url.searchParams.get('status') === 'APROVADA'
     );
   });
-  await page.getByRole('button', { name: 'Buscar', exact: true }).click();
+  await page.getByLabel('Situação', { exact: true }).selectOption('APROVADA');
   await filtered;
   await page.getByRole('link', { name: 'Ver pedido' }).click();
   await expect(page.getByRole('heading', { name: 'Pedido de saída longa' })).toBeVisible();
@@ -955,4 +957,18 @@ test('saída longa a 320px tem leitura acessível, arquivos privados e restriç�
   await expect(page.getByRole('heading', { name: 'Arquivos recebidos' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Abrir conversa com o responsável' })).toHaveCount(0);
   expect(state.writes).toHaveLength(0);
+});
+
+test('residente maior de idade abre a saída longa só para leitura', async ({ page }) => {
+  const state = await mockApi(page, { role: 'residente', maiorDeIdade: true });
+  for (const path of ['/saidas/longas/nova', `/saidas/longas/${exitId}/editar`]) {
+    await page.goto(path);
+    await expect(page).toHaveURL(/acesso-negado$/);
+  }
+  await page.goto(`/saidas/longas/${exitId}`);
+  await expect(page.getByRole('heading', { name: 'Pedido de saída longa' })).toBeVisible();
+  await expect(page.locator('.op-status')).toHaveText('Aguardando análise');
+  await expect(page.getByRole('link', { name: 'Mudar pedido' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Cancelar pedido' })).toHaveCount(0);
+  expect(state.writes).toEqual([]);
 });

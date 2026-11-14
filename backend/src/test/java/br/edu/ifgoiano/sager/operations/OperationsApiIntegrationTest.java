@@ -205,6 +205,52 @@ class OperationsApiIntegrationTest {
     }
 
     @Test
+    void nightCallLeavesOutAdultAccommodationsWithoutAnAllocatedMinor() throws Exception {
+        jdbc.update("UPDATE sager_accommodation SET age_group = 'MENORES' WHERE id = ?", accommodation);
+        UUID adults = UUID.randomUUID();
+        jdbc.update("INSERT INTO sager_accommodation(id, code, name, age_group) VALUES (?, 'OPS-MAI', 'Maiores', 'MAIORES')",
+                adults);
+        UUID adultRoom = UUID.randomUUID();
+        jdbc.update("INSERT INTO sager_room(id, code, number, accommodation_id, capacity, situation)"
+                + " VALUES (?, 'OPS-M1', 'M1', ?, 4, 'Disponível')", adultRoom, adults);
+        UUID adult = resident("OPS-MAIOR", LocalDate.of(2000, 1, 1), false);
+        jdbc.update("INSERT INTO sager_room_allocation(id, resident_id, room_id) VALUES (?, ?, ?)",
+                UUID.randomUUID(), adult, adultRoom);
+        UUID free = UUID.randomUUID();
+        jdbc.update("INSERT INTO sager_accommodation(id, code, name) VALUES (?, 'OPS-LIVRE', 'Sem faixa')", free);
+        try (HttpClient supervisor = logged("supervisor")) {
+            List<String> listed = new java.util.ArrayList<>();
+            read(supervisor, CALLS + "/contexto").path("accommodations")
+                    .forEach(option -> listed.add(option.path("id").asText()));
+            assertThat(listed).containsExactlyInAnyOrder(accommodation.toString(), free.toString());
+            assertError(get(supervisor, CALLS + "/contexto?accommodationId=" + adults), 422, "invalid_reference");
+            assertError(post(supervisor, CALLS, Map.of("accommodationId", adults)), 422, "invalid_reference");
+            assertThat(count("sager_night_call")).isZero();
+        }
+    }
+
+    @Test
+    void minorAllocatedBeforeTheGroupChangeKeepsTheAdultAccommodationInTheNightCall() throws Exception {
+        jdbc.update("UPDATE sager_resident SET birth_date = '2010-03-01' WHERE id = ?", resident);
+        try (HttpClient supervisor = logged("supervisor")) {
+            assertThat(put(supervisor, "/api/v1/alojamentos/" + accommodation, Map.of("code", "OPS",
+                    "name", "Sintético", "ageGroup", "MAIORES", "version", 0)).statusCode()).isEqualTo(200);
+            List<String> listed = new java.util.ArrayList<>();
+            read(supervisor, CALLS + "/contexto").path("accommodations")
+                    .forEach(option -> listed.add(option.path("id").asText()));
+            assertThat(listed).contains(accommodation.toString());
+            JsonNode opened = open(supervisor);
+            assertThat(opened.path("records").size()).isEqualTo(1);
+            assertThat(opened.path("records").get(0).path("residentId").asText()).isEqualTo(resident.toString());
+            String id = opened.path("id").asText();
+            assertThat(put(supervisor, CALLS + "/" + id + "/registros/" + resident,
+                    Map.of("mark", "PRESENTE", "version", 0)).statusCode()).isEqualTo(200);
+            assertThat(post(supervisor, CALLS + "/" + id + "/fechamento", Map.of("version", 1))
+                    .statusCode()).isEqualTo(200);
+        }
+    }
+
+    @Test
     void usesSaoPauloBirthdayAndRequiresOutsideWindowConfirmationAtOpenAndClose() throws Exception {
         clock.set(Instant.parse("2026-10-01T02:30:00Z"));
         UUID birthday = resident("OPS-BIRTHDAY", LocalDate.of(2008, 10, 1), true);
@@ -365,11 +411,23 @@ class OperationsApiIntegrationTest {
             assertThat(read(student, EXITS + "/elegibilidade").path("eligible").asBoolean()).isFalse();
             assertError(post(student, EXITS, exitBody("NOW", clock.instant(),
                     clock.instant().plusSeconds(3600))), 409, "not_eligible");
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_short_exit", Integer.class)).isZero();
             assertError(get(unlinked, EXITS + "/elegibilidade"), 403, "resident_link_required");
             jdbc.update("UPDATE sager_resident SET birth_date = DATE '2009-01-01' WHERE id = ?", resident);
             jdbc.update("UPDATE sager_room_allocation SET ended_at = started_at, end_reason = 'END'");
             assertError(post(student, EXITS, exitBody("NOW", clock.instant(),
                     clock.instant().plusSeconds(3600))), 409, "not_eligible");
+        }
+    }
+
+    @Test
+    void eveOfEighteenthBirthdayInSaoPauloIsStillEligibleAlthoughUtcIsTheNextDay() throws Exception {
+        // START é 22h de 30/09/2026 em Brasília e já 01/10 em UTC.
+        jdbc.update("UPDATE sager_resident SET birth_date = DATE '2008-10-01' WHERE id = ?", resident);
+        try (HttpClient student = logged("student")) {
+            JsonNode eligibility = read(student, EXITS + "/elegibilidade");
+            assertThat(eligibility.path("eligible").asBoolean()).isTrue();
+            assertThat(eligibility.path("blockers")).isEmpty();
         }
     }
 

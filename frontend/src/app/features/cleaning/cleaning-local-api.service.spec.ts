@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CleaningLocalApiService } from './cleaning-local-api.service';
 import { ReportingApiError, reportingError } from './reporting-local.transport';
+import { resetSession } from '../../core/api';
 const id = '00000000-0000-0000-0000-000000000001';
 const criteria = { PISO: 6, SUPERFICIES: 6, RESIDUOS: 6, ORGANIZACAO: 6 };
 const own = {
@@ -37,7 +38,24 @@ const item = {
 };
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status });
 describe('Projeções e gravação de limpeza', () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    resetSession();
+  });
+  it('pede páginas de 25 avaliações, com o cursor da página anterior', async () => {
+    const fetch = vi.fn().mockImplementation(async () => json({ items: [], nextCursor: null }));
+    vi.stubGlobal('fetch', fetch);
+    const api = TestBed.inject(CleaningLocalApiService);
+    await api.list({ roomId: id }, 40);
+    await api.ownList('2026-09-01', '', 12);
+    const [list, ownList] = fetch.mock.calls.map(
+      (call) => new URL(String(call[0]), 'http://local').searchParams,
+    );
+    expect(list.get('limit')).toBe('25');
+    expect(list.get('beforeSequence')).toBe('40');
+    expect(ownList.get('limit')).toBe('25');
+    expect(ownList.get('beforeSequence')).toBe('12');
+  });
   it('consulta própria exige projeção sem participantes, revisões ou autoria de terceiros', async () => {
     const fetch = vi.fn().mockResolvedValueOnce(json(own)).mockResolvedValueOnce(json(item));
     vi.stubGlobal('fetch', fetch);

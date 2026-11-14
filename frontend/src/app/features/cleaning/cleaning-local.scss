@@ -134,3 +134,17 @@
     padding: 10px 6px;
   }
 }
+.cleaning-own {
+  margin: 16px 0 8px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--green-50);
+}
+.cleaning-own h4 {
+  margin: 16px 0 0;
+  font-size: 1rem;
+}
+.cleaning-own .cleaning-rank:last-child {
+  border-bottom: 0;
+}

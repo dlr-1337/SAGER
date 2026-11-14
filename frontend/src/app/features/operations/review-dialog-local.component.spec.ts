@@ -29,6 +29,24 @@ const physical: NonNullable<LocalReviewData['physical']> = {
 };
 
 describe('Revisão das operações locais', () => {
+  it('aceita justificativa de 10 a 2.000 caracteres, como o servidor', async () => {
+    const short = create({ requireReason: true });
+    short.component.reason.setValue('a'.repeat(9));
+    short.component.confirm();
+    expect(short.close).not.toHaveBeenCalled();
+    expect(short.component.error()).toBe('Informe uma justificativa com 10 a 2.000 caracteres.');
+
+    TestBed.resetTestingModule();
+    const long = create({ requireReason: true });
+    long.component.reason.setValue('a'.repeat(2000));
+    long.component.confirm();
+    expect(long.close).toHaveBeenCalledWith({ reason: 'a'.repeat(2000), confirmed: false });
+
+    const fixture = TestBed.createComponent(LocalOperationsReviewDialogComponent);
+    await fixture.whenStable();
+    const textarea = (fixture.nativeElement as HTMLElement).querySelector('textarea');
+    expect(textarea?.getAttribute('maxlength')).toBe('2000');
+  });
   it('não confirma registro fora da janela sem ciência expressa e justificativa válida', () => {
     const { component, close } = create({ requireReason: true, requireConfirmation: true });
     component.confirm();

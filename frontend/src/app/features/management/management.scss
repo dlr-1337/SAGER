@@ -449,9 +449,6 @@
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
-.mg-sensitive {
-  margin-top: 24px;
-}
 .mg-guardian-row .mg-row-detail {
   min-width: 175px;
 }
@@ -565,7 +562,8 @@
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr));
   gap: 16px;
 }
-.mg-room-tile {
+.mg-room-tile,
+.mg-place-tile {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -582,10 +580,81 @@
     border-color 0.18s ease,
     background-color 0.18s ease;
 }
-.mg-room-tile:hover {
+.mg-room-tile:hover,
+.mg-place-tile:hover {
   color: var(--ink);
   border-color: var(--green-700);
   background: var(--green-50);
+}
+// Cartão-botão de alojamento ou casa: o visual do cartão de quarto, sem contar como quarto.
+.mg-place-tile {
+  width: 100%;
+  min-height: 112px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.mg-subheading {
+  margin: 32px 0 0;
+  font-size: 1.2rem;
+}
+.mg-trail ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 8px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+.mg-trail li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 44px;
+}
+.mg-trail-sep {
+  color: var(--muted);
+}
+.mg-trail button {
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 4px;
+  color: var(--green-800);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  text-decoration: underline;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.mg-trail [aria-current] {
+  font-weight: 700;
+}
+.mg-legend-list {
+  margin-top: 28px;
+}
+.mg-legend-list h3 {
+  margin-bottom: 12px;
+  font-size: 1.1rem;
+}
+.mg-legend-list dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 14px 24px;
+  margin: 0;
+}
+.mg-legend-list dt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+.mg-legend-list dd {
+  margin: 4px 0 0 19px;
+  color: var(--muted);
 }
 .mg-room-top {
   display: flex;

@@ -113,6 +113,7 @@ describe('Horários e regras das operações locais', () => {
     expect(shortExitFormError({ ...input, notes: 'a'.repeat(2001) }, now)).toContain('observações');
     expect(validJustification(' nove ')).toBe(false);
     expect(validJustification('Motivo institucional informado.')).toBe(true);
-    expect(validJustification('a'.repeat(501))).toBe(false);
+    expect(validJustification('a'.repeat(2000))).toBe(true);
+    expect(validJustification('a'.repeat(2001))).toBe(false);
   });
 });

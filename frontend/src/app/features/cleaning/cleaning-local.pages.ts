@@ -1,14 +1,20 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import { rememberFilters } from '../../core/filter-state';
+import { cursorPages } from '../../core/list-page';
+import { FilterChip, FilterPanelComponent } from '../../shared/filter-panel.component';
+import { PaginationComponent } from '../../shared/pagination.component';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   computed,
   forwardRef,
   inject,
   signal,
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { debounceTime } from 'rxjs';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
@@ -68,6 +74,8 @@ export class CleaningPage {
     RouterLink,
     ReactiveFormsModule,
     CommunicationsStateComponent,
+    FilterPanelComponent,
+    PaginationComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -88,26 +96,35 @@ export class CleaningPage {
           <a class="btn" routerLink="/limpeza/nova">Registrar avaliação</a>
         }
       </header>
-      <sager-communications-state
-        [demo]="session.active()"
-        [blocked]="!allowed()"
-        [loading]="loading()"
-        [error]="error()"
-        (retry)="load()"
-      />
-      @if (!session.active() && allowed() && !loading() && !error()) {
+      <sager-communications-state [demo]="session.active()" [blocked]="!allowed()" />
+      @if (!session.active() && allowed()) {
         <nav class="comm-links" aria-label="Limpeza">
           <a routerLink="/ranking">Ver ranking</a>
           @if (!own) {
             <a routerLink="/relatorios">Gerar relatório</a>
           }
         </nav>
-        <section class="panel op-panel">
-          <h2>Filtrar avaliações</h2>
-          <form class="op-filters" [formGroup]="filters" (ngSubmit)="load()">
-            <label class="field">Data inicial<input type="date" formControlName="from" /></label
-            ><label class="field">Data final<input type="date" formControlName="to" /></label>
-            @if (!own) {
+        @if (own) {
+          <section class="panel op-panel">
+            <h2>Filtrar avaliações</h2>
+            <form class="op-filters" [formGroup]="filters">
+              <label class="field">Data inicial<input type="date" formControlName="from" /></label
+              ><label class="field">Data final<input type="date" formControlName="to" /></label>
+            </form>
+          </section>
+        } @else {
+          <sager-filter-panel
+            heading="Filtrar avaliações"
+            key="cleaning"
+            [chips]="chips()"
+            (remove)="filters.get($event)?.setValue('')"
+            (clear)="filters.reset()"
+          >
+            <div filterMain class="op-filters" [formGroup]="filters">
+              <label class="field">Data inicial<input type="date" formControlName="from" /></label
+              ><label class="field">Data final<input type="date" formControlName="to" /></label>
+            </div>
+            <div class="op-filters" [formGroup]="filters">
               <label class="field"
                 >Alojamento<select sagerSearchable formControlName="accommodationId">
                   <option value="">Todos</option>
@@ -139,69 +156,72 @@ export class CleaningPage {
                   }
                 </select></label
               >
-            }
-            <button class="btn-secondary" type="submit">Buscar avaliações</button>
-          </form>
-          @if (filterError()) {
-            <p class="comm-error" role="alert">{{ filterError() }}</p>
-          }
-        </section>
+            </div>
+          </sager-filter-panel>
+        }
+        @if (filterError()) {
+          <p class="comm-error" role="alert">{{ filterError() }}</p>
+        }
+        @if (optionsError()) {
+          <p class="comm-error" role="alert">{{ optionsError() }}</p>
+        }
         <section class="op-section">
-          <h2>Avaliações registradas</h2>
-          <div class="op-list">
-            @for (item of items(); track item.id) {
-              <article class="op-row">
-                <div class="op-row-main">
-                  <h3>Quarto {{ item.roomCode }}</h3>
-                  <p>
-                    {{ civil(item.assessmentDate) }} · avaliado em
-                    {{ formatTime(item.evaluatedAt) }}
-                  </p>
+          <h2 id="cleaning-results-title" tabindex="-1">Avaliações registradas</h2>
+          <sager-communications-state
+            [loading]="list.loading()"
+            [error]="list.error()"
+            (retry)="load()"
+          />
+          @if (!list.loading() && !list.error()) {
+            <div class="op-list">
+              @for (item of list.items(); track item.id) {
+                <article class="op-row">
+                  <div class="op-row-main">
+                    <h3>Quarto {{ item.roomCode }}</h3>
+                    <p>
+                      {{ civil(item.assessmentDate) }} · avaliado em
+                      {{ formatTime(item.evaluatedAt) }}
+                    </p>
+                    <p>
+                      {{
+                        item.feedback.previousScore === null
+                          ? 'Primeira avaliação'
+                          : 'Avaliação corrigida'
+                      }}
+                    </p>
+                  </div>
+                  <div class="op-row-side">
+                    <span class="cleaning-score">Nota {{ decimal(item.score) }}</span>
+                  </div>
+                  <a
+                    class="op-row-link"
+                    [routerLink]="[own ? '/minha-limpeza' : '/limpeza', item.id]"
+                    >Ver avaliação<span class="material-symbols-outlined" aria-hidden="true"
+                      >arrow_forward</span
+                    ></a
+                  >
+                </article>
+              } @empty {
+                <div class="op-empty" role="status">
+                  <h3>Nenhuma avaliação encontrada</h3>
                   <p>
                     {{
-                      item.feedback.previousScore === null
-                        ? 'Primeira avaliação'
-                        : 'Avaliação corrigida'
+                      own
+                        ? 'Somente avaliações com sua participação registrada aparecem aqui. Transferências posteriores não atribuem notas antigas a sua conta.'
+                        : 'Altere os filtros ou registre uma avaliação do quarto.'
                     }}
                   </p>
                 </div>
-                <div class="op-row-side">
-                  <span class="cleaning-score">Nota {{ decimal(item.score) }}</span>
-                </div>
-                <a class="op-row-link" [routerLink]="[own ? '/minha-limpeza' : '/limpeza', item.id]"
-                  >Ver avaliação<span class="material-symbols-outlined" aria-hidden="true"
-                    >arrow_forward</span
-                  ></a
-                >
-              </article>
-            } @empty {
-              <div class="op-empty" role="status">
-                <h3>Nenhuma avaliação encontrada</h3>
-                <p>
-                  {{
-                    own
-                      ? 'Somente avaliações com sua participação registrada aparecem aqui. Transferências posteriores não atribuem notas antigas a sua conta.'
-                      : 'Altere os filtros ou registre uma avaliação do quarto.'
-                  }}
-                </p>
-              </div>
-            }
-          </div>
-          @if (nextCursor() !== null) {
-            <div class="comm-actions">
-              <button
-                class="btn-secondary"
-                type="button"
-                [disabled]="moreLoading()"
-                (click)="more()"
-              >
-                Carregar mais avaliações
-              </button>
+              }
             </div>
           }
-          @if (moreError()) {
-            <p class="comm-error" role="alert">{{ moreError() }}</p>
-          }
+          <sager-pagination
+            [page]="list.page()"
+            [hasNext]="list.hasNext()"
+            [busy]="list.loading()"
+            anchor="cleaning-results-title"
+            (pageChange)="list.go($event)"
+          />
         </section>
       }
     </main>
@@ -214,6 +234,7 @@ export class CleaningListLocalPage {
   private readonly api = inject(CleaningLocalApiService);
   private readonly roomApi = inject(RoomApiService);
   private readonly residentApi = inject(ResidentApiService);
+  private readonly destroy = inject(DestroyRef);
   readonly own = this.route.snapshot.data['ownCleaning'] === true;
   readonly filters = new FormGroup({
     from: new FormControl('', { nonNullable: true }),
@@ -232,14 +253,49 @@ export class CleaningListLocalPage {
     roomsIn(this.housing(), this.location().accommodationId, this.location().unitId),
   );
   readonly residents = signal<ResidentRecord[]>([]);
-  readonly items = signal<(CleaningAssessment | OwnCleaningAssessment)[]>([]);
-  readonly nextCursor = signal<number | null>(null);
-  readonly loading = signal(false);
-  readonly error = signal('');
+  readonly chips = computed<FilterChip[]>(() => {
+    const value = { ...this.filters.getRawValue(), ...this.location() };
+    const housing = this.housing();
+    const room = housing.rooms.find((item) => item.id === value.roomId);
+    const resident = this.residents().find((item) => item.id === value.residentId);
+    const chips: [string, string, string | undefined][] = [
+      ['from', 'De', value.from && this.civil(value.from)],
+      ['to', 'Até', value.to && this.civil(value.to)],
+      [
+        'accommodationId',
+        'Alojamento',
+        value.accommodationId &&
+          (housing.accommodations.find((item) => item.id === value.accommodationId)?.name ??
+            'Alojamento selecionado'),
+      ],
+      [
+        'unitId',
+        'Casa ou bloco',
+        value.unitId &&
+          (housing.units.find((item) => item.id === value.unitId)?.name ??
+            'Casa ou bloco selecionada'),
+      ],
+      ['roomId', 'Quarto', value.roomId && (room ? this.roomLabel(room) : 'Quarto selecionado')],
+      [
+        'residentId',
+        'Residente',
+        value.residentId &&
+          (resident ? `${resident.name} · ${resident.enrollment}` : 'Residente selecionado'),
+      ],
+    ];
+    return chips
+      .filter((chip): chip is [string, string, string] => !!chip[2])
+      .map(([key, label, chipValue]) => ({ key, label, value: chipValue }));
+  });
+  readonly list = cursorPages<CleaningAssessment | OwnCleaningAssessment>(
+    (cursor) =>
+      this.own
+        ? this.api.ownList(this.applied.from, this.applied.to, cursor)
+        : this.api.list(this.applied, cursor),
+    reportingError,
+  );
   readonly filterError = signal('');
-  readonly moreLoading = signal(false);
-  readonly moreError = signal('');
-  private generation = 0;
+  readonly optionsError = signal('');
   private applied: CleaningFilters = {};
   readonly civil = formatCivilDate;
   readonly formatTime = formatCommunicationTime;
@@ -247,6 +303,10 @@ export class CleaningListLocalPage {
   constructor() {
     rememberFilters('cleaning-local.pages', this.filters);
     cascadeLocation(this.filters.controls);
+    this.filters.valueChanges
+      .pipe(debounceTime(250), takeUntilDestroyed())
+      .subscribe(() => void this.load());
+    if (!this.own && !this.session.active() && this.allowed()) void this.loadOptions();
     void this.load();
   }
   roomLabel(room: RoomRecord): string {
@@ -260,8 +320,23 @@ export class CleaningListLocalPage {
       ? this.session.hasRole('residente')
       : this.session.hasRole('gestor', 'supervisor');
   }
-  async load(): Promise<void> {
-    if (this.session.active() || !this.allowed()) return;
+  // As opções saem uma vez, separadas da lista: mudar filtro ou página não as pede de novo.
+  private async loadOptions(): Promise<void> {
+    try {
+      const [housing, residents] = await Promise.all([this.roomApi.map(), this.residentApi.list()]);
+      if (this.destroy.destroyed) return;
+      this.housing.set(housing);
+      this.residents.set(residents);
+      clearMissingLocation(housing, this.filters.controls);
+    } catch {
+      if (!this.destroy.destroyed)
+        this.optionsError.set(
+          'Não foi possível carregar alojamentos, quartos e residentes. Recarregue a página para tentar novamente.',
+        );
+    }
+  }
+  load(): Promise<void> {
+    if (this.session.active() || !this.allowed()) return Promise.resolve();
     const filters = this.filters.getRawValue();
     if (
       (filters.from && !validCivilDate(filters.from)) ||
@@ -269,65 +344,11 @@ export class CleaningListLocalPage {
       (filters.from && filters.to && filters.from > filters.to)
     ) {
       this.filterError.set('Informe datas válidas com início igual ou anterior ao fim.');
-      return;
+      return Promise.resolve();
     }
-    const generation = ++this.generation;
-    this.loading.set(true);
-    this.error.set('');
     this.filterError.set('');
-    this.moreError.set('');
-    this.items.set([]);
-    try {
-      if (this.own) {
-        const page = await this.api.ownList(filters.from, filters.to);
-        if (generation === this.generation) {
-          this.items.set(page.items);
-          this.nextCursor.set(page.nextCursor);
-          this.applied = { from: filters.from, to: filters.to };
-        }
-      } else {
-        const [page, housing, residents] = await Promise.all([
-          this.api.list(filters),
-          this.roomApi.map(),
-          this.residentApi.list(),
-        ]);
-        if (generation === this.generation) {
-          this.housing.set(housing);
-          if (clearMissingLocation(housing, this.filters.controls)) return this.load();
-          this.items.set(page.items);
-          this.nextCursor.set(page.nextCursor);
-          this.residents.set(residents);
-          this.applied = filters;
-        }
-      }
-    } catch (error) {
-      if (generation === this.generation) this.error.set(reportingError(error));
-    } finally {
-      if (generation === this.generation) this.loading.set(false);
-    }
-  }
-  async more(): Promise<void> {
-    const cursor = this.nextCursor();
-    const generation = this.generation;
-    if (cursor === null || this.moreLoading()) return;
-    this.moreLoading.set(true);
-    this.moreError.set('');
-    try {
-      const page = this.own
-        ? await this.api.ownList(this.applied.from, this.applied.to, cursor)
-        : await this.api.list(this.applied, cursor);
-      if (generation === this.generation) {
-        this.items.update((items) => [
-          ...items,
-          ...page.items.filter((item) => !items.some((old) => old.id === item.id)),
-        ]);
-        this.nextCursor.set(page.nextCursor);
-      }
-    } catch (error) {
-      if (generation === this.generation) this.moreError.set(reportingError(error));
-    } finally {
-      this.moreLoading.set(false);
-    }
+    this.applied = this.own ? { from: filters.from, to: filters.to } : filters;
+    return this.list.reload();
   }
 }
 
@@ -553,6 +574,8 @@ export class RankingPage {
     RouterLink,
     ReactiveFormsModule,
     CommunicationsStateComponent,
+    NgTemplateOutlet,
+    PaginationComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -588,7 +611,7 @@ export class RankingPage {
             <p class="comm-error" role="alert">{{ filterError() }}</p>
           }
           @if (ranking(); as result) {
-            <h3>
+            <h3 id="ranking-period-title" tabindex="-1">
               {{ periods[result.period] }} · {{ civil(result.from) }} a {{ civil(result.to) }}
             </h3>
             <p class="comm-help">
@@ -601,37 +624,54 @@ export class RankingPage {
                 quarto em uma avaliação deste período.
               </p>
             }
+            <ng-template #rankRow let-row>
+              <article class="cleaning-rank">
+                <strong>{{ row.position === null ? 'Sem posição' : row.position + 'º' }}</strong>
+                <div>
+                  <strong>Quarto {{ row.roomCode }}</strong>
+                  @if (row.own) {
+                    <p>Sua participação registrada neste período</p>
+                  }
+                </div>
+                <div>
+                  @if (!session.hasRole('residente') || row.own) {
+                    <span class="cleaning-score">{{ decimal(row.mean) }}</span>
+                    <p>
+                      {{
+                        row.assessmentCount === 0
+                          ? 'Sem avaliações no período'
+                          : row.assessmentCount === 1
+                            ? '1 avaliação'
+                            : row.assessmentCount + ' avaliações'
+                      }}
+                    </p>
+                  } @else {
+                    <span>Nota privada do quarto</span>
+                  }
+                </div>
+              </article>
+            </ng-template>
+            @if (ownRows().length) {
+              <section class="cleaning-own" aria-labelledby="ranking-own-title">
+                <h4 id="ranking-own-title">Seu quarto neste período</h4>
+                @for (row of ownRows(); track row.roomCode) {
+                  <ng-container *ngTemplateOutlet="rankRow; context: { $implicit: row }" />
+                }
+              </section>
+            }
             <div aria-label="Posições dos quartos">
-              @for (row of result.items; track row.roomCode) {
-                <article class="cleaning-rank">
-                  <strong>{{ row.position === null ? 'Sem posição' : row.position + 'º' }}</strong>
-                  <div>
-                    <strong>Quarto {{ row.roomCode }}</strong>
-                    @if (row.own) {
-                      <p>Sua participação registrada neste período</p>
-                    }
-                  </div>
-                  <div>
-                    @if (!session.hasRole('residente') || row.own) {
-                      <span class="cleaning-score">{{ decimal(row.mean) }}</span>
-                      <p>
-                        {{
-                          row.assessmentCount === 0
-                            ? 'Sem avaliações no período'
-                            : row.assessmentCount === 1
-                              ? '1 avaliação'
-                              : row.assessmentCount + ' avaliações'
-                        }}
-                      </p>
-                    } @else {
-                      <span>Nota privada do quarto</span>
-                    }
-                  </div>
-                </article>
+              @for (row of pageRows(); track row.roomCode) {
+                <ng-container *ngTemplateOutlet="rankRow; context: { $implicit: row }" />
               } @empty {
                 <p>Nenhum quarto disponível neste período.</p>
               }
             </div>
+            <sager-pagination
+              [page]="rankingPage()"
+              [total]="result.items.length"
+              anchor="ranking-period-title"
+              (pageChange)="rankingPage.set($event)"
+            />
           }
         </section>
         <nav class="comm-links" aria-label="Avaliações">
@@ -655,6 +695,14 @@ export class RankingLocalPage {
     }),
   });
   readonly ranking = signal<CleaningRanking | null>(null);
+  readonly rankingPage = signal(0);
+  readonly pageRows = computed(() =>
+    (this.ranking()?.items ?? []).slice(this.rankingPage() * 25, (this.rankingPage() + 1) * 25),
+  );
+  // O residente vê a linha do próprio quarto no topo, em qualquer página.
+  readonly ownRows = computed(() =>
+    this.session.hasRole('residente') ? (this.ranking()?.items ?? []).filter((row) => row.own) : [],
+  );
   readonly policy = signal<CleaningPolicy | null>(null);
   readonly loading = signal(false);
   readonly error = signal('');
@@ -692,6 +740,7 @@ export class RankingLocalPage {
       );
       this.policy.set(policy);
       this.form.controls.referenceDate.setValue(referenceDate);
+      this.rankingPage.set(0);
       this.ranking.set(ranking);
     } catch (error) {
       this.ranking.set(null);

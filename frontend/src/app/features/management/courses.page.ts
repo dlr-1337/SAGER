@@ -7,9 +7,17 @@ import { trimmedLength } from '../../shared/field-rules';
 import { COURSE_LEVELS, Course, CourseApiService, CourseLevel } from './course-api.service';
 import { normalizeSearch } from '../../shared/search';
 import { UnsavedFormDirective, UnsavedForms } from '../../shared/unsaved-form';
+import { FilterChip, FilterPanelComponent } from '../../shared/filter-panel.component';
+import { PaginationComponent } from '../../shared/pagination.component';
 @Component({
   standalone: true,
-  imports: [SearchableSelectDirective, ReactiveFormsModule, UnsavedFormDirective],
+  imports: [
+    SearchableSelectDirective,
+    ReactiveFormsModule,
+    UnsavedFormDirective,
+    FilterPanelComponent,
+    PaginationComponent,
+  ],
   template: ` <main class="page mg-page">
     <header class="mg-heading">
       <div>
@@ -33,8 +41,16 @@ import { UnsavedFormDirective, UnsavedForms } from '../../shared/unsaved-form';
       }
       <div class="course-fields">
         <label class="mg-field"
-          >Nível<select sagerSearchable formControlName="level">
-            <option value="">Não informado</option>
+          >Nível<select
+            sagerSearchable
+            formControlName="level"
+            required
+            aria-describedby="course-level-error"
+            [attr.aria-invalid]="
+              form.controls.level.invalid && form.controls.level.touched ? 'true' : null
+            "
+          >
+            <option value="">Selecione o nível</option>
             <option value="MEDIO">Ensino médio</option>
             <option value="SUPERIOR">Superior</option>
           </select></label
@@ -46,6 +62,7 @@ import { UnsavedFormDirective, UnsavedForms } from '../../shared/unsaved-form';
             min="1"
             max="6"
             step="1"
+            required
             aria-describedby="course-duration-error"
             [attr.aria-invalid]="
               form.controls.durationYears.invalid && form.controls.durationYears.touched
@@ -54,6 +71,9 @@ import { UnsavedFormDirective, UnsavedForms } from '../../shared/unsaved-form';
             "
         /></label>
       </div>
+      @if (form.controls.level.invalid && form.controls.level.touched) {
+        <p class="mg-field-error" id="course-level-error">Escolha o nível.</p>
+      }
       @if (form.controls.durationYears.invalid && form.controls.durationYears.touched) {
         <p class="mg-field-error" id="course-duration-error">Use um número de 1 a 6 anos.</p>
       }
@@ -74,29 +94,33 @@ import { UnsavedFormDirective, UnsavedForms } from '../../shared/unsaved-form';
         <span class="material-symbols-rounded" aria-hidden="true">check_circle</span>{{ notice() }}
       </p>
     }
-    <section class="panel mg-panel">
-      <div class="mg-filters">
-        <label class="mg-field mg-grow"
-          >Buscar curso<input
-            type="search"
-            [value]="query()"
-            (input)="query.set($any($event.target).value); page.set(0)"
-        /></label>
-        <label class="mg-field"
-          >Situação<select
-            sagerSearchable
-            [value]="status()"
-            (change)="status.set($any($event.target).value); page.set(0)"
-          >
-            <option value="">Todos</option>
-            <option value="active">Ativos</option>
-            <option value="inactive">Inativos</option>
-          </select></label
+    <sager-filter-panel
+      heading="Buscar cursos"
+      key="courses"
+      [chips]="chips()"
+      (remove)="filter($event, '')"
+      (clear)="filter('query', ''); filter('status', '')"
+    >
+      <label filterMain class="mg-field mg-grow"
+        >Buscar curso<input
+          type="search"
+          [value]="query()"
+          (input)="filter('query', $any($event.target).value)"
+      /></label>
+      <label class="mg-field"
+        >Situação<select
+          sagerSearchable
+          [value]="status()"
+          (change)="filter('status', $any($event.target).value)"
         >
-        <button class="btn mg-secondary" (click)="query.set(''); status.set(''); page.set(0)">
-          Limpar filtros
-        </button>
-      </div>
+          <option value="">Todos</option>
+          <option value="active">Ativos</option>
+          <option value="inactive">Inativos</option>
+        </select></label
+      >
+    </sager-filter-panel>
+    <section class="panel mg-panel" aria-labelledby="course-results-title">
+      <h2 id="course-results-title" tabindex="-1">Cursos cadastrados</h2>
       @if (loading()) {
         <p role="status">Carregando cursos…</p>
       } @else {
@@ -133,22 +157,12 @@ import { UnsavedFormDirective, UnsavedForms } from '../../shared/unsaved-form';
         } @empty {
           <p>Nenhum curso corresponde aos filtros.</p>
         }
-        <nav class="action-row" aria-label="Páginas de cursos">
-          <button
-            class="btn mg-secondary"
-            [disabled]="page() === 0"
-            (click)="page.update(previous)"
-          >
-            Anterior</button
-          ><span>Página {{ page() + 1 }}</span
-          ><button
-            class="btn mg-secondary"
-            [disabled]="(page() + 1) * 25 >= filtered().length"
-            (click)="page.update(next)"
-          >
-            Próxima
-          </button>
-        </nav>
+        <sager-pagination
+          [page]="page()"
+          [total]="filtered().length"
+          anchor="course-results-title"
+          (pageChange)="page.set($event)"
+        />
       }
     </section>
   </main>`,
@@ -179,11 +193,10 @@ import { UnsavedFormDirective, UnsavedForms } from '../../shared/unsaved-form';
         gap: 16px;
         margin-top: 16px;
       }
-      form .action-row,
-      nav.action-row {
+      form .action-row {
         margin-top: 16px;
       }
-      .mg-filters + p {
+      h2 + p {
         margin: 16px 0 8px;
       }
     `,
@@ -207,9 +220,17 @@ export class CoursesPage {
       nonNullable: true,
       validators: [trimmedLength(1, 200)],
     }),
-    level: new FormControl<CourseLevel | ''>('', { nonNullable: true }),
+    level: new FormControl<CourseLevel | ''>('', {
+      nonNullable: true,
+      validators: [Validators.required],
+    }),
     durationYears: new FormControl<number | null>(null, {
-      validators: [Validators.min(1), Validators.max(6), Validators.pattern(/^\d+$/)],
+      validators: [
+        Validators.required,
+        Validators.min(1),
+        Validators.max(6),
+        Validators.pattern(/^\d+$/),
+      ],
     }),
   });
   readonly details = (course: Course) =>
@@ -233,8 +254,22 @@ export class CoursesPage {
   readonly visible = computed(() =>
     this.filtered().slice(this.page() * 25, (this.page() + 1) * 25),
   );
-  readonly previous = (n: number) => Math.max(0, n - 1);
-  readonly next = (n: number) => n + 1;
+  readonly chips = computed<FilterChip[]>(() => [
+    ...(this.query() ? [{ key: 'query', label: 'Busca', value: this.query() }] : []),
+    ...(this.status()
+      ? [
+          {
+            key: 'status',
+            label: 'Situação',
+            value: this.status() === 'active' ? 'Ativos' : 'Inativos',
+          },
+        ]
+      : []),
+  ]);
+  filter(key: string, value: string): void {
+    (key === 'query' ? this.query : this.status).set(value);
+    this.page.set(0);
+  }
   constructor() {
     void this.load();
   }

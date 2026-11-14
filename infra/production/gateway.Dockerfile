@@ -10,6 +10,7 @@ RUN node mark-production.mjs
 FROM nginx:1.30.0-alpine@sha256:0272e4604ed93c1792f03695a033a6e8546840f86e0de20a884bb17d2c924883 AS gateway-runtime
 COPY --from=build /build/dist/frontend/browser /usr/share/nginx/html
 COPY infra/production/sager-proxy.conf /etc/nginx/sager-proxy.conf
+COPY infra/production/sager-security-headers.conf /etc/nginx/sager-security-headers.conf
 COPY infra/production/whatsapp-gateway-proxy.conf.template /etc/nginx/whatsapp-gateway-proxy.conf.template
 USER 101:101
 

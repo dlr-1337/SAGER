@@ -12,7 +12,7 @@ class LocalAccountPasswordPolicyTest {
     private static final String TOO_EASY = "Essa senha é fácil demais. Escolha outra.";
 
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(4);
-    private final LocalAccountProvisioningService service = new LocalAccountProvisioningService(null, encoder);
+    private final LocalAccountProvisioningService service = new LocalAccountProvisioningService(null, encoder, null);
 
     @ParameterizedTest
     @ValueSource(strings = { "gato azul", "gatoazul", "12345679", "abcdefgj" })

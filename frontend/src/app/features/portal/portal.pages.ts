@@ -680,21 +680,6 @@ export class DemoSelectorPage {
               </section>
             </aside>
           </div>
-        } @else if (session.role() === 'saude') {
-          <section class="feature-task home-hero" aria-labelledby="health-home-title">
-            <div class="task-icon">
-              <span class="material-symbols-outlined home-hero-icon" aria-hidden="true"
-                >health_and_safety</span
-              >
-            </div>
-            <div>
-              <h2 id="health-home-title">Atendimento de saúde</h2>
-              <p>
-                Consulte os residentes assistidos e os registros que você está autorizado a acessar.
-              </p>
-            </div>
-            <a class="btn" routerLink="/saude">Abrir área de saúde</a>
-          </section>
         } @else {
           <div class="home-columns">
             <section class="home-main">
@@ -1045,18 +1030,14 @@ export class HomePage {
       ? 'Olá, gestor'
       : this.session.role() === 'residente'
         ? 'Olá, residente'
-        : this.session.role() === 'saude'
-          ? 'Saúde'
-          : 'Olá, supervisora',
+        : 'Olá, supervisora',
   );
   readonly intro = computed(() =>
     this.session.role() === 'gestor'
       ? 'Acompanhe cadastros e informações da residência.'
       : this.session.role() === 'residente'
         ? 'Acompanhe o que precisa da sua atenção.'
-        : this.session.role() === 'saude'
-          ? 'Você vê os residentes que atende, depois que a gestão libera seu acesso.'
-          : 'Veja o que precisa da sua atenção hoje.',
+        : 'Veja o que precisa da sua atenção hoje.',
   );
 }
 
@@ -1101,20 +1082,20 @@ export class HomePage {
           >
         }
         @if (session.hasRole('supervisor', 'residente')) {
-          <a routerLink="/saidas"
-            ><span class="material-symbols-outlined" aria-hidden="true">directions_walk</span
-            ><strong>Acompanhar saídas</strong
-            ><span>Entenda análise, autorização e retorno.</span></a
-          >
-          <a
-            [routerLink]="
-              session.role() === 'residente' || session.active()
-                ? '/avisos'
-                : '/comunicacoes/avisos'
-            "
-            ><span class="material-symbols-outlined" aria-hidden="true">campaign</span
-            ><strong>Comunicações</strong><span>Veja e confirme seus avisos.</span></a
-          >
+          @if (!adult()) {
+            <a routerLink="/saidas"
+              ><span class="material-symbols-outlined" aria-hidden="true">directions_walk</span
+              ><strong>Acompanhar saídas</strong
+              ><span>Entenda análise, autorização e retorno.</span></a
+            >
+          }
+          <!-- A demonstração do supervisor não tem avisos (/comunicacoes/avisos fica fora dela). -->
+          @if (session.role() === 'residente' || !session.active()) {
+            <a [routerLink]="session.role() === 'residente' ? '/avisos' : '/comunicacoes/avisos'"
+              ><span class="material-symbols-outlined" aria-hidden="true">campaign</span
+              ><strong>Comunicações</strong><span>Veja e confirme seus avisos.</span></a
+            >
+          }
         }
         @if (session.hasRole('gestor', 'supervisor')) {
           <a routerLink="/relatorios"
@@ -1126,13 +1107,6 @@ export class HomePage {
           <a [routerLink]="session.active() ? '/ranking' : '/minha-limpeza'"
             ><span class="material-symbols-outlined" aria-hidden="true">cleaning_services</span
             ><strong>Minha limpeza</strong><span>Veja as notas e a posição do quarto.</span></a
-          >
-        }
-        @if (session.hasRole('saude')) {
-          <a routerLink="/saude"
-            ><span class="material-symbols-outlined" aria-hidden="true">health_and_safety</span
-            ><strong>Atendimento de saúde</strong
-            ><span>Veja os atendimentos que você pode acessar.</span></a
           >
         }
       </div>
@@ -1150,8 +1124,13 @@ export class HomePage {
           <details>
             <summary>Como recuperar ou alterar minha senha?</summary>
             <p>
-              Procure o suporte da instituição. Alguém da equipe confere quem você é e troca sua
-              senha. Depois, entre com a senha nova.
+              Residente: na tela de acesso, clique em
+              <a routerLink="/recuperar-senha">Esqueci minha senha</a>, informe matrícula, nome
+              completo, data de nascimento e, se houver, o nome do responsável, e crie a senha nova.
+            </p>
+            <p>
+              Gestor ou supervisor: procure o suporte da instituição, que confere quem você é e
+              troca sua senha.
             </p>
           </details>
         }
@@ -1294,6 +1273,8 @@ export class HomePage {
 })
 export class HelpPage {
   readonly session = inject(DemoSessionService);
+  private readonly auth = inject(LocalAuthService);
+  readonly adult = computed(() => this.auth.principal()?.maiorDeIdade === true);
 }
 
 @Component({
@@ -1332,25 +1313,17 @@ export class HelpPage {
       </div>
     </section>
     @if (!session.active()) {
-      @if (auth.principal()?.perfis?.[0] === 'saude') {
-        <section class="profile-link" aria-labelledby="profile-health-title">
-          <h2 id="profile-health-title">Área de saúde</h2>
-          <p>Veja seus atendimentos na área de saúde.</p>
-          <a routerLink="/saude">Abrir área de saúde</a>
-        </section>
-      } @else {
-        <section class="profile-link" aria-labelledby="profile-link-title">
-          <h2 id="profile-link-title">Seu cadastro</h2>
-          @if (auth.principal()?.residenteId) {
-            <p>Sua conta está ligada ao seu cadastro de residente.</p>
-          } @else if (auth.principal()?.supervisorId) {
-            <p>Sua conta está ligada ao seu cadastro de supervisor.</p>
-          } @else {
-            <p>Sua conta ainda não está ligada a um cadastro.</p>
-            <p>Peça ao suporte para ligar sua conta ao cadastro.</p>
-          }
-        </section>
-      }
+      <section class="profile-link" aria-labelledby="profile-link-title">
+        <h2 id="profile-link-title">Seu cadastro</h2>
+        @if (auth.principal()?.residenteId) {
+          <p>Sua conta está ligada ao seu cadastro de residente.</p>
+        } @else if (auth.principal()?.supervisorId) {
+          <p>Sua conta está ligada ao seu cadastro de supervisor.</p>
+        } @else {
+          <p>Sua conta ainda não está ligada a um cadastro.</p>
+          <p>Peça ao suporte para ligar sua conta ao cadastro.</p>
+        }
+      </section>
     }
     <div class="action-row">
       @if (session.active()) {
@@ -1450,7 +1423,7 @@ export class ProfilePage {
   readonly auth = inject(LocalAuthService);
   readonly localRoleLabel = computed(
     () =>
-      ({ gestor: 'Gestor', supervisor: 'Supervisor', residente: 'Residente', saude: 'Saúde' })[
+      ({ gestor: 'Gestor', supervisor: 'Supervisor', residente: 'Residente' })[
         this.auth.principal()?.perfis[0] ?? 'residente'
       ],
   );
@@ -1460,7 +1433,6 @@ export class ProfilePage {
         gestor: 'Gestor da Assistência Estudantil',
         supervisor: 'Supervisor da residência',
         residente: 'Residente',
-        saude: 'Profissional de saúde',
       })[this.session.role()],
   );
 }

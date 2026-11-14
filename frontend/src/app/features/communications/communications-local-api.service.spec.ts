@@ -6,6 +6,7 @@ import {
   communicationsError,
 } from './communications-local-api.service';
 import { DisciplineTerm, OwnCommunication } from './communications-local.models';
+import { resetSession } from '../../core/api';
 
 const id = '00000000-0000-0000-0000-000000000901';
 const sourceId = '00000000-0000-0000-0000-000000000902';
@@ -50,7 +51,10 @@ describe('Contrato privado de disciplina e comunicações', () => {
     expect(await api.term(id)).toEqual(term);
     await expect(api.term(id)).rejects.toThrow('inválidos');
   });
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    resetSession();
+  });
   it('consulta própria com sessão e sem criar evidência, filtros por nome ou escrita', async () => {
     const fetch = vi.fn().mockResolvedValue(json(item));
     vi.stubGlobal('fetch', fetch);

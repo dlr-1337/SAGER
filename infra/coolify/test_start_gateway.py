@@ -24,6 +24,8 @@ class StaticPolicyTests(unittest.TestCase):
         self.assertEqual(re.findall(r"^FROM .+ AS (\S+)$", source, re.M)[-1], "standalone")
         self.assertIn("FROM gateway-runtime AS coolify", source)
         self.assertIn("COPY infra/production/sager-proxy.conf /etc/nginx/sager-proxy.conf", source)
+        runtime = source.split("AS gateway-runtime", 1)[1].split("\nFROM ", 1)[0]
+        self.assertIn("COPY infra/production/sager-security-headers.conf /etc/nginx/sager-security-headers.conf", runtime)
         self.assertIn("EXPOSE 8080 8443", source.split("AS standalone", 1)[1])
 
     def test_csp_and_sensitive_locations_match_existing_production_policy(self):
@@ -43,8 +45,7 @@ class StaticPolicyTests(unittest.TestCase):
             with self.subTest(name=name):
                 source = (ROOT / name).read_text()
                 self.assertEqual(re.findall(r"client_max_body_size (\S+);", source), ["1m", "11m"])
-                self.assertIn("microphone=(self)", source)
-                self.assertIn("media-src 'self' blob:", source)
+                self.assertEqual(source.count("include /etc/nginx/sager-security-headers.conf;"), 2)
                 self.assertNotIn("clicksign", source)
                 pattern = re.search(r"location ~ (\^/api/v1/\S+) \{", source)[1]
                 uuid = "00000000-0000-0000-0000-000000000000"
@@ -53,6 +54,41 @@ class StaticPolicyTests(unittest.TestCase):
                 for route in ("/api/v1/integracoes/whatsapp/webhook", f"/api/v1/conversas/{uuid}/mensagens/x",
                               "/api/v1/conversas/mensagens", f"/api/v1/saidas-longas/{uuid}/autorizacao/arquivos/{uuid}"):
                     self.assertNotRegex(route, pattern)
+
+    def test_included_security_headers_keep_the_approved_policy(self):
+        source = (ROOT / "infra/production/sager-security-headers.conf").read_text()
+        lines = [line for line in source.splitlines() if line.startswith("add_header ")]
+        self.assertEqual([line.split()[1] for line in lines], ["Strict-Transport-Security", "X-Content-Type-Options",
+                                                              "Referrer-Policy", "Permissions-Policy", "Content-Security-Policy"])
+        self.assertTrue(all(line.endswith(" always;") for line in lines))
+        self.assertIn("microphone=(self)", source)
+        self.assertIn("media-src 'self' blob:", source)
+        self.assertNotIn("Cache-Control", source)
+
+    def test_only_hashed_build_files_are_immutable_in_both_gateways(self):
+        generic = r"location ~* \.(?:js|css|woff2?|svg|png|jpe?g|ico)$"
+        for name in ("infra/production/nginx.conf.template", "infra/coolify/nginx.conf.template"):
+            with self.subTest(name=name):
+                source = (ROOT / name).read_text()
+                hashed = re.search(r'location ~ "(\^/\(\?:\(\?:main\S+)" \{', source)
+                self.assertIsNotNone(hashed)
+                # nginx uses the first matching regex location, so the hashed one must come first.
+                self.assertLess(hashed.start(), source.index(generic))
+                block = source[hashed.end():source.index("}", hashed.end())]
+                self.assertIn("try_files $uri =404;", block)
+                self.assertIn("include /etc/nginx/sager-security-headers.conf;", block)
+                self.assertIn("add_header Cache-Control $sager_asset_cache always;", block)
+                cache = re.search(r"map \$status \$sager_asset_cache \{([^}]*)\}", source)[1]
+                self.assertEqual(re.findall(r"^\s*(\S+) (.+);$", cache, re.M),
+                                 [("default", "no-store"), ("200", "'public, max-age=31536000, immutable'"),
+                                  ("304", "'public, max-age=31536000, immutable'")])
+                self.assertIn("$request_time $upstream_response_time';", source)
+                for route in ("main-WJFN5VBD.js", "chunk-BD-lnXbU.js", "styles-EFZDFVRE.css",
+                              "media/open-sans-latin-400-normal-WXNQF4GQ.woff2"):
+                    self.assertRegex("/" + route, hashed[1])
+                for route in ("favicon.svg", "og-image.png", "if-goiano-urutai.png", "index.html",
+                              "manifest.webmanifest", "main.js", "chunk-short.js", "media/a/b-WXNQF4GQ.woff2"):
+                    self.assertNotRegex("/" + route, hashed[1])
 
 
 @unittest.skipUnless(shutil.which("docker"), "Docker is required for the focused shell/container tests")
@@ -82,6 +118,7 @@ class StartupTests(unittest.TestCase):
                       "--mount", f"type=bind,src={ROOT / 'infra/coolify/start-gateway.sh'},dst=/opt/start-gateway.sh,readonly",
                       "--mount", f"type=bind,src={ROOT / 'infra/coolify/nginx.conf.template'},dst=/etc/nginx/nginx.conf.template,readonly",
                       "--mount", f"type=bind,src={ROOT / 'infra/production/sager-proxy.conf'},dst=/etc/nginx/sager-proxy.conf,readonly",
+                      "--mount", f"type=bind,src={ROOT / 'infra/production/sager-security-headers.conf'},dst=/etc/nginx/sager-security-headers.conf,readonly",
                       "--add-host", "backend:127.0.0.1", "--env", f"REAL_NGINX_TEST={int(real_syntax)}",
                       "--env", "PATH=/opt/testbin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
                       "--env", f"SAGER_PUBLIC_HOST={host}", "--env", f"DNS_RESULT={answer}", "--env", f"DNS_EXIT_CODE={exit_code}",
@@ -137,6 +174,7 @@ class NginxSmokeTests(unittest.TestCase):
             folder = Path(temp)
             (folder / "index.html").write_text('<meta name="sager-environment" content="production"><meta property="og:image" content="__SAGER_ORIGIN__/og-image.png">Synthetic gateway smoke', newline="\n")
             (folder / "manifest.webmanifest").write_text('{"name":"SAGER"}', newline="\n")
+            (folder / "main-WJFN5VBD.js").write_text("export {};\n", newline="\n")
             (folder / "backend.conf").write_text("pid /tmp/backend.pid; error_log /dev/stderr warn; events {} http { access_log off; client_body_temp_path /tmp/client; proxy_temp_path /tmp/proxy; fastcgi_temp_path /tmp/fastcgi; uwsgi_temp_path /tmp/uwsgi; scgi_temp_path /tmp/scgi; server { listen 8080; location / { return 200 \"$http_host|$http_x_forwarded_for|$http_x_forwarded_proto|$http_x_forwarded_port|$http_forwarded\"; } } }", newline="\n")
             created = []
             try:
@@ -153,6 +191,8 @@ class NginxSmokeTests(unittest.TestCase):
                        "--mount", f"type=bind,src={ROOT / 'infra/coolify/start-gateway.sh'},dst=/opt/start-gateway.sh,readonly",
                        "--mount", f"type=bind,src={ROOT / 'infra/coolify/nginx.conf.template'},dst=/etc/nginx/nginx.conf.template,readonly",
                        "--mount", f"type=bind,src={ROOT / 'infra/production/sager-proxy.conf'},dst=/etc/nginx/sager-proxy.conf,readonly",
+                       "--mount", f"type=bind,src={ROOT / 'infra/production/sager-security-headers.conf'},dst=/etc/nginx/sager-security-headers.conf,readonly",
+                       "--mount", f"type=bind,src={folder / 'main-WJFN5VBD.js'},dst=/usr/share/nginx/html/main-WJFN5VBD.js,readonly",
                        "--mount", f"type=bind,src={folder / 'index.html'},dst=/usr/share/nginx/html/index.html,readonly",
                        "--mount", f"type=bind,src={folder / 'manifest.webmanifest'},dst=/usr/share/nginx/html/manifest.webmanifest,readonly",
                        "--env", f"SAGER_PUBLIC_HOST={HOST}", "--entrypoint", "sh", IMAGE, "/opt/start-gateway.sh", check=True)
@@ -187,8 +227,23 @@ class NginxSmokeTests(unittest.TestCase):
                 self.assertNotIn("__SAGER_ORIGIN__", page.stdout)
                 manifest = request(route="/manifest.webmanifest")
                 self.assertEqual(manifest.stdout, '{"name":"SAGER"}')
-                for header in ["Content-Type: application/manifest+json", "Strict-Transport-Security", "Content-Security-Policy"]:
+                for header in ["Content-Type: application/manifest+json", "Strict-Transport-Security", "Content-Security-Policy",
+                               "Cache-Control: no-store"]:
                     self.assertIn(header, manifest.stderr)
+                hashed = request(route="/main-WJFN5VBD.js")
+                self.assertEqual(hashed.returncode, 0, hashed.stderr)
+                for header in ["Cache-Control: public, max-age=31536000, immutable", "Strict-Transport-Security",
+                               "Content-Security-Policy", "X-Content-Type-Options: nosniff", "Permissions-Policy"]:
+                    self.assertIn(header, hashed.stderr)
+                self.assertNotIn("no-store", hashed.stderr)
+                # BusyBox wget hides the headers of an error response; curl shows them.
+                missing = docker("exec", names["proxy"], "curl", "-sS", "-o", "/dev/null", "-D", "-", "-H", "Host: " + HOST,
+                                 "-H", "X-Forwarded-Proto: https", "-H", "X-Forwarded-For: 198.51.100.5",
+                                 "http://gateway:8080/chunk-AAAAAAAA.js")
+                self.assertIn("HTTP/1.1 404", missing.stdout, missing.stderr)
+                self.assertIn("Cache-Control: no-store", missing.stdout)
+                self.assertIn("Content-Security-Policy", missing.stdout)
+                self.assertNotIn("immutable", missing.stdout)
                 self.assertIn("Strict-Transport-Security", response.stderr)
                 self.assertIn("Content-Security-Policy", response.stderr)
                 self.assertNotEqual(docker("exec", names["proxy"], "wget", "-q", "-O", "-", "http://gateway:8081/readiness").returncode, 0)

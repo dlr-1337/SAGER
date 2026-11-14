@@ -1,3 +1,4 @@
+import { api } from '../../core/api';
 import { ERROR_GENERIC } from '../../core/error-messages';
 import { readArrayPage } from '../../core/list-page';
 import { Injectable } from '@angular/core';
@@ -322,36 +323,18 @@ export class LongExitApiService {
     input?: unknown,
     accept = 'application/json',
   ): Promise<Response> {
-    const headers: Record<string, string> = { Accept: accept };
-    if (method !== 'GET') {
-      const csrf = await this.request('/api/v1/auth/csrf');
-      if (!record(csrf) || !fields(csrf, ['headerName', 'token'])) throw new Error(ERROR_GENERIC);
-      headers[String(csrf['headerName'])] = String(csrf['token']);
-      // The browser must write the multipart boundary itself.
-      if (!(input instanceof FormData)) headers['Content-Type'] = 'application/json';
-    }
-    const response = await fetch(url, {
+    return api(url, {
       method,
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers,
-      ...(input === undefined
-        ? {}
-        : { body: input instanceof FormData ? input : JSON.stringify(input) }),
+      body: input,
+      headers: { Accept: accept },
+      error: async (response) => {
+        const body: unknown = await response.json().catch(() => null);
+        return new OperationsApiError(
+          response.status,
+          record(body) && typeof body['code'] === 'string' ? body['code'] : undefined,
+          record(body) && typeof body['message'] === 'string' ? body['message'] : undefined,
+        );
+      },
     });
-    if (!response.ok) {
-      let body: unknown;
-      try {
-        body = await response.json();
-      } catch {
-        body = null;
-      }
-      throw new OperationsApiError(
-        response.status,
-        record(body) && typeof body['code'] === 'string' ? body['code'] : undefined,
-        record(body) && typeof body['message'] === 'string' ? body['message'] : undefined,
-      );
-    }
-    return response;
   }
 }

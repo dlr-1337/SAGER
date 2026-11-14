@@ -1,4 +1,4 @@
-import { UnsavedForms } from './shared/unsaved-form';
+import { UnsavedForms } from './shared/unsaved-forms';
 import {
   Component,
   ElementRef,
@@ -12,7 +12,16 @@ import {
 import { DOCUMENT } from '@angular/common';
 import { CdkTrapFocus } from '@angular/cdk/a11y';
 import { BreakpointObserver } from '@angular/cdk/layout';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet, NavigationEnd } from '@angular/router';
+import {
+  NavigationCancel,
+  NavigationEnd,
+  NavigationError,
+  NavigationStart,
+  Router,
+  RouterLink,
+  RouterLinkActive,
+  RouterOutlet,
+} from '@angular/router';
 import { filter } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DemoSessionService, type DemoScenario, type Role } from './core/demo-session.service';
@@ -33,7 +42,6 @@ const registryPaths = [
   '/supervisores',
   '/quartos',
   '/relatorios',
-  '/saude/acessos',
 ];
 const navGroup = (path: string) =>
   path === '/perfil' || path === '/ajuda' ? 2 : registryPaths.includes(path) ? 1 : 0;
@@ -49,7 +57,6 @@ const roleLabels: Record<Role, string> = {
   gestor: 'Gestão',
   supervisor: 'Supervisão',
   residente: 'Residente',
-  saude: 'Saúde',
 };
 
 const commonItems: NavItem[] = [{ label: 'Início', path: '/inicio', icon: 'home' }];
@@ -103,12 +110,6 @@ const navByRole: Record<Role, NavItem[]> = {
     { label: 'Meu perfil', path: '/perfil', icon: 'person' },
     { label: 'Ajuda', path: '/ajuda', icon: 'help' },
   ],
-  saude: [
-    ...commonItems,
-    { label: 'Saúde', path: '/saude', icon: 'health_and_safety' },
-    { label: 'Meu perfil', path: '/perfil', icon: 'person' },
-    { label: 'Ajuda', path: '/ajuda', icon: 'help' },
-  ],
 };
 
 @Component({
@@ -127,7 +128,6 @@ export class App implements OnDestroy {
   private readonly document = inject(DOCUMENT);
   private readonly breakpointObserver = inject(BreakpointObserver);
   readonly publicPage = signal(false);
-  readonly healthAccessPage = signal(false);
   readonly exitError = signal('');
   readonly isMobile = signal(false);
   readonly menuOpen = signal(false);
@@ -136,11 +136,14 @@ export class App implements OnDestroy {
     const role = this.session.role();
     const items = navByRole[role];
     if (this.session.active()) return grouped(items);
+    const adult = this.auth.principal()?.maiorDeIdade === true;
     const localItems =
       role === 'residente'
-        ? items.map((item) =>
-            item.path === '/avisos' ? { ...item, label: 'Minhas comunicações' } : item,
-          )
+        ? items
+            .filter((item) => !(adult && item.path === '/saidas'))
+            .map((item) =>
+              item.path === '/avisos' ? { ...item, label: 'Minhas comunicações' } : item,
+            )
         : items;
     const communicationItems: NavItem[] =
       role === 'supervisor'
@@ -161,18 +164,10 @@ export class App implements OnDestroy {
           : role === 'supervisor'
             ? [{ label: 'Ranking', path: '/ranking', icon: 'leaderboard' }]
             : [];
-    // Saúde fica fora dos menus de gestão e do residente (a monografia prevê só três perfis);
-    // as rotas continuam, e só quem tem habilitação profissional vê /saude.
-    const healthProfessional = this.auth.principal()?.perfis.includes('saude') ?? false;
-    const healthItems: NavItem[] =
-      (role === 'gestor' || role === 'supervisor') && healthProfessional
-        ? [{ label: 'Saúde', path: '/saude', icon: 'health_and_safety' }]
-        : [];
     return grouped([
       ...localItems.slice(0, -1),
       ...communicationItems,
       ...cleaningItems,
-      ...healthItems,
       localItems[localItems.length - 1],
     ]);
   });
@@ -183,6 +178,8 @@ export class App implements OnDestroy {
   private previousBodyOverflow: string | null = null;
   private previousHtmlOverflow: string | null = null;
   private focusContentAfterNavigation = false;
+  /** Liga a barra do topo enquanto a próxima tela carrega (código ou guarda). */
+  readonly navigating = signal(false);
   private currentPath = this.document.location.pathname;
 
   constructor() {
@@ -194,6 +191,15 @@ export class App implements OnDestroy {
         if (!matches && this.menuOpen()) this.closeMenu(false);
         this.isMobile.set(matches);
       });
+    this.router.events.pipe(takeUntilDestroyed()).subscribe((event) => {
+      if (event instanceof NavigationStart) this.navigating.set(true);
+      else if (
+        event instanceof NavigationEnd ||
+        event instanceof NavigationCancel ||
+        event instanceof NavigationError
+      )
+        this.navigating.set(false);
+    });
     this.router.events
       .pipe(
         filter((event): event is NavigationEnd => event instanceof NavigationEnd),
@@ -324,7 +330,6 @@ export class App implements OnDestroy {
       route = route.firstChild;
     }
     const path = this.router.url.split('?')[0];
-    this.healthAccessPage.set(path === '/saude/acessos');
     this.publicPage.set(isPublic || /^\/(acesso|demonstracao|ajuda)(\/|$)/.test(path));
   }
 }

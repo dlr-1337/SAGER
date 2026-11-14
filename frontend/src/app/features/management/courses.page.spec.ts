@@ -14,6 +14,8 @@ describe('Página válida após atualizar o catálogo de cursos', () => {
       name: `Curso Sintético ${String(index + 1).padStart(2, '0')}`,
       active: true,
       version: 0,
+      level: 'MEDIO' as const,
+      durationYears: 3,
     }));
     list = vi.fn(async () => structuredClone(records));
     TestBed.configureTestingModule({
@@ -83,7 +85,37 @@ describe('Página válida após atualizar o catálogo de cursos', () => {
     expect(component.details({ ...current, level: 'SUPERIOR', durationYears: 4 })).toBe(
       'Superior · 4 anos',
     );
-    expect(component.details(current)).toBe('');
+    expect(component.details({ ...current, level: null, durationYears: null })).toBe('');
+  });
+
+  it('exige nível e duração em curso novo sem chamar o servidor', async () => {
+    const component = await create(0);
+    const save = vi.mocked(TestBed.inject(CourseApiService).save);
+    expect(fixture.nativeElement.textContent).not.toContain('Não informado');
+    component.form.controls.name.setValue('Curso Novo');
+    await component.save();
+    fixture.detectChanges();
+    expect(save).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('#course-level-error')?.textContent).toContain(
+      'Escolha o nível.',
+    );
+    expect(fixture.nativeElement.querySelector('#course-duration-error')?.textContent).toContain(
+      'Use um número de 1 a 6 anos.',
+    );
+    component.form.controls.level.setValue('SUPERIOR');
+    await component.save();
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it('desativa curso antigo sem nível nem duração', async () => {
+    records[0] = { ...records[0], level: null, durationYears: null };
+    const component = await create(0);
+    await component.toggle(component.items()[0]);
+    expect(vi.mocked(TestBed.inject(CourseApiService).save)).toHaveBeenCalledWith(
+      expect.objectContaining({ level: null, durationYears: null }),
+      expect.objectContaining({ id: records[0].id }),
+      false,
+    );
   });
 
   it('desativar mantém nível e duração salvos do curso', async () => {
@@ -133,7 +165,7 @@ describe('Página válida após atualizar o catálogo de cursos', () => {
     expect(component.page()).toBe(0);
     expect(component.filtered()).toEqual([]);
     expect(component.visible()).toEqual([]);
-    expect(fixture.nativeElement.textContent).toContain('Página 1');
+    expect(fixture.nativeElement.querySelector('sager-pagination nav')).toBeNull();
   });
 
   it('mantém a segunda página quando ela continua válida após editar', async () => {

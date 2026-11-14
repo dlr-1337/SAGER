@@ -84,10 +84,11 @@ O WhatsApp é opcional e nunca derruba o SAGER. Com a flag ligada e os arquivos
 `SAGER_INTEGRATIONS_WHATSAPP_ENABLED=false`, sem os serviços do perfil `whatsapp`.
 Saídas longas continuam aceitando anexo manual.
 
-As quotas permanentes são 512 MiB/0,25 CPU para PostgreSQL,
-1024 MiB/0,65 CPU para backend e 96 MiB/0,10 CPU para gateway: **1632 MiB/1 CPU**.
-Com o WhatsApp ligado, somam-se 768 MiB/0,5 CPU do gateway de WhatsApp e 32 MiB/0,10 CPU
-do proxy: **2432 MiB/1,6 CPU**, com mínimo de 2 vCPU e 4 GB mais swap na VPS.
+As quotas permanentes são 512 MiB/1,0 CPU para PostgreSQL,
+1024 MiB/2,0 CPU para backend e 96 MiB/0,10 CPU para gateway: **1632 MiB/3,1 CPU**
+(`cpus` é teto, não reserva). Com o WhatsApp ligado, somam-se 768 MiB/0,5 CPU do gateway
+de WhatsApp e 32 MiB/0,10 CPU do proxy: **2432 MiB/3,7 CPU**, com mínimo de 2 vCPU e 4 GB
+mais swap na VPS.
 Os limites dos containers temporários de manutenção são adicionais.
 
 O gateway resolve `coolify-proxy` no DNS interno do Docker ao iniciar e confia
@@ -95,6 +96,16 @@ somente nos IPs exatos retornados. Host e `X-Forwarded-Proto: https` são obriga
 Cabeçalhos enviados ao backend são reconstruídos. Se o proxy mudar de IP,
 reiniciar o gateway para atualizar os peers; não confiar na rede inteira como correção.
 O health do gateway é privado, em `127.0.0.1:8081/readiness`.
+
+## Inspeção do stack
+
+Use o checkout preservado e a identidade estável do Compose. Não imprima
+`docker compose config` nem o `.env` em logs:
+
+```bash
+export SAGER_CHECKOUT=/data/coolify/applications/rhamqqvry6aidhlfkqnzysk8
+docker compose --project-name sager-homologacao   --project-directory "$SAGER_CHECKOUT" --env-file "$SAGER_CHECKOUT/.env"   -f "$SAGER_CHECKOUT/compose.coolify.yml" ps
+```
 
 ## Conta inicial
 
@@ -113,6 +124,8 @@ docker compose --project-name sager-homologacao \
 de deployment. A execução precisa de terminal interativo. O operador define e
 confirma a senha com entrada oculta; não fornecer senha em variável ou argumento.
 O comando administrativo encerra ao concluir e não inicia outro servidor HTTP.
+Não recrie contas existentes: use `--sager-account=list` e `assign-enrollment`
+conforme o [backend](../../backend/README.md).
 
 ## Backup manual e recuperação
 
@@ -133,7 +146,7 @@ python3 "$SAGER_CHECKOUT/infra/production/recovery.py" \
   --env-file "$SAGER_CHECKOUT/.env" --project-name sager-homologacao \
   --work-dir /srv/sager/homologacao/private-work create \
   --recipient "$SAGER_AGE_RECIPIENT" \
-  --output /srv/sager/homologacao/backups/bootstrap.age
+  --output "/srv/sager/homologacao/backups/homologacao-$(date -u +%Y%m%dT%H%M%SZ).age"
 ```
 
 Conferir o manifesto efetivamente usado pelo Coolify e os labels
@@ -164,16 +177,17 @@ python -B -m unittest discover -s infra/coolify -p 'test_*.py' -v
 python -B infra/coolify/smoke.py --build
 ```
 
-A CI mantém também o smoke standalone com TLS e os testes de backend/frontend.
+O `./sager ci infra`, na raiz, roda este smoke junto com o smoke standalone com TLS e os testes Python; o `./sager ci` também roda os de backend e frontend.
+A [política de cache do gateway](../production/README.md#política-de-cache-do-gateway) vale
+também para este template; depois do deploy, confira-a com os comandos `curl` de lá.
 No servidor, verificar certificado sem exceções, HTTP→HTTPS, `/acesso`, assets,
-CSRF, login/logout, endpoints internos bloqueados, banco sem dados demo, isolamento,
-persistência após reimplantação e backup/restauração. Registrar evidências efetivas
-em `docs/fase-7/COOLIFY.md`; não tratar a configuração do painel como deployment concluído.
+CSRF, login/logout, endpoints internos bloqueados (`/demonstracao`, `/readiness`
+e Actuator com 404), isolamento, persistência após reimplantação e
+backup/restauração. Registrar saída, hashes e duração de cada
+implantação, backup e restauração fora do repositório, sem segredos; não tratar a
+configuração do painel como deployment concluído.
 
 Referências: [Compose no Coolify](https://coolify.io/docs/applications/builds/docker-compose),
 [domínios e TLS](https://coolify.io/docs/core/networking/domains),
 [lifecycle da versão 4.3.14](https://github.com/coollabsio/coolify/blob/v4.3.14/app/Jobs/ApplicationDeploymentJob.php).
 
-## Atualização de matrícula e cursos
-
-Os manifests do Coolify continuam usando as imagens de produção, segredos privados e os mesmos volumes. Siga a [preparação V20/V21](../production/README.md#atualização-para-matrícula-e-catálogo-v20v21) antes de iniciar a aplicação atualizada. Depois de migrar, liste as contas pelo comando administrativo, atribua as matrículas pendentes por UUID e reaplique os privilégios do runtime. A implantação encerra sessões antigas. Não substitua esse manifesto pelo Compose local.

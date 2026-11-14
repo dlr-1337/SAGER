@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetSession } from '../../core/api';
 import { AccommodationApiError, AccommodationApiService } from './accommodation-api.service';
 
 const accommodation = { id: 'a-test', code: 'TESTE-A', name: 'Alojamento Fictício', version: 0 };
@@ -13,6 +14,7 @@ const unit = {
 const csrf = { headerName: 'X-CSRF-TOKEN', token: 'synthetic-csrf' };
 
 describe('AccommodationApiService', () => {
+  beforeEach(() => resetSession());
   afterEach(() => vi.unstubAllGlobals());
 
   it('consulta o cadastro vazio sem inserir dados demonstrativos', async () => {
@@ -44,6 +46,29 @@ describe('AccommodationApiService', () => {
       code: unit.code,
       name: unit.name,
       version: 0,
+    });
+  });
+
+  it('envia a faixa etária ao salvar o alojamento', async () => {
+    const mock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(csrf)))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ...accommodation, ageGroup: 'MENORES' }), { status: 201 }),
+      );
+    vi.stubGlobal('fetch', mock);
+    const saved = await TestBed.inject(AccommodationApiService).save({
+      code: accommodation.code,
+      name: accommodation.name,
+      ageGroup: 'MENORES',
+    });
+    expect(saved.ageGroup).toBe('MENORES');
+    const [url, request] = mock.mock.calls[1] as [string, RequestInit];
+    expect(url).toBe('/api/v1/alojamentos');
+    expect(JSON.parse(request.body as string)).toEqual({
+      code: accommodation.code,
+      name: accommodation.name,
+      ageGroup: 'MENORES',
     });
   });
 

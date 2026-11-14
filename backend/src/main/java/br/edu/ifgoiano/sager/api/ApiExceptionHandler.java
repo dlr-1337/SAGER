@@ -2,7 +2,6 @@ package br.edu.ifgoiano.sager.api;
 
 import br.edu.ifgoiano.sager.documents.PrivateFileException;
 import br.edu.ifgoiano.sager.documents.PdfGenerationException;
-import br.edu.ifgoiano.sager.health.HealthApiException;
 import br.edu.ifgoiano.sager.discipline.DisciplineApiException;
 import br.edu.ifgoiano.sager.management.accommodations.AccommodationApiException;
 import br.edu.ifgoiano.sager.management.allocations.AllocationApiException;
@@ -41,7 +40,7 @@ public class ApiExceptionHandler {
     @ExceptionHandler({ SupervisorApiException.class, ResidentApiException.class,
             GuardianApiException.class, AccommodationApiException.class,
             RoomApiException.class, AllocationApiException.class, OpsApiException.class,
-            HealthApiException.class, DisciplineApiException.class, ReportingApiException.class, LongExitApiException.class })
+            DisciplineApiException.class, ReportingApiException.class, LongExitApiException.class })
     public ResponseEntity<ApiError> domainError(RuntimeException error, HttpServletRequest request) {
         DomainError details = switch (error) {
             case SupervisorApiException e -> new DomainError(e.status(), e.code(), e.getMessage());
@@ -51,7 +50,6 @@ public class ApiExceptionHandler {
             case RoomApiException e -> new DomainError(e.status(), e.code(), e.getMessage());
             case AllocationApiException e -> new DomainError(e.status(), e.code(), e.getMessage());
             case OpsApiException e -> new DomainError(e.status(), e.code(), e.getMessage());
-            case HealthApiException e -> new DomainError(e.status(), e.code(), e.getMessage());
             case DisciplineApiException e -> new DomainError(e.status(), e.code(), e.getMessage());
             case ReportingApiException e -> new DomainError(e.status(), e.code(), e.getMessage());
             case LongExitApiException e -> new DomainError(e.status(), e.code(), e.getMessage());

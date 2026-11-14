@@ -1,3 +1,4 @@
+import { api } from '../../core/api';
 import {
   ERROR_CONFLICT,
   ERROR_FORBIDDEN,
@@ -13,7 +14,7 @@ export interface AllocationRecord {
   roomId: string;
   startedAt: string;
   endedAt: string | null;
-  endReason: 'TRANSFER' | 'END' | null;
+  endReason: 'TRANSFER' | 'END' | 'CONCLUSION' | null;
   version: number;
 }
 
@@ -37,7 +38,8 @@ function isAllocation(value: unknown): value is AllocationRecord {
     typeof item.roomId === 'string' &&
     typeof item.startedAt === 'string' &&
     (item.endedAt === null || typeof item.endedAt === 'string') &&
-    (item.endReason === null || item.endReason === 'TRANSFER' || item.endReason === 'END') &&
+    (item.endReason === null ||
+      ['TRANSFER', 'END', 'CONCLUSION'].includes(item.endReason as string)) &&
     Number.isInteger(item.version) &&
     (item.version ?? -1) >= 0
   );
@@ -66,12 +68,9 @@ export class AllocationApiService {
   }
 
   private async list(query: URLSearchParams): Promise<AllocationRecord[]> {
-    const response = await fetch(`${baseUrl}?${query}`, {
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
+    const response = await api(`${baseUrl}?${query}`, {
+      error: (response) => this.responseError(response),
     });
-    if (!response.ok) throw await this.responseError(response);
     const value: unknown = await response.json();
     if (!Array.isArray(value) || !value.every(isAllocation)) {
       throw new Error('A lista de alocações recebida é inválida.');
@@ -80,30 +79,11 @@ export class AllocationApiService {
   }
 
   private async write(url: string, body: object): Promise<AllocationRecord> {
-    const csrfResponse = await fetch('/api/v1/auth/csrf', {
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
-    });
-    if (!csrfResponse.ok) throw await this.responseError(csrfResponse);
-    const csrf: unknown = await csrfResponse.json();
-    if (!csrf || typeof csrf !== 'object') throw new Error('Resposta CSRF inválida.');
-    const { headerName, token } = csrf as Record<string, unknown>;
-    if (typeof headerName !== 'string' || !headerName || typeof token !== 'string' || !token) {
-      throw new Error('Resposta CSRF inválida.');
-    }
-    const response = await fetch(url, {
+    const response = await api(url, {
       method: 'POST',
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        [headerName]: token,
-      },
-      body: JSON.stringify(body),
+      body,
+      error: (response) => this.responseError(response),
     });
-    if (!response.ok) throw await this.responseError(response);
     const value: unknown = await response.json();
     if (!isAllocation(value)) throw new Error('A alocação salva não pôde ser confirmada.');
     return value;
@@ -136,6 +116,12 @@ export function allocationErrorMessage(error: unknown): string {
         return 'O quarto está em manutenção ou indisponível. Escolha outro quarto.';
       case 'capacity_unknown':
         return 'Defina a capacidade do quarto antes de colocar um residente nele.';
+      case 'age_group_mismatch':
+        return 'Este quarto é de outra faixa etária. Escolha um quarto da faixa do residente.';
+      case 'birth_date_required':
+        return 'Informe a data de nascimento do residente antes de colocá-lo neste quarto.';
+      case 'resident_concluded':
+        return 'Este residente concluiu o curso. Lance a prorrogação antes de colocar no quarto.';
       case 'invalid_reference':
         return 'Residente ou quarto não encontrado. Recarregue os dados.';
     }

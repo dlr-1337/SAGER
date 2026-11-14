@@ -1,3 +1,4 @@
+import { api } from '../../core/api';
 import { Injectable } from '@angular/core';
 import { isLongExit } from '../operations/long-exit-api.service';
 import { LongExit } from '../operations/long-exit.models';
@@ -191,7 +192,8 @@ export class ConversationsApiService {
     guard: (value: unknown) => value is T,
     signal?: AbortSignal,
   ): Promise<T> {
-    return this.checked(await (await this.fetchOk(url, {}, signal)).json(), guard);
+    const response = await api(url, { signal, error: (response) => this.error(response) });
+    return this.checked(await response.json(), guard);
   }
   private async write<T>(
     url: string,
@@ -206,33 +208,16 @@ export class ConversationsApiService {
     input?: FormData | object,
     idempotencyKey?: string,
   ): Promise<Response> {
-    const csrf: unknown = await (await this.fetchOk('/api/v1/auth/csrf', {})).json();
-    if (!record(csrf) || !strings(csrf, ['headerName', 'token']))
-      throw new Error('Não foi possível obter a proteção da sessão.');
-    const headers: Record<string, string> = { [String(csrf['headerName'])]: String(csrf['token']) };
-    if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
-    // The browser must write the multipart boundary itself.
-    if (input !== undefined && !(input instanceof FormData))
-      headers['Content-Type'] = 'application/json';
-    return this.fetchOk(url, {
+    return api(url, {
       method: 'POST',
-      headers,
-      ...(input === undefined
-        ? {}
-        : { body: input instanceof FormData ? input : JSON.stringify(input) }),
+      body: input,
+      headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {},
+      error: (response) => this.error(response),
     });
   }
-  private async fetchOk(url: string, init: RequestInit, signal?: AbortSignal): Promise<Response> {
-    const response = await fetch(url, {
-      ...init,
-      signal,
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: { Accept: 'application/json', ...init.headers },
-    });
-    if (response.ok) return response;
+  private async error(response: Response): Promise<Error> {
     const body: unknown = await response.json().catch(() => null);
-    throw new OperationsApiError(
+    return new OperationsApiError(
       response.status,
       record(body) && typeof body['code'] === 'string' ? body['code'] : undefined,
       record(body) && typeof body['message'] === 'string'

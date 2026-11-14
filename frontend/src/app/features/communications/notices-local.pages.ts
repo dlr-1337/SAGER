@@ -7,6 +7,8 @@ import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
+import { cursorPages } from '../../core/list-page';
+import { PaginationComponent } from '../../shared/pagination.component';
 import { ResidentApiService, ResidentRecord } from '../management/resident-api.service';
 import {
   CommunicationsApiError,
@@ -51,7 +53,12 @@ const statusLabels = { RASCUNHO: 'Rascunho', PUBLICADO: 'Publicado', RETIRADO: '
 @Component({
   standalone: true,
   selector: 'sager-notices-management-local',
-  imports: [CommunicationFiltersComponent, RouterLink, CommunicationsStateComponent],
+  imports: [
+    CommunicationFiltersComponent,
+    RouterLink,
+    CommunicationsStateComponent,
+    PaginationComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page comm-page">
@@ -65,64 +72,62 @@ const statusLabels = { RASCUNHO: 'Rascunho', PUBLICADO: 'Publicado', RETIRADO: '
           <a class="btn" routerLink="/comunicacoes/avisos/novo">Preparar aviso</a>
         }
       </header>
-      @if (!session.active() && session.hasRole('supervisor')) {
-        <sager-communication-filters mode="notices" (changed)="searchFilters = $event; load()" />
-      }
       <sager-communications-state
         [demo]="session.active()"
         [blocked]="!session.hasRole('supervisor')"
-        [loading]="loading()"
-        [error]="error()"
-        (retry)="load()"
       />
-      @if (!session.active() && session.hasRole('supervisor') && !loading() && !error()) {
+      @if (!session.active() && session.hasRole('supervisor')) {
+        <sager-communication-filters
+          mode="notices"
+          heading="Filtrar avisos"
+          (changed)="filter($event)"
+        />
         <section class="op-section">
-          <h2>Avisos registrados</h2>
-          <div class="op-list">
-            @for (notice of items(); track notice.id) {
-              <article class="op-row">
-                <div class="op-row-main">
-                  <h3>{{ notice.title }}</h3>
-                  <p>
-                    {{
-                      notice.residentIds.length === 1
-                        ? '1 residente'
-                        : notice.residentIds.length + ' residentes'
-                    }}
-                  </p>
-                  @if (notice.publishedAt) {
-                    <p>Publicado em {{ formatTime(notice.publishedAt) }}</p>
-                  }
+          <h2 id="notice-results-title" tabindex="-1">Avisos registrados</h2>
+          <sager-communications-state
+            [loading]="list.loading()"
+            [error]="list.error()"
+            (retry)="list.reload()"
+          />
+          @if (!list.loading() && !list.error()) {
+            <div class="op-list">
+              @for (notice of list.items(); track notice.id) {
+                <article class="op-row">
+                  <div class="op-row-main">
+                    <h3>{{ notice.title }}</h3>
+                    <p>
+                      {{
+                        notice.residentIds.length === 1
+                          ? '1 residente'
+                          : notice.residentIds.length + ' residentes'
+                      }}
+                    </p>
+                    @if (notice.publishedAt) {
+                      <p>Publicado em {{ formatTime(notice.publishedAt) }}</p>
+                    }
+                  </div>
+                  <span class="op-status">{{ labels[notice.status] }}</span
+                  ><a class="op-row-link" [routerLink]="['/comunicacoes/avisos', notice.id]"
+                    >Ver aviso<span class="material-symbols-outlined" aria-hidden="true"
+                      >arrow_forward</span
+                    ></a
+                  >
+                </article>
+              } @empty {
+                <div class="op-empty" role="status">
+                  <h3>Nenhum aviso registrado</h3>
+                  <p>Escreva um aviso e escolha quem vai receber.</p>
                 </div>
-                <span class="op-status">{{ labels[notice.status] }}</span
-                ><a class="op-row-link" [routerLink]="['/comunicacoes/avisos', notice.id]"
-                  >Ver aviso<span class="material-symbols-outlined" aria-hidden="true"
-                    >arrow_forward</span
-                  ></a
-                >
-              </article>
-            } @empty {
-              <div class="op-empty" role="status">
-                <h3>Nenhum aviso registrado</h3>
-                <p>Escreva um aviso e escolha quem vai receber.</p>
-              </div>
-            }
-          </div>
-          @if (nextCursor() !== null) {
-            <div class="comm-actions">
-              <button
-                class="btn-secondary"
-                type="button"
-                [disabled]="moreLoading()"
-                (click)="more()"
-              >
-                Carregar mais avisos
-              </button>
+              }
             </div>
           }
-          @if (moreError()) {
-            <p class="comm-error" role="alert">{{ moreError() }}</p>
-          }
+          <sager-pagination
+            [page]="list.page()"
+            [hasNext]="list.hasNext()"
+            [busy]="list.loading()"
+            anchor="notice-results-title"
+            (pageChange)="list.go($event)"
+          />
         </section>
       }
     </main>
@@ -130,61 +135,20 @@ const statusLabels = { RASCUNHO: 'Rascunho', PUBLICADO: 'Publicado', RETIRADO: '
   styleUrl: './communications-local.scss',
 })
 export class NoticesManagementLocalPage {
-  searchFilters: Record<string, string> = {};
-  private appliedSearch: Record<string, string> = {};
-
   readonly session = inject(DemoSessionService);
   private readonly api = inject(CommunicationsLocalApiService);
-  readonly items = signal<PublishedNotice[]>([]);
-  readonly nextCursor = signal<number | null>(null);
-  readonly loading = signal(false);
-  readonly error = signal('');
-  readonly moreLoading = signal(false);
-  readonly moreError = signal('');
+  private filters: Record<string, string> = {};
+  readonly list = cursorPages<PublishedNotice>(
+    (cursor) => this.api.notices(cursor, this.filters),
+    communicationsError,
+  );
   readonly labels = statusLabels;
   readonly formatTime = formatCommunicationTime;
-  private generation = 0;
-  constructor() {
-    void this.load();
-  }
-  async load(): Promise<void> {
-    this.appliedSearch = { ...this.searchFilters };
-    const generation = ++this.generation;
-    if (this.session.active() || !this.session.hasRole('supervisor')) return;
-    this.loading.set(true);
-    this.moreLoading.set(false);
-    this.error.set('');
-    this.moreError.set('');
-    try {
-      const page = await this.api.notices(undefined, this.appliedSearch);
-      if (generation !== this.generation) return;
-      this.items.set(page.items);
-      this.nextCursor.set(page.nextCursor);
-    } catch (error) {
-      if (generation === this.generation) this.error.set(communicationsError(error));
-    } finally {
-      if (generation === this.generation) this.loading.set(false);
-    }
-  }
-  async more(): Promise<void> {
-    const generation = this.generation;
-    const cursor = this.nextCursor();
-    if (cursor === null || this.moreLoading()) return;
-    this.moreLoading.set(true);
-    this.moreError.set('');
-    try {
-      const page = await this.api.notices(cursor, this.appliedSearch);
-      if (generation !== this.generation) return;
-      this.items.update((items) => [
-        ...items,
-        ...page.items.filter((item) => !items.some((old) => old.id === item.id)),
-      ]);
-      this.nextCursor.set(page.nextCursor);
-    } catch (error) {
-      if (generation === this.generation) this.moreError.set(communicationsError(error));
-    } finally {
-      if (generation === this.generation) this.moreLoading.set(false);
-    }
+  // A primeira carga vem da emissão inicial do painel de filtro.
+  filter(filters: Record<string, string>): Promise<void> {
+    if (this.session.active() || !this.session.hasRole('supervisor')) return Promise.resolve();
+    this.filters = filters;
+    return this.list.reload();
   }
 }
 

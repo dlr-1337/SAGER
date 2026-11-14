@@ -15,10 +15,11 @@ import org.springframework.stereotype.Repository;
 public class RoomRepository {
     private static final String OCCUPANCY = "(SELECT COUNT(*)::integer FROM sager_room_allocation"
             + " WHERE room_id = sager_room.id AND ended_at IS NULL)";
-    // Only Manutenção and Indisponível are stored by hand; Disponível/Ocupado follow the live occupancy.
+    // Only Manutenção and Indisponível are stored by hand; a room without capacity cannot take
+    // residents, so it shows as Indisponível; otherwise Disponível/Ocupado follow the live occupancy.
     private static final String SITUATION = "CASE WHEN situation IN ('Manutenção', 'Indisponível')"
-            + " THEN situation WHEN capacity IS NOT NULL AND " + OCCUPANCY + " >= capacity"
-            + " THEN 'Ocupado' ELSE 'Disponível' END";
+            + " THEN situation WHEN capacity IS NULL THEN 'Indisponível'"
+            + " WHEN " + OCCUPANCY + " >= capacity THEN 'Ocupado' ELSE 'Disponível' END";
     private static final String COLUMNS = "id, code, number, accommodation_id, unit_id, floor,"
             + " capacity, " + SITUATION + " AS situation, version, " + OCCUPANCY + " AS occupancy";
     private final JdbcTemplate jdbc;
@@ -47,6 +48,11 @@ public class RoomRepository {
         List<UUID> locked = jdbc.query("SELECT id FROM sager_room WHERE id = ? FOR UPDATE",
                 (result, row) -> result.getObject(1, UUID.class), id);
         return locked.isEmpty() ? Optional.empty() : findById(id);
+    }
+
+    /** The situation as chosen in the form (Disponível, Manutenção or Indisponível), not as shown. */
+    public String storedSituation(UUID id) {
+        return jdbc.queryForObject("SELECT situation FROM sager_room WHERE id = ?", String.class, id);
     }
 
     public int activeCount(UUID id) {
@@ -79,6 +85,6 @@ public class RoomRepository {
                 result.getString("number"), result.getObject("accommodation_id", UUID.class),
                 result.getObject("unit_id", UUID.class), result.getString("floor"),
                 capacity, result.getString("situation"), occupancy,
-                capacity == null ? null : capacity - occupancy, null, result.getLong("version"));
+                capacity == null ? null : capacity - occupancy, result.getLong("version"));
     }
 }

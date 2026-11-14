@@ -19,16 +19,6 @@ Saídas, lista e formulário de limpeza, residentes e relatórios SHALL oferecer
 - **WHEN** o supervisor escolhe um bloco
 - **THEN** a lista mostra saídas de residentes alocados nesse bloco na data solicitada
 
-### Requirement: Cascata de seleção
-
-Trocar o alojamento MUST limpar bloco e quarto, e trocar o bloco MUST limpar o quarto. As opções SHALL seguir a seleção superior.
-
-#### Scenario: Troca de alojamento
-
-- **GIVEN** bloco e quarto selecionados
-- **WHEN** o usuário troca o alojamento
-- **THEN** bloco e quarto voltam a "Todos"
-
 ### Requirement: Bloco inequívoco
 
 Sem alojamento escolhido, a opção de bloco MUST mostrar também o alojamento.

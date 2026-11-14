@@ -79,6 +79,30 @@ class AllocationMigrationIntegrationTest {
                 """, second)).isInstanceOf(DataIntegrityViolationException.class);
     }
 
+    @Test
+    void v31AcceptsCourseConclusionAsEndReason() {
+        String schema = "allocation_conclusion";
+        migrate(schema, "31");
+        JdbcTemplate jdbc = jdbc(schema);
+        UUID resident = resident(jdbc, "DEMO-A");
+        UUID first = UUID.randomUUID();
+        jdbc.update("INSERT INTO sager_room_allocation (id, resident_id, room_id) VALUES (?, ?, ?)",
+                first, resident, room(jdbc, "DEMO-01"));
+        jdbc.update("UPDATE sager_room_allocation SET ended_at = CURRENT_TIMESTAMP, end_reason = 'CONCLUSION'"
+                + " WHERE id = ?", first);
+        UUID second = UUID.randomUUID();
+        jdbc.update("INSERT INTO sager_room_allocation (id, resident_id, room_id) VALUES (?, ?, ?)",
+                second, resident, room(jdbc, "DEMO-02"));
+        assertThatThrownBy(() -> jdbc.update("""
+                UPDATE sager_room_allocation SET end_reason = 'GRADUATED', ended_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """, second)).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbc.update("UPDATE sager_room_allocation SET end_reason = 'CONCLUSION' WHERE id = ?",
+                second)).isInstanceOf(DataIntegrityViolationException.class);
+        assertThat(jdbc.queryForObject("SELECT end_reason FROM sager_room_allocation WHERE id = ?", String.class, first))
+                .isEqualTo("CONCLUSION");
+    }
+
     private UUID resident(JdbcTemplate jdbc, String enrollment) {
         UUID id = UUID.randomUUID();
         jdbc.update("INSERT INTO sager_resident (id, name, enrollment, birth_date)"

@@ -99,7 +99,8 @@ for (const config of [
         ...(config.key === 'guardians' ? { active: 'true', residentId: 'residente-teste' } : {}),
       });
       expect(TestBed.inject(FilterState).values.get(config.pageKey)).toBe(scenario.expectedPage);
-      if (scenario.total === 25) expect(fixture.nativeElement.textContent).toContain('1–25 de 25');
+      if (scenario.total === 25)
+        expect(fixture.nativeElement.querySelector('sager-pagination nav')).toBeNull();
     });
 
     it('ignora o total de uma resposta antiga sem corrigir a página atual', async () => {

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LongExitApiService } from './long-exit-api.service';
 import { LongExit } from './long-exit.models';
 import { documentShortCode } from './long-exit.utils';
+import { resetSession } from '../../core/api';
 
 const at = '2026-09-30T16:00:00Z';
 const documentId = '00000000-0000-0000-0000-000000000811';
@@ -95,7 +96,10 @@ describe('LongExitApiService', () => {
     fetchMock.mockReset();
     vi.stubGlobal('fetch', fetchMock);
   });
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    resetSession();
+  });
 
   it('aceita o contrato de autorização e recusa campos ausentes ou do fluxo antigo', async () => {
     fetchMock.mockImplementation(async () => json(exit()));

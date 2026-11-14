@@ -210,6 +210,55 @@ class AuditServiceIntegrationTest {
         }
     }
 
+    @Test
+    void accountAuditRecordsOperatorWithoutActorAndRecoveryWithTheAccountAndRequest() {
+        UUID account = UUID.randomUUID();
+        UUID correlation = UUID.randomUUID();
+        transaction().executeWithoutResult(status -> audit.recordOperator(correlation, account,
+                AuditAction.CREATE, Set.of("profile", "enrollment", "password")));
+        assertThat(jdbc.queryForMap("SELECT * FROM sager_audit_event WHERE resource_id = ?", account))
+                .containsEntry("origin", "OPERATOR_CLI").containsEntry("actor_id", null)
+                .containsEntry("actor_profile", null).containsEntry("request_id", correlation)
+                .containsEntry("resource", "LOCAL_ACCOUNT").containsEntry("resulting_version", 0L);
+
+        UUID resident = UUID.randomUUID();
+        UUID request = UUID.randomUUID();
+        MockHttpServletRequest http = new MockHttpServletRequest();
+        http.setAttribute(AuditContextProvider.REQUEST_ID_ATTRIBUTE, request);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(http));
+        transaction().executeWithoutResult(status -> audit.recordAccount(resident, "residente",
+                AuditAction.UPDATE, Set.of("password")));
+        assertThat(jdbc.queryForMap("SELECT * FROM sager_audit_event WHERE resource_id = ?", resident))
+                .containsEntry("origin", "LOCAL_API").containsEntry("actor_id", resident)
+                .containsEntry("actor_profile", "residente").containsEntry("request_id", request)
+                .containsEntry("action", "UPDATE");
+    }
+
+    @Test
+    void accountAuditRejectsOperatorInsideRequestAndRecoveryWithoutCorrelation() {
+        UUID account = UUID.randomUUID();
+        assertThatThrownBy(() -> transaction().executeWithoutResult(status -> audit.recordAccount(
+                account, "residente", AuditAction.UPDATE, Set.of("password"))))
+                .isInstanceOf(IllegalStateException.class);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(new MockHttpServletRequest()));
+        assertThatThrownBy(() -> transaction().executeWithoutResult(status -> audit.recordAccount(
+                account, "residente", AuditAction.UPDATE, Set.of("password"))))
+                .isInstanceOf(IllegalStateException.class);
+
+        authenticatedRequest(UUID.randomUUID(), UUID.randomUUID());
+        assertThatThrownBy(() -> transaction().executeWithoutResult(status -> audit.recordOperator(
+                UUID.randomUUID(), account, AuditAction.CREATE, Set.of("name"))))
+                .isInstanceOf(IllegalStateException.class);
+        RequestContextHolder.resetRequestAttributes();
+        assertThatThrownBy(() -> transaction().executeWithoutResult(status -> audit.recordOperator(
+                null, account, AuditAction.CREATE, Set.of("name"))))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> transaction().executeWithoutResult(status -> audit.recordOperator(
+                UUID.randomUUID(), account, AuditAction.UPDATE, Set.of("passwordHash"))))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertNoWrites(account);
+    }
+
     private void supervisor(UUID id) {
         jdbc.update("""
                 INSERT INTO sager_supervisor (id, name, institutional_id, email)

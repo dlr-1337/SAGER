@@ -105,6 +105,7 @@ function callFixture(): NightCall {
 }
 interface MockState {
   role: 'supervisor' | 'residente' | 'gestor';
+  maiorDeIdade: boolean;
   now: string;
   outsideWindow: boolean;
   missingBirthDates: boolean;
@@ -118,6 +119,7 @@ interface MockState {
 async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<MockState> {
   const state: MockState = {
     role: 'supervisor',
+    maiorDeIdade: false,
     now: initialNow,
     outsideWindow: false,
     missingBirthDates: false,
@@ -174,6 +176,7 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
         perfis: [state.role],
         residenteId: state.role === 'residente' ? residentId : null,
         supervisorId: state.role === 'supervisor' ? '00000000-0000-0000-0000-000000000101' : null,
+        maiorDeIdade: state.maiorDeIdade,
       });
     if (path === '/api/v1/auth/csrf')
       return ok({ headerName: 'X-CSRF-TOKEN', token: 'synthetic-token' });
@@ -202,7 +205,6 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
           situation: 'Ocupado',
           occupancy: 1,
           vacancies: 3,
-          cleaningScore: null,
           version: 0,
         });
         return ok({
@@ -424,7 +426,7 @@ test('redução de 26 para 25 saídas curtas retorna à página válida com filt
   await expect.poll(() => queries.at(-1)?.get('status')).toBe('APROVADA');
   await expect(pagination).toContainText('1–25 de 26');
   await pagination.getByRole('button', { name: 'Próxima' }).click();
-  await expect(pagination).toContainText('1–25 de 25');
+  await expect(pagination).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Ver pedido' })).toHaveCount(25);
   await expect(page.getByRole('heading', { name: 'Nenhum pedido ainda.' })).toHaveCount(0);
   await expect(search).toHaveValue('TESTE-001');
@@ -441,15 +443,18 @@ test('situação Aprovada permanece ao abrir uma saída curta e retornar à list
 }) => {
   await mockApi(page, { exits: [{ ...exitFixture(), status: 'APROVADA' }] });
   await page.goto('/saidas');
-  await page.getByLabel('Situação', { exact: true }).selectOption('APROVADA');
+  await expect(page.getByRole('button', { name: 'Buscar', exact: true })).toHaveCount(0);
   const filtered = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return (
       url.pathname === '/api/v1/saidas-curtas' && url.searchParams.get('status') === 'APROVADA'
     );
   });
-  await page.getByRole('button', { name: 'Buscar', exact: true }).click();
+  await page.getByLabel('Situação', { exact: true }).selectOption('APROVADA');
   await filtered;
+  await expect(page.getByRole('button', { name: 'Remover filtro Situação' })).toContainText(
+    'Situação: Aprovada',
+  );
   await page.getByRole('link', { name: 'Ver pedido' }).click();
   await expect(page.getByRole('heading', { name: 'Pedido de saída curta' })).toBeVisible();
   const restored = page.waitForRequest(
@@ -474,6 +479,9 @@ test('chamada filtra por bloco e quarto, com número repetido, sem liberar o fec
     'B-101 · Bloco B',
   ]);
   await room.selectOption({ label: 'B-101 · Bloco B' });
+  await expect(page.getByRole('button', { name: 'Remover filtro Quarto' })).toContainText(
+    'Quarto: B-101 · Bloco B',
+  );
   await expect(page.getByRole('heading', { name: 'Residente de Teste' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Estudante Sintético' })).toHaveCount(0);
   await expect(page.getByText('1 de 2 residentes')).toBeVisible();
@@ -487,6 +495,23 @@ test('chamada filtra por bloco e quarto, com número repetido, sem liberar o fec
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.getByRole('button', { name: 'Limpar filtros', exact: true }).click();
   await expect(page.getByText('2 de 2 residentes')).toBeVisible();
+});
+
+test('chamada com 51 residentes mostra todos na mesma tela, sem paginação', async ({ page }) => {
+  const call = callFixture();
+  call.records = Array.from({ length: 51 }, (_, index) => ({
+    ...call.records[0],
+    id: `registro-${index}`,
+    residentId: `00000000-0000-0000-0000-${String(index + 500).padStart(12, '0')}`,
+    residentName: `Residente Sintético ${String(index + 1).padStart(2, '0')}`,
+    enrollment: `TESTE-${index + 1}`,
+  }));
+  call.summary = { total: 51, present: 0, absent: 0, justified: 0, unmarked: 51 };
+  await mockApi(page, { calls: [call] });
+  await page.goto('/chamada');
+  await expect(page.getByText('51 de 51 residentes')).toBeVisible();
+  await expect(page.locator('article.op-call-row')).toHaveCount(51);
+  await expect(page.getByRole('navigation', { name: 'Paginação' })).toHaveCount(0);
 });
 
 test('chamada persiste após recarga, confirma alerta e preserva correção da chamada fechada', async ({
@@ -582,6 +607,36 @@ test('data de nascimento ausente bloqueia abertura e falha da API não mostra de
   state.missingBirthDates = false;
   await page.getByRole('button', { name: 'Tentar novamente' }).click();
   await expect(page.getByRole('button', { name: 'Abrir chamada' })).toBeEnabled();
+});
+
+test('residente maior de idade consulta as saídas sem pedir, mudar nem cancelar', async ({
+  page,
+}) => {
+  const state = await mockApi(page, {
+    role: 'residente',
+    maiorDeIdade: true,
+    exits: [exitFixture()],
+  });
+  await page.goto('/inicio');
+  await expect(
+    page.getByText('Maiores de idade podem sair do IF até 23h e devem voltar até 5h.'),
+  ).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Minhas saídas' })).toHaveCount(0);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  for (const path of ['/saidas/nova', `/saidas/${exitId}/editar`]) {
+    await page.goto(path);
+    await expect(page).toHaveURL(/acesso-negado$/);
+  }
+  await page.goto('/saidas');
+  await expect(page.getByRole('link', { name: 'Ver pedido' })).toHaveCount(1);
+  await expect(page.getByRole('link', { name: /Pedir saída/ })).toHaveCount(0);
+  await page.getByRole('link', { name: 'Ver pedido' }).click();
+  await expect(page.getByRole('heading', { name: 'Pedido de saída curta' })).toBeVisible();
+  await expect(page.getByText('Aguardando análise', { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Mudar pedido' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Cancelar pedido' })).toHaveCount(0);
+  await expect(page.getByText('Nenhuma ação disponível para este pedido.')).toBeVisible();
+  expect(state.writes).toEqual([]);
 });
 
 test('residente envia NOW sem relógio do navegador, edita e consulta depois de recarregar', async ({
@@ -734,6 +789,26 @@ test('conflito exige recarga explícita e nunca repete a decisão com outra vers
   await expect(page.getByText('Rejeitada', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Aprovar', exact: true })).toHaveCount(0);
   expect(state.writes).toHaveLength(1);
+});
+
+test('rejeição de saída curta exige justificativa', async ({ page }) => {
+  const state = await mockApi(page, { exits: [exitFixture()] });
+  await page.goto(`/saidas/${exitId}`);
+  await page.getByRole('button', { name: 'Rejeitar', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  const confirm = dialog.getByRole('button', { name: 'Confirmar rejeição' });
+  await confirm.click();
+  await expect(dialog.getByRole('alert')).toContainText('10 a 2.000');
+  await dialog.getByLabel('Justificativa', { exact: true }).fill('a'.repeat(9));
+  await confirm.click();
+  await expect(dialog.getByRole('alert')).toContainText('10 a 2.000');
+  expect(state.writes).toHaveLength(0);
+  await dialog.getByLabel('Justificativa', { exact: true }).fill('Sem vaga.!');
+  await confirm.click();
+  await expect(page.getByText('Rejeitada', { exact: true }).first()).toBeVisible();
+  expect(state.writes).toHaveLength(1);
+  expect(state.writes[0].path).toBe(`/api/v1/saidas-curtas/${exitId}/decisao`);
+  expect(state.writes[0].body).toMatchObject({ decision: 'REJECT', comment: 'Sem vaga.!' });
 });
 
 test('layout de 320px, revisão por teclado, foco restaurado e acessibilidade', async ({ page }) => {

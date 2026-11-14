@@ -12,7 +12,6 @@ interface RoomRecord {
   situation: string;
   occupancy: number;
   vacancies: number | null;
-  cleaningScore: null;
   version: number;
 }
 
@@ -37,7 +36,6 @@ const original: RoomRecord = {
   situation: 'Disponível',
   occupancy: 0,
   vacancies: null,
-  cleaningScore: null,
   version: 0,
 };
 
@@ -63,7 +61,11 @@ async function mockSession(context: BrowserContext, profile = 'gestor'): Promise
   });
 }
 
-async function mockRooms(context: BrowserContext, records: RoomRecord[]) {
+async function mockRooms(
+  context: BrowserContext,
+  records: RoomRecord[],
+  places: { accommodations: unknown[]; units: unknown[] } = { accommodations, units },
+) {
   const writes: { method: string; csrf: string | undefined; body: Record<string, unknown> }[] = [];
   await context.route('**/api/v1/alocacoes**', (route) => route.fulfill({ json: [] }));
   await context.route('**/api/v1/residentes**', (route) => route.fulfill({ json: [] }));
@@ -72,7 +74,7 @@ async function mockRooms(context: BrowserContext, records: RoomRecord[]) {
     const path = new URL(request.url()).pathname;
     const id = path.split('/').at(-1);
     if (request.method() === 'GET' && path.endsWith('/mapa'))
-      return route.fulfill({ json: { accommodations, units, rooms: records } });
+      return route.fulfill({ json: { ...places, rooms: records } });
     if (request.method() === 'GET' && path.endsWith('/quartos'))
       return route.fulfill({ json: records });
     const existing = records.find((item) => item.id === id);
@@ -113,7 +115,6 @@ async function mockRooms(context: BrowserContext, records: RoomRecord[]) {
       id: `00000000-0000-0000-0000-${(records.length + 310).toString().padStart(12, '0')}`,
       occupancy: 0,
       vacancies: body['capacity'] === null ? null : body['capacity'],
-      cleaningScore: null,
       version: 0,
     } as RoomRecord;
     records.push(record);
@@ -161,7 +162,7 @@ test('mapa corrige a página restaurada após a edição reduzir 26 quartos filt
   expect(writes).toHaveLength(1);
   expect(writes[0]).toMatchObject({ method: 'PUT', body: { situation: 'Manutenção', version: 0 } });
   await page.getByRole('link', { name: 'Mapa de quartos', exact: true }).click();
-  await expect(page.getByText('1–25 de 25', { exact: true })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Paginação' })).toHaveCount(0);
   await expect(page.locator('.mg-room-tile')).toHaveCount(25);
   await expect(
     page.getByRole('heading', { name: 'Nenhum quarto encontrado', exact: true }),
@@ -225,14 +226,19 @@ test('cadastro local preserva 01, nulos, capacidade editável e mapa após recar
   expect(writes[1].body).toMatchObject({ number: '01', capacity: 6, version: 0, unitId });
   expect(records[0].version).toBe(1);
   await page.getByRole('link', { name: 'Mapa de quartos' }).click();
-  await expect(page.getByRole('heading', { name: /Alojamento Fictício Um/ })).toBeVisible();
+  await expect(page.locator('.mg-place-tile')).toHaveCount(2);
+  await page.getByRole('button', { name: /^Alojamento Fictício Um/ }).click();
+  await page.getByRole('button', { name: /^Casa Fictícia/ }).click();
+  await expect(page.getByRole('heading', { name: 'Casa Fictícia', exact: true })).toBeFocused();
   await expect(page.getByText('Capacidade: 6 vagas', { exact: false })).toBeVisible();
-  await page.getByRole('combobox', { name: 'Casa ou bloco', exact: true }).selectOption(unitId);
   await expect(page.locator('.mg-room-tile')).toHaveCount(1);
   await page.getByRole('combobox', { name: 'Situação', exact: true }).selectOption('Manutenção');
   await expect(page.getByRole('heading', { name: 'Nenhum quarto encontrado' })).toBeVisible();
-  await page.getByRole('button', { name: 'Limpar filtros' }).click();
+  await page.getByRole('button', { name: 'Limpar filtros' }).first().click();
   await expect(page.locator('.mg-room-tile')).toHaveCount(1);
+  await expect(
+    page.getByRole('navigation', { name: 'Trilha dos quartos' }).locator('[aria-current]'),
+  ).toHaveText('Casa Fictícia');
 });
 
 test('duplicidade e conflito em duas abas não apagam a edição nem anunciam sucesso', async ({
@@ -296,6 +302,8 @@ test('mapa local oferece recuperação sem fallback e supervisor cadastra quarto
   await expect(page.getByRole('link', { name: 'Gerenciar alojamentos' })).toBeVisible();
   offline = false;
   await page.getByRole('button', { name: 'Tentar novamente' }).click();
+  await expect(page.locator('.mg-place-tile')).toHaveCount(2);
+  await page.getByRole('button', { name: /^Alojamento Fictício Um/ }).click();
   await expect(page.locator('.mg-room-tile')).toHaveCount(1);
   await page.goto('/quartos/novo');
   await expect(page.getByRole('heading', { name: 'Cadastrar quarto' })).toBeVisible();
@@ -323,11 +331,26 @@ test('mapa e formulário locais são acessíveis no desktop e no celular, com te
     { width: 320, height: 740 },
   ]) {
     await page.setViewportSize(viewport);
-    for (const path of ['/quartos', '/quartos/novo', `/quartos/${original.id}`]) {
-      await page.goto(path);
+    const steps = [
+      ['/quartos', 'alojamentos'],
+      ['/quartos', 'casas'],
+      ['/quartos', 'quartos da casa'],
+      ['/quartos/novo', 'formulário'],
+      [`/quartos/${original.id}`, 'detalhe'],
+    ];
+    for (const [path, level] of steps) {
+      if (level === 'alojamentos' || path !== '/quartos') await page.goto(path);
       await expect(page.locator('main').last()).toBeVisible();
-      if (path === '/quartos') await expect(page.locator('.mg-room-tile')).toHaveCount(2);
-      else if (path === '/quartos/novo')
+      if (level === 'alojamentos') await expect(page.locator('.mg-place-tile')).toHaveCount(2);
+      else if (level === 'casas') {
+        await page.getByRole('button', { name: /^Alojamento Fictício Um/ }).click();
+        await expect(page.locator('.mg-place-tile')).toHaveCount(1);
+        await expect(page.locator('.mg-room-tile')).toHaveCount(1);
+      } else if (level === 'quartos da casa') {
+        await page.getByRole('button', { name: /^Casa Fictícia/ }).click();
+        await expect(page.locator('.mg-room-tile')).toHaveCount(1);
+        await expect(page.getByRole('heading', { name: 'Legenda', exact: true })).toBeVisible();
+      } else if (path === '/quartos/novo')
         await expect(page.getByRole('textbox', { name: 'Código do quarto *' })).toBeVisible();
       else await expect(page.getByRole('heading', { name: 'Quarto 01' })).toBeVisible();
       const result = await new AxeBuilder({ page })
@@ -336,15 +359,18 @@ test('mapa e formulário locais são acessíveis no desktop e no celular, com te
         .analyze();
       expect(
         result.violations.filter((item) => ['critical', 'serious'].includes(item.impact ?? '')),
-        `a11y ${path} em ${viewport.width}`,
+        `a11y ${level} em ${viewport.width}`,
       ).toEqual([]);
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth),
-        `overflow ${path}`,
+        `overflow ${level}`,
       ).toBeLessThanOrEqual(1);
     }
   }
   await page.goto('/quartos');
+  await page
+    .getByRole('searchbox', { name: 'Buscar quarto, código ou bloco', exact: true })
+    .fill('TESTE-Q');
   await expect(page.getByText('soma parcial', { exact: false })).toBeVisible();
   const firstRoom = page.locator('.mg-room-tile').first();
   await firstRoom.focus();
@@ -397,18 +423,119 @@ test('nomes e códigos no limite cadastrado não causam rolagem horizontal no ce
   );
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 });
+    const fits = async () =>
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true);
     for (const path of ['/quartos', `/quartos/${room.id}`, `/alojamentos/${accommodation.id}`]) {
       await page.goto(path);
-      if (path === '/quartos') await expect(page.locator('.mg-room-tile')).toHaveCount(1);
-      else if (path.startsWith('/alojamentos'))
+      if (path === '/quartos') {
+        await expect(page.locator('.mg-place-tile')).toHaveCount(1);
+        await fits();
+        await page.locator('.mg-place-tile').click();
+        await expect(page.locator('.mg-place-tile')).toHaveCount(1);
+        await fits();
+        await page.locator('.mg-place-tile').click();
+        await expect(page.locator('.mg-room-tile')).toHaveCount(1);
+      } else if (path.startsWith('/alojamentos'))
         await expect(
           page.getByRole('heading', { name: accommodation.name, exact: true }),
         ).toBeVisible();
       else
         await expect(page.getByRole('heading', { name: 'Quarto 01', exact: true })).toBeVisible();
-      expect(
-        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
-      ).toBe(true);
+      await fits();
     }
   }
+});
+
+test('no celular de 390 px só a busca fica aberta e o primeiro alojamento aparece sem rolar', async ({
+  page,
+  context,
+}) => {
+  await mockSession(context);
+  await mockRooms(context, [structuredClone(original)]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/quartos');
+  await expect(
+    page.getByRole('searchbox', { name: 'Buscar quarto, código ou bloco', exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('sager-filter-panel details')).not.toHaveAttribute('open');
+  await expect(page.getByRole('combobox', { name: 'Situação', exact: true })).toBeHidden();
+  await expect(page.locator('.mg-place-tile').first()).toBeInViewport();
+  await expect(page.locator('.mg-place-tile').first()).toContainText('Alojamento Fictício Dois');
+});
+
+test('casas em ordem natural e trilha de volta entre os níveis', async ({ page, context }) => {
+  await mockSession(context);
+  const houses = ['Casa 10', 'Casa 2'].map((name, index) => ({
+    id: `00000000-0000-0000-0000-00000000021${index}`,
+    accommodationId,
+    code: `TESTE-C${index}`,
+    name,
+    version: 0,
+  }));
+  await mockRooms(
+    context,
+    houses.map((house, index) => ({
+      ...original,
+      id: `00000000-0000-0000-0000-00000000031${index}`,
+      code: `TESTE-QC${index}`,
+      unitId: house.id,
+      capacity: 2,
+      vacancies: 2,
+    })),
+    { accommodations, units: houses },
+  );
+  await page.goto('/quartos');
+  await page.getByRole('button', { name: /^Alojamento Fictício Um/ }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Alojamento Fictício Um', exact: true }),
+  ).toBeFocused();
+  await expect(page.locator('.mg-place-tile strong')).toHaveText(['Casa 2', 'Casa 10']);
+  await page.getByRole('button', { name: /^Casa 10/ }).click();
+  await expect(page.locator('.mg-room-tile')).toHaveCount(1);
+  const trail = page.getByRole('navigation', { name: 'Trilha dos quartos' });
+  await trail.getByRole('button', { name: 'Alojamento Fictício Um', exact: true }).click();
+  await expect(page.locator('.mg-place-tile strong')).toHaveText(['Casa 2', 'Casa 10']);
+  await expect(
+    page.getByRole('heading', { name: 'Alojamento Fictício Um', exact: true }),
+  ).toBeFocused();
+  await trail.getByRole('button', { name: 'Quartos', exact: true }).click();
+  await expect(page.locator('.mg-place-tile')).toHaveCount(2);
+  await expect(trail.locator('[aria-current="location"]')).toHaveText('Quartos');
+});
+
+test('alojamento com 30 quartos mostra 25 e "Próxima" logo abaixo do último', async ({
+  page,
+  context,
+}) => {
+  await mockSession(context);
+  const records = Array.from({ length: 30 }, (_, index) => ({
+    ...original,
+    id: `00000000-0000-0000-0000-${String(index + 401).padStart(12, '0')}`,
+    code: `TESTE-R${index + 1}`,
+    number: String(30 - index),
+    accommodationId: secondAccommodationId,
+    capacity: 2,
+    vacancies: 2,
+  }));
+  await mockRooms(context, records);
+  await page.goto('/quartos');
+  await page.getByRole('button', { name: /^Alojamento Fictício Dois/ }).click();
+  const tiles = page.locator('.mg-room-tile');
+  await expect(tiles).toHaveCount(25);
+  await expect(tiles.first()).toContainText('Quarto 1');
+  await expect(tiles.last()).toContainText('Quarto 25');
+  const next = page.getByRole('button', { name: 'Próxima', exact: true });
+  const last = await tiles.last().boundingBox();
+  const button = await next.boundingBox();
+  const legend = await page.getByRole('heading', { name: 'Legenda', exact: true }).boundingBox();
+  expect(button!.y).toBeGreaterThan(last!.y + last!.height);
+  expect(button!.y - (last!.y + last!.height)).toBeLessThan(120);
+  expect(legend!.y).toBeGreaterThan(button!.y);
+  await next.click();
+  await expect(tiles).toHaveCount(5);
+  await expect(
+    page.getByRole('heading', { name: 'Alojamento Fictício Dois', exact: true }),
+  ).toBeFocused();
 });

@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetSession } from '../../core/api';
 import { HousingMap, RoomRecord, RoomRecordInput } from './housing.models';
 import { RoomApiError, RoomApiService } from './room-api.service';
 
@@ -14,7 +15,6 @@ const room: RoomRecord = {
   situation: 'Disponível',
   occupancy: 0,
   vacancies: null,
-  cleaningScore: null,
   version: 0,
 };
 const input: RoomRecordInput = {
@@ -44,17 +44,40 @@ const map: HousingMap = {
 const csrf = { headerName: 'X-CSRF-TOKEN', token: 'csrf-test' };
 
 describe('RoomApiService', () => {
+  beforeEach(() => resetSession());
   afterEach(() => vi.unstubAllGlobals());
 
   it('aceita mapa inicial com versão zero de alojamento, unidade e quarto', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(map)));
     vi.stubGlobal('fetch', fetchMock);
     expect(await TestBed.inject(RoomApiService).map()).toEqual(map);
-    expect(fetchMock).toHaveBeenCalledWith('/api/v1/quartos/mapa', {
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
-    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/quartos/mapa',
+      expect.objectContaining({
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
+      }),
+    );
+  });
+
+  it.each([['MENORES'], ['MAIORES'], [null], [undefined]])(
+    'aceita alojamento do mapa com faixa %s',
+    async (ageGroup) => {
+      const withGroup = { ...map, accommodations: [{ ...map.accommodations[0], ageGroup }] };
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(withGroup))));
+      expect((await TestBed.inject(RoomApiService).map()).accommodations[0].ageGroup ?? null).toBe(
+        ageGroup ?? null,
+      );
+    },
+  );
+
+  it('rejeita mapa com faixa etária desconhecida', async () => {
+    const invalid = { ...map, accommodations: [{ ...map.accommodations[0], ageGroup: 'ADULTOS' }] };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(invalid))));
+    await expect(TestBed.inject(RoomApiService).map()).rejects.toThrow(
+      'O mapa recebido é inválido.',
+    );
   });
 
   it('aceita criação na versão zero, preservando número textual e nulos com CSRF', async () => {
@@ -123,10 +146,75 @@ describe('RoomApiService', () => {
     { ...room, number: 1 },
     { ...room, version: -1 },
   ])('rejeita contrato inválido sem sucesso falso: %j', async (record) => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(record))));
-    await expect(TestBed.inject(RoomApiService).get(room.id)).rejects.toThrow(
-      'O quarto recebido é inválido.',
+    const invalid = { ...map, rooms: [record] };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(invalid))));
+    await expect(TestBed.inject(RoomApiService).map()).rejects.toThrow(
+      'O mapa recebido é inválido.',
     );
+  });
+
+  it.each([[{}], [{ cleaningScore: null }]])(
+    'aceita quarto com e sem cleaningScore: %j',
+    async (extra) => {
+      const withExtra = { ...map, rooms: [{ ...room, ...extra }] };
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(withExtra))));
+      expect((await TestBed.inject(RoomApiService).map()).rooms[0].id).toBe(room.id);
+    },
+  );
+
+  it('devolve alojamentos, casas, pisos e quartos em ordem natural', async () => {
+    const place = (id: string, name: string, accommodationId?: string) => ({
+      id,
+      code: id,
+      name,
+      version: 0,
+      ...(accommodationId ? { accommodationId } : {}),
+    });
+    const at = (
+      id: string,
+      accommodationId: string,
+      unitId: string | null,
+      floor: string | null,
+    ) => ({
+      ...room,
+      id,
+      code: id,
+      number: id.split('-').at(-1)!,
+      accommodationId,
+      unitId,
+      floor,
+    });
+    const unsorted = {
+      accommodations: [place('a10', 'Residência 10'), place('a2', 'Residência 2')],
+      units: [place('u10', 'Casa 10', 'a2'), place('u2', 'Casa 2', 'a2')],
+      rooms: [
+        at('r10-10', 'a10', null, null),
+        at('r10-1', 'a10', null, null),
+        at('r10-2', 'a10', null, null),
+        at('c10-1', 'a2', 'u10', null),
+        at('c2-piso1-1', 'a2', 'u2', '1'),
+        at('c2-terreo-1', 'a2', 'u2', 'Térreo'),
+        at('c2-sem-1', 'a2', 'u2', null),
+        at('fora-9', 'a2', null, null),
+      ],
+    };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(unsorted))));
+    const sorted = await TestBed.inject(RoomApiService).map();
+    expect(sorted.accommodations.map((item) => item.name)).toEqual([
+      'Residência 2',
+      'Residência 10',
+    ]);
+    expect(sorted.units.map((item) => item.name)).toEqual(['Casa 2', 'Casa 10']);
+    expect(sorted.rooms.map((item) => item.id)).toEqual([
+      'fora-9',
+      'c2-sem-1',
+      'c2-terreo-1',
+      'c2-piso1-1',
+      'c10-1',
+      'r10-1',
+      'r10-2',
+      'r10-10',
+    ]);
   });
 
   it('rejeita mapa com unidade pertencente a outro alojamento', async () => {
@@ -166,5 +254,25 @@ describe('RoomApiService', () => {
     await expect(TestBed.inject(RoomApiService).map()).rejects.toThrow(
       'O mapa recebido é inválido.',
     );
+  });
+
+  it('reaproveita o mapa por 60 s e pede de novo depois de gravar ou de trocar a sessão', async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === '/api/v1/auth/csrf') return new Response(JSON.stringify(csrf));
+      return new Response(JSON.stringify(url === '/api/v1/quartos/mapa' ? map : room));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const service = TestBed.inject(RoomApiService);
+    const reads = () =>
+      fetchMock.mock.calls.filter(([url]) => url === '/api/v1/quartos/mapa').length;
+    expect(await service.map()).toEqual(map);
+    expect(await service.map()).toEqual(map);
+    expect(reads()).toBe(1);
+    await service.save(input);
+    await service.map();
+    expect(reads()).toBe(2);
+    resetSession();
+    await service.map();
+    expect(reads()).toBe(3);
   });
 });

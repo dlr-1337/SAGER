@@ -1,33 +1,40 @@
 package br.edu.ifgoiano.sager.auth;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
+import br.edu.ifgoiano.sager.audit.AuditAction;
+import br.edu.ifgoiano.sager.audit.AuditService;
 import org.springframework.context.annotation.Profile;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
 
 @Service
 @Profile({ "local", "production" })
 public class LocalAccountProvisioningService {
-    private static final Set<String> PROFILES = Set.of("gestor", "supervisor", "residente", "saude");
+    private static final Set<String> PROFILES = Set.of("gestor", "supervisor", "residente");
     // Mantenha igual a frontend/src/app/shared/password-rules.ts.
     private static final Set<String> COMMON_PASSWORDS = Set.of("senha123", "password", "qwertyui", "ifgoiano",
             "sager123", "1234567890", "0987654321");
 
     private final LocalAccountRepository accounts;
     private final PasswordEncoder passwords;
+    private final AuditService audit;
 
-    public LocalAccountProvisioningService(LocalAccountRepository accounts, PasswordEncoder passwords) {
+    public LocalAccountProvisioningService(LocalAccountRepository accounts, PasswordEncoder passwords,
+            AuditService audit) {
         this.accounts = accounts;
         this.passwords = passwords;
+        this.audit = audit;
     }
 
     public java.util.List<LocalAccount> list() { return accounts.findAll(); }
@@ -38,14 +45,18 @@ public class LocalAccountProvisioningService {
         String normalizedEmail = email == null || email.isBlank() ? null : normalizeEmail(email);
         String normalizedName = requireName(name);
         if (!PROFILES.contains(profile)) {
-            throw new IllegalArgumentException("Perfil deve ser gestor, supervisor, residente ou saude.");
+            throw new IllegalArgumentException("Perfil deve ser gestor, supervisor ou residente.");
         }
         String hash = hashAndClear(password, normalizedEnrollment);
+        UUID id;
         try {
-            accounts.create(normalizedEnrollment, normalizedEmail, normalizedName, hash, profile);
+            id = accounts.create(normalizedEnrollment, normalizedEmail, normalizedName, hash, profile);
         } catch (DuplicateKeyException error) {
             throw new IllegalArgumentException("Já existe uma conta com essa matrícula ou e-mail.", error);
         }
+        recordOperator(id, AuditAction.CREATE, normalizedEmail == null
+                ? Set.of("enrollment", "name", "profile", "password")
+                : Set.of("enrollment", "email", "name", "profile", "password"));
     }
 
     @Transactional
@@ -55,13 +66,16 @@ public class LocalAccountProvisioningService {
         if (accounts.updatePassword(account, hash) != 1) {
             throw new IllegalArgumentException("Conta ativa nao encontrada.");
         }
+        recordOperator(account.id(), AuditAction.UPDATE, Set.of("password"));
     }
 
     @Transactional
     public void disable(String email) {
-        if (accounts.disable(requireActiveAccount(email)) != 1) {
+        LocalAccount account = requireActiveAccount(email);
+        if (accounts.disable(account) != 1) {
             throw new IllegalArgumentException("Conta ativa nao encontrada.");
         }
+        recordOperator(account.id(), AuditAction.END, Set.of("active"));
     }
 
     @Transactional
@@ -121,12 +135,15 @@ public class LocalAccountProvisioningService {
         LocalAccount account = requireActiveAccount(accountId);
         if (accounts.updatePassword(account, hashAndClear(password, account.enrollment())) != 1)
             throw new IllegalArgumentException("Conta ativa nao encontrada.");
+        recordOperator(account.id(), AuditAction.UPDATE, Set.of("password"));
     }
 
     @Transactional
     public void disable(UUID accountId) {
-        if (accounts.disable(requireActiveAccount(accountId)) != 1)
+        LocalAccount account = requireActiveAccount(accountId);
+        if (accounts.disable(account) != 1)
             throw new IllegalArgumentException("Conta ativa nao encontrada.");
+        recordOperator(account.id(), AuditAction.END, Set.of("active"));
     }
 
     private LocalAccount requireActiveAccount(UUID accountId) {
@@ -151,6 +168,17 @@ public class LocalAccountProvisioningService {
                     "Registro ja vinculado a outra conta. Desvincule essa conta primeiro.", error);
         } catch (DataIntegrityViolationException error) {
             throw new IllegalArgumentException("Vinculo invalido. Confira o registro e o perfil da conta.", error);
+        }
+        var fields = new ArrayList<String>();
+        if (!Objects.equals(account.residentId(), residentId)) fields.add("residentId");
+        if (!Objects.equals(account.supervisorId(), supervisorId)) fields.add("supervisorId");
+        recordOperator(account.id(), AuditAction.UPDATE, Set.copyOf(fields));
+    }
+
+    // Dentro de uma requisição, a conta é do cadastro assistido, já auditado como residente ou supervisor.
+    private void recordOperator(UUID accountId, AuditAction action, Set<String> fields) {
+        if (RequestContextHolder.getRequestAttributes() == null) {
+            audit.recordOperator(UUID.randomUUID(), accountId, action, fields);
         }
     }
 
@@ -208,6 +236,10 @@ public class LocalAccountProvisioningService {
         });
     }
 
+    // Auditado na edição do residente, como a matrícula.
+    @Transactional
+    public void synchronizeResidentName(UUID residentId, String name) { accounts.renameResidentAccount(residentId, name); }
+
     @Transactional
     public void assignEnrollment(UUID accountId, String enrollment) {
         LocalAccount account = accounts.findByIdForUpdate(accountId)
@@ -217,6 +249,7 @@ public class LocalAccountProvisioningService {
         } catch (DuplicateKeyException error) {
             throw new IllegalArgumentException("Matrícula já utilizada por outra conta.", error);
         }
+        recordOperator(account.id(), AuditAction.UPDATE, Set.of("enrollment"));
     }
 
     public static String normalizeEnrollment(String enrollment) {

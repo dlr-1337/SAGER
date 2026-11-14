@@ -7,7 +7,7 @@ Permitir que supervisores conversem com responsáveis pelo WhatsApp de dentro do
 
 ### Requirement: Acesso restrito a supervisores
 
-Somente supervisores SHALL acessar a aba e as rotas de conversas, inclusive arquivos, e MUST NOT existir acesso herdado por gestor, residente ou profissional de saúde.
+Somente supervisores SHALL acessar a aba e as rotas de conversas, inclusive arquivos, e MUST NOT existir acesso herdado por gestor ou residente.
 
 #### Scenario: Gestor tenta acessar
 
@@ -153,7 +153,7 @@ O supervisor SHALL poder vincular uma imagem ou PDF recebido a uma saída longa 
 
 ### Requirement: Aviso sobre dados sensíveis
 
-A aba SHALL exibir aviso permanente orientando a não tratar dados de saúde pelo canal, e MUST NOT dar acesso a dados de saúde do sistema.
+A aba SHALL exibir aviso permanente orientando a não tratar dados de saúde pelo canal.
 
 #### Scenario: Aba aberta
 

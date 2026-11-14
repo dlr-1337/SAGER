@@ -39,14 +39,18 @@ export class DemoEntry {
     this.busy.set(true);
     this.error.set('');
     try {
-      // Revalida o cookie: numa aba nova ainda não existe principal em memória.
-      if (await this.auth.refresh()) {
-        try {
-          await this.auth.logout();
-        } catch {
-          this.error.set('Não foi possível sair. Verifique a internet e tente de novo.');
-          return;
-        }
+      // Revalida o cookie: numa aba nova ainda não existe principal em memória. Sem resposta, só
+      // segue quem não tem conta conhecida (a API fora do ar não impede a demonstração).
+      const known = this.auth.accountMayBeOpen();
+      try {
+        const open = await this.auth.current().catch((error: unknown) => {
+          if (known) throw error;
+          return null;
+        });
+        if (open) await this.auth.logout();
+      } catch {
+        this.error.set('Não foi possível sair. Verifique a internet e tente de novo.');
+        return;
       }
       this.session.activate(role);
       await this.router.navigateByUrl('/inicio');

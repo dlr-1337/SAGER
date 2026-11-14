@@ -43,6 +43,28 @@ public class AuditService {
                 changedFields.stream().sorted().toList());
     }
 
+    /** Anonymous request acting on its own account, such as the resident password recovery. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void recordAccount(UUID accountId, String actorProfile, AuditAction action,
+            Set<String> changedFields) {
+        UUID requestId = contextProvider.requireRequestId();
+        validate(AuditResource.LOCAL_ACCOUNT, accountId, action, 0, changedFields);
+        repository.insert(new AuditContextProvider.Context(accountId, actorProfile, requestId),
+                AuditResource.LOCAL_ACCOUNT, accountId, action, 0, changedFields.stream().sorted().toList());
+    }
+
+    /** Operator account command from the terminal: no actor and never inside an HTTP request. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void recordOperator(UUID requestId, UUID accountId, AuditAction action,
+            Set<String> changedFields) {
+        if (requestId == null || RequestContextHolder.getRequestAttributes() != null) {
+            throw new IllegalStateException("Auditoria do terminal exige execução sem requisição HTTP.");
+        }
+        validate(AuditResource.LOCAL_ACCOUNT, accountId, action, 0, changedFields);
+        repository.insertOperator(requestId, AuditResource.LOCAL_ACCOUNT, accountId, action, 0,
+                changedFields.stream().sorted().toList());
+    }
+
     private void validate(AuditResource resource, UUID resourceId, AuditAction action,
             long resultingVersion, Set<String> changedFields) {
         if (resource == null || resourceId == null || action == null || resultingVersion < 0
@@ -55,9 +77,6 @@ public class AuditService {
     @Transactional(readOnly = true)
     public AuditPage list(UUID resourceId, UUID actorId, UUID requestId, AuditResource resource,
             int limit, Long beforeSequence) {
-        if (resource != null && resource.protectedHealthContent()) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Recurso fora desta consulta de auditoria.");
-        }
         if (limit < 1 || limit > 100 || (beforeSequence != null && beforeSequence <= 0)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Informe limite entre 1 e 100 e cursor positivo.");

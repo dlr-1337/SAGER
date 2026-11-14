@@ -3,6 +3,8 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
+import { cursorPages } from '../../core/list-page';
+import { PaginationComponent } from '../../shared/pagination.component';
 import { ResidentApiService, ResidentRecord } from '../management/resident-api.service';
 import {
   CommunicationsApiError,
@@ -29,7 +31,7 @@ import {
 @Component({
   standalone: true,
   selector: 'sager-recurrence-local',
-  imports: [RouterLink, ReactiveFormsModule, CommunicationsStateComponent],
+  imports: [RouterLink, ReactiveFormsModule, CommunicationsStateComponent, PaginationComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page comm-page">
@@ -119,43 +121,44 @@ import {
           </section>
         </div>
         <section class="op-section">
-          <h2>Termos já emitidos</h2>
-          <div class="op-list">
-            @for (term of terms(); track term.id) {
-              <article class="op-row">
-                <div class="op-row-main">
-                  <h3>{{ term.status === 'EMITIDO' ? 'Termo valendo' : 'Termo anulado' }}</h3>
-                  <p>{{ formatTime(term.issuedAt) }} · {{ term.warningIds.length }} advertências</p>
-                  <p>{{ term.decision }}</p>
+          <h2 id="term-results-title" tabindex="-1">Termos já emitidos</h2>
+          <sager-communications-state
+            [loading]="terms.loading()"
+            [error]="terms.error()"
+            (retry)="terms.reload()"
+          />
+          @if (!terms.loading() && !terms.error()) {
+            <div class="op-list">
+              @for (term of terms.items(); track term.id) {
+                <article class="op-row">
+                  <div class="op-row-main">
+                    <h3>{{ term.status === 'EMITIDO' ? 'Termo valendo' : 'Termo anulado' }}</h3>
+                    <p>
+                      {{ formatTime(term.issuedAt) }} · {{ term.warningIds.length }} advertências
+                    </p>
+                    <p>{{ term.decision }}</p>
+                  </div>
+                  <a class="op-row-link" [routerLink]="['/termos', term.id]"
+                    >Ver termo<span class="material-symbols-outlined" aria-hidden="true"
+                      >arrow_forward</span
+                    ></a
+                  >
+                </article>
+              } @empty {
+                <div class="op-empty" role="status">
+                  <h3>Nenhum termo emitido</h3>
+                  <p>A base apresentada não gera um termo automaticamente.</p>
                 </div>
-                <a class="op-row-link" [routerLink]="['/termos', term.id]"
-                  >Ver termo<span class="material-symbols-outlined" aria-hidden="true"
-                    >arrow_forward</span
-                  ></a
-                >
-              </article>
-            } @empty {
-              <div class="op-empty" role="status">
-                <h3>Nenhum termo emitido</h3>
-                <p>A base apresentada não gera um termo automaticamente.</p>
-              </div>
-            }
-          </div>
-          @if (nextCursor() !== null) {
-            <div class="comm-actions">
-              <button
-                class="btn-secondary"
-                type="button"
-                [disabled]="moreLoading()"
-                (click)="more()"
-              >
-                Carregar mais termos
-              </button>
+              }
             </div>
           }
-          @if (moreError()) {
-            <p class="comm-error" role="alert">{{ moreError() }}</p>
-          }
+          <sager-pagination
+            [page]="terms.page()"
+            [hasNext]="terms.hasNext()"
+            [busy]="terms.loading()"
+            anchor="term-results-title"
+            (pageChange)="terms.go($event)"
+          />
         </section>
       }
     </main>
@@ -173,15 +176,15 @@ export class RecurrenceLocalPage {
   private readonly id = this.route.snapshot.paramMap.get('id') ?? '';
   readonly resident = signal<ResidentRecord | null>(null);
   readonly candidates = signal<RecurrenceCandidate[]>([]);
-  readonly terms = signal<DisciplineTerm[]>([]);
+  readonly terms = cursorPages<DisciplineTerm>(
+    (cursor) => this.api.terms(this.id, cursor),
+    communicationsError,
+  );
   readonly selected = signal<string[]>([]);
   readonly selectedCategory = signal('');
   readonly decision = new FormControl('', { nonNullable: true });
-  readonly nextCursor = signal<number | null>(null);
   readonly loading = signal(false);
   readonly loadError = signal('');
-  readonly moreLoading = signal(false);
-  readonly moreError = signal('');
   readonly busy = signal(false);
   readonly error = signal('');
   readonly conflict = signal(false);
@@ -201,15 +204,14 @@ export class RecurrenceLocalPage {
     this.selected.set([]);
     this.selectedCategory.set('');
     try {
-      const [resident, candidates, terms] = await Promise.all([
+      // Os termos mostram o próprio erro na seção deles.
+      const [resident, candidates] = await Promise.all([
         this.registry.get(this.id),
         this.api.recurrences(this.id),
-        this.api.terms(this.id),
+        this.terms.reload(),
       ]);
       this.resident.set(resident);
       this.candidates.set(candidates);
-      this.terms.set(terms.items);
-      this.nextCursor.set(terms.nextCursor);
     } catch (error) {
       this.loadError.set(communicationsError(error));
     } finally {
@@ -223,24 +225,6 @@ export class RecurrenceLocalPage {
     this.selected.update((items) =>
       checked ? [...items.filter((item) => item !== id), id] : items.filter((item) => item !== id),
     );
-  }
-  async more(): Promise<void> {
-    const cursor = this.nextCursor();
-    if (cursor === null || this.moreLoading()) return;
-    this.moreLoading.set(true);
-    this.moreError.set('');
-    try {
-      const page = await this.api.terms(this.id, cursor);
-      this.terms.update((items) => [
-        ...items,
-        ...page.items.filter((item) => !items.some((old) => old.id === item.id)),
-      ]);
-      this.nextCursor.set(page.nextCursor);
-    } catch (error) {
-      this.moreError.set(communicationsError(error));
-    } finally {
-      this.moreLoading.set(false);
-    }
   }
   async review(): Promise<void> {
     const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;

@@ -54,7 +54,6 @@ export interface Room {
   block: string;
   floor: string;
   situation: RoomSituation;
-  cleaningScore: number | null;
   version: number;
 }
 

@@ -98,6 +98,60 @@ test('aba nova encerra cookie de sessão local antes de abrir a demonstração',
   await expect(newTab.locator('.demo-flag')).toContainText('Demonstração');
 });
 
+test('demonstração não começa com a conta aberta e o servidor com erro', async ({
+  context,
+  page,
+}) => {
+  let me: 'conta' | 'erro' | 'sem sessão' = 'conta';
+  const requests: string[] = [];
+  await context.route('**/api/v1/auth/**', (route) => {
+    const path = new URL(route.request().url()).pathname;
+    requests.push(path);
+    if (path.endsWith('/csrf'))
+      return route.fulfill({ json: { headerName: 'X-CSRF-TOKEN', token: 'csrf-test' } });
+    if (path.endsWith('/login')) return route.fulfill({ status: 204 });
+    if (path.endsWith('/me'))
+      return route.fulfill(
+        me === 'conta'
+          ? {
+              json: {
+                id: '00000000-0000-0000-0000-000000000001',
+                nome: 'Operadora Exemplo',
+                email: null,
+                matricula: 'TESTE-LOGIN',
+                fotoUrl: null,
+                perfis: ['gestor'],
+                residenteId: null,
+                supervisorId: null,
+              },
+            }
+          : { status: me === 'erro' ? 503 : 401 },
+      );
+    return route.fulfill({ status: 404 });
+  });
+  await page.goto('/acesso');
+  await page.getByRole('textbox', { name: 'Matrícula' }).fill('TESTE-LOGIN');
+  await page.getByLabel('Senha', { exact: true }).fill('senha de teste');
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click();
+  await expect(page).toHaveURL(/\/inicio$/);
+
+  me = 'erro';
+  const newTab = await context.newPage();
+  await newTab.goto('/demonstracao');
+  requests.length = 0;
+  await newTab.getByRole('button', { name: /Entrar como gestor/i }).click();
+  await expect(newTab.getByRole('alert')).toContainText('tente de novo');
+  await expect(newTab).toHaveURL(/\/demonstracao$/);
+  expect(requests).toEqual(['/api/v1/auth/me']);
+  expect(await newTab.evaluate(() => sessionStorage.getItem('sager.demo.active'))).toBeNull();
+
+  me = 'sem sessão';
+  await newTab.getByRole('button', { name: /Entrar como gestor/i }).click();
+  await expect(newTab).toHaveURL(/\/inicio$/);
+  expect(requests).not.toContain('/api/v1/auth/logout');
+  await expect(newTab.locator('.demo-flag')).toContainText('Demonstração');
+});
+
 test('login local restaura a sessão, respeita o perfil do servidor e permite sair', async ({
   page,
 }) => {

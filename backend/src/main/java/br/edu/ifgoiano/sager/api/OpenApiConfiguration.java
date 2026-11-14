@@ -11,7 +11,6 @@ import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.PathItem;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.media.BooleanSchema;
-import io.swagger.v3.oas.models.media.ArraySchema;
 import io.swagger.v3.oas.models.media.Content;
 import io.swagger.v3.oas.models.media.IntegerSchema;
 import io.swagger.v3.oas.models.media.MediaType;
@@ -56,18 +55,31 @@ public class OpenApiConfiguration {
                     .addProperty("birthDate", new StringSchema().format("date"))
                     .addProperty("courseId", uuid(false)).addProperty("institutionalEmail", new StringSchema().format("email").nullable(true))
                     .addProperty("entryYear", new IntegerSchema().minimum(BigDecimal.valueOf(1990)).maximum(BigDecimal.valueOf(2100))
-                            .nullable(true).description("Ano de ingresso; novo valor vai até o ano seguinte em America/Sao_Paulo."))
+                            .description("Ano de ingresso; novo valor vai até o ano seguinte em America/Sao_Paulo."))
                     .addProperty("extraSemesters", new IntegerSchema().minimum(BigDecimal.ZERO).maximum(BigDecimal.TEN)
                             ._default(0).description("Prorrogação em semestres; ausente vale 0.")),
-                    List.of("name", "enrollment", "birthDate", "courseId"));
+                    List.of("name", "enrollment", "birthDate", "courseId", "entryYear"));
             var residentCreate=api.getComponents().getSchemas().get("ResidentCreateRequest");
             residentCreate.addProperty("password", new StringSchema().format("password").minLength(8).maxLength(72).writeOnly(true));
             residentCreate.addProperty("passwordConfirmation", new StringSchema().format("password").minLength(8).maxLength(72).writeOnly(true));
-            residentCreate.setRequired(List.of("name","enrollment","birthDate","courseId","password","passwordConfirmation"));
+            residentCreate.setRequired(List.of("name","enrollment","birthDate","courseId","entryYear","password","passwordConfirmation"));
+            // Calculados pelo servidor na data civil de America/Sao_Paulo a cada leitura.
+            api.getComponents().getSchemas().get("Resident")
+                    .addProperty("stage", new StringSchema().nullable(true).readOnly(true)
+                            .description("Etapa do curso, ou Concluinte; nulo sem ano, nível ou duração."))
+                    .addProperty("expectedExit", new StringSchema().format("date").nullable(true).readOnly(true)
+                            .description("Saída prevista: 30/06 ou 31/12 do último semestre."))
+                    .addProperty("concluded", new BooleanSchema().readOnly(true)
+                            .description("Verdadeiro depois da saída prevista."))
+                    .addProperty("minor", new BooleanSchema().readOnly(true)
+                            .description("Menor de 18 anos; falso sem data de nascimento."));
             crud(api, "/api/v1/cursos", "Course", new ObjectSchema().addProperty("name", text(1,200,false))
-                    .addProperty("level", new StringSchema()._enum(List.of("MEDIO", "SUPERIOR")).nullable(true))
-                    .addProperty("durationYears", new IntegerSchema().minimum(BigDecimal.ONE).maximum(BigDecimal.valueOf(6)).nullable(true)),
+                    .addProperty("level", new StringSchema()._enum(List.of("MEDIO", "SUPERIOR")).nullable(true)
+                            .description("Obrigatório em curso novo ou com nome, nível ou duração alterados."))
+                    .addProperty("durationYears", new IntegerSchema().minimum(BigDecimal.ONE).maximum(BigDecimal.valueOf(6)).nullable(true)
+                            .description("Obrigatório em curso novo ou com nome, nível ou duração alterados.")),
                     List.of("name"));
+            api.getComponents().getSchemas().get("CourseCreateRequest").setRequired(List.of("name", "level", "durationYears"));
             var courseUpdate=api.getComponents().getSchemas().get("CourseUpdateRequest");
             courseUpdate.addProperty("active",new BooleanSchema()); courseUpdate.setRequired(List.of("name","active","version"));
             crud(api, "/api/v1/supervisores", "Supervisor", new ObjectSchema()
@@ -80,8 +92,10 @@ public class OpenApiConfiguration {
             supervisorCreate.addProperty("passwordConfirmation", new StringSchema().format("password").minLength(8).maxLength(72).writeOnly(true));
             supervisorCreate.setRequired(List.of("name","institutionalId","email","password","passwordConfirmation"));
             crud(api, "/api/v1/alojamentos", "Accommodation", new ObjectSchema()
-                    .addProperty("code", text(1, 64, false)).addProperty("name", text(1, 200, false)),
+                    .addProperty("code", text(1, 64, false)).addProperty("name", text(1, 200, false))
+                    .addProperty("ageGroup", ageGroup()),
                     List.of("code", "name"));
+            api.getComponents().getSchemas().get("Accommodation").addProperty("ageGroup", ageGroup());
             crud(api, "/api/v1/alojamentos/{id}/unidades", "AccommodationUnit", new ObjectSchema()
                     .addProperty("code", text(1, 64, false)).addProperty("name", text(1, 200, false)),
                     List.of("code", "name"));
@@ -101,7 +115,8 @@ public class OpenApiConfiguration {
                             .maximum(BigDecimal.valueOf(20)).nullable(true))
                     .addProperty("situation", new StringSchema()._enum(List.of("Disponível", "Manutenção", "Indisponível"))
                             .description("Situação manual. Respostas mostram Ocupado quando os moradores ativos"
-                                    + " atingem a capacidade; Manutenção e Indisponível prevalecem.")),
+                                    + " atingem a capacidade; Manutenção e Indisponível prevalecem; sem"
+                                    + " capacidade definida, o quarto aparece Indisponível.")),
                     List.of("code", "number", "accommodationId", "situation"));
             request(api, "/api/v1/alocacoes", "AllocationCreateRequest", new ObjectSchema()
                     .addProperty("residentId", uuid(false)).addProperty("roomId", uuid(false))
@@ -111,7 +126,6 @@ public class OpenApiConfiguration {
                     .required(List.of("roomId", "version")));
             request(api, "/api/v1/alocacoes/{id}/encerrar", "AllocationEndRequest", new ObjectSchema()
                     .addProperty("version", version()).required(List.of("version")));
-            healthContracts(api);
             Schema<?> loginBody = new ObjectSchema()
                     .addProperty("matricula", text(1,64,false))
                     .addProperty("password", new StringSchema().format("password"))
@@ -151,6 +165,11 @@ public class OpenApiConfiguration {
         };
     }
 
+    private Schema<?> ageGroup() {
+        return new StringSchema()._enum(List.of("MENORES", "MAIORES")).nullable(true)
+                .description("Faixa etária do alojamento, herdada pelos quartos; ausente ou nula é sem faixa.");
+    }
+
     private void crud(OpenAPI api, String path, String name, Schema<?> schema, List<String> required) {
         schema.setRequired(required);
         String createName = name + "CreateRequest";
@@ -171,66 +190,6 @@ public class OpenApiConfiguration {
     private void request(OpenAPI api, String path, String name, Schema<?> schema) {
         api.getComponents().addSchemas(name, schema);
         setRequest(api.getPaths().get(path).getPost(), name);
-    }
-
-    private void healthContracts(OpenAPI api) {
-        String base = "/api/v1/saude";
-        optionalRequest(api, base + "/habilitacoes", "HealthGrantCreateRequest", new ObjectSchema()
-                .addProperty("accountId", uuid(false))
-                .addProperty("profession", new StringSchema()._enum(List.of("MEDICINA", "ENFERMAGEM", "PSICOLOGIA")))
-                .addProperty("registrationNumber", text(1, 100, false))
-                .addProperty("registrationRegion", new StringSchema().minLength(2).maxLength(2)
-                        .pattern("^[A-Za-z]{2}$")._enum(List.of("AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES",
-                                "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS",
-                                "RO", "RR", "SC", "SP", "SE", "TO"))
-                        .description("UF do registro; normalizada para maiúsculas no servidor."))
-                .addProperty("verificationReason", text(10, 500, false))
-                .required(List.of("accountId", "profession", "registrationNumber", "registrationRegion", "verificationReason")));
-        optionalRequest(api, base + "/habilitacoes/{id}/revogacao", "HealthGrantEndRequest", reasonAndVersion());
-        optionalRequest(api, base + "/vinculos", "HealthCareCreateRequest", new ObjectSchema()
-                .addProperty("residentId", uuid(false)).addProperty("professionalGrantId", uuid(false))
-                .addProperty("reason", text(10, 500, false))
-                .required(List.of("residentId", "professionalGrantId", "reason")));
-        optionalRequest(api, base + "/vinculos/{id}/encerramento", "HealthCareEndRequest", reasonAndVersion());
-        optionalRequest(api, base + "/custodias", "HealthCustodyCreateRequest", new ObjectSchema()
-                .addProperty("residentId", uuid(false)).addProperty("sourceAuthorAccountId", uuid(false))
-                .addProperty("recipientGrantId", uuid(false)).addProperty("reason", text(10, 500, false))
-                .required(List.of("residentId", "sourceAuthorAccountId", "recipientGrantId", "reason")));
-        optionalRequest(api, base + "/custodias/{id}/encerramento", "HealthCustodyEndRequest", reasonAndVersion());
-        optionalRequest(api, base + "/residentes/{id}/notas", "HealthNoteCreateRequest", new ObjectSchema()
-                .addProperty("category", new StringSchema()._enum(List.of("GENERAL", "PSYCHOLOGICAL", "SHARED_SUMMARY")))
-                .addProperty("body", text(1, 4000, false).description("Texto simples após trim; markup HTML recusado."))
-                .addProperty("relatedNoteId", uuid(true)).required(List.of("category", "body")));
-        optionalRequest(api, base + "/notas/{id}/correcoes", "HealthNoteCorrectionRequest", reasonAndVersion()
-                .addProperty("body", text(1, 4000, false)).required(List.of("version", "reason", "body")));
-        optionalRequest(api, base + "/notas/{id}/partilhas", "HealthNoteShareRequest", new ObjectSchema()
-                .addProperty("version", version()).addProperty("recipientGrantIds", new ArraySchema()
-                        .items(uuid(false)).minItems(1).maxItems(100).uniqueItems(true))
-                .required(List.of("version", "recipientGrantIds")));
-        optionalRequest(api, base + "/notas/{id}/partilhas/{shareId}/revogacao", "HealthShareEndRequest",
-                new ObjectSchema().addProperty("version", version()).required(List.of("version")));
-        api.getPaths().forEach((path, item) -> {
-            if (path.startsWith(base) || path.startsWith("/api/v1/minha-saude")) {
-                item.readOperations().forEach(operation -> operation.setDescription(
-                        "A sessão e as permissões vigentes são verificadas no servidor em cada requisição. "
-                        + "Administração de habilitações não concede acesso ao conteúdo. "
-                        + "Leitura de conteúdo e exportação registram auditoria na mesma transação; "
-                        + "acesso a uma nota indisponível responde 404. Respostas usam Cache-Control: no-store."));
-            }
-        });
-    }
-
-    private Schema<?> reasonAndVersion() {
-        return new ObjectSchema().addProperty("version", version())
-                .addProperty("reason", text(10, 500, false)).required(List.of("version", "reason"));
-    }
-
-    private void optionalRequest(OpenAPI api, String path, String name, Schema<?> schema) {
-        PathItem item = api.getPaths().get(path);
-        if (item != null && item.getPost() != null) {
-            api.getComponents().addSchemas(name, schema);
-            setRequest(item.getPost(), name);
-        }
     }
 
     private void setRequest(Operation operation, String name) {

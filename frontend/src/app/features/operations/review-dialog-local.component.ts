@@ -103,11 +103,11 @@ export interface LocalReviewResult {
             data.requireReason || timeMode.value === 'RETROACTIVE'
               ? 'Justificativa'
               : 'Comentário (opcional)'
-          }}<textarea rows="3" maxlength="500" [formControl]="reason"></textarea>
+          }}<textarea rows="3" maxlength="2000" [formControl]="reason"></textarea>
         </label>
         @if (data.requireReason || timeMode.value === 'RETROACTIVE') {
           <p class="op-help">
-            Descreva o motivo em 10 a 500 caracteres. O histórico preserva esta justificativa.
+            Descreva o motivo em 10 a 2.000 caracteres. O histórico preserva esta justificativa.
           </p>
         }
       }
@@ -119,7 +119,7 @@ export interface LocalReviewResult {
         }
         <label class="field"
           >Observação do atraso{{ late ? '' : ' (se houver)'
-          }}<textarea rows="3" maxlength="500" [formControl]="lateObservation"></textarea>
+          }}<textarea rows="3" maxlength="2000" [formControl]="lateObservation"></textarea>
         </label>
         <p class="op-help">A volta é registrada mesmo se passar de 3 horas.</p>
       }
@@ -221,7 +221,7 @@ export class LocalOperationsReviewDialogComponent {
       (this.data.requireReason || this.timeMode.value === 'RETROACTIVE') &&
       !validJustification(reason)
     ) {
-      this.error.set('Informe uma justificativa com 10 a 500 caracteres.');
+      this.error.set('Informe uma justificativa com 10 a 2.000 caracteres.');
       return;
     }
     if (this.data.requireConfirmation && !this.confirmation.value) {
@@ -276,7 +276,7 @@ export class LocalOperationsReviewDialogComponent {
       }
       const observation = this.lateObservation.value.trim();
       if (this.late && !validJustification(observation)) {
-        this.error.set('Informe uma observação do atraso com 10 a 500 caracteres.');
+        this.error.set('Informe uma observação do atraso com 10 a 2.000 caracteres.');
         return;
       }
       if (p.action === 'retorno' && observation) result.physical.lateObservation = observation;

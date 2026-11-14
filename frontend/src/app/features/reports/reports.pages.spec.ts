@@ -101,4 +101,15 @@ describe('Relatórios na demonstração', () => {
     expect(button(root, 'Gerar relatório')).toBeTruthy();
     fixture.destroy();
   });
+
+  it('linhas da demonstração vêm em páginas de 25, como no acesso por conta', async () => {
+    const api = TestBed.inject(ReportsDemoApiService);
+    const snapshot = await api.create({
+      catalogCode: 'CONSOLIDADO',
+      filters: { from: '2026-09-01', to: '2026-09-30' },
+      idempotencyKey: 'demo-paginas',
+    });
+    expect((await api.rows(snapshot.id)).limit).toBe(25);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
 });

@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetSession } from '../../core/api';
 import {
   GuardianApiError,
   GuardianApiService,
@@ -25,17 +26,21 @@ const input: GuardianPayload = {
 };
 
 describe('GuardianApiService', () => {
+  beforeEach(() => resetSession());
   afterEach(() => vi.unstubAllGlobals());
 
   it('consulta responsáveis com a sessão local sem inserir dados demonstrativos', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify([record])));
     vi.stubGlobal('fetch', fetchMock);
     expect(await TestBed.inject(GuardianApiService).list()).toEqual([record]);
-    expect(fetchMock).toHaveBeenCalledWith('/api/v1/responsaveis', {
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
-    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/responsaveis',
+      expect.objectContaining({
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
+      }),
+    );
   });
 
   it('envia telefone nulo, CSRF e versão apenas na edição', async () => {

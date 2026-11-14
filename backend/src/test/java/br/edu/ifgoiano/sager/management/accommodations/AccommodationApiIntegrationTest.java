@@ -90,7 +90,8 @@ class AccommodationApiIntegrationTest {
             assertThat(accommodation.path("code").asText()).isEqualTo("DEMO-RES");
             assertThat(accommodation.path("name").asText()).isEqualTo("Residência Sintética");
             assertThat(accommodation.path("version").asLong()).isZero();
-            assertThat(accommodation.size()).isEqualTo(4);
+            assertThat(accommodation.size()).isEqualTo(5);
+            assertThat(accommodation.path("ageGroup").isNull()).isTrue();
             assertThat(created.headers().firstValue("Location").orElseThrow())
                     .isEqualTo(PATH + "/" + id);
             assertThat(json.readTree(get(client, PATH).body()).size()).isEqualTo(1);
@@ -213,6 +214,54 @@ class AccommodationApiIntegrationTest {
             assertThat(jdbc.queryForObject("SELECT accommodation_id FROM sager_accommodation_unit"
                     + " WHERE id = ?", UUID.class, UUID.fromString(unitId)))
                     .isEqualTo(UUID.fromString(first));
+        }
+    }
+
+    @Test
+    void ageGroupIsOptionalStrictReplacedByPutAndAudited() throws Exception {
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment("gestor@example.invalid"), "gestor@example.invalid", "Gestor", "gestor", PASSWORD.toCharArray());
+        try (HttpClient client = browser()) {
+            login(client, "gestor");
+            HttpResponse<String> created = post(client, PATH, json.writeValueAsString(
+                    Map.of("code", "FAIXA", "name", "Residência Sintética", "ageGroup", "MENORES")), csrf(client));
+            assertThat(created.statusCode()).isEqualTo(201);
+            String id = json.readTree(created.body()).path("id").asText();
+            assertThat(json.readTree(get(client, PATH + "/" + id).body()).path("ageGroup").asText()).isEqualTo("MENORES");
+            JsonNode inMap = null;
+            for (JsonNode candidate : json.readTree(get(client, "/api/v1/quartos/mapa").body()).path("accommodations")) {
+                if (candidate.path("id").asText().equals(id)) inMap = candidate;
+            }
+            assertThat(inMap).isNotNull();
+            assertThat(inMap.path("ageGroup").asText()).isEqualTo("MENORES");
+            assertAudit(id, "ACCOMMODATION", "CREATE", 0, "code", "name", "ageGroup");
+
+            String base = update("FAIXA", "Residência Sintética", 0);
+            for (Object invalid : new Object[] { "ADULTOS", "menores", 1, false, List.of("MENORES") }) {
+                assertError(put(client, PATH + "/" + id, replaceField(base, "ageGroup", invalid), csrf(client)),
+                        400, "invalid_input");
+                assertError(post(client, PATH, replaceField(input("OUTRO", "Outro Sintético"), "ageGroup", invalid),
+                        csrf(client)), 400, "invalid_input");
+            }
+            assertThat(json.readTree(get(client, PATH + "/" + id).body()).path("version").asLong()).isZero();
+
+            HttpResponse<String> cleared = put(client, PATH + "/" + id, replaceField(base, "ageGroup", null), csrf(client));
+            assertThat(cleared.statusCode()).isEqualTo(200);
+            assertThat(json.readTree(cleared.body()).path("ageGroup").isNull()).isTrue();
+            assertThat(json.readTree(cleared.body()).path("version").asLong()).isEqualTo(1);
+            assertAudit(id, "ACCOMMODATION", "UPDATE", 1, "ageGroup");
+            assertThat(put(client, PATH + "/" + id, replaceField(update("FAIXA", "Residência Sintética", 1),
+                    "ageGroup", "MAIORES"), csrf(client)).statusCode()).isEqualTo(200);
+            assertAudit(id, "ACCOMMODATION", "UPDATE", 2, "ageGroup");
+            assertThat(put(client, PATH + "/" + id, replaceField(update("FAIXA", "Residência Renomeada", 2),
+                    "ageGroup", "MAIORES"), csrf(client)).statusCode()).isEqualTo(200);
+            assertAudit(id, "ACCOMMODATION", "UPDATE", 3, "name");
+            HttpResponse<String> absent = put(client, PATH + "/" + id, update("FAIXA", "Residência Renomeada", 3),
+                    csrf(client));
+            assertThat(json.readTree(absent.body()).path("ageGroup").isNull()).isTrue();
+            assertAudit(id, "ACCOMMODATION", "UPDATE", 4, "ageGroup");
+            String unit = json.readTree(post(client, PATH + "/" + id + "/unidades", replaceField(
+                    input("CASA", "Casa Sintética"), "ageGroup", "MENORES"), csrf(client)).body()).path("id").asText();
+            assertThat(json.readTree(get(client, PATH + "/" + id + "/unidades/" + unit).body()).has("ageGroup")).isFalse();
         }
     }
 

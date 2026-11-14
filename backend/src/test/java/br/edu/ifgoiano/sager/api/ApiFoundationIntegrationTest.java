@@ -130,10 +130,28 @@ class ApiFoundationIntegrationTest {
                     .isEqualTo(10);
             assertThat(schemas.path("ResidentCreateRequest").path("properties").path("entryYear").path("minimum").asInt())
                     .isEqualTo(1990);
+            for (String field : List.of("stage", "expectedExit", "concluded", "minor")) {
+                assertThat(schemas.path("Resident").path("properties").path(field).path("readOnly").asBoolean())
+                        .as(field).isTrue();
+                assertThat(schemas.path("ResidentCreateRequest").path("properties").has(field)).as(field).isFalse();
+            }
+            for (String request : List.of("ResidentCreateRequest", "ResidentUpdateRequest")) {
+                assertThat(schemas.path(request).path("required").toString()).as(request).contains("\"entryYear\"");
+                assertThat(schemas.path(request).path("properties").path("entryYear").path("nullable").asBoolean())
+                        .as(request).isFalse();
+            }
             assertThat(schemas.path("CourseUpdateRequest").path("properties").path("level").path("enum").toString())
                     .contains("MEDIO", "SUPERIOR");
             assertThat(schemas.path("CourseCreateRequest").path("properties").path("durationYears").path("maximum").asInt())
                     .isEqualTo(6);
+            assertThat(schemas.path("CourseCreateRequest").path("required").toString()).contains("\"level\"", "\"durationYears\"");
+            assertThat(schemas.path("CourseUpdateRequest").path("required").toString()).doesNotContain("level");
+            for (String schema : List.of("AccommodationCreateRequest", "AccommodationUpdateRequest", "Accommodation")) {
+                assertThat(schemas.path(schema).path("properties").path("ageGroup").path("enum").toString())
+                        .as(schema).contains("MENORES", "MAIORES");
+                assertThat(schemas.path(schema).path("required").toString()).as(schema).doesNotContain("ageGroup");
+            }
+            assertThat(schemas.path("AccommodationUnitCreateRequest").path("properties").has("ageGroup")).isFalse();
             JsonNode supervisorCreate = document.path("components").path("schemas").path("SupervisorCreateRequest");
             assertThat(supervisorCreate.path("properties").path("password").path("minLength").asInt()).isEqualTo(8);
             assertThat(supervisorCreate.path("properties").path("passwordConfirmation").path("writeOnly").asBoolean()).isTrue();
@@ -258,44 +276,17 @@ class ApiFoundationIntegrationTest {
     }
 
     @Test
-    void openApiIncludesActualHealthPathsAndStrictDistinctRequestSchemas() throws Exception {
+    void openApiHasNoHealthPathsOrSchemas() throws Exception {
         account("gestor");
         try (HttpClient client = browser()) {
             login(client, "gestor@example.test", PASSWORD, csrf(client));
             HttpResponse<String> response = get(client, "/api/v1/openapi");
             assertThat(response.statusCode()).isEqualTo(200);
             JsonNode document = json.readTree(response.body());
-            JsonNode paths = document.path("paths");
-            for (String path : List.of("/api/v1/saude/me", "/api/v1/saude/contas",
-                    "/api/v1/saude/habilitacoes", "/api/v1/saude/habilitacoes/{id}/revogacao",
-                    "/api/v1/saude/vinculos", "/api/v1/saude/vinculos/{id}/encerramento",
-                    "/api/v1/saude/custodias", "/api/v1/saude/custodias/{id}/encerramento",
-                    "/api/v1/saude/residentes", "/api/v1/saude/residentes/{id}",
-                    "/api/v1/saude/residentes/{id}/profissionais", "/api/v1/saude/residentes/{id}/notas",
-                    "/api/v1/saude/notas/{id}", "/api/v1/saude/notas/{id}/historico",
-                    "/api/v1/saude/notas/{id}/correcoes", "/api/v1/saude/notas/{id}/partilhas",
-                    "/api/v1/saude/notas/{id}/partilhas/{shareId}/revogacao",
-                    "/api/v1/saude/residentes/{id}/exportacoes", "/api/v1/minha-saude/notas",
-                    "/api/v1/minha-saude/notas/{id}", "/api/v1/minha-saude/notas/{id}/historico",
-                    "/api/v1/minha-saude/exportacoes")) {
-                assertThat(paths.has(path)).as(path).isTrue();
-            }
-            assertThat(paths.path("/api/v1/saude/notas/{id}/partilhas").path("post")
-                    .path("requestBody").path("content").path("application/json").path("schema")
-                    .path("$ref").asText()).isEqualTo("#/components/schemas/HealthNoteShareRequest");
-            JsonNode schemas = document.path("components").path("schemas");
-            JsonNode grant = schemas.path("HealthGrantCreateRequest").path("properties");
-            assertThat(grant.path("registrationNumber").path("maxLength").asInt()).isEqualTo(100);
-            assertThat(grant.path("registrationRegion").path("enum").size()).isEqualTo(27);
-            JsonNode correction = schemas.path("HealthNoteCorrectionRequest").path("properties");
-            assertThat(correction.path("body").path("maxLength").asInt()).isEqualTo(4000);
-            assertThat(correction.path("reason").path("minLength").asInt()).isEqualTo(10);
-            assertThat(correction.path("version").path("type").asText()).isEqualTo("integer");
-            assertThat(schemas.path("HealthNoteShareRequest").path("properties")
-                    .path("recipientGrantIds").path("uniqueItems").asBoolean()).isTrue();
-            assertThat(paths.path("/api/v1/minha-saude/exportacoes").path("post")
-                    .path("responses").path("403").path("content").path("application/json")
-                    .path("schema").path("$ref").asText()).isEqualTo("#/components/schemas/ApiError");
+            assertThat(document.path("paths").propertyNames()).isNotEmpty()
+                    .noneMatch(path -> path.startsWith("/api/v1/saude") || path.startsWith("/api/v1/minha-saude"));
+            assertThat(document.path("components").path("schemas").propertyNames()).isNotEmpty()
+                    .noneMatch(name -> name.startsWith("Health"));
         }
     }
 

@@ -4,5 +4,5 @@ import java.util.UUID;
 
 public record RoomRecord(UUID id, String code, String number, UUID accommodationId, UUID unitId,
         String floor, Integer capacity, String situation, Integer occupancy, Integer vacancies,
-        Double cleaningScore, long version) {
+        long version) {
 }

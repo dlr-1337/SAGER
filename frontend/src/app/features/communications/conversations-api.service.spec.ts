@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OperationsApiError } from '../operations/operations-local-api.service';
 import { ConversationsApiService } from './conversations-api.service';
+import { resetSession } from '../../core/api';
 
 const id = '00000000-0000-0000-0000-000000000001';
 const message = {
@@ -50,7 +51,10 @@ describe('ConversationsApiService', () => {
     fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
   });
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    resetSession();
+  });
 
   const withCsrf = (answer: Response) =>
     fetchMock

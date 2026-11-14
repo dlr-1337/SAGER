@@ -10,6 +10,7 @@ interface ResidentRecord {
   version: number;
   courseId?: string | null;
   institutionalEmail?: string | null;
+  entryYear?: number | null;
 }
 
 const id = '00000000-0000-0000-0000-000000000041';
@@ -108,6 +109,7 @@ function mockRegistry(initial: ResidentRecord[] = []) {
         course: courses.find((c) => c.id === body['courseId'])?.name ?? null,
         courseId: (body['courseId'] as string | null) ?? null,
         institutionalEmail: (body['institutionalEmail'] as string | null) ?? null,
+        entryYear: (body['entryYear'] as number | null) ?? null,
         version: previous ? previous.version + 1 : 0,
       };
       if (previous) Object.assign(previous, result);
@@ -158,13 +160,17 @@ test('cadastro local cria, consulta, busca e edita após recarga, sem dados inve
   await page.getByRole('button', { name: 'Novo curso', exact: true }).click();
   await page.getByLabel('Nome do novo curso').fill('Curso de Teste');
   await page.getByRole('button', { name: 'Cadastrar e selecionar' }).click();
+  await expect(page.getByText('Escolha o nível.')).toBeVisible();
+  await page.getByLabel('Nível do novo curso').selectOption('SUPERIOR');
+  await page.getByLabel('Duração do novo curso (anos)').fill('4');
+  await page.getByRole('button', { name: 'Cadastrar e selecionar' }).click();
   await expect(page.getByRole('combobox', { name: 'Curso *' })).toHaveValue(
     '00000000-0000-0000-0000-000000000201',
   );
   await page.getByRole('button', { name: 'Salvar residente' }).click();
   await expect(page.getByRole('heading', { name: 'Estudante Sintético' })).toBeVisible();
   await expect(page.getByRole('status')).toContainText('Cadastro salvo.');
-  await expect(page.getByText('Não informado')).toHaveCount(2);
+  await expect(page.getByText('Não informado')).toHaveCount(1);
   await expect(
     page.getByText('A ausência da data de nascimento não indica maioridade'),
   ).toHaveCount(0);
@@ -191,7 +197,7 @@ test('cadastro local cria, consulta, busca e edita após recarga, sem dados inve
         birthDate: '2009-05-14',
         courseId: '00000000-0000-0000-0000-000000000201',
         institutionalEmail: null,
-        entryYear: null,
+        entryYear: 2026,
         extraSemesters: 0,
         password: 'Senha teste 123!',
         passwordConfirmation: 'Senha teste 123!',
@@ -205,7 +211,7 @@ test('cadastro local cria, consulta, busca e edita após recarga, sem dados inve
         birthDate: '2009-05-14',
         courseId: '00000000-0000-0000-0000-000000000201',
         institutionalEmail: null,
-        entryYear: null,
+        entryYear: 2026,
         extraSemesters: 0,
         version: 0,
       },
@@ -222,6 +228,7 @@ test('aguarda o curso pendente e só salva o residente com seu vínculo após co
       id,
       name: 'Pessoa Sintética',
       enrollment: 'TESTE-001',
+      entryYear: 2026,
       birthDate: '2009-05-14',
       course: null,
       version: 0,
@@ -239,7 +246,11 @@ test('aguarda o curso pendente e só salva o residente com seu vínculo após co
   let courseWrites = 0;
   await page.route('**/api/v1/cursos**', async (route) => {
     if (route.request().method() === 'GET') return route.fulfill({ json: [] });
-    expect(route.request().postDataJSON().name).toBe(course.name);
+    expect(route.request().postDataJSON()).toMatchObject({
+      name: course.name,
+      level: 'MEDIO',
+      durationYears: 3,
+    });
     courseWrites++;
     await pending;
     return route.fulfill({ status: 201, json: course });
@@ -247,6 +258,8 @@ test('aguarda o curso pendente e só salva o residente com seu vínculo após co
   await page.goto(`/residentes/${id}/editar`);
   await page.getByRole('button', { name: 'Novo curso', exact: true }).click();
   await page.getByLabel('Nome do novo curso').fill(course.name);
+  await page.getByLabel('Nível do novo curso').selectOption('MEDIO');
+  await page.getByLabel('Duração do novo curso (anos)').fill('3');
   await page.getByRole('button', { name: 'Cadastrar e selecionar', exact: true }).click();
   await expect.poll(() => courseWrites).toBe(1);
   const save = page.getByRole('button', { name: 'Salvar residente', exact: true });
@@ -272,6 +285,7 @@ test('não inicia a criação do curso enquanto o residente está sendo salvo', 
       id,
       name: 'Pessoa Sintética',
       enrollment: 'TESTE-001',
+      entryYear: 2026,
       birthDate: '2009-05-14',
       course: availableCourse.name,
       courseId: availableCourse.id,
@@ -389,6 +403,7 @@ test('erro local não carrega demo, supervisor edita e demonstração funciona o
       id,
       name: 'Estudante Sintético',
       enrollment: 'TESTE-001',
+      entryYear: 2026,
       birthDate: null,
       course: null,
       version: 0,
@@ -477,6 +492,7 @@ for (const outcome of ['success', 'failure'] as const) {
       id,
       name: 'Pessoa Sintética',
       enrollment: 'TESTE-001',
+      entryYear: 2026,
       birthDate: '2009-05-14',
       course: availableCourse.name,
       courseId: availableCourse.id,
@@ -532,6 +548,7 @@ test('buscar curso sem alterar o cadastro permite cancelar sem confirmação', a
       id,
       name: 'Pessoa Sintética',
       enrollment: 'TESTE-001',
+      entryYear: 2026,
       birthDate: '2009-05-14',
       course: null,
       version: 0,

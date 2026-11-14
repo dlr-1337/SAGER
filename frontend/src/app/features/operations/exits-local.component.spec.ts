@@ -5,6 +5,7 @@ import { BehaviorSubject } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { FilterState } from '../../core/filter-state';
+import { LocalAuthService } from '../../core/local-auth.service';
 import { HousingMap } from '../management/housing.models';
 import { RoomApiService } from '../management/room-api.service';
 import { ExitsLocalComponent } from './exits-local.component';
@@ -22,7 +23,6 @@ const room = (id: string, code: string, accommodationId: string, unitId: string 
   situation: 'Ocupado' as const,
   occupancy: 1,
   vacancies: 3,
-  cleaningScore: null,
   version: 0,
 });
 const housing: HousingMap = {
@@ -366,4 +366,60 @@ describe('Critérios restaurados da lista de saídas', () => {
       expect(restored.componentInstance.filters.controls.status.value).toBe('');
     },
   );
+
+  it('mostra os filtros ativos pelo nome, sem botão de busca, e a troca de modalidade não move o foco', async () => {
+    const fixture = TestBed.createComponent(ExitsLocalComponent);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const element: HTMLElement = fixture.nativeElement;
+    expect(
+      [...element.querySelectorAll('button')].some(
+        (button) => button.textContent?.trim() === 'Buscar',
+      ),
+    ).toBe(false);
+    expect(fixture.componentInstance.chips().map((chip) => `${chip.label}: ${chip.value}`)).toEqual(
+      [
+        'Busca: Estudante Sintético',
+        'Situação: Aprovada',
+        'Saída a partir de: 01/10/2026',
+        'Saída até: 31/10/2026',
+        'Alojamento: Alojamento Um',
+        'Casa ou bloco: Bloco A',
+        'Quarto: A-101 · Bloco A',
+      ],
+    );
+    const search = element.querySelector<HTMLInputElement>('input[type=search]')!;
+    search.focus();
+    params.next(convertToParamMap({ tipo: 'longa' }));
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(document.activeElement).toBe(search);
+  });
+
+  it('mostra ao adulto a lista sem os pedidos, e ao menor os dois pedidos', async () => {
+    role = 'residente';
+    TestBed.inject(FilterState).values.delete('exits-local.component');
+    const auth = TestBed.inject(LocalAuthService);
+    const resident = {
+      id: '00000000-0000-0000-0000-000000000001',
+      nome: 'Residente Sintético',
+      email: null,
+      matricula: 'TESTE-LOGIN',
+      fotoUrl: null,
+      perfis: ['residente' as const],
+      residenteId: '00000000-0000-0000-0000-000000000002',
+      supervisorId: null,
+    };
+    auth.principal.set({ ...resident, maiorDeIdade: true });
+    const fixture = TestBed.createComponent(ExitsLocalComponent);
+    await fixture.whenStable();
+    const page = fixture.nativeElement as HTMLElement;
+    expect(page.textContent).toContain('Pedidos de saída curta');
+    expect(page.querySelector('a[href="/saidas/nova"]')).toBeNull();
+    expect(page.querySelector('a[href="/saidas/longas/nova"]')).toBeNull();
+    auth.principal.set({ ...resident, maiorDeIdade: false });
+    await fixture.whenStable();
+    expect(page.querySelector('a[href="/saidas/nova"]')).not.toBeNull();
+    expect(page.querySelector('a[href="/saidas/longas/nova"]')).not.toBeNull();
+  });
 });

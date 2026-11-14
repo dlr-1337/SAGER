@@ -1,9 +1,10 @@
 package br.edu.ifgoiano.sager.management.residents;
 
 import java.sql.SQLException;
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -27,25 +28,29 @@ public class ResidentService {
     private final AuditService audit;
     private final CourseService courses;
     private final LocalAccountProvisioningService accounts;
+    private final Clock clock;
 
-    public ResidentService(ResidentRepository repository, AuditService audit, CourseService courses, LocalAccountProvisioningService accounts) {
+    public ResidentService(ResidentRepository repository, AuditService audit, CourseService courses,
+            LocalAccountProvisioningService accounts, Clock clock) {
         this.repository = repository;
         this.audit = audit;
         this.courses = courses;
         this.accounts = accounts;
+        this.clock = clock;
     }
 
     public br.edu.ifgoiano.sager.management.ManagementSearch.Page<Resident> list(java.util.Map<String,String> params) {
-        return repository.search(params);
-    }
-
-    public List<Resident> list() {
-        return repository.findAll();
+        return repository.search(params, today());
     }
 
     public Resident get(UUID id) {
-        return repository.findById(id).orElseThrow(() -> new ResidentApiException(
+        return repository.findById(id, today()).orElseThrow(() -> new ResidentApiException(
                 HttpStatus.NOT_FOUND, "not_found", "Estudante não encontrado."));
+    }
+
+    /** Data civil de hoje pelo relógio do servidor (cap4.tex:218). */
+    private LocalDate today() {
+        return LocalDate.now(clock.withZone(ZoneId.of("America/Sao_Paulo")));
     }
 
     @Transactional
@@ -72,8 +77,7 @@ public class ResidentService {
         }
         audit.record(AuditResource.RESIDENT, id, AuditAction.CREATE, 0,
                 Set.of("name", "enrollment", "birthDate", "courseId", "institutionalEmail", "entryYear", "extraSemesters"));
-        return new Resident(id, checked.name(), checked.enrollment(), birthDate, checked.course(), 0, courseId, email,
-                entryYear, extraSemesters);
+        return get(id);
     }
 
     @Transactional
@@ -107,6 +111,7 @@ public class ResidentService {
         }
         Set<String> changed = new HashSet<>();
         if (!Objects.equals(current.name(), checked.name())) {
+            accounts.synchronizeResidentName(id, checked.name());
             changed.add("name");
         }
         if (!Objects.equals(current.enrollment(), checked.enrollment())) {
@@ -129,13 +134,13 @@ public class ResidentService {
         if (!Objects.equals(current.entryYear(), entryYear)) changed.add("entryYear");
         if (current.extraSemesters() != extraSemesters) changed.add("extraSemesters");
         audit.record(AuditResource.RESIDENT, id, AuditAction.UPDATE, version + 1, changed);
-        return new Resident(id, checked.name(), checked.enrollment(), birthDate,
-                checked.course(), version + 1, courseId, email, entryYear, extraSemesters);
+        return get(id);
     }
 
     /** O ano salvo não é revalidado: um cadastro antigo continua editável. */
     private void checkProgress(Integer entryYear, int extraSemesters, Resident current) {
-        if (entryYear != null && (current == null || !entryYear.equals(current.entryYear()))
+        if (entryYear == null) throw invalidInput("entryYear é obrigatório.");
+        if ((current == null || !entryYear.equals(current.entryYear()))
                 && !FieldRules.validEntryYear(entryYear)) {
             throw invalidInput("Confira o ano de ingresso.");
         }

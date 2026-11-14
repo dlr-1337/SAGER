@@ -30,12 +30,11 @@ import { GuardianApiService, GuardianRecord } from './guardian-api.service';
 import { HousingMap, RoomRecord } from './housing.models';
 import { LegalGuardian } from './management.models';
 import { ManagementDemoService } from './management-demo.service';
-import { ageFromBirthDate, courseProgress, formattedDate } from './management.utils';
-import { Course, CourseApiService } from './course-api.service';
+import { ageFromBirthDate, formattedDate } from './management.utils';
 import { ResidentApiError, ResidentApiService, ResidentRecord } from './resident-api.service';
 import { RoomApiService } from './room-api.service';
 
-type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
+type ResidentTab = 'dados' | 'responsaveis' | 'historico';
 
 @Component({
   selector: 'app-resident-detail',
@@ -121,14 +120,6 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
             >
               Histórico
             </button>
-            <button
-              type="button"
-              [class.active]="tab() === 'termos'"
-              [attr.aria-current]="tab() === 'termos' ? 'page' : null"
-              (click)="tab.set('termos')"
-            >
-              Termos
-            </button>
           </nav>
           <div class="mg-tab-panel">
             @if (tab() === 'dados') {
@@ -163,15 +154,16 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
                   </div>
                   <div>
                     <dt>Etapa do curso</dt>
-                    <dd>{{ progress().stage ?? 'Sem dados para calcular' }}</dd>
+                    <dd>{{ item.stage ?? 'Sem dados para calcular' }}</dd>
                   </div>
                   <div>
-                    <dt>Previsão de formatura</dt>
+                    <dt>Saída prevista</dt>
                     <dd>
-                      {{ progress().expectedGraduation ?? 'Sem dados para calcular' }}
-                      @if (progress().overdue) {
-                        · prazo vencido
-                      }
+                      {{
+                        item.expectedExit
+                          ? formattedDate(item.expectedExit)
+                          : 'Sem dados para calcular'
+                      }}
                     </dd>
                   </div>
                   <div>
@@ -221,7 +213,7 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
                         >{{ activeAllocation() ? 'Mudar para' : 'Colocar no quarto' }}
                         <select sagerSearchable [formControl]="selectedRoom" required>
                           <option value="">Selecione um quarto</option>
-                          @for (room of allocationMap().rooms; track room.id) {
+                          @for (room of roomOptions(); track room.id) {
                             <option
                               [value]="room.id"
                               [disabled]="
@@ -233,6 +225,11 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
                           }
                         </select>
                       </label>
+                      @if (needsBirthDate()) {
+                        <p class="mg-muted">
+                          Informe a data de nascimento para ver os quartos com faixa etária.
+                        </p>
+                      }
                       <div class="action-row mg-actions">
                         <button
                           type="submit"
@@ -400,7 +397,9 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
                               allocation.endedAt
                                 ? (allocation.endReason === 'TRANSFER'
                                     ? 'Transferido'
-                                    : 'Encerrado') +
+                                    : allocation.endReason === 'CONCLUSION'
+                                      ? 'Concluiu o curso'
+                                      : 'Encerrado') +
                                   ' em ' +
                                   allocationDate(allocation.endedAt)
                                 : 'No quarto atualmente'
@@ -416,23 +415,6 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
                     <p>Este residente ainda não foi colocado em um quarto.</p>
                   </div>
                 }
-              </section>
-            } @else {
-              <section class="panel mg-panel" aria-labelledby="resident-pending-heading">
-                <h2 id="resident-pending-heading">
-                  {{
-                    tab() === 'responsaveis'
-                      ? 'Responsáveis legais'
-                      : tab() === 'historico'
-                        ? 'Histórico individual'
-                        : 'Termos de Compromisso'
-                  }}
-                </h2>
-                <div class="mg-empty mg-empty-inline" role="status">
-                  <span class="material-symbols-rounded" aria-hidden="true">schedule</span>
-                  <h3>Ainda não integrado</h3>
-                  <p>Esta seção depende de definição e integração em outra entrega da Fase 2.</p>
-                </div>
               </section>
             }
           </div>
@@ -491,14 +473,6 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
           >
             Histórico
           </button>
-          <button
-            type="button"
-            [class.active]="tab() === 'termos'"
-            [attr.aria-current]="tab() === 'termos' ? 'page' : null"
-            (click)="tab.set('termos')"
-          >
-            Termos
-          </button>
         </nav>
 
         <div class="mg-tab-panel">
@@ -540,16 +514,6 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
                   </dd>
                 </div>
               </dl>
-            </section>
-            <section class="mg-note mg-sensitive" aria-labelledby="medical-title">
-              <span class="material-symbols-rounded" aria-hidden="true">lock</span>
-              <div>
-                <h2 id="medical-title">Informações médicas restritas</h2>
-                <p>
-                  A matriz de acesso a dados médicos ainda depende de definição da AE/TI. Nenhum
-                  dado médico é exibido ou armazenado nesta demonstração.
-                </p>
-              </div>
             </section>
           }
 
@@ -731,20 +695,6 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico' | 'termos';
               }
             </section>
           }
-
-          @if (tab() === 'termos') {
-            <section class="panel mg-panel" aria-labelledby="terms-title">
-              <h2 id="terms-title">Termos de Compromisso</h2>
-              <div class="mg-empty mg-empty-inline">
-                <span class="material-symbols-rounded" aria-hidden="true">description</span>
-                <h3>Nenhum termo disponível</h3>
-                <p>
-                  Critérios de emissão, ciência e assinatura do Termo de Compromisso dependem de
-                  homologação pela AE. Nenhum documento é gerado nesta demonstração.
-                </p>
-              </div>
-            </section>
-          }
         </div>
       } @else {
         <section class="mg-empty" role="alert">
@@ -773,16 +723,6 @@ export class ResidentDetailComponent {
   readonly canEdit = computed(() => this.session.hasRole('gestor', 'supervisor'));
   readonly resident = computed(() => this.service.resident(this.id));
   readonly localResident = signal<ResidentRecord | null>(null);
-  private readonly courseApi = inject(CourseApiService);
-  readonly courses = signal<Course[]>([]);
-  readonly progress = computed(() => {
-    const item = this.localResident();
-    return courseProgress(
-      item?.entryYear,
-      item?.extraSemesters,
-      this.courses().find((course) => course.id === item?.courseId),
-    );
-  });
   readonly loading = signal(false);
   readonly loadError = signal('');
   readonly missing = signal(false);
@@ -798,6 +738,23 @@ export class ResidentDetailComponent {
   readonly allocationSaving = signal(false);
   readonly confirmEnd = signal(false);
   readonly selectedRoom = new FormControl('', { nonNullable: true });
+  /** Quartos sem faixa, mais os da faixa que o servidor calculou (cap4.tex:218). */
+  readonly roomOptions = computed(() => {
+    const map = this.allocationMap();
+    const resident = this.localResident();
+    const minor = resident?.birthDate ? resident.minor : undefined;
+    const group = minor === undefined ? null : minor ? 'MENORES' : 'MAIORES';
+    const groups = new Map(map.accommodations.map((item) => [item.id, item.ageGroup ?? null]));
+    return map.rooms.filter((room) => {
+      const roomGroup = groups.get(room.accommodationId) ?? null;
+      return roomGroup === null || roomGroup === group;
+    });
+  });
+  readonly needsBirthDate = computed(
+    () =>
+      !this.localResident()?.birthDate &&
+      this.allocationMap().accommodations.some((item) => item.ageGroup),
+  );
   readonly activeAllocation = computed(
     () => this.allocations().find((item) => item.endedAt === null) ?? null,
   );
@@ -849,12 +806,6 @@ export class ResidentDetailComponent {
     this.missing.set(false);
     try {
       this.localResident.set(await this.api.get(this.id));
-      // Sem a lista de cursos, a ficha abre sem etapa e previsão.
-      if (!this.destroyRef.destroyed)
-        void this.courseApi.list().then(
-          (items) => this.courses.set(items),
-          () => undefined,
-        );
       if (!this.destroyRef.destroyed) void this.loadLocalGuardians();
       if (!this.destroyRef.destroyed) void this.loadAllocations();
     } catch (error) {
@@ -930,7 +881,7 @@ export class ResidentDetailComponent {
   async saveAllocation(): Promise<void> {
     if (!this.canEdit() || this.allocationSaving() || this.allocationLoadError()) return;
     const roomId = this.selectedRoom.value;
-    const room = this.allocationMap().rooms.find((item) => item.id === roomId);
+    const room = this.roomOptions().find((item) => item.id === roomId);
     if (!room || !this.roomCanReceive(room) || roomId === this.activeAllocation()?.roomId) return;
     this.allocationSaving.set(true);
     this.allocationActionError.set('');
@@ -942,7 +893,11 @@ export class ResidentDetailComponent {
       await this.loadAllocations();
     } catch (error) {
       this.allocationActionError.set(allocationErrorMessage(error));
-      if (error instanceof AllocationApiError && error.status === 409) await this.loadAllocations();
+      if (error instanceof AllocationApiError && error.status === 409) {
+        await this.loadAllocations();
+        // O quarto pode ter saído das opções (faixa trocada): pede outra escolha.
+        if (!this.roomOptions().some((item) => item.id === roomId)) this.selectedRoom.setValue('');
+      }
     } finally {
       this.allocationSaving.set(false);
     }

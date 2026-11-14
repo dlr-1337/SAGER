@@ -2,6 +2,7 @@ package br.edu.ifgoiano.sager.auth;
 
 import br.edu.ifgoiano.sager.management.FieldRules;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -45,6 +46,12 @@ public class LocalAccountRepository {
         revokeSessions(account);
     }
 
+    /** O nome não é credencial: a sessão continua. */
+    public void renameResidentAccount(UUID residentId, String name) {
+        jdbc.update("UPDATE sager_local_account SET display_name=?, updated_at=CURRENT_TIMESTAMP WHERE resident_id=?",
+                name, residentId);
+    }
+
     public void revokeSessions(LocalAccount account) {
         jdbc.update("DELETE FROM spring_session WHERE principal_name IN (?, ?)", account.id().toString(), account.email());
     }
@@ -63,6 +70,12 @@ public class LocalAccountRepository {
 
     public Optional<LocalAccount> findById(UUID id) {
         return query("WHERE id = ?", id).stream().findFirst();
+    }
+
+    public Optional<LocalDate> residentBirthDate(UUID residentId) {
+        return jdbc.query("SELECT birth_date FROM sager_resident WHERE id = ?",
+                (row, index) -> Optional.ofNullable(row.getObject(1, LocalDate.class)), residentId)
+                .stream().findFirst().flatMap(value -> value);
     }
 
     public Optional<LocalAccount> findByEmailForUpdate(String email) {
@@ -88,12 +101,14 @@ public class LocalAccountRepository {
         revokeSessions(account);
     }
 
-    public void create(String enrollment, String email, String name, String passwordHash, String profile) {
+    public UUID create(String enrollment, String email, String name, String passwordHash, String profile) {
+        UUID id = UUID.randomUUID();
         jdbc.update("""
                 INSERT INTO sager_local_account
                     (id, enrollment, email, display_name, password_hash, profile, active)
                 VALUES (?, ?, ?, ?, ?, ?, true)
-                """, UUID.randomUUID(), enrollment, email, name, passwordHash, profile);
+                """, id, enrollment, email, name, passwordHash, profile);
+        return id;
     }
 
     public int updatePassword(LocalAccount account, String passwordHash) {

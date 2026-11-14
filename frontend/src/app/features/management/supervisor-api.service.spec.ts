@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetSession } from '../../core/api';
 import { SupervisorApiError, SupervisorApiService } from './supervisor-api.service';
 
 const item = {
@@ -11,6 +12,7 @@ const item = {
 };
 
 describe('SupervisorApiService', () => {
+  beforeEach(() => resetSession());
   afterEach(() => vi.unstubAllGlobals());
 
   it('consulta somente a API com cookie da sessão local', async () => {
@@ -22,11 +24,14 @@ describe('SupervisorApiService', () => {
     const results = await TestBed.inject(SupervisorApiService).list();
 
     expect(results).toEqual([item]);
-    expect(fetchMock).toHaveBeenCalledWith('/api/v1/supervisores', {
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
-    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/supervisores',
+      expect.objectContaining({
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
+      }),
+    );
   });
 
   it('envia CSRF e versão apenas ao atualizar, e aceita o cadastro persistido', async () => {

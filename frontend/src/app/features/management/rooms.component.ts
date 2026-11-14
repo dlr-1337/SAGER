@@ -1,13 +1,23 @@
 import { PaginationComponent } from '../../shared/pagination.component';
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
+import { FilterChip, FilterPanelComponent } from '../../shared/filter-panel.component';
 import { normalizeSearch } from '../../shared/search';
 import { rememberFilters, rememberValue } from '../../core/filter-state';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  Injector,
+  afterNextRender,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { map } from 'rxjs';
 import { RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
-import { HousingMap } from './housing.models';
+import { HousingMap, compareFloors, compareNatural, unitsIn } from './housing.models';
 import { ManagementDemoService } from './management-demo.service';
 import { RoomSituation } from './management.models';
 import { RoomApiError, RoomApiService, roomLoadError } from './room-api.service';
@@ -26,7 +36,6 @@ interface MapRoom {
   occupancy: number | null;
   vacancies: number | null;
   occupancyLabel: string;
-  cleaningLabel: string;
 }
 
 interface RoomGroup {
@@ -37,11 +46,30 @@ interface RoomGroup {
   rooms: MapRoom[];
 }
 
+interface Place {
+  id: string;
+  name: string;
+  rooms: number;
+  vacancies: number;
+}
+
+// Manutenção e Indisponível não recebem alocação (RN15): as camas livres deles não são vagas.
+const receives = (room: MapRoom) =>
+  room.situation !== 'Manutenção' && room.situation !== 'Indisponível';
+const freeVacancies = (rooms: MapRoom[]) =>
+  rooms.reduce((total, room) => total + (receives(room) ? (room.vacancies ?? 0) : 0), 0);
+
 @Component({
   selector: 'app-rooms',
   styleUrl: './housing.scss',
   standalone: true,
-  imports: [PaginationComponent, SearchableSelectDirective, ReactiveFormsModule, RouterLink],
+  imports: [
+    PaginationComponent,
+    SearchableSelectDirective,
+    FilterPanelComponent,
+    ReactiveFormsModule,
+    RouterLink,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page mg-page">
@@ -76,12 +104,19 @@ interface RoomGroup {
             </div>
           }
         </header>
-        <section class="panel mg-panel" aria-labelledby="room-filter-heading">
-          <h2 id="room-filter-heading">Filtrar mapa</h2>
-          <form class="mg-filters" [formGroup]="filters">
+        <sager-filter-panel
+          heading="Buscar quartos"
+          key="rooms"
+          [chips]="chips()"
+          (remove)="removeFilter($event)"
+          (clear)="clearFilters()"
+        >
+          <div filterMain class="mg-filters" [formGroup]="filters">
             <label class="field mg-field mg-grow"
               >Buscar quarto, código ou bloco<input type="search" formControlName="search"
             /></label>
+          </div>
+          <div class="mg-filters" [formGroup]="filters">
             @if (isDemo()) {
               <label class="field mg-field"
                 >Bloco<select sagerSearchable formControlName="block">
@@ -91,32 +126,17 @@ interface RoomGroup {
                   }
                 </select></label
               >
-            } @else {
+            }
+            @if (floors().length) {
               <label class="field mg-field"
-                >Alojamento<select sagerSearchable formControlName="accommodationId">
-                  <option value="">Todos os alojamentos</option>
-                  @for (item of localMap().accommodations; track item.id) {
-                    <option [value]="item.id">{{ item.name }}</option>
-                  }
-                </select></label
-              >
-              <label class="field mg-field"
-                >Casa ou bloco<select sagerSearchable formControlName="unitId">
-                  <option value="">Todas as casas e blocos</option>
-                  @for (item of units(); track item.id) {
-                    <option [value]="item.id">{{ item.name }}</option>
+                >Piso<select sagerSearchable formControlName="floor">
+                  <option value="">Todos os pisos</option>
+                  @for (floor of floors(); track floor) {
+                    <option [value]="floor">{{ floor }}</option>
                   }
                 </select></label
               >
             }
-            <label class="field mg-field"
-              >Piso<select sagerSearchable formControlName="floor">
-                <option value="">Todos os pisos</option>
-                @for (floor of floors(); track floor) {
-                  <option [value]="floor">{{ floor }}</option>
-                }
-              </select></label
-            >
             <label class="field mg-field"
               >Situação<select sagerSearchable formControlName="situation">
                 <option value="">Todas as situações</option>
@@ -126,33 +146,42 @@ interface RoomGroup {
               </select></label
             >
             @if (!isDemo()) {
-              <label class="field mg-field"
-                >Ocupação<select sagerSearchable formControlName="occupancy">
-                  <option value="">Todas as ocupações</option>
-                  <option value="with-residents">Com moradores</option>
-                  <option value="empty">Sem moradores</option>
-                  <option value="with-vacancies">Com vagas</option>
-                  <option value="full">Lotados</option>
-                  <option value="unknown">Capacidade não definida</option>
-                </select></label
+              <label class="mg-check"
+                ><input type="checkbox" formControlName="vacancies" /> Só com vagas</label
               >
             }
-          </form>
-        </section>
-        <div class="mg-legend" aria-label="Legenda do mapa de quartos">
-          <span class="mg-legend-title">Legenda</span>
-          @for (situation of situations; track situation) {
-            <span class="mg-legend-item" [attr.data-situation]="situation"
-              ><span class="mg-dot" aria-hidden="true"></span>{{ situation }}</span
-            >
-          }
-        </div>
+          </div>
+        </sager-filter-panel>
+        @if (!isDemo() && !loading() && !loadError() && rooms().length) {
+          <nav class="mg-trail" aria-label="Trilha dos quartos">
+            <ol>
+              @for (step of trail(); track $index; let first = $first, last = $last) {
+                <li>
+                  @if (!first) {
+                    <span class="mg-trail-sep" aria-hidden="true">›</span>
+                  }
+                  @if (last) {
+                    <span aria-current="location">{{ step.label }}</span>
+                  } @else {
+                    <button type="button" (click)="go(step.accommodationId, '')">
+                      {{ step.label }}
+                    </button>
+                  }
+                </li>
+              }
+            </ol>
+          </nav>
+        }
         <section class="mg-section" aria-labelledby="room-map-heading">
           <div class="mg-section-heading">
-            <h2 id="room-map-heading">Quartos</h2>
+            <h2 id="room-map-heading" tabindex="-1">{{ title() }}</h2>
             <p aria-live="polite">
               @if (!loading() && !loadError() && scenario() === 'padrao') {
-                {{ filteredRooms().length }} de {{ rooms().length }} quartos
+                @if (places().length) {
+                  {{ placeCount() }}
+                } @else {
+                  {{ filteredRooms().length }} de {{ rooms().length }} quartos
+                }
               } @else if (isDemo()) {
                 Cenário demonstrativo
               }
@@ -213,84 +242,142 @@ interface RoomGroup {
                 </button>
               }
             </div>
-          } @else if (groups().length) {
-            @if (!isDemo()) {
-              <dl class="mg-stats" aria-live="polite">
-                <div>
-                  <dt>Capacidade cadastrada</dt>
-                  <dd>{{ totals().known ? totals().capacity : 'Não definida' }}</dd>
-                </div>
-                <div>
-                  <dt>Moradores</dt>
-                  <dd>{{ totals().people }}</dd>
-                </div>
-                <div>
-                  <dt>Vagas livres</dt>
-                  <dd>{{ totals().known ? totals().vacancies : 'Não definidas' }}</dd>
-                </div>
-              </dl>
-              @if (totals().missing && totals().known) {
-                <p class="mg-muted">
-                  Capacidade e vagas em soma parcial; {{ totals().missing }}
-                  {{ totals().missing === 1 ? 'quarto sem capacidade' : 'quartos sem capacidade' }}.
-                </p>
+          } @else {
+            @if (places().length) {
+              <div class="mg-room-grid">
+                @for (place of places(); track place.id) {
+                  <button type="button" class="mg-place-tile" (click)="open(place.id)">
+                    <span class="mg-room-top"
+                      ><strong>{{ place.name }}</strong
+                      ><span class="material-symbols-rounded" aria-hidden="true"
+                        >arrow_forward</span
+                      ></span
+                    >
+                    <span class="mg-room-meta"
+                      >{{ place.rooms }} {{ place.rooms === 1 ? 'quarto' : 'quartos' }} ·
+                      {{ place.vacancies }}
+                      {{ place.vacancies === 1 ? 'vaga livre' : 'vagas livres' }}</span
+                    >
+                  </button>
+                }
+              </div>
+              @if (groups().length) {
+                <h3 class="mg-subheading">Quartos fora de casa ou bloco</h3>
               }
             }
-            @for (group of groups(); track group.key) {
-              <section
-                class="mg-room-group"
-                [attr.aria-label]="
-                  group.name + (group.unit ? ', ' + group.unit : '') + ', ' + group.floor
-                "
-              >
-                <h3>
-                  {{ group.name }}
-                  @if (group.unit) {
-                    <span>{{ group.unit }}</span>
-                  }
-                  <span>{{ group.floor }}</span>
-                </h3>
-                <div class="mg-room-grid">
-                  @for (room of group.rooms; track room.id) {
-                    <a
-                      class="mg-room-tile"
-                      [attr.data-situation]="room.situation"
-                      [routerLink]="['/quartos', room.id]"
-                      [attr.aria-label]="roomLabel(room)"
-                    >
-                      <span class="mg-room-top"
-                        ><strong>Quarto {{ room.number }}</strong
-                        ><span class="material-symbols-rounded" aria-hidden="true"
-                          >arrow_forward</span
-                        ></span
+            @if (groups().length) {
+              @if (!isDemo()) {
+                <dl class="mg-stats" aria-live="polite">
+                  <div>
+                    <dt>Capacidade cadastrada</dt>
+                    <dd>{{ totals().known ? totals().capacity : 'Não definida' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Moradores</dt>
+                    <dd>{{ totals().people }}</dd>
+                  </div>
+                  <div>
+                    <dt>Vagas livres</dt>
+                    <dd>{{ totals().known ? totals().vacancies : 'Não definidas' }}</dd>
+                  </div>
+                </dl>
+                @if (totals().missing && totals().known) {
+                  <p class="mg-muted">
+                    Capacidade e vagas em soma parcial; {{ totals().missing }}
+                    {{
+                      totals().missing === 1 ? 'quarto sem capacidade' : 'quartos sem capacidade'
+                    }}.
+                  </p>
+                }
+              }
+              @for (group of groups(); track group.key) {
+                <section
+                  class="mg-room-group"
+                  [attr.aria-label]="
+                    group.name + (group.unit ? ', ' + group.unit : '') + ', ' + group.floor
+                  "
+                >
+                  <h3>
+                    {{ group.name }}
+                    @if (group.unit) {
+                      <span>{{ group.unit }}</span>
+                    }
+                    <span>{{ group.floor }}</span>
+                  </h3>
+                  <div class="mg-room-grid">
+                    @for (room of group.rooms; track room.id) {
+                      <a
+                        class="mg-room-tile"
+                        [attr.data-situation]="room.situation"
+                        [routerLink]="['/quartos', room.id]"
+                        [attr.aria-label]="roomLabel(room)"
                       >
-                      @if (room.code) {
-                        <span class="mg-room-meta">Código {{ room.code }}</span>
-                      }
-                      <span class="mg-room-status"
-                        ><span class="mg-dot" aria-hidden="true"></span>{{ room.situation }}</span
-                      >
-                      <span class="mg-room-meta">
-                        @if (!isDemo()) {
-                          {{ capacityLabel(room.capacity) }}<br />
+                        <span class="mg-room-top"
+                          ><strong>Quarto {{ room.number }}</strong
+                          ><span class="material-symbols-rounded" aria-hidden="true"
+                            >arrow_forward</span
+                          ></span
+                        >
+                        @if (room.code) {
+                          <span class="mg-room-meta">Código {{ room.code }}</span>
                         }
-                        {{ room.occupancyLabel }}<br />{{ isDemo() ? 'Limpeza: ' : ''
-                        }}{{ room.cleaningLabel }}</span
-                      >
-                    </a>
+                        <span class="mg-room-status"
+                          ><span class="mg-dot" aria-hidden="true"></span>{{ room.situation }}</span
+                        >
+                        <span class="mg-room-meta">
+                          @if (!isDemo()) {
+                            {{ capacityLabel(room.capacity) }}<br />
+                          }
+                          {{ room.occupancyLabel }}</span
+                        >
+                      </a>
+                    }
+                  </div>
+                </section>
+              }
+              <sager-pagination
+                [page]="page()"
+                [total]="filteredRooms().length"
+                anchor="room-map-heading"
+                (pageChange)="page.set($event)"
+              />
+              @if (isDemo()) {
+                <div class="mg-legend" aria-label="Legenda do mapa de quartos">
+                  <span class="mg-legend-title">Legenda</span>
+                  @for (situation of situations; track situation) {
+                    <span class="mg-legend-item" [attr.data-situation]="situation"
+                      ><span class="mg-dot" aria-hidden="true"></span>{{ situation }}</span
+                    >
                   }
                 </div>
-              </section>
+              } @else {
+                <section class="mg-legend-list" aria-labelledby="room-legend-title">
+                  <h3 id="room-legend-title">Legenda</h3>
+                  <dl>
+                    @for (item of legend; track item.situation) {
+                      <div [attr.data-situation]="item.situation">
+                        <dt><span class="mg-dot" aria-hidden="true"></span>{{ item.situation }}</dt>
+                        <dd>{{ item.text }}</dd>
+                      </div>
+                    }
+                  </dl>
+                </section>
+              }
+            } @else if (!places().length) {
+              <div class="mg-empty" role="status">
+                <span class="material-symbols-rounded" aria-hidden="true">meeting_room</span>
+                @if (filtering()) {
+                  <h3>Nenhum quarto encontrado</h3>
+                  <p>Altere os filtros para ver outras localizações e situações.</p>
+                  <button type="button" class="btn mg-secondary" (click)="clearFilters()">
+                    Limpar filtros
+                  </button>
+                } @else {
+                  <h3>Nenhum quarto neste local</h3>
+                  <p>Este local ainda não tem quartos cadastrados. Volte pela trilha.</p>
+                }
+              </div>
             }
-          } @else {
-            <div class="mg-empty" role="status">
-              <span class="material-symbols-rounded" aria-hidden="true">meeting_room</span>
-              <h3>Nenhum quarto encontrado</h3>
-              <p>Altere os filtros para ver outras localizações e situações.</p>
-              <button type="button" class="btn mg-secondary" (click)="clearFilters()">
-                Limpar filtros
-              </button>
-            </div>
           }
         </section>
         <div class="mg-note">
@@ -299,7 +386,7 @@ interface RoomGroup {
             {{
               isDemo()
                 ? 'Estes registros são demonstrativos. A situação do quarto é registrada separadamente da quantidade de moradores.'
-                : 'O número de moradores vem dos cadastros. A situação do quarto é escolhida por você.'
+                : 'Disponível e Ocupado mudam sozinhos com os moradores. Manutenção e Indisponível são escolhidos no cadastro do quarto.'
             }}
           </p>
         </div>
@@ -310,13 +397,6 @@ interface RoomGroup {
           <a class="btn mg-primary" routerLink="/inicio">Voltar ao início</a>
         </section>
       }
-      @if (canView() && !loading() && !loadError()) {
-        <sager-pagination
-          [page]="page()"
-          [total]="filteredRooms().length"
-          (pageChange)="page.set($event)"
-        />
-      }
     </main>
   `,
 })
@@ -324,11 +404,30 @@ export class RoomsComponent {
   private readonly demo = inject(ManagementDemoService);
   private readonly api = inject(RoomApiService);
   private readonly session = inject(DemoSessionService);
+  private readonly injector = inject(Injector);
   readonly isDemo = this.session.active;
   readonly canView = computed(() => this.session.hasRole('gestor', 'supervisor'));
   readonly canEdit = computed(() => this.session.hasRole('gestor', 'supervisor'));
   readonly scenario = computed(() => (this.isDemo() ? this.session.scenario() : 'padrao'));
   readonly situations: RoomSituation[] = ['Disponível', 'Ocupado', 'Manutenção', 'Indisponível'];
+  readonly legend: { situation: RoomSituation; text: string }[] = [
+    {
+      situation: 'Disponível',
+      text: 'Tem vaga e recebe residentes. Muda sozinha com os moradores.',
+    },
+    {
+      situation: 'Ocupado',
+      text: 'Todas as vagas estão preenchidas. Muda sozinha com os moradores.',
+    },
+    {
+      situation: 'Manutenção',
+      text: 'Em reparo, não recebe novos residentes. Escolhida pelo gestor ou supervisor.',
+    },
+    {
+      situation: 'Indisponível',
+      text: 'Fora de uso, não recebe novos residentes. Escolhida pelo gestor ou supervisor, ou quando o quarto não tem capacidade definida.',
+    },
+  ];
   readonly loading = signal(false);
   readonly loadError = signal('');
   readonly sessionRequired = signal(false);
@@ -341,17 +440,12 @@ export class RoomsComponent {
     unitId: new FormControl('', { nonNullable: true }),
     floor: new FormControl('', { nonNullable: true }),
     situation: new FormControl('', { nonNullable: true }),
-    occupancy: new FormControl('', { nonNullable: true }),
+    vacancies: new FormControl(false, { nonNullable: true }),
   });
-  private readonly criteria = toSignal(this.filters.valueChanges, {
-    initialValue: this.filters.getRawValue(),
-  });
-  readonly units = computed(() =>
-    this.localMap().units.filter(
-      (item) =>
-        !this.criteria().accommodationId ||
-        item.accommodationId === this.criteria().accommodationId,
-    ),
+  // Valor completo a cada mudança: os controles não são nulos nem desativados.
+  private readonly criteria = toSignal(
+    this.filters.valueChanges.pipe(map(() => this.filters.getRawValue())),
+    { initialValue: this.filters.getRawValue() },
   );
   readonly rooms = computed<MapRoom[]>(() => {
     if (this.isDemo())
@@ -366,10 +460,6 @@ export class RoomsComponent {
         occupancy: null,
         vacancies: null,
         occupancyLabel: this.demo.occupancyLabel(item.id),
-        cleaningLabel:
-          item.cleaningScore === null
-            ? 'sem avaliação'
-            : `nota ${item.cleaningScore.toLocaleString('pt-BR')}`,
       }));
     const map = this.localMap();
     return map.rooms.map((item) => ({
@@ -378,11 +468,10 @@ export class RoomsComponent {
         map.accommodations.find((value) => value.id === item.accommodationId)?.name ?? '',
       unitName: map.units.find((value) => value.id === item.unitId)?.name ?? null,
       occupancyLabel: `${item.occupancy} ${item.occupancy === 1 ? 'morador' : 'moradores'}${item.vacancies === null ? ' · vagas não definidas' : ` · ${item.vacancies} ${item.vacancies === 1 ? 'vaga livre' : 'vagas livres'}`}`,
-      cleaningLabel: 'Sem avaliação',
     }));
   });
   readonly blocks = computed(() =>
-    [...new Set(this.rooms().map((room) => room.accommodationId))].sort(),
+    [...new Set(this.rooms().map((room) => room.accommodationId))].sort(compareNatural),
   );
   readonly floors = computed(() =>
     [
@@ -391,10 +480,21 @@ export class RoomsComponent {
           .map((room) => room.floor)
           .filter((floor): floor is string => floor !== null),
       ),
-    ].sort((a, b) => floorPosition(a) - floorPosition(b) || a.localeCompare(b)),
+    ].sort(compareFloors),
   );
-  readonly filteredRooms = computed(() => {
-    const { search, block, accommodationId, unitId, floor, situation, occupancy } = this.criteria();
+  /** Busca, piso, situação ou vagas ativos: a tela mostra a grade do escopo do nível. */
+  readonly filtering = computed(() => {
+    const { search, floor, situation, vacancies } = this.criteria();
+    return !!(search || floor || situation || vacancies);
+  });
+  /** Nível pela navegação: sem alojamento, alojamentos; com casas e sem casa, casas; senão, quartos. */
+  readonly level = computed<'accommodations' | 'units' | 'rooms'>(() => {
+    const { accommodationId, unitId } = this.criteria();
+    if (!accommodationId) return 'accommodations';
+    return !unitId && unitsIn(this.localMap(), accommodationId).length ? 'units' : 'rooms';
+  });
+  private readonly scoped = computed(() => {
+    const { search, block, accommodationId, unitId, floor, situation, vacancies } = this.criteria();
     return this.rooms().filter(
       (room) =>
         normalizeSearch(
@@ -405,17 +505,65 @@ export class RoomsComponent {
         (this.isDemo() || !unitId || room.unitId === unitId) &&
         (!floor || room.floor === floor) &&
         (!situation || room.situation === situation) &&
-        (this.isDemo() ||
-          !occupancy ||
-          (occupancy === 'with-residents' && (room.occupancy ?? 0) > 0) ||
-          (occupancy === 'empty' && room.occupancy === 0) ||
-          (occupancy === 'with-vacancies' && room.vacancies !== null && room.vacancies > 0) ||
-          (occupancy === 'full' && room.capacity !== null && room.vacancies === 0) ||
-          (occupancy === 'unknown' && room.capacity === null)),
+        (this.isDemo() || !vacancies || (receives(room) && (room.vacancies ?? 0) > 0)),
     );
+  });
+  /** Quartos da grade, paginados de 25 em 25. */
+  readonly filteredRooms = computed(() => {
+    if (this.isDemo() || this.filtering()) return this.scoped();
+    const level = this.level();
+    if (level === 'accommodations') return [];
+    return level === 'units' ? this.scoped().filter((room) => room.unitId === null) : this.scoped();
+  });
+  readonly places = computed<Place[]>(() => {
+    if (this.isDemo() || this.filtering() || this.level() === 'rooms') return [];
+    const map = this.localMap();
+    const rooms = this.rooms();
+    const accommodationId = this.criteria().accommodationId;
+    const items = accommodationId
+      ? unitsIn(map, accommodationId).map((unit) => ({
+          ...unit,
+          inside: rooms.filter((room) => room.unitId === unit.id),
+        }))
+      : map.accommodations.map((item) => ({
+          ...item,
+          inside: rooms.filter((room) => room.accommodationId === item.id),
+        }));
+    return items.map(({ id, name, inside }) => ({
+      id,
+      name,
+      rooms: inside.length,
+      vacancies: freeVacancies(inside),
+    }));
+  });
+  readonly placeCount = computed(() => {
+    const count = this.places().length;
+    if (this.level() === 'accommodations')
+      return `${count} ${count === 1 ? 'alojamento' : 'alojamentos'}`;
+    return `${count} ${count === 1 ? 'casa ou bloco' : 'casas ou blocos'}`;
+  });
+  readonly trail = computed(() => {
+    const map = this.localMap();
+    const { accommodationId, unitId } = this.criteria();
+    const steps = [{ label: 'Quartos', accommodationId: '' }];
+    const accommodation = map.accommodations.find((item) => item.id === accommodationId);
+    if (accommodation) steps.push({ label: accommodation.name, accommodationId });
+    const unit = map.units.find((item) => item.id === unitId);
+    if (accommodation && unit) steps.push({ label: unit.name, accommodationId });
+    return steps;
+  });
+  readonly title = computed(() => {
+    if (this.isDemo()) return 'Quartos';
+    const steps = this.trail();
+    return steps.length > 1
+      ? steps[steps.length - 1].label
+      : this.places().length
+        ? 'Alojamentos'
+        : 'Quartos';
   });
   readonly groups = computed<RoomGroup[]>(() => {
     const result = new Map<string, RoomGroup>();
+    // A ordem é a do mapa (natural), então os grupos saem na ordem de chegada.
     for (const room of this.filteredRooms().slice(this.page() * 25, (this.page() + 1) * 25)) {
       const key = JSON.stringify([room.accommodationId, room.unitId, room.floor]);
       if (!result.has(key))
@@ -428,13 +576,7 @@ export class RoomsComponent {
         });
       result.get(key)!.rooms.push(room);
     }
-    return [...result.values()].sort(
-      (a, b) =>
-        a.name.localeCompare(b.name) ||
-        (a.unit ?? '').localeCompare(b.unit ?? '') ||
-        floorPosition(a.floor) - floorPosition(b.floor) ||
-        a.floor.localeCompare(b.floor),
-    );
+    return [...result.values()];
   });
   // vacancies é null exatamente quando capacity é null (validado em room-api.service).
   readonly totals = computed(() => {
@@ -445,8 +587,21 @@ export class RoomsComponent {
       missing: rooms.length - known.length,
       capacity: known.reduce((total, room) => total + (room.capacity ?? 0), 0),
       people: rooms.reduce((total, room) => total + (room.occupancy ?? 0), 0),
-      vacancies: known.reduce((total, room) => total + (room.vacancies ?? 0), 0),
+      vacancies: freeVacancies(known),
     };
+  });
+  readonly chips = computed<FilterChip[]>(() => {
+    const { search, block, floor, situation, vacancies } = this.criteria();
+    const chips: [string, string, string | false][] = [
+      ['search', 'Busca', search],
+      ['block', 'Bloco', this.isDemo() && !!block && `Bloco ${block}`],
+      ['floor', 'Piso', floor],
+      ['situation', 'Situação', situation],
+      ['vacancies', 'Só com vagas', !this.isDemo() && vacancies && 'Sim'],
+    ];
+    return chips
+      .filter((chip): chip is [string, string, string] => !!chip[2])
+      .map(([key, label, value]) => ({ key, label, value }));
   });
 
   constructor() {
@@ -467,7 +622,14 @@ export class RoomsComponent {
     this.loadError.set('');
     this.sessionRequired.set(false);
     try {
-      this.localMap.set(await this.api.map());
+      const map = await this.api.map();
+      this.localMap.set(map);
+      // Nível lembrado de um local que deixou de existir volta ao anterior.
+      const { accommodationId, unitId } = this.filters.controls;
+      if (accommodationId.value && !map.accommodations.some((a) => a.id === accommodationId.value))
+        accommodationId.setValue('');
+      if (unitId.value && !unitsIn(map, accommodationId.value).some((u) => u.id === unitId.value))
+        unitId.setValue('');
       const lastPage = Math.max(0, Math.ceil(this.filteredRooms().length / 25) - 1);
       this.page.update((page) => Math.max(0, Math.min(page, lastPage)));
     } catch (error) {
@@ -479,25 +641,37 @@ export class RoomsComponent {
     }
   }
 
+  /** Abre o cartão escolhido: alojamento no primeiro nível, casa ou bloco no segundo. */
+  open(id: string): void {
+    if (this.level() === 'accommodations') this.go(id, '');
+    else this.go(this.criteria().accommodationId, id);
+  }
+
+  /** Muda de nível e leva o foco ao título do nível exibido. */
+  go(accommodationId: string, unitId: string): void {
+    this.filters.controls.accommodationId.setValue(accommodationId);
+    this.filters.controls.unitId.setValue(unitId);
+    afterNextRender(() => document.getElementById('room-map-heading')?.focus(), {
+      injector: this.injector,
+    });
+  }
+
   capacityLabel(capacity: number | null): string {
     return capacity === null
       ? 'Capacidade não definida'
       : `Capacidade: ${capacity} ${capacity === 1 ? 'vaga' : 'vagas'}`;
   }
   roomLabel(room: MapRoom): string {
-    return `Quarto ${room.number}, ${room.code ? `código ${room.code}, ` : ''}${room.accommodationName}${room.unitName ? `, ${room.unitName}` : ''}, ${room.floor ?? 'piso não informado'}, ${room.situation}, ${!this.isDemo() ? `${this.capacityLabel(room.capacity)}, ` : ''}${room.occupancyLabel}, ${room.cleaningLabel}`;
+    return `Quarto ${room.number}, ${room.code ? `código ${room.code}, ` : ''}${room.accommodationName}${room.unitName ? `, ${room.unitName}` : ''}, ${room.floor ?? 'piso não informado'}, ${room.situation}, ${!this.isDemo() ? `${this.capacityLabel(room.capacity)}, ` : ''}${room.occupancyLabel}`;
   }
+  removeFilter(key: string): void {
+    const control = this.filters.get(key);
+    control?.setValue(key === 'vacancies' ? false : '');
+  }
+  /** Limpa busca e filtros, sem mudar o nível. */
   clearFilters(): void {
     this.page.set(0);
-    this.filters.reset({
-      search: '',
-      block: '',
-      accommodationId: '',
-      unitId: '',
-      floor: '',
-      situation: '',
-      occupancy: '',
-    });
+    this.filters.patchValue({ search: '', block: '', floor: '', situation: '', vacancies: false });
   }
   restoreScenario(): void {
     this.session.setScenario('padrao');
@@ -506,10 +680,4 @@ export class RoomsComponent {
     if (this.isDemo()) this.restoreScenario();
     else void this.load();
   }
-}
-
-function floorPosition(floor: string): number {
-  if (floor === 'Térreo') return 0;
-  const number = Number.parseInt(floor, 10);
-  return Number.isNaN(number) ? Number.MAX_SAFE_INTEGER : number;
 }

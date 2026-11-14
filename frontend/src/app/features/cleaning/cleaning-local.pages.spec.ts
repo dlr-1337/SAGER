@@ -21,7 +21,6 @@ const room = (id: string, code: string, accommodationId: string, unitId: string 
   situation: 'Ocupado' as const,
   occupancy: 1,
   vacancies: 3,
-  cleaningScore: null,
   version: 0,
 });
 const housing: HousingMap = {
@@ -37,9 +36,15 @@ describe('Filtro de alojamento na lista de limpeza', () => {
   let list: ReturnType<typeof vi.fn>;
   let map: ReturnType<typeof vi.fn>;
   let own: boolean;
+  let demo: boolean;
+  let residents: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     own = false;
+    demo = false;
+    residents = vi
+      .fn()
+      .mockResolvedValue([{ id: 'p1', name: 'Pessoa Sintética', enrollment: 'TESTE-001' }]);
     list = vi.fn().mockResolvedValue({ items: [], nextCursor: null });
     map = vi.fn().mockResolvedValue(structuredClone(housing));
     TestBed.configureTestingModule({
@@ -59,7 +64,9 @@ describe('Filtro de alojamento na lista de limpeza', () => {
         {
           provide: DemoSessionService,
           useValue: {
-            active: signal(false),
+            get active() {
+              return signal(demo);
+            },
             hasRole: (...roles: string[]) => roles.includes(own ? 'residente' : 'supervisor'),
           },
         },
@@ -68,7 +75,7 @@ describe('Filtro de alojamento na lista de limpeza', () => {
           useValue: { list, ownList: vi.fn().mockResolvedValue({ items: [], nextCursor: null }) },
         },
         { provide: RoomApiService, useValue: { map } },
-        { provide: ResidentApiService, useValue: { list: vi.fn().mockResolvedValue([]) } },
+        { provide: ResidentApiService, useValue: { list: residents } },
       ],
     });
   });
@@ -91,6 +98,7 @@ describe('Filtro de alojamento na lista de limpeza', () => {
     expect(page.visibleRooms().map((item) => item.id)).toEqual(['r2']);
     expect(list).toHaveBeenLastCalledWith(
       expect.objectContaining({ accommodationId: 'a2', roomId: '' }),
+      undefined,
     );
   });
 
@@ -115,7 +123,10 @@ describe('Filtro de alojamento na lista de limpeza', () => {
     expect(roomId.value).toBe('');
     expect(page.visibleRooms().map((item) => item.id)).toEqual(['r1']);
     await page.load();
-    expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ unitId: 'u1', roomId: '' }));
+    expect(list).toHaveBeenLastCalledWith(
+      expect.objectContaining({ unitId: 'u1', roomId: '' }),
+      undefined,
+    );
     accommodationId.setValue('a1');
     expect(unitId.value).toBe('');
     expect(page.visibleUnits().map((item) => page.unitLabel(item))).toEqual(['Bloco A']);
@@ -136,6 +147,7 @@ describe('Filtro de alojamento na lista de limpeza', () => {
     expect(fixture.componentInstance.filters.controls.unitId.value).toBe('');
     expect(list).toHaveBeenLastCalledWith(
       expect.objectContaining({ accommodationId: 'a2', unitId: '' }),
+      undefined,
     );
   });
 
@@ -153,14 +165,133 @@ describe('Filtro de alojamento na lista de limpeza', () => {
     expect(fixture.componentInstance.filters.controls.roomId.value).toBe('');
     expect(list).toHaveBeenLastCalledWith(
       expect.objectContaining({ accommodationId: 'a1', roomId: '' }),
+      undefined,
     );
-    expect(fixture.componentInstance.loading()).toBe(false);
+    expect(fixture.componentInstance.list.loading()).toBe(false);
   });
 
   it('não consulta o mapa em "Minhas avaliações"', async () => {
     own = true;
     await create();
     expect(map).not.toHaveBeenCalled();
+    expect(list).not.toHaveBeenCalled();
+  });
+  it('aplica o filtro sozinho, sem botão de busca, e mostra filtros ativos com nomes legíveis', async () => {
+    const fixture = await create();
+    const page = fixture.componentInstance;
+    const element: HTMLElement = fixture.nativeElement;
+    expect(element.textContent).not.toContain('Buscar avaliações');
+    page.filters.patchValue({ accommodationId: 'a1', unitId: 'u1' });
+    page.filters.patchValue({ roomId: 'r1', residentId: 'p1', from: '2026-09-01' });
+    await vi.waitFor(() =>
+      expect(list).toHaveBeenLastCalledWith(
+        expect.objectContaining({ accommodationId: 'a1', roomId: 'r1', residentId: 'p1' }),
+        undefined,
+      ),
+    );
+    fixture.detectChanges();
+    expect(page.chips().map((chip) => `${chip.label}: ${chip.value}`)).toEqual([
+      'De: 01/09/2026',
+      'Alojamento: Alojamento Um',
+      'Casa ou bloco: Bloco A',
+      'Quarto: A-101 · Bloco A',
+      'Residente: Pessoa Sintética · TESTE-001',
+    ]);
+    expect(element.querySelector('.filter-chips')?.textContent).not.toContain('a1');
+  });
+
+  it('mantém à vista e removíveis os filtros lembrados quando as opções falham', async () => {
+    map.mockRejectedValue(new Error('Falha sintética'));
+    residents.mockRejectedValue(new Error('Falha sintética'));
+    TestBed.inject(FilterState).values.set('cleaning-local.pages', {
+      from: '',
+      to: '',
+      accommodationId: 'a1',
+      unitId: 'u1',
+      roomId: 'r1',
+      residentId: 'p1',
+    });
+    const fixture = await create();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.chips().map((chip) => `${chip.label}: ${chip.value}`)).toEqual(
+      [
+        'Alojamento: Alojamento selecionado',
+        'Casa ou bloco: Casa ou bloco selecionada',
+        'Quarto: Quarto selecionado',
+        'Residente: Residente selecionado',
+      ],
+    );
+    const element: HTMLElement = fixture.nativeElement;
+    expect(
+      [...element.querySelectorAll('button')].some(
+        (button) => button.textContent?.trim() === 'Limpar filtros',
+      ),
+    ).toBe(true);
+  });
+
+  it('mantém o painel na tela enquanto a lista carrega', async () => {
+    const fixture = await create();
+    list.mockReturnValueOnce(new Promise(() => undefined));
+    void fixture.componentInstance.load();
+    fixture.detectChanges();
+    const element: HTMLElement = fixture.nativeElement;
+    expect(element.textContent).toContain('Carregando registros');
+    expect(element.querySelector('sager-filter-panel input[type=date]')).not.toBeNull();
+    expect(element.querySelector('#cleaning-results-title')?.textContent).toBe(
+      'Avaliações registradas',
+    );
+  });
+
+  it('troca de página com Próxima e volta com Anterior sem consultar de novo', async () => {
+    const item = (id: string) => ({
+      id,
+      roomCode: id,
+      assessmentDate: '2026-09-30',
+      evaluatedAt: '2026-09-30T16:00:00Z',
+      score: 6,
+      feedback: { previousScore: null },
+    });
+    list
+      .mockResolvedValueOnce({ items: [item('p1-a')], nextCursor: 31 })
+      .mockResolvedValueOnce({ items: [item('p2-a')], nextCursor: null });
+    const fixture = await create();
+    fixture.detectChanges();
+    const element: HTMLElement = fixture.nativeElement;
+    const button = (name: string) =>
+      [...element.querySelectorAll<HTMLButtonElement>('sager-pagination button')].find(
+        (candidate) => candidate.textContent?.trim() === name,
+      )!;
+    expect(element.textContent).toContain('Página 1');
+    button('Próxima').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(list).toHaveBeenLastCalledWith(expect.anything(), 31);
+    expect(element.textContent).toContain('Quarto p2-a');
+    expect(element.textContent).not.toContain('Quarto p1-a');
+    expect(document.activeElement?.id).toBe('cleaning-results-title');
+    button('Anterior').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(element.textContent).toContain('Quarto p1-a');
+    expect(list).toHaveBeenCalledTimes(2);
+  });
+
+  it('busca mapa e residentes uma vez, mesmo depois de duas mudanças de filtro', async () => {
+    const fixture = await create();
+    const page = fixture.componentInstance;
+    page.filters.controls.accommodationId.setValue('a1');
+    await vi.waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+    page.filters.controls.from.setValue('2026-09-01');
+    await vi.waitFor(() => expect(list).toHaveBeenCalledTimes(3));
+    expect(map).toHaveBeenCalledTimes(1);
+    expect(residents).toHaveBeenCalledTimes(1);
+  });
+
+  it('não chama a API com a demonstração ativa', async () => {
+    demo = true;
+    await create();
+    expect(map).not.toHaveBeenCalled();
+    expect(residents).not.toHaveBeenCalled();
     expect(list).not.toHaveBeenCalled();
   });
 });

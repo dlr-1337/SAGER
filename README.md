@@ -1,124 +1,117 @@
 # SAGER
 
-**Gestão da residência estudantil: cadastros, ocupação, chamadas, saídas e acompanhamento em um único sistema.**
+**Gestão da residência estudantil do IF Goiano — Campus Urutaí: cadastros, quartos, chamada noturna, saídas, comunicação, limpeza e relatórios em um só sistema.**
 
-Sistema de apoio à gestão da residência estudantil do **IF Goiano — Campus Urutaí**. Reúne uma interface Angular e uma API Spring Boot com persistência em PostgreSQL e autorização aplicada pelo servidor.
+O SAGER substitui controles em papel por registros digitais rastreáveis. É uma aplicação web responsiva, com interface Angular 22, API Spring Boot 4.1 em Java 21 e banco PostgreSQL 17. Toda permissão é conferida no servidor, e toda alteração fica na auditoria.
 
-[Funcionalidades](#funcionalidades) · [Perfis](#perfis-e-acesso) · [Arquitetura](#arquitetura) · [Executar](#como-executar) · [Operação](#operação-e-homologação) · [Documentação](#documentação)
+## Perfis
 
-## Funcionalidades
-
-| Domínio | Escopo implementado e documentado |
+| Perfil | O que faz |
 | --- | --- |
-| Gestão | Residentes, responsáveis, supervisores, alojamentos, unidades, quartos e alocações. |
-| Ocupação | Entrada, transferência e encerramento de alocação, preservando o histórico. |
-| Chamada | Abertura, marcação, fechamento e correção motivada. |
-| Saídas | Solicitação, decisão e registro de movimentos físicos conforme o tipo de saída e o perfil. |
-| Comunicações | Áreas de comunicação e avisos integradas aos fluxos do sistema. |
-| Saúde | Acesso separado por habilitação e vínculo assistencial; acesso próprio do residente quando autorizado. |
-| Limpeza | Registros, correções, acompanhamento próprio e indicadores. |
-| Relatórios | Consultas e visões individuais conforme as permissões de cada recurso. |
+| Gestor | Mantém os cadastros, inclusive os supervisores, aloca residentes nos quartos, consulta limpeza e ranking, consulta e exporta relatórios e consulta a auditoria pela API. |
+| Supervisor | Mantém os cadastros, exceto supervisores, e cuida da rotina: chamada noturna, saídas e retornos, notificações, advertências, avisos, limpeza e conversas com responsáveis. Também consulta o ranking, consulta e exporta relatórios e consulta a auditoria pela API. |
+| Residente | Consulta o que é seu: comunicações, avaliações de limpeza e ranking. O residente menor de idade também pede saídas. |
 
-O detalhamento de cada entrega, seus contratos e limites está no [roteiro de implementação](docs/ROADMAP_IMPLEMENTACAO.md).
+Não há cadastro público. O operador cria pelo terminal as contas iniciais de gestor, e o cadastro de residente ou de supervisor já cria a conta vinculada, com a senha escolhida por quem cadastra.
 
-## Perfis e acesso
+## Uso por perfil
 
-| Perfil | Papel no sistema |
-| --- | --- |
-| Gestor | Gestão, inclusive de supervisores, e consultas permitidas pelo contrato de cada módulo. |
-| Supervisor | Gestão, exceto de supervisores, e operações de residência, incluindo atividades específicas como chamada. |
-| Residente | Solicitações e consultas próprias associadas ao vínculo da conta. |
-| Saúde | Entrada na conta; acesso ao conteúdo exige também habilitação profissional e vínculo assistencial. |
+**Acesso.** Entre com a matrícula (ou SIAPE) e a senha. Se esquecer a senha, o residente usa **Esqueci minha senha**, que confere matrícula, nome, nascimento e, se houver responsável ativo, o nome de um deles; servidores procuram o operador. Muitas tentativas erradas bloqueiam o login por alguns minutos. Ao terminar, use **Sair**, principalmente em computador compartilhado.
 
-O cadastro de residente ou de supervisor cria a conta vinculada na mesma transação, com a matrícula ou SIAPE e a senha informadas no cadastro. O operador provisiona as demais contas e seus vínculos. Não há cadastro público de contas. A recuperação do residente confere nome, nascimento e nome de um responsável ativo quando houver; a recuperação dos demais perfis é administrativa.
+**Demonstração.** Para conhecer as telas sem conta, use a área **Explorar com um perfil fictício** da tela de acesso e escolha gestor, supervisor ou residente. Os dados são fictícios e ficam em memória, sem passar pela API, e a demonstração não existe em produção. Uma falha da API mostra erro, nunca dados de exemplo.
 
-Ter um perfil de gestão não concede acesso automático ao conteúdo de saúde. As permissões efetivas são verificadas pela API; os controles de navegação do Angular não substituem essa verificação.
+**Gestor**
 
-## Arquitetura
+1. Em **Residentes**, **Responsáveis**, **Cursos**, **Supervisores** e **Quartos**, consulte e mantenha os cadastros. Confira matrícula, nascimento e responsáveis.
+2. Para alocar ou transferir, abra o quarto ou o residente, confira a vaga e confirme. O histórico guarda a ocupação anterior.
+3. Em **Limpeza** e **Ranking**, acompanhe as avaliações por período. Nota zero e falta de avaliação são coisas diferentes.
+4. Em **Relatórios**, escolha o tipo, o período e os filtros e gere PDF e Excel. O arquivo traz o recorte daquele momento; para ver mudanças posteriores, gere outro.
 
-```mermaid
-flowchart LR
-    U[Usuário autenticado] --> F[Angular]
-    F -->|API e sessão| B[Spring Boot]
-    B --> P[(PostgreSQL)]
-    B --> A[Autorização e auditoria]
-    B -. Configuração e aceite institucional .-> I[Gateway WhatsApp]
-```
+O gestor não opera chamada, saídas, disciplina nem avisos.
 
-Stack documentada: **Angular 22, Spring Boot 4.1, Java 21 e PostgreSQL 17**. O frontend se organiza por domínios, incluindo gestão, operações, comunicações, saúde, limpeza, relatórios e portal.
+**Supervisor**
 
-| Caminho | Conteúdo |
-| --- | --- |
-| [`frontend/`](frontend/) | Interface Angular, navegação, estados e testes de navegador. |
-| [`backend/`](backend/) | API, regras, sessões, persistência, migrações e provisionamento de contas. |
-| [`infra/production/`](infra/production/) | Operação com Compose, HTTPS e segredos externos. |
-| [`docs/`](docs/) | Contratos por fase, manual, homologação e evidências. |
+1. Em **Chamada noturna**, confira a data e os residentes menores alocados, marque as presenças e finalize. Quem está fora com saída válida já aparece com ausência justificada; confira e corrija se preciso. Corrigir depois exige justificativa e preserva o registro original.
+2. Em **Saídas e retornos**, analise os pedidos e registre a partida e o retorno reais. Na saída longa, confira antes a autorização do responsável, recebida pelo WhatsApp ou anexada, na revisão atual do documento. Aprovar é um passo separado. Mensagem enviada ou arquivo recebido não aprova nada.
+3. Em **Notificações** e **Advertências**, analise a origem, as evidências e o motivo antes de emitir. Nenhuma ocorrência gera punição automática.
+4. Em **Avisos**, confira destinatários e texto antes de publicar. Editar cria nova versão, e a ciência anterior não vale para ela.
+5. Em **Limpeza**, escolha o quarto e o momento, dê nota de 0 a 10 nos quatro critérios e confira a média calculada.
+6. Em **Conversas**, troque mensagens com os responsáveis pelo WhatsApp, quando a integração estiver ligada.
+7. Em **Ranking** e **Relatórios**, consulte e exporte como o gestor.
 
-Para acompanhar o acesso às telas, consulte [`app.routes.ts`](frontend/src/app/app.routes.ts). O backend utiliza contas próprias de matrícula e senha, com sessão persistida no banco.
+**Residente**
 
-## Como executar
+1. Em **Meu perfil**, confira seus dados. Vínculo errado é corrigido pelo operador.
+2. Em **Minhas comunicações**, leia avisos e advertências. Confirme a ciência só depois de ler a versão apresentada. Ciência não é assinatura.
+3. Em **Minha limpeza** e **Ranking**, veja as avaliações do seu quarto e a posição geral.
+4. Se for menor de idade, use **Minhas saídas** para pedir uma saída e acompanhar o pedido. A aprovação não registra sua partida: quem registra é o supervisor.
 
-```bash
-git clone https://github.com/dlr-1337/SAGER.git
-cd SAGER
-```
+**Quando algo dá errado**
 
-### Iniciar tudo com Docker
+- **Sessão encerrada:** entre de novo.
+- **Sem permissão:** confira o perfil e procure o operador.
+- **Registro alterado por outra pessoa:** atualize a tela e refaça a ação com os dados atuais. Nada é sobrescrito.
+- **WhatsApp fora do ar:** o supervisor anexa a autorização à mão.
+- **Relatório expirado:** gere outro; os arquivos ficam disponíveis por 24 horas.
 
-Instale somente Docker com Compose. Na raiz:
+A página **Ajuda** reúne orientações por perfil. A navegação funciona por teclado, e no celular o menu fica em **Menu**.
+
+## Como rodar
+
+Com Docker e Compose instalados, na raiz:
 
 ```bash
 ./sager up
 ./sager account create --matricula=TESTE-GESTOR --name='Gestor de Teste' --profile=gestor
 ```
 
-O segundo comando solicita a senha duas vezes no terminal. Abra **http://127.0.0.1:4200/acesso** e entre com a matrícula escolhida. Não existe senha padrão. O cadastro assistido de residente cria sua conta vinculada, com a senha que ele escolher.
+O segundo comando pede a senha duas vezes. Abra http://127.0.0.1:4200/acesso e entre com a matrícula escolhida. Não existe senha padrão. `./sager down` para tudo sem apagar os dados. Os demais comandos estão em [docs/OPERACAO.md](docs/OPERACAO.md).
+
+Para desenvolver a interface fora do Docker, com o [backend rodando no host](backend/README.md):
 
 ```bash
-./sager status
-./sager logs
-./sager down
+cd frontend
+npm ci
+npm start
 ```
 
-`up` reconstrói os serviços; `down` preserva banco, documentos e relatórios. A configuração privada fica em `.env.local` (permissão 600, excluída do Git). Não apague esse arquivo nem os volumes para redefinir uma conta. Consulte o [guia Docker e migração](docs/DOCKER.md), inclusive para reaproveitar um banco existente.
+## Como verificar
 
-A demonstração pública continua disponível em desenvolvimento, com exemplos em memória. Uma falha da API apresenta um erro; a aplicação não troca para dados demonstrativos.
-
-Para desenvolvimento sem Docker, os comandos de Angular e Maven continuam documentados no [backend](backend/README.md) e em [guia de CI](docs/CI.md).
-
-## Verificação
-
-Na pasta `frontend`:
+Em `frontend/`:
 
 ```bash
-npm run build
 npm test -- --watch=false
+npm run build
 npm run test:e2e
 ```
 
-No backend, o fluxo `verify` do Maven Wrapper utiliza Testcontainers e PostgreSQL descartável. Os requisitos e comandos específicos de cada ambiente estão em [backend/README.md](backend/README.md).
+Em `backend/`, com JDK 21 e Docker (no Windows, `.\mvnw.cmd`):
 
-O [guia de CI](docs/CI.md) explica a validação automatizada. Os resultados por revisão estão nos relatórios de QA, separados do aceite institucional.
+```bash
+./mvnw -B -ntp verify
+```
 
-## Operação e homologação
+Na raiz, para conferir as specs e as changes:
 
-A produção exige configuração própria, HTTPS, segredos externos, contas provisionadas e preparação de migrações e recuperação. O seletor de demonstração fica desabilitado nesse ambiente.
+```bash
+openspec validate --all --strict
+```
 
-**O WhatsApp usa um gateway auto-hospedado e não oficial, desligado por padrão, que depende de número dedicado, configuração e aceite institucional ([operação](docs/whatsapp/OPERACAO.md)). Não há provedor externo de assinatura. Google e SUAP foram adiados.** Esses itens não devem ser anunciados como integrações operacionais apenas porque existem telas ou contratos planejados.
+Na raiz, `./sager ci` roda de uma vez as specs, o backend, o frontend (com as jornadas em um worker, sem a captura de telas) e os testes de infraestrutura. Rode-o antes de mesclar e antes do deploy; veja [docs/OPERACAO.md](docs/OPERACAO.md#verificação-local).
 
-As regras implementadas e os testes técnicos não substituem o aceite institucional nem a medição de capacidade na VPS definitiva. Registros de desenvolvimento, capturas e ensaios devem usar dados sintéticos, especialmente nos módulos de residentes e saúde.
+## Documentos
 
-## Documentação
-
-| Documento | Finalidade |
+| Documento | Conteúdo |
 | --- | --- |
-| [Frontend](frontend/README.md) | Dependências, modo demonstrativo e comandos da interface. |
-| [Backend](backend/README.md) | Banco, contas próprias, API e autorização. |
-| [Produção](infra/production/README.md) | Compose, HTTPS, migrações, backup e recuperação criptografada. |
-| [Manual por perfil](docs/fase-7/MANUAL.md) | Tarefas e uso do sistema. |
-| [Homologação](docs/fase-7/HOMOLOGACAO.md) | Roteiro de avaliação. |
-| [QA final](docs/fase-7/QA.md) | Evidências e limites da revisão. |
-| [QA de matrícula e Docker](docs/QA-2026-10-16.md) | Verificação desta revisão, incluindo persistência e recuperação. |
-| [PRD](SAGER_PRD_v2.0_Angular_SpringBoot.md) | Contexto e requisitos do produto. |
-| [Especificação técnica](SAGER_Especificacao_Tecnica_v2.0.md) | Organização técnica e contratos. |
-| [Direção visual](DESIGN.md) | Referência de interface. |
+| [docs/ARQUITETURA.md](docs/ARQUITETURA.md) | Camadas, módulos, contrato da API, segurança, decisões e pendências institucionais. |
+| [docs/OPERACAO.md](docs/OPERACAO.md) | Ambiente local com Docker, verificação local (`./sager ci`) e caminhos de produção. |
+| [docs/whatsapp/OPERACAO.md](docs/whatsapp/OPERACAO.md) | Como ligar e operar o gateway de WhatsApp, e seus riscos. |
+| [backend/README.md](backend/README.md) | Backend no host, perfis e comandos de conta. |
+| [frontend/README.md](frontend/README.md) | Interface: instalação, comandos e organização das pastas. |
+| [infra/production/README.md](infra/production/README.md) | Produção com Docker Compose, HTTPS, backup e restauração. |
+| [infra/coolify/README.md](infra/coolify/README.md) | Homologação no Coolify. |
+| [PRODUCT.md](PRODUCT.md) e [DESIGN.md](DESIGN.md) | Público, princípios e direção visual. |
+| [AGENTS.md](AGENTS.md) | Regras de permissão e domínio e fluxo de trabalho com OpenSpec. |
+| [openspec/specs](openspec/specs/) | Comportamento esperado de cada capacidade do sistema. |
+
+Use só dados sintéticos em desenvolvimento, testes e capturas de tela. O WhatsApp usa um gateway auto-hospedado e não oficial, desligado por padrão, e o uso real depende de aceite da instituição. Os testes técnicos não substituem a homologação pela Assistência Estudantil e pela TI.

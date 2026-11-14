@@ -1,6 +1,8 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatDialog } from '@angular/material/dialog';
 import { provideRouter } from '@angular/router';
+import { of } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { FilterState } from '../../core/filter-state';
@@ -21,7 +23,6 @@ const room = (id: string, code: string, unitId: string | null) => ({
   situation: 'Ocupado' as const,
   occupancy: 1,
   vacancies: 3,
-  cleaningScore: null,
   version: 0,
 });
 const housing: HousingMap = {
@@ -267,6 +268,55 @@ describe('Filtros de casa ou bloco e quarto na chamada noturna', () => {
       ]);
       const fixture = await create();
       expect(fixture.nativeElement.textContent).not.toContain('Residentes com saída em andamento');
+    });
+  });
+
+  describe('fechamento em data posterior', () => {
+    let open: ReturnType<typeof vi.fn>;
+    beforeEach(() => {
+      open = vi.fn().mockReturnValue({ afterClosed: () => of(undefined) });
+      TestBed.overrideProvider(MatDialog, { useValue: { open } });
+    });
+    const closeWith = async (referenceDate: string, outsideWindow = false) => {
+      calls.mockResolvedValue([
+        {
+          ...structuredClone(call),
+          referenceDate,
+          summary: { total: 3, present: 3, absent: 0, justified: 0, unmarked: 0 },
+        },
+      ]);
+      const fixture = await create();
+      const context = vi.mocked(TestBed.inject(OperationsLocalApiService).callContext);
+      context.mockResolvedValue({ ...(await context()), outsideWindow });
+      await fixture.componentInstance.close();
+      return open.mock.calls[0][1].data;
+    };
+
+    it('pede confirmação e justificativa para a chamada de um dia anterior dentro da janela', async () => {
+      expect(await closeWith('2026-09-29')).toMatchObject({
+        requireReason: true,
+        requireConfirmation: true,
+        warning: 'A chamada é de um dia anterior. Marque a confirmação e escreva o motivo.',
+        confirmationLabel: 'Confirmo o fechamento da chamada de um dia anterior.',
+      });
+    });
+
+    it('avisa o dia anterior e o horário quando a chamada antiga é fechada fora da janela', async () => {
+      expect(await closeWith('2026-09-29', true)).toMatchObject({
+        requireReason: true,
+        requireConfirmation: true,
+        warning:
+          'A chamada é de um dia anterior e agora não é o horário da chamada (22h às 23h30). Marque a confirmação e escreva o motivo.',
+        confirmationLabel:
+          'Confirmo o fechamento da chamada de um dia anterior, fora do horário da chamada.',
+      });
+    });
+
+    it('fecha a chamada do mesmo dia dentro da janela sem justificativa', async () => {
+      const data = await closeWith('2026-09-30');
+      expect(data.requireReason).toBeUndefined();
+      expect(data.requireConfirmation).toBeUndefined();
+      expect(data.warning).toBeUndefined();
     });
   });
 
