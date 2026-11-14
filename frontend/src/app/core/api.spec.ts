@@ -196,6 +196,24 @@ describe('api', () => {
     localStorage.removeItem(ACCOUNT_OPEN);
   });
 
+  it('consulta logo depois de clique ou tecla é da pessoa, mesmo durante asAutoRefresh', async () => {
+    let now = 10_000;
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
+    fetchMock.mockImplementation(async () => json([]));
+    const header = (index: number) =>
+      (fetchMock.mock.calls[index][1] as { headers: Record<string, string> }).headers[
+        'X-Sager-Auto-Refresh'
+      ];
+
+    document.dispatchEvent(new KeyboardEvent('keydown'));
+    now += 999;
+    await asAutoRefresh(() => api('/api/v1/saidas'));
+    expect(header(0)).toBeUndefined();
+    now += 1;
+    await asAutoRefresh(() => api('/api/v1/saidas'));
+    expect(header(1)).toBe('1');
+  });
+
   it('gravação marcada como automática pelo serviço não adia ACCOUNT_OPEN', async () => {
     vi.spyOn(Date, 'now').mockReturnValue(3000);
     localStorage.setItem(ACCOUNT_OPEN, '1');
