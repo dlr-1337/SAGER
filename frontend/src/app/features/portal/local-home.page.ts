@@ -1,7 +1,9 @@
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { autoRefresh } from '../../core/auto-refresh';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { LocalAuthService } from '../../core/local-auth.service';
+import { AutoRefreshStatusComponent } from '../../shared/auto-refresh-status.component';
 
 const todayFormat = new Intl.DateTimeFormat('pt-BR', {
   dateStyle: 'full',
@@ -117,7 +119,7 @@ const staffTasks: HomeTask[] = [
 @Component({
   standalone: true,
   selector: 'sager-local-home',
-  imports: [RouterLink],
+  imports: [RouterLink, AutoRefreshStatusComponent],
   // Timers param durante o repouso do aparelho; ao voltar, a data é conferida de novo.
   host: { '(document:visibilitychange)': 'refreshDate()', '(window:focus)': 'refreshDate()' },
   template: `
@@ -129,6 +131,9 @@ const staffTasks: HomeTask[] = [
           <p>{{ auth.principal()?.nome }} · {{ session.production ? 'SAGER' : 'Acesso local' }}</p>
         </div>
       </header>
+      @if (refresh) {
+        <sager-auto-refresh-status [refresh]="refresh" />
+      }
       <section class="tasks" aria-label="Atividades disponíveis">
         @for (task of tasks(); track task.title; let first = $first) {
           <article [class]="first ? 'hero home-hero' : 'item'">
@@ -221,6 +226,9 @@ const staffTasks: HomeTask[] = [
 export class LocalHomePage {
   readonly session = inject(DemoSessionService);
   readonly auth = inject(LocalAuthService);
+  // Só o início do residente se atualiza: a conta diz quando ele faz 18 anos (auto-refresh, D9).
+  readonly refresh =
+    this.session.role() === 'residente' ? autoRefresh(() => this.auth.current()) : null;
   // A página pode ficar aberta durante o turno da noite; a data acompanha a virada do dia.
   private readonly now = signal(new Date());
   refreshDate(): void {
