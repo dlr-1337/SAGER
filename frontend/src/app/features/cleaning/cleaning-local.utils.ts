@@ -51,14 +51,17 @@ export function cleaningInputError(input: CleaningInput, serverNow: string): str
   if (!validCriteria(input.criteria))
     return 'Informe os quatro critérios entre 0 e 10, em passos de 0,1.';
   if ((input.observation?.length ?? 0) > 2000) return 'A observação deve ter até 2.000 caracteres.';
-  if (input.timeMode === 'RETROACTIVE') {
-    const instant = Date.parse(input.evaluatedAt ?? '');
-    if (!Number.isFinite(instant) || instant > Date.parse(serverNow))
-      return 'Informe quando foi a avaliação. Não pode ser no futuro.';
-    const reason = input.registrationReason?.trim() ?? '';
-    if (reason.length < 10 || reason.length > 2000)
-      return 'Explique o registro histórico em 10 a 2.000 caracteres.';
-  }
+  return retroactiveError(input, serverNow);
+}
+/** Data e motivo da avaliação de outro dia; vazio quando a avaliação é de agora. */
+export function retroactiveError(input: CleaningInput, serverNow: string): string {
+  if (input.timeMode !== 'RETROACTIVE') return '';
+  const instant = Date.parse(input.evaluatedAt ?? '');
+  if (!Number.isFinite(instant) || instant > Date.parse(serverNow))
+    return 'Informe quando foi a avaliação. Não pode ser no futuro.';
+  const reason = input.registrationReason?.trim() ?? '';
+  if (reason.length < 10 || reason.length > 2000)
+    return 'Explique o registro histórico em 10 a 2.000 caracteres.';
   return '';
 }
 export function cleaningPlan(

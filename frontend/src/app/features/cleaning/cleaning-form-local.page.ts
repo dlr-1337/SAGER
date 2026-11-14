@@ -1,17 +1,19 @@
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import { UnsavedFormDirective } from '../../shared/unsaved-form';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  Injector,
+  afterNextRender,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
 import { DemoSessionService } from '../../core/demo-session.service';
-import {
-  CommunicationReviewDialogComponent,
-  CommunicationReviewResult,
-  CommunicationsStateComponent,
-} from '../communications/communications-local.shared';
+import { CommunicationsStateComponent } from '../communications/communications-local.shared';
 import {
   CommunicationIntent,
   formatCommunicationTime,
@@ -33,7 +35,7 @@ import {
   criteriaInput,
 } from './cleaning-criteria-fields.component';
 import { CleaningLocalApiService } from './cleaning-local-api.service';
-import { CleaningAssessment, CleaningPolicy } from './cleaning-local.models';
+import { CleaningAssessment, CleaningInput, CleaningPolicy } from './cleaning-local.models';
 import {
   cleaningInputError,
   cleaningPlan,
@@ -41,6 +43,7 @@ import {
   criteriaKeys,
   decimal,
   previewCleaningScore,
+  retroactiveError,
 } from './cleaning-local.utils';
 import { ReportingApiError, reportingError } from './reporting-local.transport';
 
@@ -67,7 +70,7 @@ import { ReportingApiError, reportingError } from './reporting-local.transport';
           <p>
             {{
               id
-                ? 'Corrija as notas e explique o motivo. As notas antigas continuam guardadas.'
+                ? 'Corrija as notas; as antigas ficam guardadas no histórico.'
                 : 'Dê uma nota de 0 a 10 para cada item do quarto.'
             }}
           </p>
@@ -82,7 +85,6 @@ import { ReportingApiError, reportingError } from './reporting-local.transport';
       />
       @if (!session.active() && allowed() && !loading() && !error()) {
         <section class="panel op-panel">
-          <h2>Dados da avaliação</h2>
           @if (existing(); as item) {
             <dl class="comm-definition">
               <div>
@@ -99,87 +101,117 @@ import { ReportingApiError, reportingError } from './reporting-local.transport';
             sagerUnsaved
             [sagerSaving]="busy"
             [formGroup]="form"
-            (ngSubmit)="review()"
+            (ngSubmit)="step() < 3 ? next() : save()"
             novalidate
           >
-            @if (!id) {
-              <div class="comm-form-grid">
-                <label class="field"
-                  >Alojamento<select sagerSearchable formControlName="accommodationId">
-                    <option value="">Todos os alojamentos</option>
-                    @for (item of housing().accommodations; track item.id) {
-                      <option [value]="item.id">{{ item.name }}</option>
-                    }
-                  </select></label
-                ><label class="field"
-                  >Casa ou bloco<select sagerSearchable formControlName="unitId">
-                    <option value="">Todas as casas e blocos</option>
-                    @for (unit of visibleUnits(); track unit.id) {
-                      <option [value]="unit.id">{{ unitLabel(unit) }}</option>
-                    }
-                  </select></label
-                ><label class="field"
-                  >Quarto<select sagerSearchable formControlName="roomId">
-                    <option value="">Selecione o quarto</option>
-                    @for (room of visibleRooms(); track room.id) {
-                      <option [value]="room.id">{{ roomLabel(room) }}</option>
-                    }
-                  </select></label
-                ><label class="field"
-                  >Quando foi a avaliação?<select sagerSearchable formControlName="timeMode">
-                    <option value="NOW">Agora</option>
-                    <option value="RETROACTIVE">Registrar uma avaliação anterior</option>
-                  </select></label
-                >
-              </div>
-              @if (form.controls.timeMode.value === 'RETROACTIVE') {
+            <p class="step-count">Passo {{ id ? step() - 1 : step() }} de {{ id ? 2 : 3 }}</p>
+            <h2 id="cleaning-step-title" tabindex="-1">{{ titles[step() - 1] }}</h2>
+            @switch (step()) {
+              @case (1) {
                 <div class="comm-form-grid">
                   <label class="field"
-                    >Data e hora da avaliação<input
-                      type="datetime-local"
-                      formControlName="civilTime"
-                    /><span class="field-hint"
-                      >Horário de Brasília. Não pode ser no futuro.</span
-                    ></label
+                    >Alojamento<select sagerSearchable formControlName="accommodationId">
+                      <option value="">Todos os alojamentos</option>
+                      @for (item of housing().accommodations; track item.id) {
+                        <option [value]="item.id">{{ item.name }}</option>
+                      }
+                    </select></label
                   ><label class="field"
-                    >Por que está registrando depois?<textarea
+                    >Casa ou bloco<select sagerSearchable formControlName="unitId">
+                      <option value="">Todas as casas e blocos</option>
+                      @for (unit of visibleUnits(); track unit.id) {
+                        <option [value]="unit.id">{{ unitLabel(unit) }}</option>
+                      }
+                    </select></label
+                  ><label class="field"
+                    >Quarto<select id="cleaning-room" sagerSearchable formControlName="roomId">
+                      <option value="">Selecione o quarto</option>
+                      @for (room of visibleRooms(); track room.id) {
+                        <option [value]="room.id">{{ roomLabel(room) }}</option>
+                      }
+                    </select></label
+                  >
+                </div>
+                <details
+                  class="more-details"
+                  [open]="form.controls.timeMode.value === 'RETROACTIVE'"
+                  (toggle)="otherDay($any($event.target).open)"
+                >
+                  <summary>Foi em outro dia?</summary>
+                  <div class="comm-form-grid">
+                    <label class="field"
+                      >Data e hora da avaliação<input
+                        id="cleaning-time"
+                        type="datetime-local"
+                        formControlName="civilTime"
+                      /><span class="field-hint"
+                        >Horário de Brasília. Não pode ser no futuro.</span
+                      ></label
+                    ><label class="field"
+                      >Por que está registrando depois?<textarea
+                        id="cleaning-reason"
+                        rows="3"
+                        maxlength="2000"
+                        formControlName="registrationReason"
+                      ></textarea
+                      ><span class="field-hint">De 10 a 2.000 caracteres.</span></label
+                    >
+                  </div>
+                </details>
+              }
+              @case (2) {
+                <sager-cleaning-criteria-fields [form]="criteria" />
+                <p class="comm-help">
+                  Média: <strong>{{ decimal(preview()) }}</strong>
+                </p>
+                <label class="field"
+                  >Observação da avaliação<textarea
+                    id="cleaning-observation"
+                    rows="4"
+                    maxlength="2000"
+                    formControlName="observation"
+                  ></textarea
+                  ><span class="field-hint">Até 2.000 caracteres.</span></label
+                >
+              }
+              @default {
+                <dl class="comm-definition">
+                  @for (line of summary(); track line.label) {
+                    <div>
+                      <dt>{{ line.label }}</dt>
+                      <dd>{{ line.value }}</dd>
+                    </div>
+                  }
+                </dl>
+                @if (id) {
+                  <label class="field"
+                    >Motivo da correção<textarea
+                      id="cleaning-correction"
                       rows="3"
                       maxlength="2000"
-                      formControlName="registrationReason"
+                      formControlName="correctionReason"
                     ></textarea
                     ><span class="field-hint">De 10 a 2.000 caracteres.</span></label
                   >
-                </div>
+                }
               }
             }
-            <h3>Critérios de limpeza</h3>
-            <sager-cleaning-criteria-fields [form]="criteria" />
-            <p class="comm-help">
-              Média: <strong>{{ decimal(preview()) }}</strong>
-            </p>
-            <label class="field"
-              >Observação da avaliação<textarea
-                rows="4"
-                maxlength="2000"
-                formControlName="observation"
-              ></textarea
-              ><span class="field-hint">Até 2.000 caracteres.</span></label
-            >
             @if (actionError()) {
               <p class="comm-error" role="alert">{{ actionError() }}</p>
             }
             @if (conflict()) {
               <p class="comm-warning" role="alert">
-                Outra pessoa alterou esta avaliação. Clique em Recarregar, confira e tente de novo.
+                Outra pessoa alterou esta avaliação. Recarregue, confira e tente de novo.
               </p>
               <button class="btn-secondary" type="button" (click)="load()">Recarregar dados</button>
             }
-            <div class="comm-actions">
+            <div class="step-actions">
+              @if (step() > (id ? 2 : 1)) {
+                <button class="btn-secondary" type="button" (click)="go(step() - 1)">Voltar</button>
+              }
               <button class="btn" type="submit" [disabled]="busy() || conflict()">
-                {{
-                  busy() ? 'Conferindo avaliação…' : id ? 'Conferir correção' : 'Conferir avaliação'
-                }}</button
-              ><a [routerLink]="id ? ['/limpeza', id] : '/limpeza'">Cancelar</a>
+                {{ step() < 3 ? 'Continuar' : busy() ? 'Salvando…' : 'Salvar avaliação' }}
+              </button>
             </div>
           </form>
         </section>
@@ -192,9 +224,12 @@ export class CleaningFormLocalPage {
   readonly session = inject(DemoSessionService);
   private readonly api = inject(CleaningLocalApiService);
   private readonly roomApi = inject(RoomApiService);
-  private readonly dialog = inject(MatDialog);
   private readonly router = inject(Router);
+  private readonly injector = inject(Injector);
   readonly id = inject(ActivatedRoute).snapshot.paramMap.get('id') ?? '';
+  readonly titles = ['Qual quarto?', 'Notas', 'Conferir e salvar'];
+  /** A correção começa em "Notas": o quarto e a hora da avaliação não mudam. */
+  readonly step = signal(this.id ? 2 : 1);
   readonly criteria = criteriaForm();
   readonly form = new FormGroup({
     accommodationId: new FormControl('', { nonNullable: true }),
@@ -204,6 +239,7 @@ export class CleaningFormLocalPage {
     civilTime: new FormControl('', { nonNullable: true }),
     registrationReason: new FormControl('', { nonNullable: true }),
     observation: new FormControl('', { nonNullable: true }),
+    correctionReason: new FormControl('', { nonNullable: true }),
   });
   private readonly location = toSignal(this.form.valueChanges, {
     initialValue: this.form.getRawValue(),
@@ -239,6 +275,92 @@ export class CleaningFormLocalPage {
   preview(): number | null {
     return previewCleaningScore(criteriaInput(this.criteria));
   }
+  /** Abrir "Foi em outro dia?" é escolher a avaliação de outro dia; fechar volta a "agora". */
+  otherDay(open: boolean): void {
+    if (open !== (this.form.controls.timeMode.value === 'RETROACTIVE'))
+      this.form.controls.timeMode.setValue(open ? 'RETROACTIVE' : 'NOW');
+  }
+  private input(): CleaningInput {
+    const value = this.form.getRawValue();
+    return cleaningPlan(
+      value.roomId,
+      this.id ? 'NOW' : value.timeMode,
+      criteriaInput(this.criteria),
+      value.observation,
+      value.civilTime,
+      value.registrationReason,
+    );
+  }
+  /** O que o passo 3 mostra antes de salvar, no lugar do antigo diálogo de revisão. */
+  summary(): { label: string; value: string }[] {
+    const existing = this.existing();
+    const input = this.input();
+    return [
+      {
+        label: 'Quarto',
+        value:
+          existing?.roomCode ??
+          this.housing().rooms.find((room) => room.id === input.roomId)?.code ??
+          '',
+      },
+      {
+        label: 'Avaliado em',
+        value: existing
+          ? this.formatTime(existing.evaluatedAt)
+          : input.timeMode === 'NOW'
+            ? 'Agora'
+            : this.formatTime(input.evaluatedAt ?? ''),
+      },
+      ...(input.registrationReason
+        ? [{ label: 'Por que registrou depois', value: input.registrationReason }]
+        : []),
+      ...criteriaKeys.map((key) => ({
+        label: criterionLabels[key],
+        value: decimal(input.criteria[key]),
+      })),
+      { label: 'Média', value: decimal(previewCleaningScore(input.criteria)) },
+      ...(input.observation ? [{ label: 'Observação', value: input.observation }] : []),
+    ];
+  }
+  /** Erro do passo e o id do campo que recebe o foco; erro vazio quando o passo está completo. */
+  private stepError(step: number): [string, string] {
+    const input = this.input();
+    if (step === 1) {
+      if (!this.visibleRooms().some((room) => room.id === input.roomId))
+        return ['Escolha o quarto.', 'cleaning-room'];
+      const retro = retroactiveError(input, this.policy()?.now ?? '');
+      return [retro, retro.startsWith('Informe') ? 'cleaning-time' : 'cleaning-reason'];
+    }
+    if (step === 2) {
+      const invalid = criteriaKeys.find((key) => this.criteria.controls[key].invalid);
+      return [
+        cleaningInputError({ ...input, timeMode: 'NOW' }, ''),
+        invalid ? `cleaning-${invalid}` : 'cleaning-observation',
+      ];
+    }
+    const reason = this.form.controls.correctionReason.value.trim();
+    return this.id && (reason.length < 10 || reason.length > 2000)
+      ? ['Explique a correção em 10 a 2.000 caracteres.', 'cleaning-correction']
+      : ['', ''];
+  }
+  go(step: number): void {
+    this.actionError.set('');
+    this.step.set(step);
+    afterNextRender(() => document.getElementById('cleaning-step-title')?.focus(), {
+      injector: this.injector,
+    });
+  }
+  /** Continuar valida só o passo atual e leva o foco ao primeiro campo com problema. */
+  next(): void {
+    const [error, field] = this.stepError(this.step());
+    if (error) return this.fail(error, field);
+    this.go(this.step() + 1);
+  }
+  private fail(error: string, field: string): void {
+    if (this.step() === 2) this.criteria.markAllAsTouched();
+    this.actionError.set(error);
+    afterNextRender(() => document.getElementById(field)?.focus(), { injector: this.injector });
+  }
   async load(): Promise<void> {
     if (this.session.active() || !this.allowed()) return;
     this.loading.set(true);
@@ -264,37 +386,17 @@ export class CleaningFormLocalPage {
       this.loading.set(false);
     }
   }
-  async review(): Promise<void> {
+  async save(): Promise<void> {
     if (this.busy() || this.conflict() || this.session.active() || !this.allowed()) return;
-    const trigger = document.activeElement as HTMLElement | null;
-    const value = this.form.getRawValue();
-    const criteria = criteriaInput(this.criteria);
+    const [error, field] = this.stepError(3);
+    if (error) return this.fail(error, field);
+    const input = this.input();
     const existing = this.existing();
-    const input = cleaningPlan(
-      value.roomId,
-      value.timeMode,
-      criteria,
-      value.observation,
-      value.civilTime,
-      value.registrationReason,
-    );
-    const error = cleaningInputError(
-      this.id ? { ...input, timeMode: 'NOW' } : input,
-      this.policy()?.now ?? '',
-    );
-    if (error || (!this.id && !this.visibleRooms().some((room) => room.id === value.roomId))) {
-      this.criteria.markAllAsTouched();
-      this.actionError.set(error || 'Selecione um quarto cadastrado.');
-      return;
-    }
     this.busy.set(true);
     this.actionError.set('');
     try {
-      const freshPolicy = await this.api.policy();
-      const freshError = cleaningInputError(
-        this.id ? { ...input, timeMode: 'NOW' } : input,
-        freshPolicy.now,
-      );
+      // A hora do servidor pode ter mudado desde o passo 1; a regra continua sendo a do servidor.
+      const freshError = cleaningInputError(input, (await this.api.policy()).now);
       if (freshError) {
         this.actionError.set(freshError);
         return;
@@ -306,59 +408,13 @@ export class CleaningFormLocalPage {
           return;
         }
       }
-      const lines = [
-        {
-          label: 'Quarto',
-          value:
-            existing?.roomCode ??
-            this.housing().rooms.find((room) => room.id === value.roomId)?.code ??
-            '',
-        },
-        {
-          label: 'Avaliado em',
-          value: this.id
-            ? this.formatTime(existing?.evaluatedAt ?? '')
-            : value.timeMode === 'NOW'
-              ? 'Agora'
-              : this.formatTime(input.evaluatedAt ?? ''),
-        },
-        ...criteriaKeys.map((key) => ({
-          label: criterionLabels[key],
-          value: decimal(criteria[key]),
-        })),
-        { label: 'Média', value: decimal(previewCleaningScore(criteria)) },
-      ];
-      const result = await firstValueFrom(
-        this.dialog
-          .open<CommunicationReviewDialogComponent, unknown, CommunicationReviewResult>(
-            CommunicationReviewDialogComponent,
-            {
-              width: '620px',
-              maxWidth: 'calc(100vw - 24px)',
-              autoFocus: 'first-tabbable',
-              restoreFocus: true,
-              data: {
-                title: this.id ? 'Conferir correção da avaliação' : 'Conferir avaliação do quarto',
-                action: this.id ? 'Confirmar correção' : 'Confirmar avaliação',
-                lines,
-                requireReason: !!this.id,
-                warning: this.id ? 'As notas anteriores ficam guardadas no histórico.' : undefined,
-              },
-            },
-          )
-          .afterClosed(),
-      );
-      if (!result) {
-        setTimeout(() => trigger?.isConnected && trigger.focus(), 0);
-        return;
-      }
       const saved =
         this.id && existing
           ? await this.api.correct(this.id, {
               version: existing.version,
-              criteria,
+              criteria: input.criteria,
               observation: input.observation,
-              reason: result.reason,
+              reason: this.form.controls.correctionReason.value.trim(),
             })
           : await this.api.create({ ...input, idempotencyKey: this.intent.for(input) });
       this.busy.set(false);
