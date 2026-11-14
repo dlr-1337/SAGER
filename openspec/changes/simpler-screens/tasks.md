@@ -44,6 +44,6 @@ Comandos de frontend rodam em `frontend/`. Não há mudança de backend, então 
 
 ## 6. Verificação integrada
 
-- [ ] 6.1 Rodar `npm run build`, `npm test -- --watch=false` e `npm run test:e2e` em `frontend/`, e `./sager ci` na raiz (backend, frontend, infraestrutura e OpenSpec); tudo verde.
+- [x] 6.1 Rodar `npm run build`, `npm test -- --watch=false` e `npm run test:e2e` em `frontend/`, e `./sager ci` na raiz (backend, frontend, infraestrutura e OpenSpec); tudo verde.
 - [x] 6.2 Conferir no navegador, em 390 e 1366 px, Cursos, a avaliação de limpeza, os detalhes de saída curta e longa, a chamada e as listas de comunicações contra `DESIGN.md` (foco visível, alvo de 44 px, sem rolagem horizontal, uma frase por tela, legenda fechada) e guardar capturas de antes e depois para o PR.
-- [ ] 6.3 Rodar `npx -y @fission-ai/openspec@2.0.0 validate simpler-screens --strict` e confirmar que passa.
+- [x] 6.3 Rodar `npx -y @fission-ai/openspec@2.0.0 validate simpler-screens --strict` e confirmar que passa.

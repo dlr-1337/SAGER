@@ -29,8 +29,8 @@ Os caminhos são relativos à raiz do repositório. Comandos Maven rodam em `bac
 
 ## 5. Verificação integrada
 
-- [ ] 5.1 Rodar `.\mvnw.cmd -B -ntp verify` em `backend/`, `npm run build`, `npm test -- --watch=false` e `npm run test:e2e` em `frontend/`; verificar que todos passam.
-- [ ] 5.2 Rodar `npx -y @fission-ai/openspec@2.0.0 validate auto-departure-on-approval --strict` na raiz e `./sager ci`; verificar que passam.
+- [x] 5.1 Rodar `.\mvnw.cmd -B -ntp verify` em `backend/`, `npm run build`, `npm test -- --watch=false` e `npm run test:e2e` em `frontend/`; verificar que todos passam.
+- [x] 5.2 Rodar `npx -y @fission-ai/openspec@2.0.0 validate auto-departure-on-approval --strict` na raiz e `./sager ci`; verificar que passam.
 
 ## Workflow follow-up
 

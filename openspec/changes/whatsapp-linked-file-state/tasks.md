@@ -20,4 +20,4 @@ Comandos: backend em `backend/` com `./mvnw -B -ntp verify` (JDK 21 e Docker); f
 
 ## 4. Verificação final
 
-- [ ] 4.1 Rodar `./mvnw -B -ntp verify`, `npm test -- --watch=false`, `npm run build`, `SAGER_E2E_PORT=4327 CI=1 npx playwright test e2e/conversations-local.spec.ts` e `npx -y @fission-ai/openspec@2.0.0 validate whatsapp-linked-file-state --strict`.
+- [x] 4.1 Rodar `./mvnw -B -ntp verify`, `npm test -- --watch=false`, `npm run build`, `SAGER_E2E_PORT=4327 CI=1 npx playwright test e2e/conversations-local.spec.ts` e `npx -y @fission-ai/openspec@2.0.0 validate whatsapp-linked-file-state --strict`.
