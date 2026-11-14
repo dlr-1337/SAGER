@@ -36,21 +36,25 @@ import { LocalHomePage } from './local-home.page';
           <p class="lead">
             {{
               session.production
-                ? 'Entre com sua matrícula e a senha do SAGER.'
-                : 'Entre com a matrícula e a senha local. Este ambiente usa dados sintéticos.'
+                ? 'Entre com seu usuário e a senha do SAGER.'
+                : 'Entre com o usuário e a senha local. Este ambiente usa dados sintéticos.'
             }}
           </p>
         </div>
         <form class="access-card" [formGroup]="form" (ngSubmit)="submit()" novalidate>
           <div class="field">
-            <label for="login-enrollment">Matrícula</label>
+            <label for="login-enrollment">Usuário</label>
             <input
               id="login-enrollment"
               type="text"
               formControlName="matricula"
               autocomplete="username"
+              aria-describedby="login-enrollment-hint"
               required
             />
+            <small class="field-hint" id="login-enrollment-hint"
+              >Residente: use sua matrícula.</small
+            >
           </div>
           <div class="field">
             <label for="login-password">Senha</label>
@@ -271,7 +275,7 @@ export class AccessPage {
     this.error.set('');
     if (this.form.invalid) {
       this.form.markAllAsTouched();
-      this.error.set('Informe sua matrícula e senha.');
+      this.error.set('Informe seu usuário e senha.');
       return;
     }
     this.busy.set(true);
@@ -282,7 +286,7 @@ export class AccessPage {
       );
       if (result === 'invalid') {
         this.error.set(
-          'Matrícula ou senha errada. Confira e tente de novo. Se continuar, clique em Esqueci minha senha.',
+          'Usuário ou senha errados. Confira e tente de novo. Se continuar, clique em Esqueci minha senha.',
         );
         return;
       }
@@ -1066,8 +1070,8 @@ export class HomePage {
           } @else {
             <h2>Usar sua conta SAGER</h2>
             <p>
-              Entre com sua matrícula e a senha do SAGER. O que aparece na tela depende da sua
-              função. Confira os dados antes de confirmar.
+              Entre com seu usuário e a senha do SAGER; o residente usa a matrícula. O que aparece
+              na tela depende da sua função. Confira os dados antes de confirmar.
             </p>
             <a routerLink="/perfil">Ver meu perfil</a>
           }

@@ -24,7 +24,10 @@ test('login permite conferir a senha e volta a ocultá-la ao enviar', async ({ p
     [],
   );
 
-  await page.getByRole('textbox', { name: 'Matrícula' }).fill('TESTE-LOGIN');
+  const user = page.getByRole('textbox', { name: 'Usuário' });
+  await expect(user).toHaveAccessibleDescription('Residente: use sua matrícula.');
+  await expect(page.getByText('Entre com o usuário e a senha local.')).toBeVisible();
+  await user.fill('TESTE-LOGIN');
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(password).toHaveAttribute('type', 'password');
   await expect(page.getByRole('button', { name: 'Mostrar senha' })).toBeVisible();
@@ -130,7 +133,7 @@ test('demonstração não começa com a conta aberta e o servidor com erro', asy
     return route.fulfill({ status: 404 });
   });
   await page.goto('/acesso');
-  await page.getByRole('textbox', { name: 'Matrícula' }).fill('TESTE-LOGIN');
+  await page.getByRole('textbox', { name: 'Usuário' }).fill('TESTE-LOGIN');
   await page.getByLabel('Senha', { exact: true }).fill('senha de teste');
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(page).toHaveURL(/\/inicio$/);
@@ -197,7 +200,7 @@ test('login local restaura a sessão, respeita o perfil do servidor e permite sa
   });
 
   await page.goto('/acesso');
-  await page.getByRole('textbox', { name: 'Matrícula' }).fill('TESTE-LOGIN');
+  await page.getByRole('textbox', { name: 'Usuário' }).fill('TESTE-LOGIN');
   await page.getByLabel('Senha', { exact: true }).fill('senha de teste');
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(page).toHaveURL(/\/inicio$/);
@@ -231,10 +234,10 @@ test('senha inválida mantém o usuário fora do sistema e não impede a demonst
   });
 
   await page.goto('/acesso');
-  await page.getByRole('textbox', { name: 'Matrícula' }).fill('TESTE-LOGIN');
+  await page.getByRole('textbox', { name: 'Usuário' }).fill('TESTE-LOGIN');
   await page.getByLabel('Senha', { exact: true }).fill('senha incorreta');
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('Matrícula ou senha errada');
+  await expect(page.getByRole('alert')).toContainText('Usuário ou senha errados');
   await expect(page).toHaveURL(/\/acesso$/);
   await page.getByRole('link', { name: 'Explorar demonstração' }).click();
   await page.getByRole('button', { name: /Entrar como residente/i }).click();

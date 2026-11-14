@@ -4,7 +4,40 @@ import { provideRouter } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { LocalAuthService } from '../../core/local-auth.service';
 import { OperationsDemoService } from '../operations/operations-demo.service';
-import { HelpPage, HomePage, ProfilePage } from './portal.pages';
+import { vi } from 'vitest';
+import { AccessPage, HelpPage, HomePage, ProfilePage } from './portal.pages';
+
+describe('AccessPage', () => {
+  it('pede o usuário, diz ao residente que é a matrícula e fala de usuário nos erros', async () => {
+    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    TestBed.inject(DemoSessionService).deactivate();
+    const login = vi.spyOn(TestBed.inject(LocalAuthService), 'login').mockResolvedValue('invalid');
+    const fixture = TestBed.createComponent(AccessPage);
+    await fixture.whenStable();
+    const page = fixture.nativeElement as HTMLElement;
+    const input = page.querySelector<HTMLInputElement>('#login-enrollment')!;
+
+    expect(page.querySelector('label[for="login-enrollment"]')?.textContent?.trim()).toBe(
+      'Usuário',
+    );
+    const hint = page.querySelector(`#${input.getAttribute('aria-describedby')}`);
+    expect(hint?.textContent?.trim()).toBe('Residente: use sua matrícula.');
+    expect(page.querySelector('.lead')?.textContent).toContain('usuário');
+    expect(page.querySelector('.lead')?.textContent).not.toContain('matrícula');
+
+    await fixture.componentInstance.submit();
+    expect(fixture.componentInstance.error()).toBe('Informe seu usuário e senha.');
+    expect(login).not.toHaveBeenCalled();
+
+    fixture.componentInstance.form.setValue({
+      matricula: ' gestor-01 ',
+      password: 'senha de teste',
+    });
+    await fixture.componentInstance.submit();
+    expect(login).toHaveBeenCalledWith('gestor-01', 'senha de teste');
+    expect(fixture.componentInstance.error()).toMatch(/^Usuário ou senha errados\./);
+  });
+});
 
 describe('HomePage', () => {
   it('na conta local usa atividades autorizadas sem contagens demonstrativas', async () => {
@@ -118,6 +151,9 @@ describe('HelpPage', () => {
     await fixture.whenStable();
     const page = fixture.nativeElement as HTMLElement;
     expect(page.textContent).toContain('Usar sua conta SAGER');
+    expect(page.textContent).toContain(
+      'Entre com seu usuário e a senha do SAGER; o residente usa a matrícula.',
+    );
     expect(page.querySelector('a[href="/demonstracao"]')).toBeNull();
     expect(page.querySelector('a[href="/saidas"]')).not.toBeNull();
     expect(page.querySelector('a[href="/chamada"]')).toBeNull();

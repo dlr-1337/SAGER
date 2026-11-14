@@ -117,7 +117,7 @@ async function mockApi(page: Page) {
 
 async function login(page: Page) {
   await page.goto('/acesso');
-  await page.getByRole('textbox', { name: 'Matrícula' }).fill('TESTE-LOGIN');
+  await page.getByRole('textbox', { name: 'Usuário' }).fill('TESTE-LOGIN');
   await page.getByLabel('Senha', { exact: true }).fill('senha de teste');
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
 }
@@ -228,7 +228,7 @@ test('senha errada continua no acesso com a mensagem de credenciais', async ({ p
   const state = await mockApi(page);
   state.wrongPassword = true;
   await login(page);
-  await expect(page.getByText(/Matrícula ou senha errada/)).toBeVisible();
+  await expect(page.getByText(/Usuário ou senha errados/)).toBeVisible();
   await expect(page).toHaveURL(/\/acesso$/);
 });
 
