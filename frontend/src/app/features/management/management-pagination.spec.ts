@@ -118,5 +118,33 @@ for (const config of [
       expect(fixture.componentInstance.paged()).toEqual(records.slice(25, 26));
       expect(page).toHaveBeenCalledTimes(2);
     });
+
+    it('mostra aos 15 s o item alterado por outra pessoa, na mesma página e filtro', async () => {
+      vi.useFakeTimers();
+      try {
+        let renamed = false;
+        const page = vi.fn(async (params: Record<string, string>) => ({
+          items: records
+            .slice(Number(params['offset']), Number(params['offset']) + 25)
+            .map((item, index) => (renamed && !index ? { ...item, name: 'Nome Alterado' } : item)),
+          total: records.length,
+        }));
+        const fixture = setup(page);
+        await vi.advanceTimersByTimeAsync(0);
+        const list = fixture.componentInstance;
+        const calls = page.mock.calls.length;
+        renamed = true;
+        await vi.advanceTimersByTimeAsync(15_000);
+        expect(list.loading()).toBe(false);
+        expect(page).toHaveBeenCalledTimes(calls + 1);
+        expect(page).toHaveBeenLastCalledWith(
+          expect.objectContaining({ search: 'Sintético', offset: '25' }),
+        );
+        expect(list.page()).toBe(1);
+        expect(list.paged()[0].name).toBe('Nome Alterado');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 }

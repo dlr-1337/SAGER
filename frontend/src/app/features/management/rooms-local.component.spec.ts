@@ -103,6 +103,29 @@ describe('Quartos em sessão local', () => {
     vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
   });
 
+  it('aos 15 s pede o mapa ao servidor, sem a cópia, e mostra a ocupação nova no mesmo nível', async () => {
+    vi.useFakeTimers();
+    try {
+      const fixture = TestBed.createComponent(RoomsComponent);
+      await vi.advanceTimersByTimeAsync(0);
+      const component = fixture.componentInstance;
+      component.open('alojamento-1');
+      fixture.detectChanges();
+      expect(api.map).toHaveBeenLastCalledWith(false);
+      const fuller = structuredClone(map);
+      fuller.rooms[1] = { ...fuller.rooms[1], occupancy: 3, vacancies: 1 };
+      api.map.mockResolvedValue(fuller);
+      await vi.advanceTimersByTimeAsync(15_000);
+      fixture.detectChanges();
+      expect(api.map).toHaveBeenLastCalledWith(true);
+      expect(component.loading()).toBe(false);
+      expect(component.filters.controls.accommodationId.value).toBe('alojamento-1');
+      expect(fixture.nativeElement.textContent).toContain('1 vaga livre');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('mostra soma parcial, capacidade ausente e métricas sem dados inventados', async () => {
     const fixture = TestBed.createComponent(RoomsComponent);
     await fixture.whenStable();

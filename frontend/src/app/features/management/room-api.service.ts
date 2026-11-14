@@ -71,8 +71,9 @@ function isRoom(value: unknown): value is RoomRecord {
 @Injectable({ providedIn: 'root' })
 export class RoomApiService {
   /** Mapa em cópia de 60 s compartilhada pelas telas; não altere o objeto devolvido. */
-  map(): Promise<HousingMap> {
-    return cached('quartos/mapa', () => this.fetchMap());
+  /** `fresh`: a atualização automática pede o mapa ao servidor e renova a cópia de 60 s. */
+  map(fresh = false): Promise<HousingMap> {
+    return cached('quartos/mapa', () => this.fetchMap(), fresh);
   }
 
   private async fetchMap(): Promise<HousingMap> {

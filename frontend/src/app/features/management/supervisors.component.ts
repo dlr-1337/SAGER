@@ -9,6 +9,8 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
+import { autoRefresh } from '../../core/auto-refresh';
+import { AutoRefreshStatusComponent } from '../../shared/auto-refresh-status.component';
 import { ManagementDemoService } from './management-demo.service';
 import { Supervisor } from './management.models';
 import { SupervisorApiError, SupervisorApiService } from './supervisor-api.service';
@@ -16,7 +18,7 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
 @Component({
   selector: 'app-supervisors',
   standalone: true,
-  imports: [PaginationComponent, ReactiveFormsModule, RouterLink],
+  imports: [PaginationComponent, ReactiveFormsModule, RouterLink, AutoRefreshStatusComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page mg-page">
@@ -34,6 +36,7 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
             supervisor</a
           >
         </header>
+        <sager-auto-refresh-status [refresh]="refresh" />
         <section class="panel mg-panel" aria-labelledby="supervisor-search-title">
           <h2 id="supervisor-search-title">Buscar supervisores</h2>
           <label class="field mg-field"
@@ -224,11 +227,16 @@ export class SupervisorsComponent {
     this.page.set(page);
     if (!this.isDemo()) void this.load();
   }
-  async load(): Promise<void> {
+  readonly refresh = autoRefresh(() => this.load(true));
+  /** `silent`: atualização automática, mesma página e busca, sem "Carregando"; a falha volta. */
+  async load(silent = false): Promise<void> {
     if (this.isDemo() || !this.canEdit()) return;
+    if (silent && (this.loading() || this.loadError())) return;
     const generation = ++this.generation;
-    this.loading.set(true);
-    this.loadError.set('');
+    if (!silent) {
+      this.loading.set(true);
+      this.loadError.set('');
+    }
     try {
       const result = await this.api.page({
         search: this.search.value,
@@ -243,6 +251,7 @@ export class SupervisorsComponent {
       }
     } catch (error) {
       if (generation !== this.generation) return;
+      if (silent) throw error;
       this.localSupervisors.set([]);
       this.loadError.set(
         error instanceof SupervisorApiError && error.status === 403
@@ -250,7 +259,7 @@ export class SupervisorsComponent {
           : ERROR_GENERIC,
       );
     } finally {
-      if (generation === this.generation) this.loading.set(false);
+      if (!silent && generation === this.generation) this.loading.set(false);
     }
   }
 

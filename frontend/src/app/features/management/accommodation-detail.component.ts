@@ -3,6 +3,8 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
+import { autoRefresh } from '../../core/auto-refresh';
+import { AutoRefreshStatusComponent } from '../../shared/auto-refresh-status.component';
 import { AccommodationApiError, accommodationErrorMessage } from './accommodation-api.service';
 import { AccommodationDataService } from './accommodation-data.service';
 import { Accommodation, AccommodationUnit, ageGroupLabel } from './housing.models';
@@ -11,7 +13,7 @@ import { Accommodation, AccommodationUnit, ageGroupLabel } from './housing.model
   selector: 'app-accommodation-detail',
   styleUrl: './housing.scss',
   standalone: true,
-  imports: [UnsavedFormDirective, ReactiveFormsModule, RouterLink],
+  imports: [UnsavedFormDirective, ReactiveFormsModule, RouterLink, AutoRefreshStatusComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page mg-page mg-narrow">
@@ -38,8 +40,10 @@ import { Accommodation, AccommodationUnit, ageGroupLabel } from './housing.model
               Alojamentos</a
             >
             <h1>{{ accommodation.name }}</h1>
-            <p>Código {{ accommodation.code }}</p>
-            <p>Faixa etária: {{ ageGroupLabel(accommodation.ageGroup) }}</p>
+            <p>
+              Código {{ accommodation.code }} · Faixa etária:
+              {{ ageGroupLabel(accommodation.ageGroup) }}
+            </p>
           </div>
           @if (canEdit()) {
             <a class="btn mg-primary" [routerLink]="['/alojamentos', accommodation.id, 'editar']"
@@ -48,6 +52,7 @@ import { Accommodation, AccommodationUnit, ageGroupLabel } from './housing.model
             >
           }
         </header>
+        <sager-auto-refresh-status [refresh]="refresh" />
         @if (saved()) {
           <p class="mg-success" role="status">
             <span class="material-symbols-rounded" aria-hidden="true">check_circle</span
@@ -64,10 +69,7 @@ import { Accommodation, AccommodationUnit, ageGroupLabel } from './housing.model
               </button>
             }
           </div>
-          <p class="mg-muted">
-            Use este agrupamento quando o alojamento tiver casas ou blocos internos. Quartos também
-            podem pertencer diretamente ao alojamento.
-          </p>
+          <p class="mg-muted">Use quando o alojamento tiver casas ou blocos internos.</p>
           @if (unitSuccess()) {
             <p class="mg-success" role="status">{{ unitSuccess() }}</p>
           }
@@ -209,13 +211,20 @@ export class AccommodationDetailComponent {
       validators: [Validators.required, Validators.maxLength(200)],
     }),
   });
+  readonly refresh = autoRefresh(() => this.load(true), {
+    busy: () => this.unitSaving() || this.unitConflict(),
+  });
   constructor() {
     void this.load();
   }
-  async load(): Promise<void> {
-    this.loading.set(true);
-    this.loadError.set('');
-    this.missing.set(false);
+  /** `silent`: atualização automática, sem "Carregando"; a falha volta para o aviso comum. */
+  async load(silent = false): Promise<void> {
+    if (silent && (this.loading() || this.loadError())) return;
+    if (!silent) {
+      this.loading.set(true);
+      this.loadError.set('');
+      this.missing.set(false);
+    }
     try {
       const [item, units] = await Promise.all([
         this.data.get(this.id),
@@ -224,12 +233,13 @@ export class AccommodationDetailComponent {
       this.item.set(item);
       this.units.set(units);
     } catch (error) {
+      if (silent) throw error;
       this.item.set(null);
       this.units.set([]);
       this.missing.set(error instanceof AccommodationApiError && error.status === 404);
       this.loadError.set(accommodationErrorMessage(error));
     } finally {
-      this.loading.set(false);
+      if (!silent) this.loading.set(false);
     }
   }
   newUnit(): void {
