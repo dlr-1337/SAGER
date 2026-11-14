@@ -56,7 +56,9 @@ import { ExitFormLocalComponent } from './exit-form-local.component';
         } @else {
           <header class="op-heading">
             <div>
-              <a routerLink="/saidas" class="op-back">← Saídas</a>
+              <a routerLink="/saidas" class="op-back"
+                ><span class="back-arrow" aria-hidden="true">←</span>Saídas</a
+              >
               <h1>{{ editing ? 'Editar solicitação' : 'Pedir saída' }}</h1>
               <p>Preencha os horários e o motivo. O supervisor analisará o pedido.</p>
             </div>

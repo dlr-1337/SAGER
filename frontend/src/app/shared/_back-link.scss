@@ -20,4 +20,9 @@
     font-size: 20px;
     margin-inline-end: 4px;
   }
+  // Seta de texto: inline-block também, para o sublinhado do hover não passar por ela.
+  .back-arrow {
+    display: inline-block;
+    margin-inline-end: 4px;
+  }
 }

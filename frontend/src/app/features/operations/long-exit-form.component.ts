@@ -30,7 +30,7 @@ import { guardianBlocker, longExitFormError, longPeriodError } from './long-exit
       <header class="op-heading">
         <div>
           <a routerLink="/saidas" [queryParams]="{ tipo: 'longa' }" class="op-back"
-            >← Saídas longas</a
+            ><span class="back-arrow" aria-hidden="true">←</span>Saídas longas</a
           >
           <h1>{{ editing ? 'Mudar saída longa' : 'Pedir saída longa' }}</h1>
           <p>Diga quando sai, quando volta, por quê e quem autoriza.</p>

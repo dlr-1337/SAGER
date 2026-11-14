@@ -115,7 +115,9 @@ const residentsCount = (count: number) => (count === 1 ? '1 residente' : `${coun
     <main class="page op-page comm-page">
       <header class="op-heading">
         <div>
-          <a class="op-back" routerLink="/inicio">← Início</a>
+          <a class="op-back" routerLink="/inicio"
+            ><span class="back-arrow" aria-hidden="true">←</span>Início</a
+          >
           <h1>Avisos aos residentes</h1>
           <p>Escreva e publique avisos para os residentes que você escolher.</p>
         </div>
@@ -220,7 +222,9 @@ export class NoticesManagementLocalPage {
     <main class="page op-page comm-narrow">
       <header class="op-heading">
         <div>
-          <a class="op-back" routerLink="/comunicacoes/avisos">← Avisos</a>
+          <a class="op-back" routerLink="/comunicacoes/avisos"
+            ><span class="back-arrow" aria-hidden="true">←</span>Avisos</a
+          >
           <h1>Preparar aviso</h1>
           <p>Salve um rascunho e confira o texto antes de publicar.</p>
         </div>
@@ -587,7 +591,9 @@ export class NoticeFormLocalPage {
     <main class="page op-page comm-narrow">
       <header class="op-heading">
         <div>
-          <a class="op-back" routerLink="/comunicacoes/avisos">← Avisos</a>
+          <a class="op-back" routerLink="/comunicacoes/avisos"
+            ><span class="back-arrow" aria-hidden="true">←</span>Avisos</a
+          >
           <h1>Aviso</h1>
         </div>
         @if (item(); as notice) {

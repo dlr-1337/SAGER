@@ -30,7 +30,9 @@ import { ExitDetailLocalComponent } from './exit-detail-local.component';
             </section>
           } @else {
             <header class="op-heading op-exit-heading">
-              <a routerLink="/saidas" class="op-back">← Saídas</a>
+              <a routerLink="/saidas" class="op-back"
+                ><span class="back-arrow" aria-hidden="true">←</span>Saídas</a
+              >
               <div class="op-exit-title-row">
                 <h1>Solicitação {{ exit.id }}</h1>
                 <span

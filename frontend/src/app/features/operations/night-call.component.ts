@@ -31,7 +31,9 @@ import { NightCallLocalComponent } from './night-call-local.component';
         @if (session.hasRole('supervisor')) {
           <header class="op-heading">
             <div>
-              <a routerLink="/inicio" class="op-back">← Início</a>
+              <a routerLink="/inicio" class="op-back"
+                ><span class="back-arrow" aria-hidden="true">←</span>Início</a
+              >
               <h1>Chamada noturna</h1>
               <p>Confira cada residente menor de idade e revise o registro antes de confirmar.</p>
             </div>

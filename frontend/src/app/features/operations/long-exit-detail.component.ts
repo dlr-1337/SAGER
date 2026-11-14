@@ -77,7 +77,7 @@ type LongExitStep = 'Autorização do responsável' | 'Decisão' | 'Saída' | 'V
     <main class="page op-page op-exit-page">
       <header class="op-heading op-exit-heading">
         <a routerLink="/saidas" [queryParams]="{ tipo: 'longa' }" class="op-back"
-          >← Saídas longas</a
+          ><span class="back-arrow" aria-hidden="true">←</span>Saídas longas</a
         >
         <div class="op-exit-title-row">
           <h1>Pedido de saída longa</h1>

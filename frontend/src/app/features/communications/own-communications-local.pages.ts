@@ -45,7 +45,9 @@ type OwnTab = 'avisos' | 'advertencias' | 'termos';
     <main class="page op-page comm-page">
       <header class="op-heading">
         <div>
-          <a class="op-back" routerLink="/inicio">← Início</a>
+          <a class="op-back" routerLink="/inicio"
+            ><span class="back-arrow" aria-hidden="true">←</span>Início</a
+          >
           <h1>Minhas comunicações</h1>
           <p>Veja os avisos, advertências e termos da sua conta.</p>
         </div>
@@ -188,7 +190,7 @@ export class OwnCommunicationsLocalPage {
       <header class="op-heading">
         <div>
           <a class="op-back" routerLink="/avisos" [queryParams]="{ tipo: backTab() }"
-            >← Minhas comunicações</a
+            ><span class="back-arrow" aria-hidden="true">←</span>Minhas comunicações</a
           >
           <h1>Comunicação publicada</h1>
           @if (item(); as communication) {

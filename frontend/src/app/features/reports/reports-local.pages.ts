@@ -222,7 +222,9 @@ type FilterKey = 'accommodationId' | 'unitId' | 'roomId' | 'residentId' | 'statu
   template: `<main class="page op-page comm-page">
     <header class="op-heading">
       <div>
-        <a class="op-back" routerLink="/inicio">← Início</a>
+        <a class="op-back" routerLink="/inicio"
+          ><span class="back-arrow" aria-hidden="true">←</span>Início</a
+        >
         <h1>Relatórios</h1>
         <p>Escolha o relatório e o período e clique em “Gerar relatório”.</p>
       </div>
@@ -634,7 +636,9 @@ export class ReportsLocalPage implements OnDestroy {
   template: `<main class="page op-page comm-page">
     <header class="op-heading">
       <div>
-        <a class="op-back" routerLink="/relatorios">← Relatórios</a>
+        <a class="op-back" routerLink="/relatorios"
+          ><span class="back-arrow" aria-hidden="true">←</span>Relatórios</a
+        >
         <h1>{{ snapshot() ? labels[snapshot()!.catalogCode] : 'Relatório' }}</h1>
         @if (snapshot(); as result) {
           <p>{{ civil(result.filters.from) }} a {{ civil(result.filters.to) }}</p>

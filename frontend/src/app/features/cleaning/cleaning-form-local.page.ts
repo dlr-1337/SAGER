@@ -64,7 +64,7 @@ import { ReportingApiError, reportingError } from './reporting-local.transport';
       <header class="op-heading">
         <div>
           <a class="op-back" [routerLink]="id ? ['/limpeza', id] : '/limpeza'"
-            >← Avaliações de limpeza</a
+            ><span class="back-arrow" aria-hidden="true">←</span>Avaliações de limpeza</a
           >
           <h1>{{ id ? 'Corrigir avaliação de limpeza' : 'Registrar avaliação de limpeza' }}</h1>
           <p>

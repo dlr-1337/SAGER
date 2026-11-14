@@ -57,7 +57,9 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
     <main class="page op-page comm-page">
       <header class="op-heading">
         <div>
-          <a class="op-back" routerLink="/notificacoes">← Notificações</a>
+          <a class="op-back" routerLink="/notificacoes"
+            ><span class="back-arrow" aria-hidden="true">←</span>Notificações</a
+          >
           <h1>Advertências</h1>
           <p>Advertências dadas pelo supervisor, com o histórico guardado.</p>
         </div>
@@ -182,7 +184,9 @@ export class WarningsLocalPage {
     <main class="page op-page comm-narrow">
       <header class="op-heading">
         <div>
-          <a class="op-back" routerLink="/advertencias">← Advertências</a>
+          <a class="op-back" routerLink="/advertencias"
+            ><span class="back-arrow" aria-hidden="true">←</span>Advertências</a
+          >
           <h1>Nova advertência</h1>
           <p>Conte o que aconteceu e o que você decidiu.</p>
         </div>
@@ -389,7 +393,9 @@ export class WarningFormLocalPage {
     <main class="page op-page comm-page">
       <header class="op-heading">
         <div>
-          <a class="op-back" routerLink="/advertencias">← Advertências</a>
+          <a class="op-back" routerLink="/advertencias"
+            ><span class="back-arrow" aria-hidden="true">←</span>Advertências</a
+          >
           <h1>Advertência registrada</h1>
           @if (item(); as warning) {
             <p>{{ warning.residentName }} · {{ categories[warning.category] }}</p>

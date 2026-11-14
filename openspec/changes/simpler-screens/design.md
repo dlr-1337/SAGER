@@ -138,11 +138,11 @@ Em `night-call-local.component.ts`, saem o sinal `markFilter`, o `<select>`, o c
 
 - Rejeitado: trocar o filtro por um atalho "Só pendentes". A reunião decidiu os três filtros; o resumo e a barra de progresso já mostram quantas faltam.
 
-### D14. Sublinhado só no texto, sem mexer nas telas
+### D14. Sublinhado só no texto, com o ícone fora dele
 
-Os links de ação com ícone deixam de ser `inline-flex` e passam a `inline-block`, com o ícone `inline-block` e `vertical-align: middle` e o alvo de 44 px mantido por `padding-block` e `min-height`. Num bloco de linha, o ícone `inline-block` é um elemento atômico, e o sublinhado do link não chega a ele. A mudança fica nas regras compartilhadas de `styles.scss` (link com ícone e "Abrir ajuda") e no `mixin back-link`; os templates não mudam. O e2e `action-links.spec.ts` passa a conferir, além do sublinhado no hover, que o ícone é `inline-block` e que a caixa do ícone não cruza a linha do sublinhado, com captura em `visual-review`.
+Os links de ação com ícone deixam de ser `inline-flex` e passam a `inline-block`, com o ícone `inline-block` e `vertical-align: middle` e o alvo de 44 px mantido por `padding-block` e `min-height`. Num bloco de linha, o ícone `inline-block` é um elemento atômico, e o sublinhado do link não chega a ele. A mudança fica nas regras compartilhadas de `styles.scss` (link com ícone e "Abrir ajuda") e no `mixin back-link`; os templates com ícone não mudam. A seta de texto "←" dos links de voltar `op-back` vai num `<span class="back-arrow" aria-hidden="true">`, que o mixin deixa `inline-block`, e o nome do link fica só com o texto. O e2e `action-links.spec.ts` passa a conferir, além do sublinhado no hover, que o ícone é `inline-block` e que a caixa do ícone não cruza a linha do sublinhado, com captura em `visual-review`.
 
-- Rejeitado: envolver o texto de cada link num `<span>` sublinhado. Mexe em dezenas de templates, e um link novo sem o `<span>` volta ao defeito.
+- Rejeitado: envolver o texto de cada link num `<span>` sublinhado. Mexe em todos os links com ícone, e um link novo sem o `<span>` volta ao defeito. A seta de texto "←" é a exceção: como é texto, só um elemento próprio a tira do sublinhado, e o `<span>` fica só nos links de voltar `op-back`.
 - Rejeitado: `text-decoration: none` no ícone. Não desfaz um sublinhado propagado, que é a causa do defeito atual.
 
 ### D15. Ajuda, manual e documentos

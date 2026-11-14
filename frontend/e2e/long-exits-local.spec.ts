@@ -529,7 +529,7 @@ test('situação Aprovada permanece no retorno à lista longa e limpa ao trocar 
   const restored = page.waitForRequest(
     (request) => new URL(request.url()).pathname === '/api/v1/saidas-longas',
   );
-  await page.getByRole('link', { name: '← Saídas longas', exact: true }).click();
+  await page.getByRole('link', { name: 'Saídas longas', exact: true }).click();
   await expect(page.getByLabel('Situação', { exact: true })).toHaveValue('APROVADA');
   expect(new URL((await restored).url()).searchParams.get('status')).toBe('APROVADA');
   await expect(page.getByRole('link', { name: 'Ver pedido' })).toHaveCount(1);

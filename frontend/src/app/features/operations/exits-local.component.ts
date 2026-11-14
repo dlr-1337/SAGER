@@ -55,7 +55,9 @@ import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
     <main class="page op-page">
       <header class="op-heading">
         <div>
-          <a routerLink="/inicio" class="op-back">← Início</a>
+          <a routerLink="/inicio" class="op-back"
+            ><span class="back-arrow" aria-hidden="true">←</span>Início</a
+          >
           <h1>Saídas e retornos</h1>
           <p>
             {{
