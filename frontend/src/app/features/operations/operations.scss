@@ -618,7 +618,7 @@
 .op-exit-actions .op-actions > :nth-child(n + 3) {
   grid-column: 1 / -1;
 }
-.op-exit-actions .op-actions .btn,
+.op-exit-actions .op-actions :is(.btn, .btn-danger),
 .op-exit-actions > .btn {
   width: 100%;
   padding-inline: 10px;
@@ -645,6 +645,10 @@
 @container (min-width: 1040px) {
   .op-exit-grid {
     grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr) minmax(0, 0.95fr);
+  }
+  // Detalhe em passos: resumo e passo atual lado a lado; histórico em "Mais detalhes".
+  .op-exit-grid.op-step-grid {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
   }
   .op-exit-grid:has(> .op-exit-side:empty) {
     grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);

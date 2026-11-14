@@ -118,8 +118,7 @@ import { ExitDetailLocalComponent } from './exit-detail-local.component';
                 }
                 @if (exit.kind === 'Curta' && exit.status === 'Aprovada') {
                   <p class="op-timeline-next">
-                    O evento que inicia a saída ainda depende de definição da AE. O protótipo
-                    apresenta um caso em andamento na listagem para testar o retorno.
+                    Saída marcada para {{ exit.departure | date: 'dd/MM/yyyy, HH:mm' }}.
                   </p>
                 }
               </section>

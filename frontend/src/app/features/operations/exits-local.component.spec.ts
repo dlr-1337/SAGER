@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { FilterState } from '../../core/filter-state';
 import { LocalAuthService } from '../../core/local-auth.service';
@@ -11,6 +11,7 @@ import { RoomApiService } from '../management/room-api.service';
 import { ExitsLocalComponent } from './exits-local.component';
 import { LongExitApiService } from './long-exit-api.service';
 import { OperationsLocalApiService } from './operations-local-api.service';
+import { ShortExit } from './operations-local.models';
 
 const room = (id: string, code: string, accommodationId: string, unitId: string | null) => ({
   id,
@@ -421,5 +422,120 @@ describe('Critérios restaurados da lista de saídas', () => {
     await fixture.whenStable();
     expect(page.querySelector('a[href="/saidas/nova"]')).not.toBeNull();
     expect(page.querySelector('a[href="/saidas/longas/nova"]')).not.toBeNull();
+  });
+
+  const item = (id: string, status: ShortExit['status']) =>
+    ({
+      id,
+      residentId: 'residente-' + id,
+      residentName: 'Residente ' + id,
+      enrollment: 'TESTE-' + id,
+      departureMode: 'NOW',
+      requestedDepartureAt: '2026-10-02T16:00:00Z',
+      expectedReturnAt: '2026-10-02T18:00:00Z',
+      reason: 'Motivo sintético',
+      status,
+      version: 0,
+      now: '2026-10-02T16:00:00Z',
+      zone: 'America/Sao_Paulo',
+      capabilities: {
+        canEdit: false,
+        canCancel: false,
+        canDecide: false,
+        canDepart: false,
+        canReturn: false,
+      },
+      history: [],
+    }) as unknown as ShortExit;
+
+  it('cada situação tem o seu tom e a legenda começa fechada, com as oito situações', async () => {
+    shortPage.mockResolvedValue({
+      items: [item('1', 'AGUARDANDO_ANALISE'), item('2', 'REJEITADA'), item('3', 'EXPIRADA')],
+      total: 3,
+    });
+    const fixture = TestBed.createComponent(ExitsLocalComponent);
+    await fixture.whenStable();
+    const element: HTMLElement = fixture.nativeElement;
+    const chips = Array.from(element.querySelectorAll('.op-row .status')).map((chip) => [
+      chip.textContent?.trim(),
+      chip.getAttribute('data-tone'),
+    ]);
+    expect(chips).toEqual([
+      ['Aguardando análise', 'warning'],
+      ['Rejeitada', 'danger'],
+      ['Expirada', null],
+    ]);
+    const legend = element.querySelector<HTMLDetailsElement>('sager-status-legend details')!;
+    expect(legend.open).toBe(false);
+    expect(legend.querySelectorAll('dl > div')).toHaveLength(8);
+  });
+
+  describe('atualização automática', () => {
+    beforeEach(() => {
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+      delete (document as { hidden?: boolean }).hidden;
+    });
+    const settle = async (fixture: { detectChanges(): void }, ms = 1) => {
+      await vi.advanceTimersByTimeAsync(ms);
+      fixture.detectChanges();
+      await vi.advanceTimersByTimeAsync(1);
+    };
+    // Página 2 com a situação "Aprovada" lembrada.
+    async function start() {
+      shortPage.mockResolvedValue({ items: [item('1', 'APROVADA')], total: 30 });
+      const fixture = TestBed.createComponent(ExitsLocalComponent);
+      await settle(fixture);
+      fixture.componentInstance.changePage(1);
+      await settle(fixture);
+      return { fixture, component: fixture.componentInstance };
+    }
+
+    it('mostra aos 15 s o pedido novo, na mesma página e situação, sem esvaziar a lista', async () => {
+      const { fixture, component } = await start();
+      let emptied = false;
+      shortPage.mockImplementation(async () => {
+        emptied ||= component.loading() || component.items().length === 0;
+        return { items: [item('1', 'APROVADA'), item('novo', 'APROVADA')], total: 31 };
+      });
+      await settle(fixture, 14_990);
+      expect(fixture.nativeElement.textContent).not.toContain('Residente novo');
+      await settle(fixture, 20);
+      expect(emptied).toBe(false);
+      expect(fixture.nativeElement.textContent).toContain('Residente novo');
+      expect(fixture.nativeElement.textContent).not.toContain('Carregando');
+      expect(component.page()).toBe(1);
+      expect(component.filters.controls.status.value).toBe('APROVADA');
+      expect(shortPage).toHaveBeenLastCalledWith(
+        { ...criteria, limit: '25', offset: '25' },
+        expect.any(AbortSignal),
+      );
+    });
+
+    it('descarta a resposta que chega depois de uma troca de filtro', async () => {
+      const { fixture, component } = await start();
+      const late = deferred<{ items: ShortExit[]; total: number }>();
+      shortPage.mockReturnValueOnce(late.promise);
+      await settle(fixture, 15_000);
+      shortPage.mockResolvedValueOnce({ items: [item('filtrado', 'APROVADA')], total: 1 });
+      component.filters.controls.search.setValue('Outra busca', { emitEvent: false });
+      component.page.set(0);
+      await component.load();
+      late.resolve({ items: [item('antigo', 'APROVADA')], total: 30 });
+      await settle(fixture);
+      expect(component.items().map((exit) => exit.id)).toEqual(['filtrado']);
+    });
+
+    it('falha mantém os pedidos e mostra o aviso comum', async () => {
+      const { fixture, component } = await start();
+      shortPage.mockRejectedValue(new Error('Falha sintética'));
+      await settle(fixture, 15_000);
+      expect(component.items().map((exit) => exit.id)).toEqual(['1']);
+      expect(component.error()).toBe('');
+      expect(fixture.nativeElement.textContent).toContain('Não foi possível atualizar.');
+    });
   });
 });

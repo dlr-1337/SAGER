@@ -4,6 +4,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import { ProgressBarComponent } from '../../shared/progress-bar.component';
 import { FilterChip, FilterPanelComponent } from '../../shared/filter-panel.component';
+import { AutoRefreshStatusComponent, StatusLegendComponent, toneAttr } from '../../shared';
+import { autoRefresh } from '../../core/auto-refresh';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
@@ -33,6 +35,8 @@ import {
     ReactiveFormsModule,
     RouterLink,
     FilterPanelComponent,
+    AutoRefreshStatusComponent,
+    StatusLegendComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -44,6 +48,7 @@ import {
           <p>Marque quem está presente hoje à noite.</p>
         </div>
       </header>
+      <sager-auto-refresh-status [refresh]="refresh" />
       @if (!session.hasRole('supervisor')) {
         <section class="op-empty" role="alert">
           <h2>Acesso restrito</h2>
@@ -106,10 +111,11 @@ import {
                 <h2 id="call-summary">
                   {{ current.accommodationName }} · {{ formatDate(current.referenceDate) }}
                 </h2>
-                <span class="op-status">{{
-                  current.status === 'ABERTA' ? 'Aberta' : 'Fechada'
+                <span class="status" [attr.data-tone]="tone(callStatus(current))">{{
+                  callStatus(current)
                 }}</span>
               </div>
+              <sager-status-legend [names]="legendNames" />
               <dl class="op-call-summary">
                 <div>
                   <dt>Marcações</dt>
@@ -138,10 +144,7 @@ import {
               />
               <p class="op-help">Aberta em {{ formatTime(current.openedAt) }}.</p>
               @if (current.status === 'ABERTA' && current.summary.justified) {
-                <p class="op-warning">
-                  Residentes com saída em andamento já entram como ausência justificada. Confira e
-                  corrija se preciso.
-                </p>
+                <p class="op-warning">Quem está fora com saída já entra justificado: confira.</p>
               }
               @if (current.outsideWindowConfirmed) {
                 <p class="op-warning">Aberta fora do horário: {{ current.justification }}</p>
@@ -171,18 +174,6 @@ import {
                     (input)="searchValue.set(search.value)"
                 /></label>
                 <div class="op-filters">
-                  <label class="field"
-                    >Marcação<select
-                      [value]="markFilter()"
-                      (change)="markFilter.set($any($event.target).value)"
-                    >
-                      <option value="">Todas</option>
-                      <option value="PENDENTE">Pendente</option>
-                      <option value="PRESENTE">Presente</option>
-                      <option value="AUSENTE">Ausente</option>
-                      <option value="AUSENCIA_JUSTIFICADA">Ausência justificada</option>
-                    </select></label
-                  >
                   @if (unitOptions().length) {
                     <label class="field"
                       >Casa ou bloco<select sagerSearchable [formControl]="unit">
@@ -214,7 +205,7 @@ import {
               } @else if (!filtered().length) {
                 <div class="op-empty" role="status">
                   <h3>Nenhum residente encontrado</h3>
-                  <p>Altere os filtros para consultar as demais marcações.</p>
+                  <p>Mude a busca ou os filtros.</p>
                 </div>
               } @else {
                 <div class="op-list">
@@ -226,24 +217,23 @@ import {
                         @if (row.authorizedExits.length) {
                           <span class="op-inline-note">Está fora com saída autorizada</span>
                         }
-                        @if (row.mark) {
-                          <p>
-                            {{ labels[row.mark] }}
-                            @if (row.authorizedExitId) {
-                              ·
-                              <a
-                                class="op-exit-link"
-                                [routerLink]="[
-                                  row.authorizedExitType === 'LONG' ? '/saidas/longas' : '/saidas',
-                                  row.authorizedExitId,
-                                ]"
-                                >{{
-                                  row.authorizedExitType === 'LONG' ? 'saída longa' : 'saída curta'
-                                }}<span class="sr-only"> de {{ row.residentName }}</span></a
-                              >
-                            }
-                          </p>
-                        }
+                        <p>
+                          <span class="status" [attr.data-tone]="tone(markLabel(row))">{{
+                            markLabel(row)
+                          }}</span>
+                          @if (row.authorizedExitId) {
+                            ·
+                            <a
+                              class="op-exit-link"
+                              [routerLink]="[
+                                row.authorizedExitType === 'LONG' ? '/saidas/longas' : '/saidas',
+                                row.authorizedExitId,
+                              ]"
+                              >{{ row.authorizedExitType === 'LONG' ? 'saída longa' : 'saída curta'
+                              }}<span class="sr-only"> de {{ row.residentName }}</span></a
+                            >
+                          }
+                        </p>
                         @if (row.history.length) {
                           <details>
                             <summary>Histórico da marcação ({{ row.history.length }})</summary>
@@ -452,7 +442,6 @@ export class NightCallLocalComponent {
   readonly date = new FormControl('', { nonNullable: true });
   readonly search = new FormControl('', { nonNullable: true });
   readonly searchValue = signal('');
-  readonly markFilter = signal('');
   readonly unit = new FormControl('', { nonNullable: true });
   readonly room = new FormControl('', { nonNullable: true });
   private readonly unitValue = signal('');
@@ -497,20 +486,13 @@ export class NightCallLocalComponent {
         normalizeSearch(`${row.residentName} ${row.enrollment}`).includes(
           normalizeSearch(this.searchValue()),
         ) &&
-        (!this.markFilter() || (row.mark ?? 'PENDENTE') === this.markFilter()) &&
         rooms.has(row.roomId) &&
         (!this.roomValue() || row.roomId === this.roomValue()),
     );
   });
   readonly chips = computed<FilterChip[]>(() => {
-    const mark = this.markFilter();
     const chips: [string, string, string | undefined][] = [
       ['search', 'Busca', this.searchValue().trim()],
-      [
-        'mark',
-        'Marcação',
-        mark && (mark === 'PENDENTE' ? 'Pendente' : callMarkLabels[mark as CallMark]),
-      ],
       [
         'unit',
         'Casa ou bloco',
@@ -533,7 +515,12 @@ export class NightCallLocalComponent {
   readonly formatDate = formatCivilDate;
   readonly formatTime = formatOperationsTime;
   readonly labels = callMarkLabels;
+  readonly tone = toneAttr;
+  readonly legendNames = ['Aberta', 'Fechada', 'Pendente', ...Object.values(callMarkLabels)];
   private sequence = 0;
+  readonly refresh = autoRefresh(() => this.load(true), {
+    busy: () => this.busy() || this.loading() || this.conflict(),
+  });
   constructor() {
     rememberFilters('call-roster-search', this.search);
     this.searchValue.set(this.search.value);
@@ -559,24 +546,31 @@ export class NightCallLocalComponent {
   }
   clearFilters(): void {
     this.search.setValue('');
-    this.markFilter.set('');
     this.clearRoomFilters();
   }
   removeFilter(key: string): void {
     if (key === 'search') this.search.setValue('');
-    if (key === 'mark') this.markFilter.set('');
     if (key === 'unit') this.clearRoomFilters();
     if (key === 'room') this.room.setValue('');
   }
-  async load(): Promise<void> {
-    if (!this.session.hasRole('supervisor') || this.busy()) return;
+  callStatus(call: NightCall): string {
+    return call.status === 'ABERTA' ? 'Aberta' : 'Fechada';
+  }
+  markLabel(row: CallResident): string {
+    return row.mark ? this.labels[row.mark] : 'Pendente';
+  }
+  /** `silent`: atualização automática; mantém alojamento, data, filtros e mensagens e lança a falha. */
+  async load(silent = false): Promise<void> {
+    if (!this.session.hasRole('supervisor') || (!silent && this.busy())) return;
     const seq = ++this.sequence;
-    this.loading.set(true);
-    this.loadError.set('');
-    this.error.set('');
-    this.success.set('');
-    this.conflict.set(false);
-    this.call.set(null);
+    if (!silent) {
+      this.loading.set(true);
+      this.loadError.set('');
+      this.error.set('');
+      this.success.set('');
+      this.conflict.set(false);
+      this.call.set(null);
+    }
     try {
       let context = await this.api.callContext(this.accommodation.value || undefined);
       if (!this.accommodation.value && context.accommodations.length) {
@@ -597,6 +591,7 @@ export class NightCallLocalComponent {
             housing ? '' : 'Não foi possível carregar casas, blocos e códigos dos quartos.',
           );
           this.call.set(calls[0] ?? null);
+          this.loadError.set('');
           if (this.unit.value && !this.unitOptions().some((unit) => unit.id === this.unit.value))
             this.unit.setValue('');
           if (this.room.value && !this.roomOptions().some((room) => room.id === this.room.value))
@@ -604,7 +599,9 @@ export class NightCallLocalComponent {
         }
       }
     } catch (error) {
-      if (seq === this.sequence) this.loadError.set(operationsError(error));
+      if (seq !== this.sequence) return;
+      if (silent) throw error;
+      this.loadError.set(operationsError(error));
     } finally {
       if (seq === this.sequence) this.loading.set(false);
     }
@@ -801,6 +798,7 @@ export class NightCallLocalComponent {
   private async mutate(action: () => Promise<NightCall>, message: string): Promise<void> {
     if (this.busy() || this.conflict()) return;
     this.busy.set(true);
+    this.sequence++; // Descarta a atualização automática que saiu antes da gravação.
     this.error.set('');
     this.success.set('');
     try {

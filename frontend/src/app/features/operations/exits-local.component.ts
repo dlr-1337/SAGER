@@ -1,4 +1,6 @@
 import { PaginationComponent } from '../../shared/pagination.component';
+import { AutoRefreshStatusComponent, StatusLegendComponent, toneAttr } from '../../shared';
+import { autoRefresh } from '../../core/auto-refresh';
 import { FilterChip, FilterPanelComponent } from '../../shared/filter-panel.component';
 import { formatCivilDate } from '../communications/communications-local.utils';
 import { debounceTime } from 'rxjs';
@@ -42,6 +44,8 @@ import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
   imports: [
     PaginationComponent,
     FilterPanelComponent,
+    AutoRefreshStatusComponent,
+    StatusLegendComponent,
     SearchableSelectDirective,
     ReactiveFormsModule,
     RouterLink,
@@ -57,7 +61,7 @@ import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
             {{
               session.hasRole('residente')
                 ? 'Veja seus pedidos de saída.'
-                : 'Veja os pedidos e registre a saída e a volta de cada residente.'
+                : 'Veja os pedidos e registre a saída e a volta.'
             }}
           </p>
         </div>
@@ -70,14 +74,7 @@ import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
           </div>
         }
       </header>
-      <p class="op-help">
-        {{
-          longMode()
-            ? 'Saídas longas: mais de 3 horas. Precisam da autorização do responsável, conferida por um servidor, antes da aprovação.'
-            : 'Saídas curtas: até 3 horas.'
-        }}
-        Horário de Brasília.
-      </p>
+      <sager-auto-refresh-status [refresh]="refresh" />
       <nav class="exit-modalities segmented" aria-label="Tipo de saída">
         <a
           routerLink="/saidas"
@@ -160,6 +157,7 @@ import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
               <p aria-live="polite">{{ total() === 1 ? '1 pedido' : total() + ' pedidos' }}</p>
             }
           </div>
+          <sager-status-legend [names]="legendNames" />
           @if (loading()) {
             <div class="op-state" role="status">
               <h3>Carregando pedidos</h3>
@@ -201,7 +199,9 @@ import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
                     </p>
                   </div>
                   <div class="op-row-side">
-                    <span class="op-status">{{ labels[exit.status] }}</span>
+                    <span class="status" [attr.data-tone]="tone(labels[exit.status])">{{
+                      labels[exit.status]
+                    }}</span>
                     @if (longExit(exit); as long) {
                       <small>{{ signatures[long.signatureStatus] }}</small
                       ><small>{{ messages[long.messageStatus] }}</small>
@@ -270,6 +270,8 @@ export class ExitsLocalComponent {
   readonly loading = signal(false);
   readonly error = signal('');
   readonly labels = exitStatusLabels;
+  readonly legendNames = Object.values(exitStatusLabels);
+  readonly tone = toneAttr;
   readonly statuses = Object.keys(exitStatusLabels) as (keyof typeof exitStatusLabels)[];
   readonly formatTime = formatOperationsTime;
   readonly filters = new FormGroup({
@@ -318,6 +320,7 @@ export class ExitsLocalComponent {
     roomsIn(this.housing(), this.location().accommodationId, this.location().unitId),
   );
   private sequence = 0;
+  readonly refresh = autoRefresh(() => this.load(true), { busy: () => this.loading() });
   constructor() {
     rememberFilters('exits-local.component', this.filters);
     cascadeLocation(this.filters.controls);
@@ -364,14 +367,18 @@ export class ExitsLocalComponent {
   longExit(exit: ShortExit | LongExit): LongExit | null {
     return 'signatureStatus' in exit ? exit : null;
   }
-  async load(): Promise<void> {
+  /** `silent`: atualização automática, sem esvaziar a lista, sem "Carregando" e lançando a falha. */
+  async load(silent = false): Promise<void> {
     if (!this.session.hasRole('supervisor', 'residente')) return;
     const sequence = ++this.sequence;
     this.request?.abort();
     const request = (this.request = new AbortController());
-    this.loading.set(true);
-    this.error.set('');
-    this.items.set([]);
+    if (!silent) {
+      this.loading.set(true);
+      this.error.set('');
+      this.items.set([]);
+    }
+    let retry = false;
     try {
       const value = this.filters.getRawValue();
       if (value.from && value.to && value.from > value.to)
@@ -387,15 +394,21 @@ export class ExitsLocalComponent {
       if (sequence === this.sequence) {
         this.items.set(result.items);
         this.total.set(result.total);
+        if (silent) this.error.set('');
         if (this.page() && this.page() * 25 >= result.total) {
-          this.changePage(Math.max(0, Math.ceil(result.total / 25) - 1));
+          this.page.set(Math.max(0, Math.ceil(result.total / 25) - 1));
+          retry = true;
         }
       }
     } catch (error) {
-      if (sequence === this.sequence) this.error.set(operationsError(error));
+      if (sequence !== this.sequence) return;
+      if (silent) throw error;
+      this.error.set(operationsError(error));
     } finally {
       if (sequence === this.sequence) this.loading.set(false);
     }
+    // A página sumiu: consulta a última válida, e a falha silenciosa chega ao aviso comum.
+    if (retry) await this.load(silent);
   }
   clear(): void {
     this.filters.reset({

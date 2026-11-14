@@ -1,6 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { OperationsApiError, OperationsLocalApiService } from './operations-local-api.service';
+import {
+  OperationsApiError,
+  OperationsLocalApiService,
+  operationsError,
+} from './operations-local-api.service';
 import { NightCall, ShortExit } from './operations-local.models';
 import { resetSession } from '../../core/api';
 
@@ -174,6 +178,14 @@ describe('OperationsLocalApiService', () => {
       ),
     ).rejects.toEqual(new OperationsApiError(409, 'version_conflict'));
     expect(fetch).toHaveBeenCalledTimes(2);
+  });
+  it('explica o conflito físico da aprovação imediata e mantém o texto de edição concorrente', () => {
+    expect(operationsError(new OperationsApiError(409, 'physical_exit_conflict'))).toBe(
+      'O residente ainda está fora com outra saída. Confirme a volta dela primeiro.',
+    );
+    expect(operationsError(new OperationsApiError(409, 'version_conflict'))).toContain(
+      'Outra pessoa alterou',
+    );
   });
   it('aceita a expiração do sistema, gravada sem perfil, na lista e no detalhe', async () => {
     const expired = {
