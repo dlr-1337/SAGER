@@ -695,7 +695,10 @@ test('residente envia NOW sem relógio do navegador, edita e consulta depois de 
   ).toBeVisible();
   expect(state.writes[1].body.version).toBe(1);
   await page.getByRole('button', { name: 'Cancelar pedido', exact: true }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Cancelar', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('heading', { name: 'O pedido será cancelado.' })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Cancelar pedido' })).toHaveClass(/btn-danger/);
+  await dialog.getByRole('button', { name: 'Voltar', exact: true }).click();
   expect(state.writes).toHaveLength(2);
 });
 
@@ -773,7 +776,7 @@ test('supervisor aprova o pedido para sair agora, que já sai em andamento, e re
     .getByRole('dialog')
     .getByRole('button', { name: 'Aprovar e registrar a saída agora' })
     .click();
-  await expect(page.getByText('Em andamento', { exact: true })).toBeVisible();
+  await expect(page.locator('.op-exit-heading .status')).toHaveText('Em andamento');
   await expect(page.getByText('Aprovação e saída registradas.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Registrar saída' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Volta' })).toBeFocused();
@@ -795,7 +798,9 @@ test('supervisor aprova o pedido para sair agora, que já sai em andamento, e re
     .getByLabel('Observação do atraso', { exact: true })
     .fill('Problema no transporte causou atraso no retorno.');
   await dialog.getByRole('button', { name: 'Confirmar volta', exact: true }).click();
-  await expect(page.getByText('Retorno confirmado com atraso', { exact: true })).toBeVisible();
+  await expect(page.locator('.op-exit-heading .status')).toHaveText(
+    'Retorno confirmado com atraso',
+  );
   expect(state.writes[1].body).toEqual({
     version: 2,
     timeMode: 'RETROACTIVE',
@@ -827,7 +832,7 @@ test('saída agendada aprovada mostra a hora marcada e só oferece "Registrar sa
   await page.getByRole('button', { name: 'Aprovar', exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Confirmar aprovação' }).click();
   await expect(page.getByText('Aprovação registrada.')).toBeVisible();
-  await expect(page.getByText('Aprovada', { exact: true })).toBeVisible();
+  await expect(page.locator('.op-exit-heading .status')).toHaveText('Aprovada');
   await expect(page.getByText('Saída marcada para 30/09/2026, 15:00.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Registrar saída' })).toHaveCount(0);
   const cancel = page.getByRole('button', { name: 'Cancelar pedido' });
@@ -842,7 +847,7 @@ test('saída agendada aprovada mostra a hora marcada e só oferece "Registrar sa
   ]);
   await page.getByRole('button', { name: 'Registrar saída' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Confirmar saída' }).click();
-  await expect(page.getByText('Em andamento', { exact: true })).toBeVisible();
+  await expect(page.locator('.op-exit-heading .status')).toHaveText('Em andamento');
   expect(state.writes[1].body).toEqual({ version: 1, timeMode: 'NOW' });
 });
 
@@ -883,7 +888,7 @@ test('conflito exige recarga explícita e nunca repete a decisão com outra vers
   state.exits[0].status = 'REJEITADA';
   state.exits[0].version = 1;
   await page.getByRole('button', { name: 'Recarregar dados' }).click();
-  await expect(page.getByText('Rejeitada', { exact: true })).toBeVisible();
+  await expect(page.locator('.op-exit-heading .status')).toHaveText('Rejeitada');
   await expect(page.getByRole('button', { name: 'Aprovar', exact: true })).toHaveCount(0);
   expect(state.writes).toHaveLength(1);
 });
@@ -951,7 +956,7 @@ test('gestor não opera saídas ou chamada, supervisor não solicita e residente
   await page.goto('/chamada');
   await expect(page).toHaveURL(/\/acesso-negado$/);
   await page.goto(`/saidas/${exitId}`);
-  await expect(page.getByText('Em andamento', { exact: true })).toBeVisible();
+  await expect(page.locator('.op-exit-heading .status')).toHaveText('Em andamento');
   await expect(page.getByRole('button', { name: 'Registrar volta' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Registrar saída' })).toHaveCount(0);
   expect(state.writes).toHaveLength(0);

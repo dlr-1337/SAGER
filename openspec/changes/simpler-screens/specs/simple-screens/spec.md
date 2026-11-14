@@ -55,10 +55,11 @@ Toda pergunta de confirmação SHALL dizer em uma frase o que vai acontecer, e o
 
 - **WHEN** o supervisor clica em "Cancelar pedido" numa saída aguardando análise
 - **THEN** o diálogo diz em uma frase que o pedido será cancelado e o botão de confirmar se chama "Cancelar pedido"
+- **AND** o botão que só fecha o diálogo se chama "Voltar"
 
 ### Requirement: Cor de cada situação
 
-No acesso por conta, toda etiqueta de situação de saídas, chamada noturna, notificações, advertências, avisos e comunicações do residente SHALL ter o tom do seu significado: atenção para o que espera alguém, informação para o que está em curso, sucesso para o que terminou bem ou vale, perigo para rejeição ou falha e neutro para o que acabou sem efeito. O texto da situação MUST continuar escrito na etiqueta.
+No acesso por conta, toda etiqueta de situação de saídas, chamada noturna, notificações, advertências, termos, avisos e comunicações do residente SHALL ter o tom do seu significado: atenção para o que espera alguém, informação para o que está em curso, sucesso para o que terminou bem ou vale, perigo para rejeição ou falha e neutro para o que acabou sem efeito. O texto da situação MUST continuar escrito na etiqueta.
 
 #### Scenario: Saídas
 
@@ -75,6 +76,11 @@ No acesso por conta, toda etiqueta de situação de saídas, chamada noturna, no
 - **WHEN** o supervisor abre notificações, avisos e advertências
 - **THEN** a notificação "Pendente" aparece em amarelo, "Arquivada" em cinza, o aviso "Publicado" em verde, "Rascunho" e "Retirado" em cinza e a advertência "Anulada" em cinza
 
+#### Scenario: Arquivos da saída longa
+
+- **WHEN** o supervisor abre uma saída longa com um arquivo aguardando conferência e outro recusado
+- **THEN** "Aguardando conferência" aparece em amarelo, "Arquivo recusado" em vermelho e a situação da autorização na cor do seu nome
+
 ### Requirement: Legenda das cores
 
 Cada tela com etiquetas de situação SHALL ter a legenda "O que significa cada cor?", recolhida ao abrir a tela, com uma linha para cada situação que a tela pode mostrar: a etiqueta, na mesma cor e com o mesmo nome da lista, e uma frase curta do que ela quer dizer.
@@ -84,6 +90,11 @@ Cada tela com etiquetas de situação SHALL ter a legenda "O que significa cada 
 - **GIVEN** a lista de saídas aberta, com a legenda fechada
 - **WHEN** o supervisor abre "O que significa cada cor?"
 - **THEN** ele vê uma linha para cada situação de saída, com a etiqueta colorida e o significado
+
+#### Scenario: Legenda no detalhe
+
+- **WHEN** o supervisor abre o detalhe de uma saída, notificação, aviso, advertência ou termo, ou o residente abre uma comunicação sua
+- **THEN** a tela tem a legenda "O que significa cada cor?", fechada, com as situações que o detalhe pode mostrar
 
 ### Requirement: Mesmo nome no filtro e na lista
 
@@ -101,7 +112,7 @@ O nome de uma situação SHALL ser o mesmo no filtro, na etiqueta da lista, no d
 
 ### Requirement: Rejeitar e recusar em vermelho
 
-Os botões que rejeitam um pedido de saída ou recusam um arquivo de autorização SHALL usar o estilo de perigo, em vermelho, com o nome da ação escrito, e MUST NOT ser o botão principal da tela.
+Os botões que rejeitam um pedido de saída ou recusam um arquivo de autorização SHALL usar o estilo de perigo, em vermelho, com o nome da ação escrito, e MUST NOT ser o botão principal da tela. No diálogo que confirma rejeitar, recusar ou cancelar um pedido, o botão de confirmar SHALL usar o mesmo estilo de perigo.
 
 #### Scenario: Saída curta aguardando análise
 

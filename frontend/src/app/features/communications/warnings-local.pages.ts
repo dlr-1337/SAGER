@@ -379,6 +379,7 @@ export class WarningFormLocalPage {
   selector: 'sager-warning-detail-local',
   imports: [
     AutoRefreshStatusComponent,
+    StatusLegendComponent,
     RouterLink,
     CommunicationsStateComponent,
     EvidenceLocalComponent,
@@ -412,6 +413,7 @@ export class WarningFormLocalPage {
         as warning
       ) {
         <sager-auto-refresh-status [refresh]="refresh" />
+        <sager-status-legend [names]="legendNames" />
         @if (warning.requiresReview) {
           <p class="comm-warning" role="alert">
             A origem está em conferência: por enquanto, esta advertência não conta para
@@ -521,6 +523,7 @@ export class WarningDetailLocalPage {
   readonly success = signal('');
   readonly conflict = signal(false);
   readonly statusLabels = warningStatusLabels;
+  readonly legendNames = Object.values(warningStatusLabels);
   readonly tone = toneAttr;
   readonly categories = categoryLabels;
   readonly severities = severityLabels;

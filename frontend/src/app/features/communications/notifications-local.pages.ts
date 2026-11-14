@@ -172,6 +172,7 @@ export class NotificationsLocalPage {
   selector: 'sager-notification-detail-local',
   imports: [
     AutoRefreshStatusComponent,
+    StatusLegendComponent,
     UnsavedFormDirective,
     RouterLink,
     ReactiveFormsModule,
@@ -208,6 +209,7 @@ export class NotificationsLocalPage {
         as notification
       ) {
         <sager-auto-refresh-status [refresh]="refresh" />
+        <sager-status-legend [names]="legendNames" />
         @if (notification.requiresReview) {
           <p class="comm-warning" role="alert">
             A origem foi corrigida: confira o registro atual antes de criar a advertência.
@@ -251,14 +253,17 @@ export class NotificationsLocalPage {
             }
             @if (!terminal(notification)) {
               <div class="comm-actions">
+                @if (notification.status === 'PENDENTE' || notification.status === 'VISUALIZADA') {
+                  <button
+                    class="btn-secondary"
+                    type="button"
+                    [disabled]="busy() || conflict()"
+                    (click)="analyze(false)"
+                  >
+                    Iniciar análise
+                  </button>
+                }
                 <button
-                  class="btn-secondary"
-                  type="button"
-                  [disabled]="busy() || conflict()"
-                  (click)="analyze(false)"
-                >
-                  Iniciar análise</button
-                ><button
                   class="btn-secondary"
                   type="button"
                   [disabled]="busy() || conflict()"
@@ -373,6 +378,7 @@ export class NotificationDetailLocalPage {
   readonly showWarning = signal(false);
   readonly form = warningForm();
   readonly labels = notificationLabels;
+  readonly legendNames = Object.values(notificationLabels);
   readonly tone = toneAttr;
   readonly categories = categoryLabels;
   readonly events = eventLabels;
@@ -466,7 +472,7 @@ export class NotificationDetailLocalPage {
             );
           }, 'Conferência registrada.'),
       );
-    } else if (!this.terminal(item))
+    } else if (item.status === 'PENDENTE' || item.status === 'VISUALIZADA')
       void this.mutate(async () => {
         this.item.set(
           await this.api.notificationAction(item.id, 'analisar', { version: item.version }),

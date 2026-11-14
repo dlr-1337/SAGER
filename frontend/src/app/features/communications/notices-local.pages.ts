@@ -576,6 +576,7 @@ export class NoticeFormLocalPage {
   selector: 'sager-notice-detail-local',
   imports: [
     AutoRefreshStatusComponent,
+    StatusLegendComponent,
     UnsavedFormDirective,
     RouterLink,
     ReactiveFormsModule,
@@ -607,6 +608,7 @@ export class NoticeFormLocalPage {
         as notice
       ) {
         <sager-auto-refresh-status [refresh]="refresh" />
+        <sager-status-legend [names]="legendNames" />
         <section class="panel op-panel">
           <h2>{{ notice.title }}</h2>
           <p class="comm-message">{{ notice.body }}</p>
@@ -722,6 +724,7 @@ export class NoticeDetailLocalPage {
   readonly conflict = signal(false);
   readonly edit = signal(false);
   readonly labels = noticeStatusLabels;
+  readonly legendNames = Object.values(noticeStatusLabels);
   readonly tone = toneAttr;
   readonly formatTime = formatCommunicationTime;
   private sequence = 0;

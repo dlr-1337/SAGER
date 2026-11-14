@@ -16,6 +16,8 @@ export interface LocalReviewData {
   action: string;
   lines: { label: string; value: string }[];
   warning?: string;
+  /** Rejeitar, recusar e cancelar: o botão de confirmar fica vermelho. */
+  danger?: boolean;
   requireConfirmation?: boolean;
   confirmationLabel?: string;
   requireReason?: boolean;
@@ -88,8 +90,8 @@ export interface LocalReviewResult {
             <option value="RETROACTIVE">Informar horário anterior</option>
           </select></label
         >
-        <p class="op-help">Horário de Brasília. “Agora” usa a hora em que você confirmar.</p>
         @if (timeMode.value === 'RETROACTIVE') {
+          <p class="op-help">Horário de Brasília.</p>
           <label class="field"
             >{{
               physical.action === 'partida' ? 'Horário real da partida' : 'Horário real do retorno'
@@ -106,9 +108,7 @@ export interface LocalReviewResult {
           }}<textarea rows="3" maxlength="2000" [formControl]="reason"></textarea>
         </label>
         @if (data.requireReason || timeMode.value === 'RETROACTIVE') {
-          <p class="op-help">
-            Descreva o motivo em 10 a 2.000 caracteres. O histórico preserva esta justificativa.
-          </p>
+          <p class="op-help">Descreva o motivo em 10 a 2.000 caracteres.</p>
         }
       }
       @if (data.physical?.action === 'retorno') {
@@ -121,7 +121,6 @@ export interface LocalReviewResult {
           >Observação do atraso{{ late ? '' : ' (se houver)'
           }}<textarea rows="3" maxlength="2000" [formControl]="lateObservation"></textarea>
         </label>
-        <p class="op-help">A volta é registrada mesmo se passar de 3 horas.</p>
       }
       @if (data.requireConfirmation) {
         <label class="op-check"
@@ -134,11 +133,16 @@ export interface LocalReviewResult {
       @if (error()) {
         <p class="op-error" role="alert">{{ error() }}</p>
       }
-      <p class="op-help">Confira os dados antes de confirmar. Cancelar fecha sem salvar.</p>
     </mat-dialog-content>
+    <!-- "Cancelar" ao lado de "Cancelar pedido" seriam dois nomes iguais com efeitos opostos. -->
     <mat-dialog-actions align="end"
-      ><button type="button" class="btn op-secondary" (click)="dialogRef.close()">Cancelar</button
-      ><button type="button" class="btn op-primary" (click)="confirm()">
+      ><button type="button" class="btn op-secondary" (click)="dialogRef.close()">
+        {{ data.action.startsWith('Cancelar') ? 'Voltar' : 'Cancelar' }}</button
+      ><button
+        type="button"
+        [class]="data.danger ? 'btn-danger' : 'btn op-primary'"
+        (click)="confirm()"
+      >
         {{ data.action }}
       </button></mat-dialog-actions
     >

@@ -28,7 +28,56 @@ const physical: NonNullable<LocalReviewData['physical']> = {
   version: 4,
 };
 
+async function render(data: Partial<LocalReviewData>): Promise<HTMLElement> {
+  TestBed.configureTestingModule({
+    providers: [
+      {
+        provide: MAT_DIALOG_DATA,
+        useValue: { title: 'Revisão', action: 'Confirmar', lines: [], ...data },
+      },
+      { provide: MatDialogRef, useValue: { close: vi.fn() } },
+    ],
+  });
+  const fixture = TestBed.createComponent(LocalOperationsReviewDialogComponent);
+  await fixture.whenStable();
+  return fixture.nativeElement;
+}
+const buttons = (element: HTMLElement) =>
+  Array.from(element.querySelectorAll('button')).map((button) => ({
+    name: button.textContent?.trim(),
+    className: button.className,
+  }));
+
 describe('Revisão das operações locais', () => {
+  it('cancelar pedido: "Voltar" fecha e "Cancelar pedido" confirma em vermelho, sem texto fixo', async () => {
+    const element = await render({
+      title: 'O pedido será cancelado.',
+      action: 'Cancelar pedido',
+      requireReason: true,
+      danger: true,
+    });
+    expect(buttons(element)).toEqual([
+      { name: 'Voltar', className: 'btn op-secondary' },
+      { name: 'Cancelar pedido', className: 'btn-danger' },
+    ]);
+    expect(element.textContent).not.toContain('Confira os dados antes de confirmar');
+  });
+  it('conferir autorização mantém "Cancelar" e o botão principal', async () => {
+    const element = await render({ action: 'Confirmar conferência' });
+    expect(buttons(element)).toEqual([
+      { name: 'Cancelar', className: 'btn op-secondary' },
+      { name: 'Confirmar conferência', className: 'btn op-primary' },
+    ]);
+  });
+  it('registrar volta no horário mostra só a orientação de ver o residente', async () => {
+    const element = await render({
+      title: 'Conferir volta',
+      action: 'Confirmar volta',
+      warning: 'Veja o residente pessoalmente antes de confirmar a volta.',
+      physical: { ...physical, now: '2026-09-30T18:00:00Z' },
+    });
+    expect(element.querySelectorAll('.op-help, .op-warning')).toHaveLength(1);
+  });
   it('aceita justificativa de 10 a 2.000 caracteres, como o servidor', async () => {
     const short = create({ requireReason: true });
     short.component.reason.setValue('a'.repeat(9));

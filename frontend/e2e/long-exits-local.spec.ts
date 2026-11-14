@@ -505,6 +505,16 @@ test('situação Aprovada permanece no retorno à lista longa e limpa ao trocar 
   await mockApi(page, { role: 'supervisor', exits: [{ ...exitFixture(), status: 'APROVADA' }] });
   await page.goto('/saidas?tipo=longa');
   await expect(page.getByRole('link', { name: 'Ver pedido' })).toHaveCount(1);
+  // Autorização e envio também saem como etiqueta colorida e entram na legenda da lista longa.
+  const tags = page.locator('.op-row-side .status');
+  await expect(tags).toHaveText([
+    'Aprovada',
+    'Aguardando autorização do responsável',
+    'Documento lido',
+  ]);
+  await expect(tags.nth(1)).toHaveAttribute('data-tone', 'warning');
+  await expect(tags.nth(2)).toHaveAttribute('data-tone', 'success');
+  await expect(page.locator('sager-status-legend dl > div')).toHaveCount(23);
   const filtered = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return (
@@ -555,9 +565,9 @@ test('residente cria NOW, mantém revisão persistida no mock e edição substit
   expect(state.writes[0].body).not.toHaveProperty('version');
   expect(state.writes[0].headers['x-csrf-token']).toBe('synthetic-csrf');
   expect(state.paths).not.toContain('/api/v1/responsaveis');
-  await expect(
-    page.getByText('WhatsApp indisponível; autorização por outro canal', { exact: true }),
-  ).toBeVisible();
+  await expect(page.locator('[aria-labelledby="long-exit-authorization"] .status')).toHaveText(
+    'WhatsApp indisponível; autorização por outro canal',
+  );
   await page.reload();
   await page.getByRole('link', { name: 'Mudar pedido', exact: true }).click();
   await expect(page.getByText('precisa autorizar de novo', { exact: false }).first()).toBeVisible();
@@ -640,7 +650,9 @@ test('documento lido não habilita aprovação; supervisor rejeita antes da conf
   const more = page.locator('main > details.more-details');
   await expect(more).not.toHaveAttribute('open', '');
   await more.getByText('Mais detalhes', { exact: true }).click();
-  await expect(page.getByText('Documento lido', { exact: true }).first()).toBeVisible();
+  await expect(page.locator('[aria-labelledby="long-exit-document"] .status')).toHaveText(
+    'Documento lido',
+  );
   const reject = page.getByRole('button', { name: 'Rejeitar', exact: true });
   await expect(reject).toHaveClass(/btn-danger/);
   await reject.click();
@@ -650,6 +662,10 @@ test('documento lido não habilita aprovação; supervisor rejeita antes da conf
   await expect(reject).toBeFocused();
   expect(state.writes).toHaveLength(0);
   await reject.click();
+  await expect(dialog.getByRole('heading', { name: 'O pedido será rejeitado.' })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Confirmar rejeição' })).toHaveClass(
+    /btn-danger/,
+  );
   await dialog.getByRole('button', { name: 'Confirmar rejeição' }).click();
   await expect(dialog.getByText('Informe uma justificativa', { exact: false })).toBeVisible();
   await dialog
@@ -678,7 +694,7 @@ test('aprovação usa revisão atual e já registra a saída; retorno retroativo
     .getByRole('button', { name: 'Aprovar e registrar a saída agora' })
     .click();
   await expect(page.getByText('Aprovação e saída registradas.', { exact: true })).toBeVisible();
-  await expect(page.getByText('Em andamento', { exact: true })).toBeVisible();
+  await expect(page.locator('.op-exit-heading .status')).toHaveText('Em andamento');
   await expect(page.getByRole('button', { name: 'Registrar saída' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Volta' })).toBeFocused();
   state.now = '2026-09-30T23:30:00Z';
@@ -732,7 +748,7 @@ test('saída longa agendada aprovada espera a hora pedida para "Registrar saída
   await page.getByRole('button', { name: 'Aprovar saída', exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Confirmar aprovação' }).click();
   await expect(page.getByText('Aprovação registrada.', { exact: true })).toBeVisible();
-  await expect(page.getByText('Aprovada', { exact: true })).toBeVisible();
+  await expect(page.locator('.op-exit-heading .status')).toHaveText('Aprovada');
   await expect(page.getByText('Saída marcada para 30/09/2026, 15:00.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Registrar saída' })).toHaveCount(0);
   const cancel = page.getByRole('button', { name: 'Cancelar pedido' });
@@ -747,7 +763,7 @@ test('saída longa agendada aprovada espera a hora pedida para "Registrar saída
   ]);
   await page.getByRole('button', { name: 'Registrar saída' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Confirmar saída' }).click();
-  await expect(page.getByText('Em andamento', { exact: true })).toBeVisible();
+  await expect(page.locator('.op-exit-heading .status')).toHaveText('Em andamento');
   expect(state.writes[1].body).toEqual({ version: 1, timeMode: 'NOW' });
 });
 
@@ -805,7 +821,9 @@ test('arquivo recebido não aprova; conferência registra quem e quando e libera
   const state = await mockApi(page, { exits: [exit], signedMediaType: 'image/png' });
   await page.goto(`/saidas/longas/${exitId}`);
   await expect(page.getByRole('button', { name: 'Aprovar saída' })).toHaveCount(0);
-  await expect(page.getByText('Aguardando conferência', { exact: true })).toBeVisible();
+  await expect(
+    page.locator('.long-files').getByText('Aguardando conferência', { exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole('button', { name: /Baixar arquivo recebido em/ })).toBeVisible();
   await expect(page.getByRole('img', { name: /Imagem recebida em/ })).toHaveJSProperty(
     'naturalWidth',
@@ -869,8 +887,12 @@ test('remetente divergente exige justificativa; recusa mantém o pedido aguardan
   await dialog.getByLabel('Justificativa', { exact: true }).fill('Foto ilegível do documento');
   await dialog.getByRole('button', { name: 'Confirmar recusa' }).click();
   await expect(page.getByText('Arquivo recusado. Um novo', { exact: false })).toBeVisible();
+  // O botão sumiu com o arquivo recusado: o foco vai ao título do passo, não ao topo da página.
+  await expect(page.getByRole('heading', { name: 'Autorização do responsável' })).toBeFocused();
   await page.getByText('Mais detalhes', { exact: true }).click();
-  await expect(page.getByText('Arquivo recusado', { exact: true })).toBeVisible();
+  await expect(
+    page.locator('.long-files').getByText('Arquivo recusado', { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText('Foto ilegível do documento', { exact: true }).first()).toBeVisible();
   expect(state.writes[0].path).toContain(`/autorizacao/arquivos/${refused}/recusa`);
   expect(state.writes[0].body).toEqual({ version: 0, comment: 'Foto ilegível do documento' });
@@ -974,9 +996,12 @@ test('sem confirmação de entrega avisa; arquivo sem vínculo é escolhido pelo
   await page.getByRole('button', { name: /Vincular a este pedido/ }).click();
   await dialog.getByRole('button', { name: 'Confirmar vínculo' }).click();
   await expect(page.getByText('Arquivo vinculado. Ele ainda', { exact: false })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Autorização do responsável' })).toBeFocused();
   expect(state.writes[1].path).toBe(`/api/v1/saidas-longas/${exitId}/autorizacao/vinculos`);
   expect(state.writes[1].body).toEqual({ version: 0, messageId });
-  await expect(page.getByText('Aguardando conferência', { exact: true })).toBeVisible();
+  await expect(
+    page.locator('.long-files').getByText('Aguardando conferência', { exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole('button', { name: /Vincular a este pedido/ })).toHaveCount(0);
 });
 

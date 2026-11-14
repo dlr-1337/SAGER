@@ -22,8 +22,10 @@ const shown = [
   'Anulada',
   ...Object.values(signatureStatusLabels),
   ...Object.values(messageStatusLabels),
-  'Conferido',
-  'Recusado',
+  'Aguardando conferência',
+  'Arquivo recusado',
+  'Termo valendo',
+  'Termo anulado',
 ];
 
 describe('Tons de situação', () => {
@@ -44,6 +46,10 @@ describe('Tons de situação', () => {
     expect(toneAttr('Rejeitada')).toBe('danger');
     expect(toneAttr('Ausente')).toBe('danger');
     expect(toneAttr('Valendo')).toBe('success');
+    expect(toneAttr('Aguardando conferência')).toBe('warning');
+    expect(toneAttr('Arquivo recusado')).toBe('danger');
+    expect(toneAttr('Termo valendo')).toBe('success');
+    expect(toneAttr('Termo anulado')).toBeNull();
     expect(toneAttr('Expirada')).toBeNull();
     expect(toneAttr('Nome que não existe')).toBeNull();
   });

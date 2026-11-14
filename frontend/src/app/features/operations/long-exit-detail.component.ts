@@ -14,7 +14,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { autoRefresh } from '../../core/auto-refresh';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { LocalAuthService } from '../../core/local-auth.service';
-import { AutoRefreshStatusComponent, toneAttr } from '../../shared';
+import { AutoRefreshStatusComponent, StatusLegendComponent, toneAttr } from '../../shared';
 import { LongExitApiService } from './long-exit-api.service';
 import { downloadExitDocument } from './long-exit-document.utils';
 import {
@@ -71,7 +71,7 @@ type LongExitStep = 'Autorização do responsável' | 'Decisão' | 'Saída' | 'V
 @Component({
   standalone: true,
   selector: 'app-long-exit-detail',
-  imports: [RouterLink, NgTemplateOutlet, AutoRefreshStatusComponent],
+  imports: [RouterLink, NgTemplateOutlet, AutoRefreshStatusComponent, StatusLegendComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page op-exit-page">
@@ -110,6 +110,7 @@ type LongExitStep = 'Autorização do responsável' | 'Decisão' | 'Saída' | 'V
           <button class="btn op-secondary" type="button" (click)="load()">Tentar novamente</button>
         </section>
       } @else if (item(); as exit) {
+        <sager-status-legend [names]="legendNames" />
         @if (saved()) {
           <p class="op-success" role="status">Pedido salvo.</p>
         }
@@ -552,7 +553,11 @@ type LongExitStep = 'Autorização do responsável' | 'Decisão' | 'Saída' | 'V
           <dl class="op-definition">
             <div>
               <dt>Situação do envio</dt>
-              <dd>{{ messages[exit.messageStatus] }}</dd>
+              <dd>
+                <span class="status" [attr.data-tone]="tone(messages[exit.messageStatus])">{{
+                  messages[exit.messageStatus]
+                }}</span>
+              </dd>
             </div>
           </dl>
           @if (exit.currentDocument; as revision) {
@@ -613,7 +618,11 @@ type LongExitStep = 'Autorização do responsável' | 'Decisão' | 'Saída' | 'V
           <dl class="op-definition">
             <div>
               <dt>Situação</dt>
-              <dd>{{ signatures[exit.signatureStatus] }}</dd>
+              <dd>
+                <span class="status" [attr.data-tone]="tone(signatures[exit.signatureStatus])">{{
+                  signatures[exit.signatureStatus]
+                }}</span>
+              </dd>
             </div>
             @if (exit.signedAt) {
               <div>
@@ -678,7 +687,7 @@ type LongExitStep = 'Autorização do responsável' | 'Decisão' | 'Saída' | 'V
     <ng-template #fileItem let-file>
       @if (item(); as exit) {
         <li>
-          <strong>{{ fileState(file) }}</strong>
+          <span class="status" [attr.data-tone]="tone(fileState(file))">{{ fileState(file) }}</span>
           <p>
             {{ mediaLabel(file.mediaType) }} ·
             {{
@@ -892,6 +901,14 @@ export class LongExitDetailComponent {
     ACCEPTED: 'Autorização conferida por servidor',
     REFUSED: 'Arquivo recusado',
   };
+  readonly legendNames = [
+    ...new Set([
+      ...Object.values(longExitStatusLabels),
+      ...Object.values(signatureStatusLabels),
+      ...Object.values(messageStatusLabels),
+      ...Object.values(this.fileStates),
+    ]),
+  ];
   readonly formatTime = formatOperationsTime;
   readonly shortCode = documentShortCode;
   fileState(file: AuthorizationFile): string {
@@ -1010,10 +1027,9 @@ export class LongExitDetailComponent {
     if (!exit || !this.canDecideFile(exit, file) || this.busy() || this.conflict()) return;
     this.review(
       {
-        title: 'Recusar arquivo recebido',
+        title: 'O arquivo será recusado e o pedido continua aguardando autorização.',
         action: 'Confirmar recusa',
-        warning:
-          'O arquivo fica guardado como recusado e o pedido continua aguardando autorização.',
+        danger: true,
         lines: [
           { label: 'Arquivo', value: this.mediaLabel(file.mediaType) },
           { label: 'Origem', value: this.originLabel(file) },
@@ -1090,7 +1106,7 @@ export class LongExitDetailComponent {
     const approve = decision === 'APPROVE';
     this.review(
       {
-        title: approve ? 'Revisar aprovação da saída longa' : 'Revisar rejeição da saída longa',
+        title: approve ? 'Revisar aprovação da saída longa' : 'O pedido será rejeitado.',
         action: approve
           ? leavesNow(exit)
             ? 'Aprovar e registrar a saída agora'
@@ -1099,6 +1115,7 @@ export class LongExitDetailComponent {
         lines: this.summary(exit),
         requireReason: !approve,
         comment: approve,
+        danger: !approve,
       },
       (result) => this.api.decide(exit, decision, result.reason),
       approve ? approvalMessage : 'Rejeição registrada.',
@@ -1120,6 +1137,7 @@ export class LongExitDetailComponent {
         action: 'Cancelar pedido',
         lines: this.summary(exit),
         requireReason: true,
+        danger: true,
       },
       (result) => this.api.cancel(exit, result.reason),
       'Pedido cancelado.',
@@ -1275,12 +1293,18 @@ export class LongExitDetailComponent {
       const exit = await action();
       this.item.set(exit);
       this.success.set(typeof message === 'string' ? message : message(exit));
-      void this.loadUnlinked(exit);
-      // O botão clicado sumiu com o passo: o foco vai ao título do passo novo.
-      if (this.step() !== step)
-        afterNextRender(() => document.getElementById('exit-step')?.focus(), {
-          injector: this.injector,
-        });
+      // Espera a lista sem vínculo: "Vincular a este pedido" só some quando ela volta.
+      await this.loadUnlinked(exit);
+      // O botão clicado sumiu (com o passo, o arquivo recusado ou o vinculado): o foco vai ao
+      // título do passo, e não fica perdido no topo da página.
+      afterNextRender(
+        () => {
+          const active = document.activeElement;
+          if (this.step() !== step || !active?.isConnected || active === document.body)
+            document.getElementById('exit-step')?.focus();
+        },
+        { injector: this.injector },
+      );
     } catch (error) {
       this.error.set(exitError(error));
       if (freezesActions(error)) this.conflict.set(true);
