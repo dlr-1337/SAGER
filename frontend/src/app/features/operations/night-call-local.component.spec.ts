@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MatDialog } from '@angular/material/dialog';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { FilterState } from '../../core/filter-state';
 import { HousingMap } from '../management/housing.models';
@@ -238,7 +238,7 @@ describe('Filtros de casa ou bloco e quarto na chamada noturna', () => {
       const element: HTMLElement = fixture.nativeElement;
       const text = element.textContent ?? '';
       expect(text).toContain('Sistema');
-      expect(text).toContain('Residentes com saída em andamento já entram como ausência');
+      expect(text).toContain('Quem está fora com saída já entra justificado: confira.');
       expect(text).not.toContain(exitId);
       expect(element.querySelector(`a[href="/saidas/${exitId}"]`)?.textContent).toContain(
         'saída curta',
@@ -267,7 +267,7 @@ describe('Filtros de casa ou bloco e quarto na chamada noturna', () => {
         },
       ]);
       const fixture = await create();
-      expect(fixture.nativeElement.textContent).not.toContain('Residentes com saída em andamento');
+      expect(fixture.nativeElement.textContent).not.toContain('Quem está fora com saída');
     });
   });
 
@@ -331,5 +331,106 @@ describe('Filtros de casa ou bloco e quarto na chamada noturna', () => {
       'Quarto 101',
     ]);
     expect(fixture.nativeElement.textContent).toContain('Não foi possível carregar casas');
+  });
+
+  it('"Mais filtros" só tem casa ou bloco e quarto, sem "Marcação"', async () => {
+    const fixture = await create();
+    const panel: HTMLElement = fixture.nativeElement.querySelector('sager-filter-panel details');
+    const labels = Array.from(panel.querySelectorAll('select')).map(
+      (item) => item.closest('label')?.firstChild?.textContent,
+    );
+    expect(labels).toEqual(['Casa ou bloco', 'Quarto']);
+    expect(select(fixture, 'Marcação')).toBeNull();
+  });
+
+  it('"Aberta" fica em amarelo, "Fechada" em verde e a legenda começa fechada', async () => {
+    const tone = (fixture: ComponentFixture<NightCallLocalComponent>) =>
+      fixture.nativeElement.querySelector('.op-section-heading .status');
+    const open = await create();
+    expect(tone(open).textContent.trim()).toBe('Aberta');
+    expect(tone(open).getAttribute('data-tone')).toBe('warning');
+    const legend = open.nativeElement.querySelector('sager-status-legend details');
+    expect(legend.open).toBe(false);
+    expect(legend.querySelectorAll('dl > div')).toHaveLength(6);
+    open.destroy();
+    calls.mockResolvedValue([{ ...structuredClone(call), status: 'FECHADA' }]);
+    const closed = await create();
+    expect(tone(closed).textContent.trim()).toBe('Fechada');
+    expect(tone(closed).getAttribute('data-tone')).toBe('success');
+  });
+
+  it('marcação sem registro aparece como "Pendente" e cada marcação com a sua cor', async () => {
+    const fixture = await create();
+    const chips = Array.from<HTMLElement>(
+      fixture.nativeElement.querySelectorAll('.op-call-row .op-row-main .status'),
+    ).map((chip) => [chip.textContent?.trim(), chip.getAttribute('data-tone')]);
+    expect(chips).toEqual([
+      ['Presente', 'success'],
+      ['Presente', 'success'],
+      ['Pendente', 'warning'],
+    ]);
+  });
+
+  describe('atualização automática', () => {
+    beforeEach(() => {
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+      delete (document as { hidden?: boolean }).hidden;
+    });
+    const settle = async (fixture: ComponentFixture<NightCallLocalComponent>, ms = 1) => {
+      await vi.advanceTimersByTimeAsync(ms);
+      fixture.detectChanges();
+      await vi.advanceTimersByTimeAsync(1);
+    };
+    const marked = {
+      ...structuredClone(call),
+      version: 1,
+      summary: { total: 3, present: 3, absent: 0, justified: 0, unmarked: 0 },
+      records: [
+        record('1', 'r1', 'PRESENTE'),
+        record('2', 'r1', 'PRESENTE'),
+        record('3', 'r2', 'PRESENTE'),
+      ],
+    };
+
+    it('mostra aos 15 s a marcação de outro supervisor, mantendo alojamento, data e quarto', async () => {
+      const fixture = TestBed.createComponent(NightCallLocalComponent);
+      await settle(fixture);
+      const component = fixture.componentInstance;
+      component.room.setValue('r2');
+      await settle(fixture);
+      calls.mockResolvedValue([structuredClone(marked)]);
+      await settle(fixture, 14_990);
+      expect(component.call()?.records[2].mark).toBeNull();
+      let loadingSeen = false;
+      calls.mockImplementation(async () => {
+        loadingSeen ||= component.loading() || component.call() === null;
+        return [structuredClone(marked)];
+      });
+      await settle(fixture, 20);
+      expect(loadingSeen).toBe(false);
+      expect(component.call()?.records[2].mark).toBe('PRESENTE');
+      expect(component.accommodation.value).toBe('a1');
+      expect(component.date.value).toBe('2026-09-30');
+      expect(component.room.value).toBe('r2');
+      expect(fixture.nativeElement.textContent).toContain('Todos marcados.');
+      expect(fixture.nativeElement.textContent).not.toContain('Carregando chamada');
+    });
+
+    it('pula o ciclo enquanto uma marcação grava e consulta no seguinte', async () => {
+      const fixture = TestBed.createComponent(NightCallLocalComponent);
+      await settle(fixture);
+      const component = fixture.componentInstance;
+      const before = calls.mock.calls.length;
+      component.busy.set(true);
+      await settle(fixture, 15_000);
+      expect(calls.mock.calls.length).toBe(before);
+      component.busy.set(false);
+      await settle(fixture, 15_000);
+      expect(calls.mock.calls.length).toBe(before + 1);
+    });
   });
 });
