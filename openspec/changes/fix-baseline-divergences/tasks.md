@@ -23,8 +23,8 @@ Os caminhos do frontend são relativos a `frontend/`, e os do backend, a `backen
 
 ## 5. Verificação final
 
-- [ ] 5.1 Rodar `./mvnw -B -ntp verify` no backend, e `npm test -- --watch=false`, `npm run build` e `SAGER_E2E_PORT=4326 CI=1 npm run test:e2e` no frontend; tudo verde.
-- [ ] 5.2 Rodar `npx -y @fission-ai/openspec@2.0.0 validate fix-baseline-divergences --strict` e conferir a implementação contra proposal.md, as specs e design.md.
+- [x] 5.1 Rodar `./mvnw -B -ntp verify` no backend, e `npm test -- --watch=false`, `npm run build` e `SAGER_E2E_PORT=4326 CI=1 npm run test:e2e` no frontend; tudo verde.
+- [x] 5.2 Rodar `npx -y @fission-ai/openspec@2.0.0 validate fix-baseline-divergences --strict` e conferir a implementação contra proposal.md, as specs e design.md.
 
 ## Workflow follow-up
 
