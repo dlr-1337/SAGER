@@ -6,10 +6,17 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { autoRefresh } from '../../core/auto-refresh';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { cursorPages } from '../../core/list-page';
+import { AutoRefreshStatusComponent } from '../../shared/auto-refresh-status.component';
 import { PaginationComponent } from '../../shared/pagination.component';
+import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
+import { StatusLegendComponent } from '../../shared/status-legend.component';
+import { toneAttr } from '../../shared/status-tones';
+import { HousingMap, RoomRecord, roomOptionLabel, roomsIn } from '../management/housing.models';
 import { ResidentApiService, ResidentRecord } from '../management/resident-api.service';
+import { RoomApiService } from '../management/room-api.service';
 import {
   CommunicationsApiError,
   CommunicationsLocalApiService,
@@ -22,7 +29,11 @@ import {
   CommunicationReviewResult,
   CommunicationsStateComponent,
 } from './communications-local.shared';
-import { CommunicationIntent, formatCommunicationTime } from './communications-local.utils';
+import {
+  CommunicationIntent,
+  formatCommunicationTime,
+  noticeStatusLabels,
+} from './communications-local.utils';
 
 function noticeForm() {
   return new FormGroup({
@@ -48,16 +59,56 @@ function noticeInvalid(input: { title: string; body: string }): boolean {
     input.body.length > 4000
   );
 }
-const statusLabels = { RASCUNHO: 'Rascunho', PUBLICADO: 'Publicado', RETIRADO: 'Retirado' };
+
+export type NoticeAudience = 'TODOS' | 'ALOJAMENTO' | 'QUARTO' | 'MAIORES' | 'MENORES' | 'ESCOLHER';
+export const audienceLabels: Record<NoticeAudience, string> = {
+  TODOS: 'Todos os moradores',
+  ALOJAMENTO: 'Um alojamento',
+  QUARTO: 'Um quarto',
+  MAIORES: 'Só maiores de 18',
+  MENORES: 'Só menores de 18',
+  ESCOLHER: 'Escolher pessoas',
+};
+
+/**
+ * Filtros de `GET /api/v1/residentes` de cada opção de "Quem recebe?" (notice-audience-options,
+ * design D2). A idade vem de `minor`, que o servidor calcula na data civil de America/Sao_Paulo;
+ * quem não tem data de nascimento fica fora das opções por idade. Devolve null quando a opção não
+ * é uma busca ("Escolher pessoas") ou falta o alojamento ou o quarto.
+ */
+export function audienceQuery(
+  audience: NoticeAudience | '',
+  place: { accommodationId?: string; roomId?: string } = {},
+): { params: Record<string, string>; keep: (resident: ResidentRecord) => boolean } | null {
+  const everyone = () => true;
+  if (audience === 'TODOS') return { params: { allocated: 'true' }, keep: everyone };
+  if (audience === 'ALOJAMENTO')
+    return place.accommodationId
+      ? { params: { accommodationId: place.accommodationId }, keep: everyone }
+      : null;
+  if (audience === 'QUARTO')
+    return place.roomId ? { params: { roomId: place.roomId }, keep: everyone } : null;
+  if (audience === 'MAIORES' || audience === 'MENORES') {
+    const minor = audience === 'MENORES';
+    return {
+      params: { allocated: 'true' },
+      keep: (resident) => !!resident.birthDate && resident.minor === minor,
+    };
+  }
+  return null;
+}
+const residentsCount = (count: number) => (count === 1 ? '1 residente' : `${count} residentes`);
 
 @Component({
   standalone: true,
   selector: 'sager-notices-management-local',
   imports: [
+    AutoRefreshStatusComponent,
     CommunicationFiltersComponent,
     RouterLink,
     CommunicationsStateComponent,
     PaginationComponent,
+    StatusLegendComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -77,6 +128,7 @@ const statusLabels = { RASCUNHO: 'Rascunho', PUBLICADO: 'Publicado', RETIRADO: '
         [blocked]="!session.hasRole('supervisor')"
       />
       @if (!session.active() && session.hasRole('supervisor')) {
+        <sager-auto-refresh-status [refresh]="refresh" />
         <sager-communication-filters
           mode="notices"
           heading="Filtrar avisos"
@@ -84,6 +136,7 @@ const statusLabels = { RASCUNHO: 'Rascunho', PUBLICADO: 'Publicado', RETIRADO: '
         />
         <section class="op-section">
           <h2 id="notice-results-title" tabindex="-1">Avisos registrados</h2>
+          <sager-status-legend [names]="legendNames" />
           <sager-communications-state
             [loading]="list.loading()"
             [error]="list.error()"
@@ -95,18 +148,14 @@ const statusLabels = { RASCUNHO: 'Rascunho', PUBLICADO: 'Publicado', RETIRADO: '
                 <article class="op-row">
                   <div class="op-row-main">
                     <h3>{{ notice.title }}</h3>
-                    <p>
-                      {{
-                        notice.residentIds.length === 1
-                          ? '1 residente'
-                          : notice.residentIds.length + ' residentes'
-                      }}
-                    </p>
+                    <p>{{ count(notice.residentIds.length) }}</p>
                     @if (notice.publishedAt) {
                       <p>Publicado em {{ formatTime(notice.publishedAt) }}</p>
                     }
                   </div>
-                  <span class="op-status">{{ labels[notice.status] }}</span
+                  <span class="status" [attr.data-tone]="tone(labels[notice.status])">{{
+                    labels[notice.status]
+                  }}</span
                   ><a class="op-row-link" [routerLink]="['/comunicacoes/avisos', notice.id]"
                     >Ver aviso<span class="material-symbols-outlined" aria-hidden="true"
                       >arrow_forward</span
@@ -142,7 +191,11 @@ export class NoticesManagementLocalPage {
     (cursor) => this.api.notices(cursor, this.filters),
     communicationsError,
   );
-  readonly labels = statusLabels;
+  readonly refresh = autoRefresh(() => this.list.refresh());
+  readonly labels = noticeStatusLabels;
+  readonly legendNames = Object.values(noticeStatusLabels);
+  readonly tone = toneAttr;
+  readonly count = residentsCount;
   readonly formatTime = formatCommunicationTime;
   // A primeira carga vem da emissão inicial do painel de filtro.
   filter(filters: Record<string, string>): Promise<void> {
@@ -155,7 +208,13 @@ export class NoticesManagementLocalPage {
 @Component({
   standalone: true,
   selector: 'sager-notice-form-local',
-  imports: [UnsavedFormDirective, RouterLink, ReactiveFormsModule, CommunicationsStateComponent],
+  imports: [
+    UnsavedFormDirective,
+    RouterLink,
+    ReactiveFormsModule,
+    CommunicationsStateComponent,
+    SearchableSelectDirective,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page comm-narrow">
@@ -196,37 +255,88 @@ export class NoticesManagementLocalPage {
             }
           </label>
           <fieldset class="comm-recipient-fieldset">
-            <legend>Quem vai receber</legend>
-            <label class="field"
-              >Buscar residente<input
-                type="search"
-                data-filter-input
-                [formControl]="search"
-                placeholder="Nome ou matrícula"
-            /></label>
-            <div class="comm-recipient-list">
-              @for (resident of visibleResidents(); track resident.id) {
-                <label class="comm-check"
-                  ><input
-                    type="checkbox"
-                    [checked]="selected().includes(resident.id)"
-                    [disabled]="busy()"
-                    (change)="toggle(resident.id, $any($event.target).checked)"
-                  /><span
-                    >{{ resident.name }}<small>Matrícula {{ resident.enrollment }}</small></span
-                  ></label
-                >
-              } @empty {
-                <p>Nenhum residente encontrado.</p>
-              }
-            </div>
-            <p>
-              {{
-                selected().length === 1
-                  ? '1 residente escolhido'
-                  : selected().length + ' residentes escolhidos'
-              }}
-            </p>
+            <legend>Quem recebe?</legend>
+            @for (option of audiences; track option[0]) {
+              <label class="comm-check"
+                ><input
+                  type="radio"
+                  name="notice-audience"
+                  [value]="option[0]"
+                  [formControl]="audience"
+                /><span>{{ option[1] }}</span></label
+              >
+            }
+            @if (chosen() === 'ALOJAMENTO' || chosen() === 'QUARTO') {
+              <label class="field"
+                >Alojamento<select sagerSearchable [formControl]="accommodationId">
+                  <option value="">Escolha o alojamento</option>
+                  @for (item of housing().accommodations; track item.id) {
+                    <option [value]="item.id">{{ item.name }}</option>
+                  }
+                </select></label
+              >
+            }
+            @if (chosen() === 'QUARTO' && accommodation()) {
+              <label class="field"
+                >Quarto<select sagerSearchable [formControl]="roomId">
+                  <option value="">Escolha o quarto</option>
+                  @for (room of rooms(); track room.id) {
+                    <option [value]="room.id">{{ roomLabel(room) }}</option>
+                  }
+                </select></label
+              >
+            }
+            @if (chosen() === 'ESCOLHER') {
+              <label class="field"
+                >Buscar residente<input
+                  type="search"
+                  data-filter-input
+                  [formControl]="search"
+                  placeholder="Nome ou matrícula"
+              /></label>
+              <div class="comm-recipient-list">
+                @for (resident of visibleResidents(); track resident.id) {
+                  <label class="comm-check"
+                    ><input
+                      type="checkbox"
+                      [checked]="selected().includes(resident.id)"
+                      [disabled]="busy()"
+                      (change)="toggle(resident.id, $any($event.target).checked)"
+                    /><span
+                      >{{ resident.name }}<small>Matrícula {{ resident.enrollment }}</small></span
+                    ></label
+                  >
+                } @empty {
+                  <p>Nenhum residente encontrado.</p>
+                }
+              </div>
+            }
+            @if (resolving()) {
+              <p role="status">Buscando quem vai receber…</p>
+            } @else if (resolveError()) {
+              <p class="comm-error" role="alert">{{ resolveError() }}</p>
+            } @else if (countText()) {
+              <p class="comm-count" role="status">{{ countText() }}</p>
+            }
+            @if (chosen() !== 'ESCOLHER' && candidates().length) {
+              <details class="more-details">
+                <summary>Ver quem vai receber</summary>
+                <div class="comm-recipient-list">
+                  @for (resident of candidates(); track resident.id) {
+                    <label class="comm-check"
+                      ><input
+                        type="checkbox"
+                        [checked]="selected().includes(resident.id)"
+                        [disabled]="busy()"
+                        (change)="toggle(resident.id, $any($event.target).checked)"
+                      /><span
+                        >{{ resident.name }}<small>Matrícula {{ resident.enrollment }}</small></span
+                      ></label
+                    >
+                  }
+                </div>
+              </details>
+            }
           </fieldset>
           <p class="comm-help">
             Depois de publicar, você pode corrigir o texto, mas não mudar quem recebe.
@@ -253,14 +363,31 @@ export class NoticeFormLocalPage {
   readonly session = inject(DemoSessionService);
   private readonly api = inject(CommunicationsLocalApiService);
   private readonly registry = inject(ResidentApiService);
+  private readonly roomApi = inject(RoomApiService);
   private readonly router = inject(Router);
   private readonly dialogs = inject(MatDialog);
   private readonly intent = new CommunicationIntent();
   readonly form = noticeForm();
+  readonly audiences = Object.entries(audienceLabels) as [NoticeAudience, string][];
+  readonly audience = new FormControl<NoticeAudience | ''>('', { nonNullable: true });
+  readonly accommodationId = new FormControl('', { nonNullable: true });
+  readonly roomId = new FormControl('', { nonNullable: true });
+  readonly chosen = signal<NoticeAudience | ''>('');
+  readonly accommodation = signal('');
+  readonly housing = signal<HousingMap>({ accommodations: [], units: [], rooms: [] });
+  readonly rooms = computed(() => roomsIn(this.housing(), this.accommodation()));
   readonly search = new FormControl('', { nonNullable: true });
   readonly searchText = signal('');
   readonly residents = signal<ResidentRecord[]>([]);
+  /** Residentes que a opção escolhida trouxe; a lista fica fixa no rascunho (design D3). */
+  readonly candidates = signal<ResidentRecord[]>([]);
   readonly selected = signal<string[]>([]);
+  readonly resolving = signal(false);
+  readonly resolved = signal(false);
+  readonly resolveError = signal('');
+  private readonly known = computed(
+    () => new Map([...this.residents(), ...this.candidates()].map((item) => [item.id, item])),
+  );
   readonly visibleResidents = computed(() => {
     const query = this.searchText().trim().toLocaleLowerCase('pt-BR');
     return this.residents().filter(
@@ -268,15 +395,34 @@ export class NoticeFormLocalPage {
         !query || `${item.name} ${item.enrollment}`.toLocaleLowerCase('pt-BR').includes(query),
     );
   });
+  readonly countText = computed(() => {
+    const audience = this.chosen();
+    if (!audience || (audience !== 'ESCOLHER' && !this.resolved())) return '';
+    if (audience !== 'ESCOLHER' && !this.candidates().length)
+      return 'Ninguém recebe com essa opção.';
+    const count = this.selected().length;
+    return count === 1 ? '1 residente vai receber' : `${count} residentes vão receber`;
+  });
   readonly loading = signal(false);
   readonly loadError = signal('');
   readonly error = signal('');
   readonly busy = signal(false);
   readonly conflict = signal(false);
+  private pending?: AbortController;
   constructor() {
     this.search.valueChanges
       .pipe(takeUntilDestroyed())
       .subscribe((value) => this.searchText.set(value));
+    this.audience.valueChanges.pipe(takeUntilDestroyed()).subscribe((value) => {
+      this.chosen.set(value);
+      void this.resolve();
+    });
+    this.accommodationId.valueChanges.pipe(takeUntilDestroyed()).subscribe((value) => {
+      this.accommodation.set(value);
+      this.roomId.setValue('', { emitEvent: false });
+      void this.resolve();
+    });
+    this.roomId.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => void this.resolve());
     void this.load();
   }
   async load(): Promise<void> {
@@ -286,15 +432,49 @@ export class NoticeFormLocalPage {
     this.error.set('');
     this.conflict.set(false);
     try {
-      this.residents.set(await this.registry.list());
+      const [residents, housing] = await Promise.all([this.registry.list(), this.roomApi.map()]);
+      this.residents.set(residents);
+      this.housing.set(housing);
     } catch (error) {
       this.loadError.set(communicationsError(error));
     } finally {
       this.loading.set(false);
     }
   }
+  roomLabel(room: RoomRecord): string {
+    return roomOptionLabel(room, this.housing().units);
+  }
+  /** Refaz a lista da opção: só a última busca vale, e as desmarcações anteriores saem (D4, D6). */
+  async resolve(): Promise<void> {
+    this.pending?.abort();
+    this.pending = undefined;
+    this.candidates.set([]);
+    this.selected.set([]);
+    this.resolved.set(false);
+    this.resolveError.set('');
+    this.resolving.set(false);
+    const query = audienceQuery(this.chosen(), {
+      accommodationId: this.accommodationId.value,
+      roomId: this.roomId.value,
+    });
+    if (!query) return;
+    const pending = (this.pending = new AbortController());
+    this.resolving.set(true);
+    try {
+      const { items } = await this.registry.page(query.params, pending.signal);
+      if (pending.signal.aborted) return;
+      const chosen = items.filter(query.keep);
+      this.candidates.set(chosen);
+      this.selected.set(chosen.map((item) => item.id));
+      this.resolved.set(true);
+    } catch (error) {
+      if (!pending.signal.aborted) this.resolveError.set(communicationsError(error));
+    } finally {
+      if (this.pending === pending) this.resolving.set(false);
+    }
+  }
   toggle(id: string, checked: boolean): void {
-    if (!this.residents().some((item) => item.id === id) || this.busy()) return;
+    if (!this.known().has(id) || this.busy()) return;
     this.selected.update((items) =>
       checked ? [...items.filter((item) => item !== id), id] : items.filter((item) => item !== id),
     );
@@ -313,13 +493,17 @@ export class NoticeFormLocalPage {
       this.form.invalid ||
       noticeInvalid(input) ||
       !input.residentIds.length ||
-      input.residentIds.some((id) => !this.residents().some((item) => item.id === id))
+      input.residentIds.some((id) => !this.known().has(id))
     ) {
       this.error.set(
-        'Informe um título de 3 a 200 caracteres, mensagem de 3 a 4.000 e selecione ao menos um residente cadastrado.',
+        'Informe um título de 3 a 200 caracteres, mensagem de 3 a 4.000 e escolha quem recebe.',
       );
       return;
     }
+    this.error.set('');
+    const names = [...this.known().values()]
+      .filter((item) => input.residentIds.includes(item.id))
+      .map((item) => `${item.name} · ${item.enrollment}`);
     this.dialogs
       .open<CommunicationReviewDialogComponent, CommunicationReviewData, CommunicationReviewResult>(
         CommunicationReviewDialogComponent,
@@ -332,10 +516,10 @@ export class NoticeFormLocalPage {
               { label: 'Mensagem', value: input.body },
               {
                 label: 'Quem vai receber',
-                value: this.residents()
-                  .filter((item) => input.residentIds.includes(item.id))
-                  .map((item) => `${item.name} · ${item.enrollment}`)
-                  .join('\n'),
+                value: [
+                  `${this.criterion()} · ${residentsCount(input.residentIds.length)}`,
+                  ...names,
+                ].join('\n'),
               },
             ],
           },
@@ -349,6 +533,22 @@ export class NoticeFormLocalPage {
       .subscribe((result) => {
         if (result) void this.save(input);
       });
+  }
+  /** A opção como aparece na revisão (design D8). */
+  private criterion(): string {
+    const audience = this.chosen();
+    const map = this.housing();
+    if (audience === 'ALOJAMENTO')
+      return `Alojamento ${map.accommodations.find((item) => item.id === this.accommodationId.value)?.name ?? ''}`;
+    if (audience === 'QUARTO') {
+      const room = map.rooms.find((item) => item.id === this.roomId.value);
+      return `Quarto ${room ? this.roomLabel(room) : ''}`;
+    }
+    return audience === 'ESCOLHER'
+      ? 'Escolhidos um a um'
+      : audience
+        ? audienceLabels[audience]
+        : '';
   }
   private async save(input: NoticeInput): Promise<void> {
     if (this.busy() || this.conflict()) return;
@@ -374,7 +574,13 @@ export class NoticeFormLocalPage {
 @Component({
   standalone: true,
   selector: 'sager-notice-detail-local',
-  imports: [UnsavedFormDirective, RouterLink, ReactiveFormsModule, CommunicationsStateComponent],
+  imports: [
+    AutoRefreshStatusComponent,
+    UnsavedFormDirective,
+    RouterLink,
+    ReactiveFormsModule,
+    CommunicationsStateComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page comm-narrow">
@@ -382,10 +588,12 @@ export class NoticeFormLocalPage {
         <div>
           <a class="op-back" routerLink="/comunicacoes/avisos">← Avisos</a>
           <h1>Aviso</h1>
-          @if (item(); as notice) {
-            <p>{{ labels[notice.status] }}</p>
-          }
         </div>
+        @if (item(); as notice) {
+          <span class="status" [attr.data-tone]="tone(labels[notice.status])">{{
+            labels[notice.status]
+          }}</span>
+        }
       </header>
       <sager-communications-state
         [demo]="session.active()"
@@ -398,6 +606,7 @@ export class NoticeFormLocalPage {
         !session.active() && session.hasRole('supervisor') && !loading() && !loadError() && item();
         as notice
       ) {
+        <sager-auto-refresh-status [refresh]="refresh" />
         <section class="panel op-panel">
           <h2>{{ notice.title }}</h2>
           <p class="comm-message">{{ notice.body }}</p>
@@ -457,10 +666,7 @@ export class NoticeFormLocalPage {
               novalidate
             >
               <h3>Corrigir aviso</h3>
-              <p class="comm-help">
-                As mesmas pessoas recebem o aviso corrigido e precisam ler de novo. O registro do
-                texto anterior fica guardado.
-              </p>
+              <p class="comm-help">As mesmas pessoas recebem a correção e leem de novo.</p>
               <label class="field"
                 >Título<input type="text" maxlength="200" formControlName="title" />
                 @if (form.controls.title.touched && form.controls.title.invalid) {
@@ -484,11 +690,13 @@ export class NoticeFormLocalPage {
           @if (success()) {
             <p class="comm-success" role="status">{{ success() }}</p>
           }
-          <div class="comm-actions">
-            <button class="btn-secondary" type="button" [disabled]="busy()" (click)="load()">
-              {{ conflict() ? 'Recarregar dados' : 'Atualizar dados' }}
-            </button>
-          </div>
+          @if (conflict()) {
+            <div class="comm-actions">
+              <button class="btn-secondary" type="button" [disabled]="busy()" (click)="load()">
+                Recarregar dados
+              </button>
+            </div>
+          }
         </section>
       }
     </main>
@@ -513,8 +721,13 @@ export class NoticeDetailLocalPage {
   readonly busy = signal(false);
   readonly conflict = signal(false);
   readonly edit = signal(false);
-  readonly labels = statusLabels;
+  readonly labels = noticeStatusLabels;
+  readonly tone = toneAttr;
   readonly formatTime = formatCommunicationTime;
+  private sequence = 0;
+  readonly refresh = autoRefresh(() => this.load(true), {
+    busy: () => this.busy() || this.conflict() || this.loading(),
+  });
   constructor() {
     void this.load();
   }
@@ -522,24 +735,30 @@ export class NoticeDetailLocalPage {
     const resident = this.residents().find((item) => item.id === id);
     return resident ? `${resident.name} · ${resident.enrollment}` : 'Cadastro vinculado ' + id;
   }
-  async load(): Promise<void> {
+  /** `silent` é a atualização automática: mantém mensagens, correção aberta e foco, e lança a falha. */
+  async load(silent = false): Promise<void> {
     if (this.session.active() || !this.session.hasRole('supervisor') || this.busy()) return;
-    this.loading.set(true);
-    this.loadError.set('');
-    this.error.set('');
-    this.success.set('');
-    this.conflict.set(false);
-    this.edit.set(false);
-    this.item.set(null);
+    const sequence = ++this.sequence;
+    if (!silent) {
+      this.loading.set(true);
+      this.loadError.set('');
+      this.error.set('');
+      this.success.set('');
+      this.conflict.set(false);
+      this.edit.set(false);
+      this.item.set(null);
+    }
     try {
       const [item, residents] = await Promise.all([this.api.notice(this.id), this.registry.list()]);
+      if (sequence !== this.sequence) return;
       this.item.set(item);
       this.residents.set(residents);
-      this.form.reset({ title: item.title, body: item.body });
+      if (!silent || !this.form.dirty) this.form.reset({ title: item.title, body: item.body });
     } catch (error) {
-      this.loadError.set(communicationsError(error));
+      if (silent) throw error;
+      if (sequence === this.sequence) this.loadError.set(communicationsError(error));
     } finally {
-      this.loading.set(false);
+      if (!silent && sequence === this.sequence) this.loading.set(false);
     }
   }
   async publish(): Promise<void> {
@@ -550,8 +769,7 @@ export class NoticeDetailLocalPage {
       {
         title: 'Revisar publicação do aviso',
         action: 'Confirmar publicação',
-        warning:
-          'O conteúdo será publicado para os destinatários vinculados. Leitura e ciência serão registradas por ações próprias do residente.',
+        warning: 'Os residentes escolhidos passam a ver o aviso.',
         lines: this.summary(item),
       },
       () =>
@@ -579,8 +797,7 @@ export class NoticeDetailLocalPage {
       {
         title: 'Conferir correção do aviso',
         action: 'Publicar correção',
-        warning:
-          'As mesmas pessoas recebem o aviso corrigido. O registro do texto anterior fica guardado.',
+        warning: 'As mesmas pessoas recebem a correção, e o texto anterior fica guardado.',
         lines: this.summary({ ...item, ...input }),
       },
       () =>
@@ -592,6 +809,7 @@ export class NoticeDetailLocalPage {
               idempotencyKey: this.intent.for(payload),
             }),
           );
+          this.form.markAsPristine();
           this.edit.set(false);
         }, 'Correção publicada.'),
       trigger,
@@ -605,8 +823,7 @@ export class NoticeDetailLocalPage {
         title: 'Revisar retirada do aviso',
         action: 'Confirmar retirada',
         requireReason: true,
-        warning:
-          'A retirada preserva o conteúdo publicado e a leitura e ciência anteriores. O residente verá a situação atual.',
+        warning: 'O aviso deixa de valer, e a leitura e a ciência anteriores ficam guardadas.',
         lines: this.summary(item),
       },
       (result) =>
@@ -683,6 +900,8 @@ export class NoticeDetailLocalPage {
       !this.session.hasRole('supervisor')
     )
       return;
+    // Uma atualização automática em andamento traria a versão anterior por cima da gravação.
+    this.sequence++;
     this.busy.set(true);
     this.error.set('');
     this.success.set('');
