@@ -7,6 +7,8 @@ import type {
   ShortExit,
   ShortExitStatus,
 } from '../src/app/features/operations/operations-local.models';
+import { openMoreFilters } from './more-filters';
+import { expectShortGuidance } from './short-text';
 
 const residentId = '00000000-0000-0000-0000-000000000041';
 const accommodationId = '00000000-0000-0000-0000-000000000011';
@@ -112,6 +114,8 @@ interface MockState {
   eligible: boolean;
   failReads: boolean;
   conflictOnce: boolean;
+  conflictCode: string;
+  listReads: number;
   calls: NightCall[];
   exits: ShortExit[];
   writes: { path: string; body: Record<string, any> }[];
@@ -126,6 +130,8 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
     eligible: true,
     failReads: false,
     conflictOnce: false,
+    conflictCode: 'version_conflict',
+    listReads: 0,
     calls: [],
     exits: [],
     writes: [],
@@ -137,7 +143,10 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
     canCancel:
       exit.status === 'AGUARDANDO_ANALISE' ||
       (state.role === 'supervisor' && exit.status === 'APROVADA'),
-    canDepart: state.role === 'supervisor' && exit.status === 'APROVADA',
+    canDepart:
+      state.role === 'supervisor' &&
+      exit.status === 'APROVADA' &&
+      Date.parse(state.now) >= Date.parse(exit.requestedDepartureAt),
     canReturn: state.role === 'supervisor' && exit.status === 'EM_ANDAMENTO',
   });
   const view = (exit: ShortExit) => ({ ...exit, now: state.now, capabilities: capabilities(exit) });
@@ -263,6 +272,7 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
         };
         return ok(eligibility);
       }
+      if (path === '/api/v1/saidas-curtas') state.listReads++;
       if (path === '/api/v1/saidas-curtas')
         return ok(
           state.exits
@@ -286,7 +296,7 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
     state.writes.push({ path, body });
     if (state.conflictOnce) {
       state.conflictOnce = false;
-      return route.fulfill({ status: 409, json: { code: 'version_conflict' } });
+      return route.fulfill({ status: 409, json: { code: state.conflictCode } });
     }
     if (path === '/api/v1/chamadas' && method === 'POST') {
       const call = callFixture();
@@ -358,6 +368,20 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
         exit.decision = body.decision;
         exit.decisionComment = body.comment ?? null;
         exit.decidedAt = state.now;
+        // Como o servidor: aprovar quando a partida pedida já chegou registra também a saída.
+        if (
+          body.decision === 'APPROVE' &&
+          Date.parse(state.now) >= Date.parse(exit.requestedDepartureAt)
+        ) {
+          event(exit, kind, body);
+          kind = 'DEPARTURE';
+          exit.status = 'EM_ANDAMENTO';
+          exit.actualDepartureAt = state.now;
+          exit.departureRecordedAt = state.now;
+          exit.deadlineAt = null;
+          event(exit, kind, {});
+          return ok(view(exit));
+        }
       }
       if (path.endsWith('/cancelamento')) {
         kind = 'CANCEL';
@@ -421,6 +445,7 @@ test('redução de 26 para 25 saídas curtas retorna à página válida com filt
   const search = page.getByRole('searchbox', { name: 'Nome ou matrícula' });
   await expect(search).toHaveClass(/ng-valid/);
   await search.fill('TESTE-001');
+  await openMoreFilters(page);
   await page.getByLabel('Situação', { exact: true }).selectOption('APROVADA');
   const pagination = page.getByRole('navigation', { name: 'Paginação' });
   await expect.poll(() => queries.at(-1)?.get('status')).toBe('APROVADA');
@@ -450,6 +475,7 @@ test('situação Aprovada permanece ao abrir uma saída curta e retornar à list
       url.pathname === '/api/v1/saidas-curtas' && url.searchParams.get('status') === 'APROVADA'
     );
   });
+  await openMoreFilters(page);
   await page.getByLabel('Situação', { exact: true }).selectOption('APROVADA');
   await filtered;
   await expect(page.getByRole('button', { name: 'Remover filtro Situação' })).toContainText(
@@ -471,6 +497,8 @@ test('chamada filtra por bloco e quarto, com número repetido, sem liberar o fec
 }) => {
   await mockApi(page, { calls: [callFixture()] });
   await page.goto('/chamada');
+  await expect(page.getByRole('heading', { name: 'Residentes da chamada' })).toBeVisible();
+  await openMoreFilters(page);
   const unit = page.getByRole('combobox', { name: 'Casa ou bloco', exact: true });
   const room = page.getByRole('combobox', { name: 'Quarto', exact: true });
   await expect(room.locator('option')).toHaveText([
@@ -544,7 +572,9 @@ test('chamada persiste após recarga, confirma alerta e preserva correção da c
   await expect(
     second.getByRole('button', { name: 'Ausência justificada', exact: true }),
   ).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByText('já entram como ausência justificada')).toBeVisible();
+  await expect(
+    page.getByText('Quem está fora com saída já entra justificado: confira.'),
+  ).toBeVisible();
   await expect(
     page.getByRole('link', { name: 'saída curta de Residente de Teste' }),
   ).toHaveAttribute('href', `/saidas/${exitId}`);
@@ -566,7 +596,7 @@ test('chamada persiste após recarga, confirma alerta e preserva correção da c
     .fill('Fechamento revisado após a ronda presencial.');
   await dialog.getByLabel('Confirmo o registro fora do horário').check();
   await dialog.getByRole('button', { name: 'Fechar chamada', exact: true }).click();
-  await expect(page.getByText('Fechada', { exact: true })).toBeVisible();
+  await expect(page.locator('.op-section-heading .status')).toHaveText('Fechada');
   await page.getByRole('button', { name: 'Corrigir marcação de Estudante Sintético' }).click();
   dialog = page.getByRole('dialog');
   await dialog.getByLabel('Marcação corrigida').selectOption('AUSENTE');
@@ -730,7 +760,7 @@ test('Agendar pede a partida, retorno manual sobrevive e ajuste fora do limite �
   expect(state.writes[0].body.expectedReturnAt).toBe('2026-09-30T21:00:00.000Z');
 });
 
-test('supervisor aprova e registra partida e retorno tardio com histórico persistente', async ({
+test('supervisor aprova o pedido para sair agora, que já sai em andamento, e registra a volta tardia', async ({
   page,
 }) => {
   const state = await mockApi(page, { exits: [exitFixture()] });
@@ -739,15 +769,21 @@ test('supervisor aprova e registra partida e retorno tardio com histórico persi
   await page.getByRole('dialog').getByRole('button', { name: 'Cancelar', exact: true }).click();
   expect(state.writes).toHaveLength(0);
   await page.getByRole('button', { name: 'Aprovar', exact: true }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Confirmar aprovação' }).click();
-  await expect(page.getByText('Aprovada', { exact: true }).first()).toBeVisible();
-  await page.getByRole('button', { name: 'Registrar saída' }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Confirmar saída' }).click();
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Aprovar e registrar a saída agora' })
+    .click();
   await expect(page.getByText('Em andamento', { exact: true })).toBeVisible();
-  expect(state.writes[1].body).toEqual({ version: 1, timeMode: 'NOW' });
+  await expect(page.getByText('Aprovação e saída registradas.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Registrar saída' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Volta' })).toBeFocused();
+  expect(state.writes).toHaveLength(1);
+  expect(state.exits[0].version).toBe(2);
+  expect(state.exits[0].history.map((event) => event.event)).toEqual(['APPROVE', 'DEPARTURE']);
   state.now = '2026-09-30T20:00:00Z';
   await page.getByRole('button', { name: 'Registrar volta' }).click();
   let dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('Veja o residente pessoalmente antes de confirmar a volta.');
   await dialog.getByRole('button', { name: 'Confirmar volta', exact: true }).click();
   await expect(dialog.getByRole('alert').last()).toContainText('observação do atraso');
   await dialog.getByLabel('Horário do registro').selectOption('RETROACTIVE');
@@ -760,7 +796,7 @@ test('supervisor aprova e registra partida e retorno tardio com histórico persi
     .fill('Problema no transporte causou atraso no retorno.');
   await dialog.getByRole('button', { name: 'Confirmar volta', exact: true }).click();
   await expect(page.getByText('Retorno confirmado com atraso', { exact: true })).toBeVisible();
-  expect(state.writes[2].body).toEqual({
+  expect(state.writes[1].body).toEqual({
     version: 2,
     timeMode: 'RETROACTIVE',
     occurredAt: '2026-09-30T19:30:00.000Z',
@@ -768,9 +804,67 @@ test('supervisor aprova e registra partida e retorno tardio com histórico persi
     lateObservation: 'Problema no transporte causou atraso no retorno.',
   });
   await page.reload();
-  await expect(page.getByText('Saída registrada', { exact: true })).toBeVisible();
-  await expect(page.getByText('Volta registrada', { exact: true })).toBeVisible();
+  const more = page.locator('details.more-details');
+  await expect(more).not.toHaveAttribute('open', '');
+  await more.getByText('Mais detalhes', { exact: true }).click();
+  await expect(more.getByText('Pedido aprovado', { exact: true })).toBeVisible();
+  await expect(more.getByText('Saída registrada', { exact: true })).toBeVisible();
+  await expect(more.getByText('Volta registrada', { exact: true })).toBeVisible();
   expect(state.exits[0].history).toHaveLength(3);
+});
+
+test('saída agendada aprovada mostra a hora marcada e só oferece "Registrar saída" na hora', async ({
+  page,
+}) => {
+  const scheduled = {
+    ...exitFixture(),
+    departureMode: 'SCHEDULED' as const,
+    requestedDepartureAt: '2026-09-30T18:00:00Z',
+    expectedReturnAt: '2026-09-30T20:00:00Z',
+  };
+  const state = await mockApi(page, { exits: [scheduled] });
+  await page.goto(`/saidas/${exitId}`);
+  await page.getByRole('button', { name: 'Aprovar', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Confirmar aprovação' }).click();
+  await expect(page.getByText('Aprovação registrada.')).toBeVisible();
+  await expect(page.getByText('Aprovada', { exact: true })).toBeVisible();
+  await expect(page.getByText('Saída marcada para 30/09/2026, 15:00.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Registrar saída' })).toHaveCount(0);
+  const cancel = page.getByRole('button', { name: 'Cancelar pedido' });
+  await expect(cancel).toBeHidden();
+  await page.getByText('Mais detalhes', { exact: true }).click();
+  await expect(cancel).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  state.now = '2026-09-30T18:00:00Z';
+  await page.reload();
+  await expect(page.locator('.op-exit-actions').getByRole('button')).toHaveText([
+    'Registrar saída',
+  ]);
+  await page.getByRole('button', { name: 'Registrar saída' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Confirmar saída' }).click();
+  await expect(page.getByText('Em andamento', { exact: true })).toBeVisible();
+  expect(state.writes[1].body).toEqual({ version: 1, timeMode: 'NOW' });
+});
+
+test('conflito físico na aprovação explica o que fazer e mantém as ações', async ({ page }) => {
+  const state = await mockApi(page, {
+    exits: [exitFixture()],
+    conflictOnce: true,
+    conflictCode: 'physical_exit_conflict',
+  });
+  await page.goto(`/saidas/${exitId}`);
+  await page.getByRole('button', { name: 'Aprovar', exact: true }).click();
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Aprovar e registrar a saída agora' })
+    .click();
+  await expect(page.getByRole('alert')).toContainText(
+    'O residente ainda está fora com outra saída. Confirme a volta dela primeiro.',
+  );
+  await expect(page.getByRole('button', { name: 'Aprovar', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Recarregar dados' })).toHaveCount(0);
+  expect(state.exits[0].status).toBe('AGUARDANDO_ANALISE');
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });
 
 test('conflito exige recarga explícita e nunca repete a decisão com outra versão', async ({
@@ -779,7 +873,10 @@ test('conflito exige recarga explícita e nunca repete a decisão com outra vers
   const state = await mockApi(page, { exits: [exitFixture()], conflictOnce: true });
   await page.goto(`/saidas/${exitId}`);
   await page.getByRole('button', { name: 'Aprovar', exact: true }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Confirmar aprovação' }).click();
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Aprovar e registrar a saída agora' })
+    .click();
   await expect(page.getByRole('alert')).toContainText('Clique em Recarregar');
   await expect(page.getByRole('button', { name: 'Aprovar', exact: true })).toBeDisabled();
   expect(state.writes).toHaveLength(1);
@@ -858,4 +955,67 @@ test('gestor não opera saídas ou chamada, supervisor não solicita e residente
   await expect(page.getByRole('button', { name: 'Registrar volta' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Registrar saída' })).toHaveCount(0);
   expect(state.writes).toHaveLength(0);
+});
+
+test('saídas e chamada atualizam sozinhas, sem "Atualizar dados", e pausam após 30 minutos', async ({
+  page,
+}) => {
+  const state = await mockApi(page, { exits: [exitFixture()], calls: [callFixture()] });
+  await page.clock.install();
+  await page.goto(`/saidas/${exitId}`);
+  await expect(page.getByRole('heading', { name: 'Pedido de saída curta' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Atualizar dados' })).toHaveCount(0);
+  await page.goto('/saidas');
+  await expect(page.getByRole('link', { name: 'Ver pedido' })).toHaveCount(1);
+  state.exits.push({ ...exitFixture(), id: 'saida-nova', residentName: 'Residente Novo' });
+  await page.clock.runFor(15_000);
+  await expect(page.getByRole('heading', { name: 'Residente Novo' })).toBeVisible();
+  await page.clock.fastForward('31:00');
+  await page.clock.runFor(16_000);
+  await expect(page.getByText('Atualização pausada')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Retomar', exact: true })).toBeVisible();
+  const reads = state.listReads;
+  await page.clock.runFor(60_000);
+  expect(state.listReads).toBe(reads);
+  await page.goto('/chamada');
+  const row = page.getByRole('article').filter({ hasText: 'Estudante Sintético' });
+  await expect(row.locator('.status')).toHaveText('Pendente');
+  state.calls[0].records[0].mark = 'PRESENTE';
+  await page.clock.runFor(15_000);
+  await expect(row.locator('.status')).toHaveText('Presente');
+});
+
+test('saídas e chamada com orientação curta, cores, legenda e detalhes recolhidos', async ({
+  page,
+}) => {
+  await mockApi(page, { exits: [exitFixture()], calls: [callFixture()] });
+  await page.goto('/saidas');
+  await expectShortGuidance(page);
+  const chip = page.locator('.op-row .status');
+  await expect(chip).toHaveText('Aguardando análise');
+  await expect(chip).toHaveAttribute('data-tone', 'warning');
+  const legend = page.locator('sager-status-legend details');
+  await expect(legend).not.toHaveAttribute('open', '');
+  await legend.getByText('O que significa cada cor?').click();
+  await expect(legend.locator('dl > div')).toHaveCount(8);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page.getByRole('link', { name: 'Ver pedido' }).click();
+  await expect(page.getByRole('heading', { name: 'Decisão' })).toBeVisible();
+  await expectShortGuidance(page);
+  await expect(page.locator('details.more-details')).not.toHaveAttribute('open', '');
+  await expect(page.getByRole('heading', { name: 'Histórico' })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Rejeitar', exact: true })).toHaveClass(
+    /btn-danger/,
+  );
+  await page.goto('/chamada');
+  await expectShortGuidance(page);
+  const status = page.locator('.op-section-heading .status');
+  await expect(status).toHaveText('Aberta');
+  await expect(status).toHaveAttribute('data-tone', 'warning');
+  await openMoreFilters(page);
+  await expect(page.getByLabel('Marcação', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('combobox', { name: 'Quarto', exact: true })).toBeVisible();
+  await page.getByText('O que significa cada cor?').click();
+  await expect(page.locator('sager-status-legend dl > div')).toHaveCount(6);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });
