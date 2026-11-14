@@ -115,5 +115,7 @@ describe('Situações das comunicações na legenda', () => {
     expect(toneAttr(noticeStatusLabels.PUBLICADO)).toBe('success');
     expect(toneAttr(notificationLabels.ARQUIVADA)).toBeNull();
     expect(toneAttr(noticeStatusLabels.RASCUNHO)).toBeNull();
+    expect(toneAttr(noticeStatusLabels.RETIRADO)).toBeNull();
+    expect(toneAttr(warningStatusLabels.ANULADA)).toBeNull();
   });
 });

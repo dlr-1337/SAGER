@@ -5,6 +5,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { of } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DemoSessionService } from '../../core/demo-session.service';
+import { ERROR_CONFLICT } from '../../core/error-messages';
 import { ExitDetailLocalComponent } from './exit-detail-local.component';
 import { OperationsApiError, OperationsLocalApiService } from './operations-local-api.service';
 import { ShortExit } from './operations-local.models';
@@ -260,6 +261,21 @@ describe('Detalhe da saída curta em passos', () => {
     await fixture.whenStable();
     expect(reviewData().title).toBe('A volta será registrada.');
     expect(reviewData().warning).toBe('Veja o residente pessoalmente antes de confirmar a volta.');
+  });
+
+  it('conflito de edição: a volta com o pedido alterado avisa e oferece "Recarregar dados"', async () => {
+    api['exit']
+      .mockResolvedValueOnce(leaving())
+      .mockResolvedValueOnce({ ...leaving(), version: 4 });
+    const fixture = await create();
+    button(fixture, 'Registrar volta')!.click();
+    await fixture.whenStable();
+    expect(open).not.toHaveBeenCalled();
+    expect(api['physicalExit']).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('[role=alert]').textContent).toContain(
+      ERROR_CONFLICT,
+    );
+    expect(button(fixture, 'Recarregar dados')).toBeDefined();
   });
 
   describe('atualização automática', () => {

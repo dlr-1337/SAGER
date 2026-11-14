@@ -2,8 +2,10 @@ import { signal, Type } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { from } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DemoSessionService } from '../../core/demo-session.service';
+import { ResidentApiService } from '../management/resident-api.service';
 import { CommunicationsLocalApiService } from './communications-local-api.service';
 import {
   DisciplineNotification,
@@ -11,9 +13,11 @@ import {
   DisciplineWarning,
   OwnCommunication,
 } from './communications-local.models';
+import { formatCommunicationTime } from './communications-local.utils';
+import { NoticeDetailLocalPage } from './notices-local.pages';
 import { NotificationDetailLocalPage, NotificationsLocalPage } from './notifications-local.pages';
 import { OwnCommunicationDetailLocalPage } from './own-communications-local.pages';
-import { TermDetailLocalPage } from './recurrence-local.pages';
+import { RecurrenceLocalPage, TermDetailLocalPage } from './recurrence-local.pages';
 import { WarningDetailLocalPage } from './warnings-local.pages';
 
 const warning: DisciplineWarning = {
@@ -73,7 +77,21 @@ const notification = {
   status: 'PENDENTE',
   requiresReview: false,
   version: 0,
-} as DisciplineNotification;
+  occurrenceVersion: 0,
+  valid: true,
+  events: [],
+} as unknown as DisciplineNotification;
+const notice = {
+  id: 'aviso-1',
+  title: 'Aviso sintético',
+  body: 'Mensagem sintética.',
+  residentIds: ['res-1'],
+  status: 'PUBLICADO',
+  version: 0,
+  publishedAt: '2026-11-10T12:00:00Z',
+  communicationId: 'com-1',
+  withdrawalReason: null,
+};
 
 describe('Detalhes de comunicação se atualizam sozinhos', () => {
   let api: Record<string, ReturnType<typeof vi.fn>>;
@@ -87,12 +105,24 @@ describe('Detalhes de comunicação se atualizam sozinhos', () => {
       term: vi.fn(),
       notification: vi.fn(),
       notifications: vi.fn(),
-      occurrence: vi.fn().mockResolvedValue({ id: 'oc-1' }),
+      occurrence: vi.fn().mockResolvedValue({
+        id: 'oc-1',
+        version: 0,
+        valid: true,
+        category: 'AUSENCIA',
+        occurredAt: '2026-11-10T12:00:00Z',
+        evidence: {},
+        revisions: [],
+      }),
       context: vi.fn().mockResolvedValue({ now: '', currentDate: '2026-11-14' }),
+      convert: vi.fn().mockResolvedValue({ ...warning, id: 'adv-9' }),
+      notice: vi.fn().mockResolvedValue(notice),
+      recurrences: vi.fn().mockResolvedValue([]),
+      terms: vi.fn().mockResolvedValue({ items: [], nextCursor: null }),
     };
     TestBed.configureTestingModule({
       providers: [
-        provideRouter([]),
+        provideRouter([{ path: '**', children: [] }]),
         {
           provide: ActivatedRoute,
           useValue: {
@@ -103,7 +133,21 @@ describe('Detalhes de comunicação se atualizam sozinhos', () => {
           },
         },
         { provide: CommunicationsLocalApiService, useValue: api },
-        { provide: MatDialog, useValue: { open: vi.fn(), openDialogs: [] } },
+        {
+          provide: ResidentApiService,
+          useValue: {
+            list: vi.fn().mockResolvedValue([]),
+            get: vi.fn().mockResolvedValue({ id: 'res-1', name: 'Residente Sintético' }),
+          },
+        },
+        {
+          provide: MatDialog,
+          // Confirma depois do clique, como o diálogo de verdade.
+          useValue: {
+            open: () => ({ afterClosed: () => from(Promise.resolve({})) }),
+            openDialogs: [],
+          },
+        },
         { provide: DemoSessionService, useValue: { active: signal(false), hasRole: () => true } },
       ],
     });
@@ -156,18 +200,81 @@ describe('Detalhes de comunicação se atualizam sozinhos', () => {
     fixture.destroy();
   });
 
-  it('notificação atualiza aos 15 s sem apagar a advertência que estava sendo escrita', async () => {
-    api['notification']
-      .mockResolvedValueOnce(notification)
-      .mockResolvedValueOnce({ ...notification, status: 'EM_ANALISE', version: 1 });
-    const view = TestBed.runInInjectionContext(() => new NotificationDetailLocalPage());
+  it.each(['desistir', 'salvar'])(
+    'notificação com a advertência sendo escrita só se atualiza depois de %s',
+    async (end) => {
+      api['notification'].mockResolvedValue(notification);
+      const fixture = TestBed.createComponent(NotificationDetailLocalPage);
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+      const element: HTMLElement = fixture.nativeElement;
+      const buttons = () => [...element.querySelectorAll('button')];
+      const button = (name: string) => buttons().find((b) => b.textContent!.trim() === name)!;
+      expect(buttons().map((b) => b.textContent!.trim())).not.toContain('Atualizar dados');
+      button('Criar advertência').click();
+      fixture.detectChanges();
+      const type = (name: string, value: string) => {
+        const field = element.querySelector<HTMLTextAreaElement>(`[formcontrolname=${name}]`)!;
+        field.value = value;
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+        return field;
+      };
+      const description = type('description', 'Texto que o supervisor digitou');
+      await vi.advanceTimersByTimeAsync(30_000);
+      fixture.detectChanges();
+      expect(api['notification']).toHaveBeenCalledTimes(1);
+      expect(description.value).toBe('Texto que o supervisor digitou');
+      if (end === 'desistir') button('Fechar advertência').click();
+      else {
+        type('justification', 'Justificativa sintética da decisão.');
+        button('Conferir advertência').click();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(api['convert']).toHaveBeenCalledOnce();
+      }
+      fixture.detectChanges();
+      const calls = api['notification'].mock.calls.length;
+      await vi.advanceTimersByTimeAsync(15_000);
+      expect(api['notification']).toHaveBeenCalledTimes(calls + 1);
+      fixture.destroy();
+    },
+  );
+
+  it('a ciência do residente aparece aos 15 s no detalhe do aviso', async () => {
+    const acknowledgedAt = '2026-11-14T13:00:00Z';
+    api['own']
+      .mockResolvedValueOnce({ ...own, readAt: '2026-11-14T12:00:00Z' })
+      .mockResolvedValueOnce({ ...own, readAt: '2026-11-14T12:00:00Z', acknowledgedAt });
+    const fixture = TestBed.createComponent(OwnCommunicationDetailLocalPage);
     await vi.advanceTimersByTimeAsync(0);
-    view.form.controls.description.setValue('Texto que o supervisor digitou');
-    view.form.markAsDirty();
+    fixture.detectChanges();
+    const element: HTMLElement = fixture.nativeElement;
+    expect(element.textContent).toContain('Ainda não marcado');
     await vi.advanceTimersByTimeAsync(15_000);
-    expect(api['notification']).toHaveBeenCalledTimes(2);
-    expect(view.item()?.status).toBe('EM_ANALISE');
-    expect(view.form.controls.description.value).toBe('Texto que o supervisor digitou');
+    fixture.detectChanges();
+    expect(element.textContent).not.toContain('Ainda não marcado');
+    expect(element.textContent).toContain(formatCommunicationTime(acknowledgedAt));
+    const buttons = [...element.querySelectorAll('button')].map((b) => b.textContent!.trim());
+    expect(buttons).not.toContain('Estou ciente');
+    fixture.destroy();
+  });
+
+  it.each([
+    { name: 'aviso', component: NoticeDetailLocalPage as Type<unknown>, heading: 'Aviso' },
+    {
+      name: 'reincidência',
+      component: RecurrenceLocalPage as Type<unknown>,
+      heading: 'Revisar possível reincidência',
+    },
+  ])('detalhe de $name não tem "Atualizar dados"', async (item) => {
+    const fixture = TestBed.createComponent(item.component);
+    await vi.advanceTimersByTimeAsync(0);
+    fixture.detectChanges();
+    const element: HTMLElement = fixture.nativeElement;
+    expect(element.querySelector('h1')?.textContent?.trim()).toBe(item.heading);
+    expect(element.querySelector('sager-auto-refresh-status')).not.toBeNull();
+    const buttons = [...element.querySelectorAll('button')].map((b) => b.textContent!.trim());
+    expect(buttons).not.toContain('Atualizar dados');
+    fixture.destroy();
   });
 
   it('falha na atualização automática não apaga a tela já carregada', async () => {
