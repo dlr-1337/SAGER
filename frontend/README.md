@@ -1,10 +1,10 @@
 # Interface do SAGER
 
-Aplicação Angular 22 com componentes standalone, Signals e Reactive Forms tipados. A interface mostra a cada perfil só o que lhe cabe, mas quem decide a permissão é sempre o backend. Arquitetura e decisões: [docs/ARQUITETURA.md](../docs/ARQUITETURA.md). Ambientes e CI: [docs/OPERACAO.md](../docs/OPERACAO.md).
+Aplicação Angular 22 com componentes standalone, Signals e Reactive Forms tipados. A interface mostra a cada perfil só o que lhe cabe, mas quem decide a permissão é sempre o backend. Arquitetura e decisões: [docs/ARQUITETURA.md](../docs/ARQUITETURA.md). Ambientes e verificação local: [docs/OPERACAO.md](../docs/OPERACAO.md).
 
 ## Executar
 
-O projeto e a CI usam Node.js 24.19.0 e npm 11.17.0.
+O projeto usa Node.js 24.19.0 e npm 11.17.0, as versões fixadas no workflow do GitHub.
 
 ```bash
 npm ci

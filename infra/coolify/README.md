@@ -177,7 +177,7 @@ python -B -m unittest discover -s infra/coolify -p 'test_*.py' -v
 python -B infra/coolify/smoke.py --build
 ```
 
-A CI mantém também o smoke standalone com TLS e os testes de backend/frontend.
+O `./sager ci infra`, na raiz, roda este smoke junto com o smoke standalone com TLS e os testes Python; o `./sager ci` também roda os de backend e frontend.
 A [política de cache do gateway](../production/README.md#política-de-cache-do-gateway) vale
 também para este template; depois do deploy, confira-a com os comandos `curl` de lá.
 No servidor, verificar certificado sem exceções, HTTP→HTTPS, `/acesso`, assets,

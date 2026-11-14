@@ -6,7 +6,7 @@ O jeito mais simples de rodar é `./sager up` na raiz, com tudo em Docker ([docs
 
 ## Pré-requisitos
 
-- JDK 21 (a CI usa Temurin 21.0.12.1+1). O Maven 3.9.16 vem do Wrapper.
+- JDK 21 (o workflow do GitHub fixa o Temurin 21.0.12.1+1). O Maven 3.9.16 vem do Wrapper.
 - Docker, para os testes: o Testcontainers sobe um PostgreSQL 17.11 descartável.
 - Para rodar no host, um PostgreSQL 17 no próprio computador.
 - `SAGER_DB_PASSWORD` definido por meio seguro. Nunca coloque a senha em argumento, arquivo rastreado, captura de tela, issue ou chat.
@@ -95,4 +95,4 @@ cd backend
 ./mvnw -B -ntp verify
 ```
 
-O `verify` usa contas sintéticas e PostgreSQL descartável do Testcontainers; não precisa de banco nem conta da aplicação. Os testes de integração cobrem migrações, restrições, permissões, CSRF, conflitos de versão e alterações concorrentes. A CI roda o mesmo comando em Ubuntu com JDK 21 e Docker.
+O `verify` usa contas sintéticas e PostgreSQL descartável do Testcontainers; não precisa de banco nem conta da aplicação. Os testes de integração cobrem migrações, restrições, permissões, CSRF, conflitos de versão e alterações concorrentes. O `./sager ci backend`, na raiz, roda o mesmo comando depois de um `clean`.

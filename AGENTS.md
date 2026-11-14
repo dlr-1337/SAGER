@@ -14,7 +14,7 @@ Run these from `frontend/`:
 - `npm test -- --watch=false` — run unit and component tests once.
 - `npm run test:e2e` — run Playwright journeys; its configuration starts the dev server.
 
-Run `./mvnw -B -ntp verify` from `backend/` (`.\mvnw.cmd` on Windows) with JDK 21 and Docker available. Testcontainers creates disposable PostgreSQL databases; no application database or account is required for tests. See `backend/README.md` for local provisioning and `docs/OPERACAO.md` for the Docker environment, the GitHub Actions pipeline and browser test selection.
+Run `./mvnw -B -ntp verify` from `backend/` (`.\mvnw.cmd` on Windows) with JDK 21 and Docker available. Testcontainers creates disposable PostgreSQL databases; no application database or account is required for tests. Run `./sager ci` from the root before merging or deploying: it runs the backend, frontend, infrastructure and OpenSpec checks on this machine, with logs in `.ci/`. The GitHub Actions workflow is disabled. See `backend/README.md` for local provisioning and `docs/OPERACAO.md` for the Docker environment, the local checks and browser test selection.
 
 ## Coding Style & Naming Conventions
 
@@ -48,4 +48,4 @@ Every behavior change starts as an OpenSpec change in `openspec/changes/<name>/`
 4. Verify: confirm the implementation matches the proposal, specs and design.
 5. Archive: `openspec archive <name>` merges the delta specs into `openspec/specs`.
 
-A change that only touches documentation or tooling declares `skip_specs: true` in its `.openspec.yaml` and has no delta spec. Archived changes in `openspec/changes/archive/` are history and are never edited. CI runs `npx @fission-ai/openspec@2.0.0 validate --all --strict`, so every spec and every active change must stay valid.
+A change that only touches documentation or tooling declares `skip_specs: true` in its `.openspec.yaml` and has no delta spec. Archived changes in `openspec/changes/archive/` are history and are never edited. `./sager ci` runs `npx @fission-ai/openspec@2.0.0 validate --all --strict`, so every spec and every active change must stay valid.

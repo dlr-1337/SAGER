@@ -152,7 +152,7 @@ Cada decisão traz o contexto, a escolha, o que foi descartado e a consequência
 - **Contexto:** os contratos por fase misturavam regras atuais com histórico e decisões revogadas.
 - **Decisão:** o comportamento observável fica em `openspec/specs/<capacidade>/spec.md`, e toda mudança passa por uma change do OpenSpec (veja [OpenSpec workflow](../AGENTS.md#openspec-workflow)).
 - **Alternativa rejeitada:** contratos por fase em `docs/`. Envelheciam sem aviso e não eram conferidos pela CI.
-- **Consequência:** a CI roda `openspec validate --all --strict`, e as regras ainda não escritas como spec seguem resumidas no AGENTS.md.
+- **Consequência:** o `./sager ci` roda `openspec validate --all --strict`, e as regras ainda não escritas como spec seguem resumidas no AGENTS.md.
 
 ## Comportamento e OpenSpec
 

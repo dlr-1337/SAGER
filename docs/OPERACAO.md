@@ -1,6 +1,6 @@
 # Operação do SAGER
 
-Como rodar o sistema na máquina local, como a CI verifica cada mudança e onde estão os guias de produção. A arquitetura e as decisões estão em [ARQUITETURA.md](ARQUITETURA.md).
+Como rodar o sistema na máquina local, como verificar cada mudança no PC e onde estão os guias de produção. A arquitetura e as decisões estão em [ARQUITETURA.md](ARQUITETURA.md).
 
 ## Ambiente local com Docker
 
@@ -62,24 +62,24 @@ Na primeira execução, `./sager` cria `.env.local` com permissão 600, senha al
 
 O backend roda direto no host com JDK 21 e um PostgreSQL local; veja o [README do backend](../backend/README.md). A interface roda com `npm start` e repassa `/api` para `127.0.0.1:8080`; veja o [README do frontend](../frontend/README.md).
 
-## Integração contínua
+## Verificação local
 
-O workflow [CI](../.github/workflows/ci.yml) roda em pull requests para `main`, em pushes em `main` e manualmente pela aba Actions. Uma nova execução da mesma referência cancela a anterior.
+`./sager ci` roda no PC, na raiz do repositório, os mesmos passos dos três jobs de [`.github/workflows/ci.yml`](../.github/workflows/ci.yml), mais a validação do OpenSpec. Sem argumentos, roda os quatro jobs; para repetir um só, passe o nome, como em `./sager ci frontend`. Precisa de Docker, JDK 21, Node 24 e Python 3, e leva cerca de 30 minutos.
 
-| Job | Ambiente | O que verifica |
-| --- | --- | --- |
-| Backend · PostgreSQL | Ubuntu 24.04, Temurin 21.0.12.1+1, Maven Wrapper 3.9.16, Docker | `./mvnw -B -ntp verify` com PostgreSQL 17.11 descartável (Testcontainers): migrações, API, autorização, sessão, CSRF e concorrência. |
-| Frontend · Chromium | Ubuntu 24.04, Node 24.19.0, npm 11.17.0 | `openspec validate --all --strict`, `npm ci`, testes unitários, build de produção e jornadas Playwright no Chromium. |
-| Infrastructure · HTTPS | Ubuntu 24.04, Docker Compose | Sintaxe dos scripts, testes de recuperação, do gateway de WhatsApp e do wrapper do Coolify, e smoke dos stacks de produção e do Coolify com HTTPS, cookies, CSRF e cabeçalhos. Segredos e CA são sintéticos. |
+| Job | O que verifica |
+| --- | --- |
+| openspec | `npx @fission-ai/openspec@2.0.0 validate --all --strict` na raiz. |
+| backend | `./mvnw -B -ntp clean verify` com PostgreSQL 17.11 descartável (Testcontainers): migrações, API, autorização, sessão, CSRF e concorrência. |
+| frontend | `npm ci`, testes unitários, build de produção e jornadas Playwright no Chromium, com um único worker e sem nova tentativa automática. O Playwright recebe `CI=1` e a porta `SAGER_E2E_PORT` (4323 por padrão), para nunca reaproveitar o `./sager up` da porta 4200. |
+| infra | Sintaxe dos scripts, testes de recuperação, do gateway de WhatsApp e do wrapper do Coolify, e smoke dos stacks de produção e do Coolify com HTTPS, cookies, CSRF e cabeçalhos. Os smokes criam projetos Docker descartáveis e não tocam no `sager-local`; no fim, o job apaga as imagens que eles construíram. Segredos e CA são sintéticos. |
 
-- **OpenSpec.** O job do frontend roda `npx @fission-ai/openspec@2.0.0 validate --all --strict` na raiz, logo depois de configurar o npm. Uma spec ou change ativa inválida reprova o job antes da instalação.
-- **Versões fixadas.** As actions são fixadas pelo SHA do commit. O identificador `21.0.12+101.0.LTS` do setup-java seleciona o Temurin 21.0.12.1+1. O workflow só tem permissão `contents: read` e não usa segredos da aplicação.
-- **Limites de tempo.** Backend e frontend têm 20 minutos; infraestrutura, 25.
-- **Jornadas.** A CI roda todas as jornadas Chromium, com um único worker e sem nova tentativa automática. Fica de fora só "captura telas centrais", que grava imagens em `.impeccable/reviews/` (pasta ignorada pelo Git). Para gerar as capturas localmente, use o comando descrito no [DESIGN.md](../DESIGN.md).
-- **Artefatos.** Cada execução guarda por 7 dias os resultados XML e TXT do backend e o relatório HTML do Playwright, com capturas e traces das falhas. Se o envio falhar, o job só registra um aviso; o resultado dos testes continua valendo.
-- **Alcance.** As jornadas com API interceptada verificam a interface. Os testes do backend verificam o PostgreSQL real. A CI não substitui a homologação de regras, identidade ou integrações.
+- **Logs e resultado.** Cada job grava a saída em `.ci/<job>.log` (pasta ignorada pelo Git). Um job que falha não impede os seguintes. O resumo final mostra `ok` ou `falhou` por job, o commit verificado, se havia alterações sem commit e quantos caminhos fora do Git estavam na árvore, lidos antes do primeiro job. Ele avisa se o commit ou os arquivos mudaram durante a execução, e o comando sai com código 1 se algum job falhou.
+- **Jornadas.** Fica de fora só "captura telas centrais", que grava imagens em `.impeccable/reviews/` (pasta ignorada pelo Git). Para gerar as capturas, use o comando descrito no [DESIGN.md](../DESIGN.md).
+- **Alcance.** As jornadas com API interceptada verificam a interface. Os testes do backend verificam o PostgreSQL real. A verificação não substitui a homologação de regras, identidade ou integrações.
 
-**Antes de mesclar.** A branch `main` não exige os jobs, porque o plano do repositório privado não permite essa proteção. O critério é conferir manualmente os três jobs verdes no commit final do PR.
+**Antes de mesclar e antes do deploy.** Rode `./sager ci` no commit final do PR e cole o resumo no PR. A branch `main` não exige checks no GitHub.
+
+**Workflow do GitHub.** Desde 14/11/2026 o workflow CI está desativado no GitHub, porque a conta deixou de iniciar jobs por um problema de cobrança. O arquivo continua no repositório, com os três jobs em Ubuntu 24.04, as actions fixadas pelo SHA do commit e só a permissão `contents: read`. Para voltar a usá-lo, rode `gh workflow enable CI --repo dlr-1337/SAGER`.
 
 ## Produção
 

@@ -97,14 +97,14 @@ Na raiz, para conferir as specs e as changes:
 openspec validate --all --strict
 ```
 
-A CI roda os mesmos passos em cada pull request.
+Na raiz, `./sager ci` roda de uma vez as specs, o backend, o frontend (com as jornadas em um worker, sem a captura de telas) e os testes de infraestrutura. Rode-o antes de mesclar e antes do deploy; veja [docs/OPERACAO.md](docs/OPERACAO.md#verificação-local).
 
 ## Documentos
 
 | Documento | Conteúdo |
 | --- | --- |
 | [docs/ARQUITETURA.md](docs/ARQUITETURA.md) | Camadas, módulos, contrato da API, segurança, decisões e pendências institucionais. |
-| [docs/OPERACAO.md](docs/OPERACAO.md) | Ambiente local com Docker, integração contínua e caminhos de produção. |
+| [docs/OPERACAO.md](docs/OPERACAO.md) | Ambiente local com Docker, verificação local (`./sager ci`) e caminhos de produção. |
 | [docs/whatsapp/OPERACAO.md](docs/whatsapp/OPERACAO.md) | Como ligar e operar o gateway de WhatsApp, e seus riscos. |
 | [backend/README.md](backend/README.md) | Backend no host, perfis e comandos de conta. |
 | [frontend/README.md](frontend/README.md) | Interface: instalação, comandos e organização das pastas. |
