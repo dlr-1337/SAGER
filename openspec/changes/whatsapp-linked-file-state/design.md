@@ -58,7 +58,7 @@ O aviso de sucesso continua (é o anúncio para leitores de tela), mas sem o pr�
 
 ## Risks / Trade-offs
 
-- Um arquivo ligado a uma saída que foi editada (revisão nova) ou encerrada sem conferência continua dizendo "aguardando conferência". → "Abrir saída" leva aos detalhes, que mostram a revisão e o estado do pedido; o supervisor pode recusar o arquivo enquanto o pedido está pendente.
+- Um arquivo ligado a uma saída que foi editada (revisão nova) ou encerrada sem conferência continua dizendo "aguardando conferência". → "Abrir saída" leva aos detalhes, que mostram a revisão e o estado do pedido. Arquivo de revisão anterior aparece em "Outros arquivos recebidos", sem conferir nem recusar, e a Ajuda não promete essas ações.
 - Clientes da API que validem a mensagem de forma estrita passam a receber um campo a mais. → Só a interface do SAGER consome essa rota, e ela é atualizada na mesma change.
 
 ## O que o dono ou a instituição ainda decide

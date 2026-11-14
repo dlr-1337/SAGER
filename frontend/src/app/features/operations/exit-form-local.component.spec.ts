@@ -93,6 +93,13 @@ describe('Formulário local de saída curta', () => {
     };
   }
 
+  it('cabeçalho com uma frase só', async () => {
+    const form = await create();
+    expect(form.root.querySelector('.op-heading p')!.textContent).toBe(
+      'Diga quando sai, quando volta e por quê.',
+    );
+  });
+
   it('motivo só com espaços é recusado no próprio campo', async () => {
     const form = await create();
     await form.submit('      ');

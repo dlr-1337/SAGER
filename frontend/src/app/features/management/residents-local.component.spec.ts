@@ -322,7 +322,7 @@ describe('Residentes em sessão local', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Estudante Sintético');
     expect(fixture.nativeElement.textContent).toContain('Não informado');
-    expect(fixture.nativeElement.textContent).toContain(
+    expect(fixture.nativeElement.querySelector('.learn-more')?.textContent).toContain(
       'A ausência da data de nascimento não indica maioridade',
     );
     expect(fixture.nativeElement.textContent).not.toContain('anos');

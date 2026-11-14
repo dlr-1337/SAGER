@@ -711,7 +711,7 @@ describe('Quartos em sessão local', () => {
     expect(fixture.nativeElement.textContent).not.toContain('saída prevista');
     expect(fixture.nativeElement.textContent).not.toContain('Última nota de limpeza');
     expect(fixture.nativeElement.textContent).not.toContain('escolhida por você');
-    expect(fixture.nativeElement.textContent).toContain(
+    expect(fixture.nativeElement.querySelector('.learn-more')?.textContent).toContain(
       'Disponível e Ocupado mudam sozinhos com os moradores.',
     );
     expect(allocationApi.activeInRoom).toHaveBeenCalledWith(room.id);

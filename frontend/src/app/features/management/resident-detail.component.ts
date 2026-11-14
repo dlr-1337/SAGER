@@ -301,15 +301,15 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico';
                   </p>
                 }
               </section>
-              <div class="mg-note">
-                <span class="material-symbols-rounded" aria-hidden="true">info</span>
-                <p>
+              <details class="learn-more">
+                <summary>Saiba mais</summary>
+                <p class="mg-muted">
                   O quarto fica Ocupado sozinho quando os moradores atingem a capacidade.
                   @if (!item.birthDate) {
                     A ausência da data de nascimento não indica maioridade.
                   }
                 </p>
-              </div>
+              </details>
             } @else if (tab() === 'responsaveis') {
               <section class="panel mg-panel" aria-labelledby="local-guardians-heading">
                 <div class="mg-section-heading">

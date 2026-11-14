@@ -1253,10 +1253,7 @@ export class HomePage {
         @if (localRole() === 'supervisor') {
           <details>
             <summary>Por que um arquivo da conversa não tem o botão Vincular?</summary>
-            <p>
-              Ele já está numa saída longa. O balão diz de qual residente. Clique em Abrir saída
-              para conferir ou recusar o arquivo.
-            </p>
+            <p>Ele já está numa saída longa; Abrir saída mostra a situação.</p>
           </details>
         }
         <details>

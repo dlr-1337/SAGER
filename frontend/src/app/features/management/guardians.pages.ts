@@ -703,13 +703,13 @@ export class GuardianDetailPage {
               (demonstração)</label
             >
           }
-          <div class="mg-note">
-            <span class="material-symbols-rounded" aria-hidden="true">info</span>
-            <p>
+          <details class="learn-more">
+            <summary>Saiba mais</summary>
+            <p class="mg-muted">
               Salvar este cadastro não envia mensagem. O responsável só recebe o pedido quando o
               residente pede uma saída longa.
             </p>
-          </div>
+          </details>
           @if (error()) {
             <p class="mg-alert" role="alert">{{ error() }}</p>
           }

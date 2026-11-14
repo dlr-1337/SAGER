@@ -18,7 +18,7 @@ Como usar o sistema em cada perfil. Para instalar e operar, veja [OPERACAO.md](O
 2. Esqueceu a senha? O residente usa **Esqueci minha senha**, que confere matrícula, nome, data de nascimento e, se houver responsável ativo, o nome de um deles. Gestor e supervisor procuram o suporte da instituição, que confere quem é a pessoa e troca a senha.
 3. Ao terminar, use **Sair**, principalmente em computador compartilhado. A sessão também se encerra sozinha 30 minutos depois da sua última ação, mesmo com a tela se atualizando sozinha.
 
-As telas se atualizam sozinhas a cada 15 segundos. Depois de 30 minutos sem uso, aparece **Atualização pausada**: clique em **Retomar**.
+As telas se atualizam sozinhas a cada 15 segundos. Depois de 30 minutos sem uso, a tela para de se atualizar e a sessão termina; entre de novo.
 
 Depois de 5 senhas erradas para o mesmo usuário, o login fica bloqueado por até 15 minutos. Não há cadastro público: as contas nascem com o cadastro do residente ou do supervisor, e as de gestor são criadas pelo suporte da instituição.
 

@@ -88,9 +88,11 @@ describe('OperationsDemoService: critical operation rules', () => {
     ).toEqual(['Aprovada por supervisor', 'Saída registrada na aprovação']);
     expect(service.getExit(later.id)?.status).toBe('Aprovada');
     expect(service.getExit(later.id)?.timeline.at(-1)?.label).toBe('Aprovada por supervisor');
-    expect(service.getExit('S-1047')?.timeline.at(-1)?.detail).toBe(
-      'Saída registrada na aprovação.',
-    );
+    const fixed = service.getExit('S-1047')!.timeline;
+    expect(fixed.at(-1)?.detail).toBe('Saída registrada na aprovação.');
+    expect(fixed.at(-2)?.label).toBe('Aprovada por supervisor');
+    // Partida registrada na aprovação: mesmo instante (offset() roda duas vezes, daí a folga).
+    expect(Date.parse(fixed.at(-1)!.at) - Date.parse(fixed.at(-2)!.at)).toBeLessThan(1000);
   });
 
   it('rejects a long exit before the confirmation only with 10 to 2,000 characters', () => {
