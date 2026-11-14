@@ -152,21 +152,15 @@ Cada decisão traz o contexto, a escolha, o que foi descartado e a consequência
 - **Contexto:** os contratos por fase misturavam regras atuais com histórico e decisões revogadas.
 - **Decisão:** o comportamento observável fica em `openspec/specs/<capacidade>/spec.md`, e toda mudança passa por uma change do OpenSpec (veja [OpenSpec workflow](../AGENTS.md#openspec-workflow)).
 - **Alternativa rejeitada:** contratos por fase em `docs/`. Envelheciam sem aviso e não eram conferidos pela CI.
-- **Consequência:** o `./sager ci` roda `openspec validate --all --strict`, e as regras ainda não escritas como spec seguem resumidas no AGENTS.md.
+- **Consequência:** o `./sager ci` roda `openspec validate --all --strict`, e o AGENTS.md guarda só o resumo das regras de domínio e permissão, que estão por inteiro nas specs.
 
 ## Comportamento e OpenSpec
 
 As specs de cada capacidade ficam em [`openspec/specs`](../openspec/specs/). O fluxo de mudança está na seção [OpenSpec workflow do AGENTS.md](../AGENTS.md#openspec-workflow).
 
-As regras de base da chamada, das saídas, da disciplina, da limpeza e dos relatórios ainda não viraram spec. Por enquanto há só specs parciais: `night-call-justification`, `exit-scheduling`, `guardian-authorization` e `report-generation`. Até lá, o resumo canônico fica no AGENTS.md. Os contratos completos continuam no histórico do git, nas pastas de fase de `docs/` da revisão `7d22855`:
+São 38 capacidades. Desde 13/11/2026 (change `document-core-baseline`), as regras centrais da monografia também têm spec: acesso, cadastros, alocação, chamada noturna, saídas, disciplina, avisos, limpeza, auditoria, demonstração e ajuda. As divergências entre código e monografia achadas nessa conferência estão no [design.md da change arquivada](../openspec/changes/archive/2026-11-13-document-core-baseline/design.md). Os contratos antigos por fase continuam no histórico do git, na revisão `7d22855` (`git show 7d22855:docs/`), só como registro.
 
-```bash
-git show 7d22855:docs/                      # lista as pastas de fase
-git show 7d22855:docs/<pasta>/README.md     # fase 3: chamada e saída curta
-git show 7d22855:docs/<pasta>/CONTRATO.md   # fases 4, 5 e 6
-```
-
-A fase 4 trata da saída longa e da autorização do responsável; a fase 5, de comunicação e disciplina; a fase 6, de limpeza e relatórios.
+O método de desenvolvimento, os padrões de código e o passo a passo de uma mudança estão em [DESENVOLVIMENTO.md](DESENVOLVIMENTO.md).
 
 ## Pendências institucionais
 
@@ -200,7 +194,7 @@ Nenhuma das escolhas abaixo tem aprovação institucional registrada. Elas permi
 | D22 Retenção e recuperação | Auditoria permanente; relatórios expiram em 24 horas; documentos sem descarte automático; backup manual criptografado. | Retenção e descarte dos demais dados, RPO e RTO. |
 | D23 Relatórios offline | Relatórios em PDF e Excel para baixar; o sistema não funciona offline. | Forma de contingência. |
 | D24 Carga na VPS | Limites de 1.632 MiB nos serviços permanentes, com 1 CPU em `infra/production` e 3,1 CPU no Coolify; sem medição na VPS definitiva. | Cenário de carga, concorrência e método de medição. |
-| D25 Licenças e provedores | Só software livre auto-hospedado; nenhum provedor pago. | Contratação, custos e termos de uso. |
+| D25 Licenças e provedores | Só componentes de terceiros de software livre e auto-hospedados; nenhum provedor pago. O próprio SAGER segue a licença de uso restrito do [LICENSE](../LICENSE). | Contratação, custos e termos de uso. |
 | D26 Diagramas e modelo físico | O modelo físico está nas migrações Flyway. | Atualização dos diagramas depois de homologar os fluxos. |
 
 ### Cadastro
@@ -226,6 +220,7 @@ Nenhuma das escolhas abaixo tem aprovação institucional registrada. Elas permi
 | Responsabilidades | O operador cria as contas de gestor, faz backup e atualiza. | Quem opera, com que procedimento. |
 | Piloto e aceite | Homologação técnica com dados fictícios. | Piloto na VPS, disponibilidade e aceite formal. |
 | Aviso de privacidade | O sistema não tem tela de aviso de privacidade. | Texto, momento de exibição e responsável. |
+| Titularidade e licença do SAGER | Licença de uso restrito ([LICENSE](../LICENSE)): direitos dos autores; licença gratuita ao IF Goiano para usar, manter e adaptar; avaliação pela banca; visualização e fork no GitHub enquanto o repositório for público; nenhum outro uso sem autorização. | Com o Núcleo de Inovação Tecnológica do IF Goiano: se a política de inovação atribui a titularidade ao Instituto, se algum autor tinha bolsa ou estágio ligado ao desenvolvimento (Lei 9.609/1998, art. 4º) e se o software deve ser registrado no INPI. |
 | WhatsApp | Desligado por padrão; anexo manual disponível. | Os onze itens de [whatsapp/OPERACAO.md](whatsapp/OPERACAO.md#decisões-institucionais-pendentes). |
 | Conclusão do curso: encerramento do vínculo | Depois da saída prevista, a rotina diária das 00h10 encerra o vínculo de quarto com o motivo `CONCLUSION`. | Se o vínculo é encerrado sozinho ou só marcado "Concluinte". |
 | Conclusão do curso: fim do semestre | Saída prevista em 30/06 ou 31/12, sem folga. | Outra data de fim de semestre e se deve haver folga. |
