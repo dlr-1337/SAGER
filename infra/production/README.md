@@ -71,7 +71,7 @@ documentados em `backend/README.md`; o comando encerra sem abrir servidor HTTP.
 
 O login recusa cinco tentativas por conta em uma janela de 15 minutos e limita
 tentativas agregadas por IP; os contadores persistem em PostgreSQL e contêm somente
-HMAC, sem matrícula/IP bruto. Login válido reinicia o contador da conta. O gateway
+HMAC, sem usuário/IP bruto. Login válido reinicia o contador da conta. O gateway
 também limita rajadas. Resposta 429 usa erro genérico e `Retry-After`; não revela
 se uma conta existe. Cookies usam `Secure`, `HttpOnly` e `SameSite=Lax`; escritas
 exigem CSRF. Não habilite o perfil `local` junto com `production`.

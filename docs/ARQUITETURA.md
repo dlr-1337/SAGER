@@ -84,10 +84,10 @@ As migrações ficam em `backend/src/main/resources/db/migration/` e os testes e
 
 Cada decisão traz o contexto, a escolha, o que foi descartado e a consequência.
 
-### 1. Login próprio por matrícula
+### 1. Login próprio por usuário
 
 - **Contexto:** o sistema precisa de contas antes de existir integração autorizada com os sistemas do IF Goiano.
-- **Decisão:** contas próprias do SAGER, com matrícula ou SIAPE e senha. E-mail é só contato.
+- **Decisão:** contas próprias do SAGER, com usuário e senha (o residente usa a matrícula; o supervisor pode usar o SIAPE). E-mail é só contato.
 - **Alternativa rejeitada:** Google OIDC ou SUAP agora. Não há autorização institucional para nenhum dos dois, e o domínio do e-mail não prova o perfil.
 - **Consequência:** a identidade institucional não é comprovada pelo login. Provisionamento, desligamento e recuperação seguem procedimento do operador.
 
@@ -196,7 +196,7 @@ Nenhuma das escolhas abaixo tem aprovação institucional registrada. Elas permi
 | D18 Avisos | O supervisor publica para destinatários fixados na publicação; revisão cria nova versão e exige nova ciência; sem envio externo. | Autoria, segmentação, revisão e canais. |
 | D19 Quartos e alocação | Código global único, número local textual, capacidade opcional; um quarto ativo por residente; Ocupado e Disponível seguem a capacidade, Manutenção e Indisponível são escolhidos no cadastro, e quarto sem capacidade aparece Indisponível. | Capacidades oficiais, reservas, exceções e lacunas do inventário; significado de cada situação e quarto sem capacidade como Indisponível. |
 | D20 Exportações por perfil | Gestor e supervisor preparam os relatórios do catálogo; cada consulta e arquivo pertence a quem o preparou. | Colunas, filtros e dados sensíveis por perfil. |
-| D21 Conta institucional | Login próprio por matrícula; contas de gestor criadas pelo operador, e as de residente e supervisor com o cadastro. | Identidade institucional, provisionamento, mudança de perfil e desligamento. |
+| D21 Conta institucional | Login próprio por usuário; contas de gestor criadas pelo operador, e as de residente e supervisor com o cadastro. | Identidade institucional, provisionamento, mudança de perfil e desligamento. |
 | D22 Retenção e recuperação | Auditoria permanente; relatórios expiram em 24 horas; documentos sem descarte automático; backup manual criptografado. | Retenção e descarte dos demais dados, RPO e RTO. |
 | D23 Relatórios offline | Relatórios em PDF e Excel para baixar; o sistema não funciona offline. | Forma de contingência. |
 | D24 Carga na VPS | Limites de 1.632 MiB nos serviços permanentes, com 1 CPU em `infra/production` e 3,1 CPU no Coolify; sem medição na VPS definitiva. | Cenário de carga, concorrência e método de medição. |
