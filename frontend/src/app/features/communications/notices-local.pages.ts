@@ -534,15 +534,15 @@ export class NoticeFormLocalPage {
         if (result) void this.save(input);
       });
   }
-  /** A opção como aparece na revisão (design D8). */
+  /** A opção como aparece na revisão (design D8): o nome da opção e, se houver, o lugar. */
   private criterion(): string {
     const audience = this.chosen();
     const map = this.housing();
     if (audience === 'ALOJAMENTO')
-      return `Alojamento ${map.accommodations.find((item) => item.id === this.accommodationId.value)?.name ?? ''}`;
+      return `${audienceLabels.ALOJAMENTO}: ${map.accommodations.find((item) => item.id === this.accommodationId.value)?.name ?? ''}`;
     if (audience === 'QUARTO') {
       const room = map.rooms.find((item) => item.id === this.roomId.value);
-      return `Quarto ${room ? this.roomLabel(room) : ''}`;
+      return `${audienceLabels.QUARTO}: ${room ? this.roomLabel(room) : ''}`;
     }
     return audience === 'ESCOLHER'
       ? 'Escolhidos um a um'
