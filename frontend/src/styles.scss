@@ -164,8 +164,10 @@ textarea {
   font-display: block;
   src: url('./fonts/material-symbols-rounded-subset.woff2') format('woff2');
 }
-// Regras que vinham de material-symbols/rounded.css.
-.material-symbols-rounded {
+// Regras que vinham de material-symbols/rounded.css. Inline-block também evita que o sublinhado
+// de um link chegue ao ícone (action-links).
+.material-symbols-rounded,
+.material-symbols-outlined {
   letter-spacing: normal;
   text-transform: none;
   display: inline-block;
@@ -254,7 +256,8 @@ textarea {
   justify-content: flex-end;
 }
 .btn,
-.btn-secondary {
+.btn-secondary,
+.btn-danger {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -290,13 +293,25 @@ textarea {
   background: var(--green-50);
   color: var(--green-950);
 }
+/* Rejeitar e recusar: contorno vermelho, sem competir com o botão principal. */
+.btn-danger {
+  background: #fff;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+}
+.btn-danger:hover {
+  background: var(--danger-bg);
+  color: var(--danger-ink);
+}
 .btn:active,
-.btn-secondary:active {
+.btn-secondary:active,
+.btn-danger:active {
   transform: translateY(1px);
 }
 /* Mesma especificidade de :hover e declarado depois: desabilitado não reage ao hover. */
 .btn:disabled,
-.btn-secondary:disabled {
+.btn-secondary:disabled,
+.btn-danger:disabled {
   background: var(--disabled-bg);
   border-color: var(--disabled-line);
   color: var(--disabled-ink);
@@ -307,7 +322,9 @@ textarea {
 .btn .material-symbols-rounded,
 .btn .material-symbols-outlined,
 .btn-secondary .material-symbols-rounded,
-.btn-secondary .material-symbols-outlined {
+.btn-secondary .material-symbols-outlined,
+.btn-danger .material-symbols-rounded,
+.btn-danger .material-symbols-outlined {
   font-size: 20px;
 }
 /* Controle segmentado (abas e modalidades): o fundo de linha aparece no gap e separa os
@@ -642,8 +659,7 @@ tbody tr:last-child td {
   .field.span-2 {
     grid-column: auto;
   }
-  .action-row > .btn,
-  .action-row > .btn-secondary {
+  :is(.action-row, .step-actions) > :is(.btn, .btn-secondary, .btn-danger) {
     flex: 1 1 160px;
   }
   .panel {
@@ -701,7 +717,10 @@ tbody tr:last-child td {
   margin-top: 12px;
   border-top: 1px solid var(--line);
 }
-.filter-panel summary {
+/* Áreas recolhidas com o mesmo resumo: "Mais filtros", "Mais detalhes", "Saiba mais" e a legenda
+   "O que significa cada cor?". Começam fechadas; nenhuma lembra o estado. */
+.filter-panel summary,
+:is(.more-details, .learn-more, .status-legend) > summary {
   display: flex;
   align-items: center;
   min-height: 48px;
@@ -710,17 +729,60 @@ tbody tr:last-child td {
   cursor: pointer;
   list-style: none;
 }
-.filter-panel summary::-webkit-details-marker {
+.filter-panel summary::-webkit-details-marker,
+:is(.more-details, .learn-more, .status-legend) > summary::-webkit-details-marker {
   display: none;
 }
-.filter-panel summary::before {
+.filter-panel summary::before,
+:is(.more-details, .learn-more, .status-legend) > summary::before {
   content: '▸';
   margin-right: 8px;
   font-size: 1.25rem;
 }
-.filter-panel details[open] summary::before {
+.filter-panel details[open] summary::before,
+:is(.more-details, .learn-more, .status-legend)[open] > summary::before {
   content: '▾';
 }
+.more-details,
+.learn-more,
+.status-legend {
+  margin-top: var(--space-4);
+}
+.more-details {
+  border-top: 1px solid var(--line);
+}
+.status-legend dl {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-1) 0 var(--space-2);
+}
+.status-legend dl > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+}
+.status-legend dd {
+  margin: 0;
+  color: var(--muted);
+}
+
+/* Passos (avaliação de limpeza, detalhes de saída): "Passo N de M" acima do título do passo, que
+   recebe o foco ao trocar de passo; Voltar (secundário) e Continuar (principal) no fim. */
+.step-count {
+  margin-bottom: var(--space-1);
+  color: var(--muted);
+  font-weight: 700;
+}
+.step-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}
+
 .filter-panel-extra {
   padding: 4px 0 8px;
 }

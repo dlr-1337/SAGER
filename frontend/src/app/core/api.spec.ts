@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { api, cached, onUnauthorized, resetSession } from './api';
+import { ACCOUNT_OPEN, api, asAutoRefresh, cached, onUnauthorized, resetSession } from './api';
 
 const token = (value = 'csrf-1') =>
   new Response(JSON.stringify({ headerName: 'X-CSRF-TOKEN', token: value }), { status: 200 });
@@ -165,6 +165,37 @@ describe('api', () => {
     );
   });
 
+  it('marca só as consultas automáticas, que não adiam ACCOUNT_OPEN', async () => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(1000);
+    localStorage.setItem(ACCOUNT_OPEN, '1');
+    fetchMock.mockImplementation(async (url: string) =>
+      url === '/api/v1/auth/csrf' ? token() : json([]),
+    );
+    const header = (index: number) =>
+      (fetchMock.mock.calls[index][1] as RequestInit & { headers: Record<string, string> }).headers[
+        'X-Sager-Auto-Refresh'
+      ];
+
+    await asAutoRefresh(async () => {
+      await Promise.resolve();
+      await api('/api/v1/saidas');
+      await api('/api/v1/saidas/1', { method: 'POST', body: {} });
+    });
+    expect(header(0)).toBe('1');
+    expect(header(2)).toBeUndefined();
+    expect(localStorage.getItem(ACCOUNT_OPEN)).toBe('1000');
+
+    localStorage.setItem(ACCOUNT_OPEN, '1');
+    now.mockReturnValue(2000);
+    await asAutoRefresh(() => api('/api/v1/saidas'));
+    expect(header(3)).toBe('1');
+    expect(localStorage.getItem(ACCOUNT_OPEN)).toBe('1');
+    await api('/api/v1/saidas');
+    expect(header(4)).toBeUndefined();
+    expect(localStorage.getItem(ACCOUNT_OPEN)).toBe('2000');
+    localStorage.removeItem(ACCOUNT_OPEN);
+  });
+
   describe('cached', () => {
     let now = 1_000_000;
     beforeEach(() => {
@@ -208,6 +239,18 @@ describe('api', () => {
       expect(loader).toHaveBeenCalledTimes(1);
       await expect(api('/api/v1/cursos/1', { method: 'PUT', body: {} })).rejects.toThrow();
       await cached('cursos', loader);
+      expect(loader).toHaveBeenCalledTimes(2);
+    });
+
+    it('com fresh pede de novo e renova a cópia para a chamada comum seguinte', async () => {
+      const loader = vi
+        .fn<() => Promise<string[]>>()
+        .mockResolvedValueOnce(['velha'])
+        .mockResolvedValueOnce(['nova']);
+      await cached('mapa', loader);
+      now += 10_000;
+      expect(await cached('mapa', loader, true)).toEqual(['nova']);
+      expect(await cached('mapa', loader)).toEqual(['nova']);
       expect(loader).toHaveBeenCalledTimes(2);
     });
 
