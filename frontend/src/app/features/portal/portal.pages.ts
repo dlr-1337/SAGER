@@ -20,7 +20,7 @@ import { LocalHomePage } from './local-home.page';
         <img src="/if-goiano-urutai.png" alt="Instituto Federal Goiano, Campus Urutaí" />
       </div>
       <div class="brand-product">
-        <strong>SAGER</strong><span>Sistema de Apoio à Gestão da<br />Residência Estudantil</span>
+        <strong>SAGER</strong><span>Sistema de Apoio à<br />Gestão de Residentes</span>
       </div>
       @if (!session.production) {
         <div class="demo-flag">
