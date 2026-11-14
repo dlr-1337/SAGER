@@ -915,14 +915,18 @@ export class DemoSelectorPage {
         font-size: var(--text-meta);
         color: var(--muted);
       }
+      /* inline-block com o ícone inline-block: o sublinhado do hover fica só no texto. */
       .aside-block a {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
+        display: inline-block;
         min-height: 44px;
         margin-top: 8px;
+        padding-block: 10px;
+        line-height: 24px;
         font-weight: 700;
         text-decoration: none;
+      }
+      .aside-block a .material-symbols-outlined {
+        margin-inline-start: 4px;
       }
       .aside-block a:hover {
         text-decoration: underline;

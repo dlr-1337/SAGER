@@ -50,9 +50,9 @@ async function expectIconOutsideUnderline(link: Locator): Promise<void> {
 
 test('link de ação com ícone sublinha só no hover', async ({ page }) => {
   await enterDemo(page);
-  await expectUnderlineOnlyOnHover(
-    page.getByRole('link', { name: 'Abrir ajuda', exact: true }).first(),
-  );
+  const help = page.getByRole('link', { name: 'Abrir ajuda', exact: true }).first();
+  await expectUnderlineOnlyOnHover(help);
+  await expectIconOutsideUnderline(help);
 
   await page.goto('/saidas');
   const row = page.locator('a.op-row-link').first();
