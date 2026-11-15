@@ -14,6 +14,14 @@ export interface LocalPrincipal {
   supervisorId: string | null;
   /** Calculado pelo servidor; ausente vale falso (menor ou sem data). */
   maiorDeIdade?: boolean;
+  /** Quarto da alocação ativa do residente; ausente ou nulo sem alocação. */
+  quarto?: LocalRoom | null;
+}
+
+export interface LocalRoom {
+  alojamento: string;
+  casa: string | null;
+  numero: string;
 }
 
 const roles: Role[] = ['gestor', 'supervisor', 'residente'];
@@ -23,6 +31,17 @@ function nullableRecordId(value: unknown): value is string | null {
     value === null ||
     (typeof value === 'string' &&
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value))
+  );
+}
+
+function validRoom(value: unknown): boolean {
+  if (value === undefined || value === null) return true;
+  if (typeof value !== 'object') return false;
+  const room = value as Partial<LocalRoom>;
+  return (
+    typeof room.alojamento === 'string' &&
+    (room.casa === null || typeof room.casa === 'string') &&
+    typeof room.numero === 'string'
   );
 }
 
@@ -41,6 +60,7 @@ function validPrincipal(value: unknown): value is LocalPrincipal {
     nullableRecordId(principal.residenteId) &&
     nullableRecordId(principal.supervisorId) &&
     (principal.maiorDeIdade === undefined || typeof principal.maiorDeIdade === 'boolean') &&
+    validRoom(principal.quarto) &&
     !(principal.residenteId && principal.supervisorId) &&
     (!principal.residenteId || principal.perfis[0] === 'residente') &&
     (!principal.supervisorId || ['gestor', 'supervisor'].includes(principal.perfis[0]))

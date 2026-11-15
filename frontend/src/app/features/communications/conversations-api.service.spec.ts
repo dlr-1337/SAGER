@@ -21,6 +21,7 @@ const message = {
   failureCode: null,
   sentAt: '2026-10-30T12:00:00Z',
   linkable: false,
+  linkedExit: null,
 };
 const conversation = {
   id,
@@ -47,6 +48,8 @@ describe('ConversationsApiService', () => {
   let service: ConversationsApiService;
   let fetchMock: ReturnType<typeof vi.fn>;
   beforeEach(() => {
+    // Um token CSRF guardado por outro arquivo de teste trocaria a ordem das respostas simuladas.
+    resetSession();
     service = TestBed.inject(ConversationsApiService);
     fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
@@ -115,6 +118,19 @@ describe('ConversationsApiService', () => {
   it('marca leitura com resposta 204 sem corpo', async () => {
     withCsrf(new Response(null, { status: 204 }));
     await expect(service.markRead(id)).resolves.toBeUndefined();
+    expect(fetchMock.mock.calls[1][1].headers).not.toHaveProperty('X-Sager-Auto-Refresh');
+  });
+
+  it('leitura marcada pela atualização automática leva o cabeçalho que não renova a sessão', async () => {
+    withCsrf(new Response(null, { status: 204 }));
+    await service.markRead(id, true);
+    const [url, init] = fetchMock.mock.calls[1];
+    expect(url).toBe(`/api/v1/conversas/${id}/leitura`);
+    expect(init.method).toBe('POST');
+    expect(init.headers).toMatchObject({
+      'X-CSRF-TOKEN': 'sintetico',
+      'X-Sager-Auto-Refresh': '1',
+    });
   });
 
   it('repassa o cursor sem alteração', async () => {
@@ -144,6 +160,24 @@ describe('ConversationsApiService', () => {
     await expect(service.list()).rejects.toThrow('dados inválidos');
     fetchMock.mockResolvedValueOnce(json({ ...session, canSend: 'nao' }));
     await expect(service.session()).rejects.toThrow('dados inválidos');
+  });
+
+  it('aceita o arquivo ligado a uma saída longa e recusa o vínculo fora do contrato', async () => {
+    const linkedExit = { id, residentName: 'Residente Sintético', fileState: 'ACCEPTED' };
+    fetchMock.mockResolvedValueOnce(
+      json({ items: [{ ...message, linkedExit }], nextCursor: null }),
+    );
+    await expect(service.messages(id)).resolves.toMatchObject({ items: [{ linkedExit }] });
+    for (const wrong of [
+      { ...linkedExit, fileState: 'REFUSED' },
+      { id, fileState: 'CANDIDATE' },
+      undefined,
+    ]) {
+      fetchMock.mockResolvedValueOnce(
+        json({ items: [{ ...message, linkedExit: wrong }], nextCursor: null }),
+      );
+      await expect(service.messages(id)).rejects.toThrow('dados inválidos');
+    }
   });
 
   it('aceita estado de sessão desconhecido, sem aceitar motivo desconhecido', async () => {

@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   CommunicationsApiError,
   CommunicationsLocalApiService,
@@ -51,6 +51,8 @@ describe('Contrato privado de disciplina e comunicações', () => {
     expect(await api.term(id)).toEqual(term);
     await expect(api.term(id)).rejects.toThrow('inválidos');
   });
+  // Um token CSRF guardado por outro arquivo de teste trocaria a ordem das respostas simuladas.
+  beforeEach(() => resetSession());
   afterEach(() => {
     vi.unstubAllGlobals();
     resetSession();

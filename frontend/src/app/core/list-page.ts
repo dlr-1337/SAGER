@@ -24,7 +24,8 @@ export interface CursorPageResult<T> {
 /**
  * Páginas fixas sobre uma lista por cursor. As páginas visitadas ficam em memória até o próximo
  * `reload()`, para que Anterior mostre exatamente o que já foi visto; um contador de geração
- * descarta a resposta de um pedido antigo.
+ * descarta a resposta de um pedido antigo. `refresh()` é a recarga silenciosa da atualização
+ * automática.
  */
 export function cursorPages<T>(
   fetch: (cursor?: number) => Promise<CursorPageResult<T>>,
@@ -75,6 +76,21 @@ export function cursorPages<T>(
       pages = [];
       show(0, { items: [], nextCursor: null });
       return go(0);
+    },
+    /**
+     * Pede de novo a página à vista com o mesmo cursor, sem "Carregando", sem esvaziar a lista e
+     * sem limpar o erro; descarta as páginas seguintes, cujo cursor pode ter mudado. A falha volta
+     * para quem chamou, com os itens mantidos.
+     */
+    async refresh(): Promise<void> {
+      const index = page();
+      if (loading() || !pages[index]) return;
+      const current = generation;
+      const result = await fetch(index ? (pages[index - 1].nextCursor as number) : undefined);
+      if (current !== generation) return;
+      pages = pages.slice(0, index);
+      pages[index] = result;
+      show(index, result);
     },
   };
 }

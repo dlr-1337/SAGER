@@ -20,6 +20,8 @@ import {
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
+import { autoRefresh } from '../../core/auto-refresh';
+import { AutoRefreshStatusComponent } from '../../shared/auto-refresh-status.component';
 import {
   AllocationApiError,
   AllocationApiService,
@@ -39,7 +41,13 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico';
 @Component({
   selector: 'app-resident-detail',
   standalone: true,
-  imports: [SearchableSelectDirective, UnsavedFormDirective, RouterLink, ReactiveFormsModule],
+  imports: [
+    SearchableSelectDirective,
+    UnsavedFormDirective,
+    RouterLink,
+    ReactiveFormsModule,
+    AutoRefreshStatusComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page mg-page">
@@ -89,6 +97,7 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico';
               >
             }
           </header>
+          <sager-auto-refresh-status [refresh]="refresh" />
           @if (saved()) {
             <p class="mg-success" role="status">
               <span class="material-symbols-rounded" aria-hidden="true">check_circle</span> Cadastro
@@ -292,15 +301,15 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico';
                   </p>
                 }
               </section>
-              <div class="mg-note">
-                <span class="material-symbols-rounded" aria-hidden="true">info</span>
-                <p>
+              <details class="learn-more">
+                <summary>Saiba mais</summary>
+                <p class="mg-muted">
                   O quarto fica Ocupado sozinho quando os moradores atingem a capacidade.
                   @if (!item.birthDate) {
                     A ausência da data de nascimento não indica maioridade.
                   }
                 </p>
-              </div>
+              </details>
             } @else if (tab() === 'responsaveis') {
               <section class="panel mg-panel" aria-labelledby="local-guardians-heading">
                 <div class="mg-section-heading">
@@ -795,8 +804,29 @@ export class ResidentDetailComponent {
   readonly age = ageFromBirthDate;
   readonly formattedDate = formattedDate;
 
+  /** Espera enquanto há quarto escolhido e não confirmado, encerramento aberto ou gravação. */
+  readonly refresh = autoRefresh(() => this.update(), {
+    busy: () => this.allocationSaving() || this.confirmEnd() || !!this.selectedRoom.value,
+  });
+
   constructor() {
     if (!this.isDemo() && this.canView()) void this.load();
+  }
+
+  /** Atualização automática: cadastro, responsáveis e quarto, sem "Carregando"; a falha volta. */
+  private async update(): Promise<void> {
+    if (this.isDemo() || !this.canView() || this.loading() || !this.localResident()) return;
+    const [resident, guardians, allocations, map] = await Promise.all([
+      this.api.get(this.id),
+      this.guardianApi.list(),
+      this.allocationApi.byResident(this.id),
+      this.roomApi.map(true),
+    ]);
+    if (this.destroyRef.destroyed || this.allocationSaving()) return;
+    this.localResident.set(resident);
+    this.localGuardians.set(guardians.filter((item) => item.residentId === this.id));
+    this.allocations.set(allocations);
+    this.allocationMap.set(map);
   }
 
   async load(): Promise<void> {

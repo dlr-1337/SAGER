@@ -35,7 +35,9 @@ import { NotificationDetailLocalPage } from '../communications/notifications-loc
         } @else if (item(); as notification) {
           <header class="op-heading">
             <div>
-              <a routerLink="/notificacoes" class="op-back">← Notificações</a>
+              <a routerLink="/notificacoes" class="op-back"
+                ><span class="back-arrow" aria-hidden="true">←</span>Notificações</a
+              >
               <h1>Notificação {{ notification.id }}</h1>
               <p>{{ notification.resident }} · {{ notification.source }}</p>
             </div>

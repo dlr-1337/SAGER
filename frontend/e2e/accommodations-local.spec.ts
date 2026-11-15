@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, Page, test } from '@playwright/test';
+import { expectShortGuidance } from './short-text';
 
 interface Accommodation {
   id: string;
@@ -79,6 +80,7 @@ test('cadastro de alojamento e casa, edição e recarga com CSRF e versão', asy
   await registry.ready;
   await page.goto('/alojamentos');
   await expect(page.getByRole('heading', { name: 'Nenhum alojamento cadastrado' })).toBeVisible();
+  await expectShortGuidance(page);
   await page.getByRole('link', { name: 'Cadastrar alojamento' }).click();
   await page.getByRole('textbox', { name: /Código do alojamento/ }).fill('TESTE-A');
   await page.getByRole('textbox', { name: /Nome do alojamento/ }).fill('Alojamento Sintético');
@@ -198,7 +200,9 @@ test('alojamentos são utilizáveis na demonstração offline e acessíveis em d
   await page.getByRole('textbox', { name: /Código do alojamento/ }).fill('DEMO');
   await page.getByRole('textbox', { name: /Nome do alojamento/ }).fill('Alojamento Fictício');
   await page.getByRole('button', { name: 'Salvar alojamento' }).click();
-  await expect(page.getByRole('status')).toContainText('Alojamento salvo nesta demonstração');
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Alojamento salvo nesta demonstração' }),
+  ).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Alojamento Fictício' })).toBeVisible();
 });
 

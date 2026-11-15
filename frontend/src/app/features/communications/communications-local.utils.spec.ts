@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { statusTones, toneAttr } from '../../shared/status-tones';
 import {
   DisciplineWarning,
   RecurrenceCandidate,
@@ -6,9 +7,13 @@ import {
 } from './communications-local.models';
 import {
   CommunicationIntent,
+  communicationStateLabels,
+  noticeStatusLabels,
+  notificationLabels,
   recurrenceSelectionError,
   validCivilDate,
   warningFormError,
+  warningStatusLabels,
 } from './communications-local.utils';
 
 const input: WarningInput = {
@@ -93,5 +98,24 @@ describe('Decisões disciplinares no ambiente local', () => {
     expect(recurrenceSelectionError({ ...candidate, category: 'OUTRA' }, ids)).toContain(
       'advertências suficientes',
     );
+  });
+});
+
+describe('Situações das comunicações na legenda', () => {
+  it('cada nome mostrado na lista tem cor e significado na legenda', () => {
+    const names = [
+      notificationLabels,
+      warningStatusLabels,
+      noticeStatusLabels,
+      communicationStateLabels,
+    ].flatMap((labels) => Object.values(labels));
+    expect(names.filter((name) => !statusTones[name])).toEqual([]);
+    expect(toneAttr(notificationLabels.PENDENTE)).toBe('warning');
+    expect(toneAttr(warningStatusLabels.VIGENTE)).toBe('success');
+    expect(toneAttr(noticeStatusLabels.PUBLICADO)).toBe('success');
+    expect(toneAttr(notificationLabels.ARQUIVADA)).toBeNull();
+    expect(toneAttr(noticeStatusLabels.RASCUNHO)).toBeNull();
+    expect(toneAttr(noticeStatusLabels.RETIRADO)).toBeNull();
+    expect(toneAttr(warningStatusLabels.ANULADA)).toBeNull();
   });
 });

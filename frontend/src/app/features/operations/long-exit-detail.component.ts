@@ -1,9 +1,20 @@
 import { ERROR_CONFLICT } from '../../core/error-messages';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  Injector,
+  afterNextRender,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { autoRefresh } from '../../core/auto-refresh';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { LocalAuthService } from '../../core/local-auth.service';
+import { AutoRefreshStatusComponent, StatusLegendComponent, toneAttr } from '../../shared';
 import { LongExitApiService } from './long-exit-api.service';
 import { downloadExitDocument } from './long-exit-document.utils';
 import {
@@ -20,8 +31,17 @@ import {
   sendFailureText,
   signatureStatusLabels,
 } from './long-exit.utils';
-import { OperationsApiError, operationsError } from './operations-local-api.service';
-import { exitEventLabels, formatOperationsTime } from './operations-local.utils';
+import {
+  OperationsApiError,
+  freezesActions,
+  operationsError,
+} from './operations-local-api.service';
+import {
+  approvalMessage,
+  exitEventLabels,
+  formatOperationsTime,
+  leavesNow,
+} from './operations-local.utils';
 import {
   LocalOperationsReviewDialogComponent,
   LocalReviewData,
@@ -46,27 +66,32 @@ const exitError = (error: unknown): string =>
     ? error.message
     : operationsError(error);
 
+type LongExitStep = 'Autorização do responsável' | 'Decisão' | 'Saída' | 'Volta';
+
 @Component({
   standalone: true,
   selector: 'app-long-exit-detail',
-  imports: [RouterLink],
+  imports: [RouterLink, NgTemplateOutlet, AutoRefreshStatusComponent, StatusLegendComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page op-exit-page">
       <header class="op-heading op-exit-heading">
         <a routerLink="/saidas" [queryParams]="{ tipo: 'longa' }" class="op-back"
-          >← Saídas longas</a
+          ><span class="back-arrow" aria-hidden="true">←</span>Saídas longas</a
         >
         <div class="op-exit-title-row">
           <h1>Pedido de saída longa</h1>
           @if (item(); as exit) {
-            <span class="op-status">{{ labels[exit.status] }}</span>
+            <span class="status" [attr.data-tone]="tone(labels[exit.status])">{{
+              labels[exit.status]
+            }}</span>
           }
         </div>
         @if (item(); as exit) {
           <p>{{ exit.residentName }} · Matrícula {{ exit.enrollment }}</p>
         }
       </header>
+      <sager-auto-refresh-status [refresh]="refresh" />
       @if (session.active()) {
         <section class="op-empty" role="status">
           <h2>Esta tela não faz parte da demonstração</h2>
@@ -85,25 +110,21 @@ const exitError = (error: unknown): string =>
           <button class="btn op-secondary" type="button" (click)="load()">Tentar novamente</button>
         </section>
       } @else if (item(); as exit) {
+        <sager-status-legend [names]="legendNames" />
         @if (saved()) {
           <p class="op-success" role="status">Pedido salvo.</p>
         }
-        <p class="op-help">
-          Horário de Brasília. Depois que um servidor confere a autorização do responsável, o
-          supervisor decide se aprova.
-        </p>
         @if (exit.deadlineAt) {
           <p class="op-help">
             {{
               exit.status === 'AGUARDANDO_ANALISE'
                 ? 'Prazo para análise'
                 : 'Prazo para iniciar a saída'
-            }}: {{ formatTime(exit.deadlineAt) }}. Depois desse prazo, o pedido perde a validade se
-            a saída ainda não tiver sido registrada.
+            }}: {{ formatTime(exit.deadlineAt) }}. Depois, o pedido perde a validade.
           </p>
         }
-        <div class="op-exit-grid op-long-exit-grid">
-          <section class="panel op-panel op-exit-overview" aria-labelledby="long-exit-overview">
+        <div class="op-exit-grid op-step-grid">
+          <section class="panel op-panel" aria-labelledby="long-exit-overview">
             <h2 id="long-exit-overview">Dados do pedido</h2>
             <dl class="op-definition">
               <div>
@@ -124,10 +145,12 @@ const exitError = (error: unknown): string =>
                 <dt>Motivo</dt>
                 <dd>{{ exit.reason }}</dd>
               </div>
-              <div>
-                <dt>Observações</dt>
-                <dd>{{ exit.notes || 'Nenhuma' }}</dd>
-              </div>
+              @if (exit.notes) {
+                <div>
+                  <dt>Observações</dt>
+                  <dd>{{ exit.notes }}</dd>
+                </div>
+              }
               <div>
                 <dt>Responsável indicado</dt>
                 <dd>{{ exit.guardianName }} · {{ exit.guardianRelationship }}</dd>
@@ -185,7 +208,200 @@ const exitError = (error: unknown): string =>
               }
             </dl>
           </section>
-          <section class="panel op-panel op-exit-timeline" aria-labelledby="long-exit-history">
+          @if (session.hasRole('supervisor')) {
+            <section class="panel op-panel op-exit-actions" aria-labelledby="exit-step">
+              @if (step(); as current) {
+                <p class="step-count">
+                  Passo {{ steps().indexOf(current) + 1 }} de {{ steps().length }}
+                </p>
+              }
+              <h2 id="exit-step" tabindex="-1">{{ step() ?? 'Próximo passo' }}</h2>
+              @switch (step()) {
+                @case ('Autorização do responsável') {
+                  @if (exit.deliveryUnconfirmed) {
+                    <p class="op-warning">
+                      O documento segue sem confirmação de entrega após 15 minutos. Fale com o
+                      responsável por outro canal e anexe aqui o arquivo recebido.
+                    </p>
+                  }
+                  @if (!exit.whatsappAvailable && exit.capabilities.canAttachAuthorization) {
+                    <p class="op-warning">
+                      O WhatsApp está indisponível. Fale com o responsável por outro canal e anexe
+                      aqui o arquivo recebido.
+                    </p>
+                  }
+                  @if (exit.signatureStatus === 'UNCERTAIN' || exit.messageStatus === 'UNCERTAIN') {
+                    <p class="op-warning">
+                      O envio ainda está sem confirmação. Confira no celular antes de reenviar.
+                    </p>
+                  } @else if (sendFailure(exit); as reason) {
+                    <p class="op-warning">{{ reason }}</p>
+                  }
+                  @if (exit.whatsappAvailable) {
+                    <a
+                      class="op-inline-link"
+                      routerLink="/conversas"
+                      [queryParams]="{ q: exit.guardianName }"
+                      >Abrir conversa com o responsável
+                      <span class="material-symbols-outlined" aria-hidden="true">forum</span></a
+                    >
+                  }
+                  @if (candidates().length) {
+                    <ul class="long-files">
+                      @for (file of candidates(); track file.id) {
+                        <ng-container *ngTemplateOutlet="fileItem; context: { $implicit: file }" />
+                      }
+                    </ul>
+                  } @else {
+                    @if (exit.whatsappAvailable) {
+                      <p>Aguardando o responsável enviar pelo WhatsApp.</p>
+                    }
+                    <details class="more-details">
+                      <summary>Outras opções</summary>
+                      <button
+                        class="btn op-secondary"
+                        type="button"
+                        [disabled]="locked() || !exit.capabilities.canResend"
+                        (click)="resend()"
+                      >
+                        Reenviar documento
+                      </button>
+                      <p class="op-help">
+                        Você ainda pode reenviar
+                        {{
+                          exit.remainingResends === 1 ? '1 vez' : exit.remainingResends + ' vezes'
+                        }}
+                        em 24 horas.
+                        @if (exit.resendAvailableAt) {
+                          Próximo reenvio possível:
+                          {{ formatTime(exit.resendAvailableAt) }}.
+                        }
+                      </p>
+                    </details>
+                  }
+                  @if (exit.capabilities.canAttachAuthorization) {
+                    <label class="field"
+                      >Anexar arquivo<input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
+                        aria-describedby="long-exit-attach-hint"
+                        [disabled]="locked()"
+                        (change)="attach($event)"
+                    /></label>
+                    <p class="op-help" id="long-exit-attach-hint">Foto ou PDF, até 10 MB.</p>
+                  }
+                  <div class="op-actions">
+                    <button
+                      class="btn-danger"
+                      type="button"
+                      [disabled]="locked() || !exit.capabilities.canReject"
+                      (click)="decide('REJECT')"
+                    >
+                      Rejeitar
+                    </button>
+                  </div>
+                }
+                @case ('Decisão') {
+                  @if (conference(exit); as binding) {
+                    <p>
+                      Autorização conferida em {{ formatTime(binding.verifiedAt) }} por
+                      {{ binding.verifiedByName ?? 'Supervisor' }}.
+                    </p>
+                  } @else {
+                    <p>Autorização conferida.</p>
+                  }
+                  <div class="op-actions">
+                    <button
+                      class="btn op-primary"
+                      type="button"
+                      [disabled]="locked() || !exit.capabilities.canApprove"
+                      (click)="decide('APPROVE')"
+                    >
+                      Aprovar saída</button
+                    ><button
+                      class="btn-danger"
+                      type="button"
+                      [disabled]="locked() || !exit.capabilities.canReject"
+                      (click)="decide('REJECT')"
+                    >
+                      Rejeitar
+                    </button>
+                  </div>
+                  @if (!exit.capabilities.canApprove) {
+                    <p class="op-help">Para aprovar, os documentos precisam estar disponíveis.</p>
+                  }
+                }
+                @case ('Saída') {
+                  <p>Saída marcada para {{ formatTime(exit.requestedDepartureAt) }}.</p>
+                  @if (exit.capabilities.canDepart) {
+                    <button
+                      class="btn op-primary"
+                      type="button"
+                      [disabled]="locked()"
+                      (click)="physical('partida')"
+                    >
+                      Registrar saída
+                    </button>
+                  }
+                }
+                @case ('Volta') {
+                  @if (exit.capabilities.canReturn) {
+                    <button
+                      class="btn op-primary"
+                      type="button"
+                      [disabled]="locked()"
+                      (click)="physical('retorno')"
+                    >
+                      Registrar volta
+                    </button>
+                  }
+                }
+                @default {
+                  <p class="op-help">Nenhuma ação disponível para este pedido.</p>
+                }
+              }
+              <ng-container *ngTemplateOutlet="feedback" />
+            </section>
+          } @else {
+            <div class="op-exit-side">
+              <ng-container *ngTemplateOutlet="documentPanels" />
+              <section class="panel op-panel op-exit-actions" aria-labelledby="exit-step">
+                <h2 id="exit-step" tabindex="-1">O que você pode fazer</h2>
+                @if (exit.status === 'APROVADA') {
+                  <p>Saída marcada para {{ formatTime(exit.requestedDepartureAt) }}.</p>
+                }
+                @if (exit.capabilities.canEdit && !adult()) {
+                  <a
+                    class="btn op-primary"
+                    [routerLink]="locked() ? null : ['/saidas/longas', exit.id, 'editar']"
+                    [attr.aria-disabled]="locked()"
+                    >Mudar pedido</a
+                  >
+                  <p class="op-help">
+                    Se você mudar o pedido, seu responsável precisa autorizar de novo.
+                  </p>
+                }
+                @if (exit.capabilities.canCancel && !adult()) {
+                  <div class="op-actions">
+                    <button
+                      class="btn op-secondary"
+                      type="button"
+                      [disabled]="locked()"
+                      (click)="cancel()"
+                    >
+                      Cancelar pedido
+                    </button>
+                  </div>
+                }
+                <p class="op-help">O supervisor analisa o pedido e registra a saída e a volta.</p>
+                <ng-container *ngTemplateOutlet="feedback" />
+              </section>
+            </div>
+          }
+        </div>
+        <details class="more-details">
+          <summary>Mais detalhes</summary>
+          <section aria-labelledby="long-exit-history">
             <h2 id="long-exit-history">Histórico</h2>
             @if (!exit.history.length) {
               <p class="op-help">Nada registrado ainda.</p>
@@ -230,459 +446,326 @@ const exitError = (error: unknown): string =>
               </ol>
             }
           </section>
-          <div class="op-exit-side">
-            <section class="panel op-panel" aria-labelledby="long-exit-document">
-              <h2 id="long-exit-document">Documento enviado</h2>
-              <dl class="op-definition">
-                <div>
-                  <dt>Situação do envio</dt>
-                  <dd>{{ messages[exit.messageStatus] }}</dd>
-                </div>
-                @if (session.hasRole('supervisor') && sendFailure(exit); as reason) {
-                  <div>
-                    <dt>Motivo</dt>
-                    <dd>{{ reason }}</dd>
-                  </div>
-                }
-              </dl>
-              @if (exit.currentDocument; as revision) {
-                <h3>Documento atual</h3>
-                <dl class="op-definition">
-                  <div>
-                    <dt>Código impresso no PDF</dt>
-                    <dd>{{ shortCode(revision.documentVersionId) }}</dd>
-                  </div>
-                  <div>
-                    <dt>Original</dt>
-                    <dd>{{ documents[revision.originalState] || 'Indisponível' }}</dd>
-                  </div>
-                </dl>
-                <div class="op-actions long-document-actions">
-                  <button
-                    class="btn op-secondary"
-                    type="button"
-                    [disabled]="!exit.capabilities.canDownloadOriginal || downloading()"
-                    (click)="download('original')"
-                  >
-                    <span class="material-symbols-outlined" aria-hidden="true">picture_as_pdf</span>
-                    Baixar PDF original
-                  </button>
-                </div>
-              } @else {
-                <p class="op-help">O documento ainda não está disponível.</p>
+          @if (session.hasRole('supervisor')) {
+            <ng-container *ngTemplateOutlet="documentPanels" />
+            @if (otherFiles().length) {
+              <section aria-labelledby="long-exit-files">
+                <h2 id="long-exit-files">Outros arquivos recebidos</h2>
+                <ul class="long-files">
+                  @for (file of otherFiles(); track file.id) {
+                    <ng-container *ngTemplateOutlet="fileItem; context: { $implicit: file }" />
+                  }
+                </ul>
+              </section>
+            }
+            @if (exit.capabilities.canAttachAuthorization) {
+              @if (unlinkedError()) {
+                <p class="op-warning">{{ unlinkedError() }}</p>
               }
-              @if (exit.bindings.length) {
-                <details class="long-bindings">
-                  <summary>Histórico dos envios ({{ exit.bindings.length }})</summary>
-                  <ol>
-                    @for (binding of exit.bindings; track binding.id) {
+              @if (unlinked().length) {
+                <section aria-labelledby="long-exit-unlinked">
+                  <h2 id="long-exit-unlinked">Arquivos sem vínculo</h2>
+                  <p class="op-help">
+                    Recebidos desde a criação do pedido, de qualquer número. Vincular não autoriza:
+                    o arquivo ainda passa pela conferência.
+                  </p>
+                  <ul class="long-files">
+                    @for (received of unlinked(); track received.messageId) {
                       <li>
-                        <strong>{{ binding.guardianName }}</strong>
+                        <strong>{{
+                          received.fromGuardian ? 'Telefone do responsável' : 'Outro número'
+                        }}</strong>
                         <p>
-                          {{ signatures[binding.status] }} · {{ messages[binding.messageStatus] }}
+                          {{ mediaLabel(received.mediaType) }} ·
+                          {{ received.senderPhone ?? 'Número não identificado' }}
                         </p>
-                        <p>
-                          {{
-                            binding.documentVersionId === exit.currentDocument?.documentVersionId
-                              ? 'Documento atual'
-                              : 'Documento anterior'
-                          }}
-                          · Criado em {{ formatTime(binding.createdAt) }}
-                        </p>
-                        @if (binding.revokedAt) {
-                          <p>Revogado em {{ formatTime(binding.revokedAt) }}</p>
+                        <p>Recebido em {{ formatTime(received.receivedAt) }}</p>
+                        @if (received.mediaState === 'FAILED') {
+                          <p class="op-warning">
+                            O arquivo não pôde ser guardado e não pode ser vinculado.
+                          </p>
                         } @else {
-                          <p>Prazo: {{ formatTime(binding.expiresAt) }}</p>
+                          <div class="op-actions long-document-actions">
+                            <button
+                              class="btn op-secondary"
+                              type="button"
+                              [attr.aria-label]="
+                                'Vincular a este pedido o arquivo recebido em ' +
+                                formatTime(received.receivedAt)
+                              "
+                              [disabled]="locked()"
+                              (click)="linkFile(received)"
+                            >
+                              Vincular a este pedido
+                            </button>
+                          </div>
                         }
                       </li>
                     }
-                  </ol>
-                </details>
+                  </ul>
+                </section>
               }
-            </section>
-            @if (session.hasRole('supervisor')) {
-              <section class="panel op-panel" aria-labelledby="long-exit-files">
-                <h2 id="long-exit-files">Arquivos recebidos</h2>
-                @if (exit.deliveryUnconfirmed) {
-                  <p class="op-warning">
-                    O documento segue sem confirmação de entrega após 15 minutos. Fale com o
-                    responsável por outro canal e anexe aqui o arquivo recebido.
-                  </p>
-                }
-                @if (!exit.whatsappAvailable && exit.capabilities.canAttachAuthorization) {
-                  <p class="op-warning">
-                    O WhatsApp está indisponível. Fale com o responsável por outro canal e anexe
-                    aqui o arquivo recebido.
-                  </p>
-                }
-                @if (exit.whatsappAvailable) {
-                  <a
-                    class="op-inline-link"
-                    routerLink="/conversas"
-                    [queryParams]="{ q: exit.guardianName }"
-                    >Abrir conversa com o responsável
-                    <span class="material-symbols-outlined" aria-hidden="true">forum</span></a
-                  >
-                }
-                @if (!exit.authorizationFiles.length) {
-                  <p class="op-help">Nenhum arquivo ligado a este pedido.</p>
-                }
-                <ul class="long-files">
-                  @for (file of exit.authorizationFiles; track file.id) {
-                    <li>
-                      <strong>{{ fileStates[file.state] }}</strong>
-                      <p>
-                        {{ mediaLabel(file.mediaType) }} ·
-                        {{
-                          file.documentVersionId === exit.currentDocument?.documentVersionId
-                            ? 'Documento atual'
-                            : 'Documento anterior'
-                        }}
-                      </p>
-                      <p>Recebido em {{ formatTime(file.receivedAt) }}</p>
-                      <p>{{ originLabel(file) }}</p>
-                      @if (file.senderDivergent) {
-                        <p class="op-warning">
-                          O telefone de origem é diferente do cadastrado para o responsável. A
-                          confirmação exige justificativa.
-                        </p>
-                      }
-                      @if (file.decidedAt) {
-                        <p>
-                          {{ file.state === 'ACCEPTED' ? 'Conferido' : 'Recusado' }} em
-                          {{ formatTime(file.decidedAt) }}
-                          @if (file.decidedByName) {
-                            por {{ file.decidedByName }}
-                          }
-                        </p>
-                      }
-                      @if (file.decisionReason) {
-                        <p>{{ file.decisionReason }}</p>
-                      }
-                      @if (file.mediaType.startsWith('image/')) {
-                        @if (brokenPreviews().has(file.id)) {
-                          <p class="op-help">
-                            Este navegador não mostra a imagem. Baixe o arquivo para conferir.
-                          </p>
-                        } @else {
-                          <img
-                            class="long-file-preview"
-                            [src]="fileUrl(exit, file)"
-                            [alt]="'Imagem recebida em ' + formatTime(file.receivedAt)"
-                            (error)="previewFailed(file.id)"
-                          />
-                        }
-                      }
-                      <div class="op-actions long-document-actions">
-                        <button
-                          class="btn op-secondary"
-                          type="button"
-                          [attr.aria-label]="
-                            'Baixar arquivo recebido em ' + formatTime(file.receivedAt)
-                          "
-                          [disabled]="downloading()"
-                          (click)="downloadFile(file)"
-                        >
-                          <span class="material-symbols-outlined" aria-hidden="true">download</span>
-                          Baixar arquivo
-                        </button>
-                        @if (canDecideFile(exit, file)) {
-                          <button
-                            class="btn op-primary"
-                            type="button"
-                            [attr.aria-label]="
-                              'Confirmar conferência do arquivo recebido em ' +
-                              formatTime(file.receivedAt)
-                            "
-                            [disabled]="busy() || conflict()"
-                            (click)="confirmFile(file)"
-                          >
-                            Confirmar conferência</button
-                          ><button
-                            class="btn op-secondary"
-                            type="button"
-                            [attr.aria-label]="
-                              'Recusar arquivo recebido em ' + formatTime(file.receivedAt)
-                            "
-                            [disabled]="busy() || conflict()"
-                            (click)="refuseFile(file)"
-                          >
-                            Recusar arquivo
-                          </button>
-                        }
-                      </div>
-                    </li>
-                  }
-                </ul>
-                @if (exit.capabilities.canAttachAuthorization) {
-                  @if (unlinkedError()) {
-                    <p class="op-warning">{{ unlinkedError() }}</p>
-                  }
-                  @if (unlinked().length) {
-                    <h3>Arquivos sem vínculo</h3>
-                    <p class="op-help">
-                      Recebidos desde a criação do pedido, de qualquer número. Vincular não
-                      autoriza: o arquivo ainda passa pela conferência.
-                    </p>
-                    <ul class="long-files">
-                      @for (received of unlinked(); track received.messageId) {
-                        <li>
-                          <strong>{{
-                            received.fromGuardian ? 'Telefone do responsável' : 'Outro número'
-                          }}</strong>
-                          <p>
-                            {{ mediaLabel(received.mediaType) }} ·
-                            {{ received.senderPhone ?? 'Número não identificado' }}
-                          </p>
-                          <p>Recebido em {{ formatTime(received.receivedAt) }}</p>
-                          @if (received.mediaState === 'FAILED') {
-                            <p class="op-warning">
-                              O arquivo não pôde ser guardado e não pode ser vinculado.
-                            </p>
-                          } @else {
-                            <div class="op-actions long-document-actions">
-                              <button
-                                class="btn op-secondary"
-                                type="button"
-                                [attr.aria-label]="
-                                  'Vincular a este pedido o arquivo recebido em ' +
-                                  formatTime(received.receivedAt)
-                                "
-                                [disabled]="busy() || conflict()"
-                                (click)="linkFile(received)"
-                              >
-                                Vincular a este pedido
-                              </button>
-                            </div>
-                          }
-                        </li>
-                      }
-                    </ul>
-                  }
-                  <label class="field"
-                    >Anexar arquivo recebido por outro meio<input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
-                      aria-describedby="long-exit-attach-hint"
-                      [disabled]="busy() || conflict()"
-                      (change)="attach($event)"
-                  /></label>
-                  <p class="op-help" id="long-exit-attach-hint">
-                    Foto ou PDF, até 10 MB. O arquivo aguarda conferência como os recebidos pelo
-                    WhatsApp.
-                  </p>
-                }
-                @if (error()) {
-                  <p class="op-error">{{ error() }}</p>
-                }
-              </section>
             }
-            <section class="panel op-panel" aria-labelledby="long-exit-authorization">
-              <h2 id="long-exit-authorization">Autorização do responsável</h2>
-              <dl class="op-definition">
-                <div>
-                  <dt>Situação</dt>
-                  <dd>{{ signatures[exit.signatureStatus] }}</dd>
-                </div>
-                @if (exit.signedAt) {
-                  <div>
-                    <dt>Arquivo recebido em</dt>
-                    <dd>{{ formatTime(exit.signedAt) }}</dd>
-                  </div>
-                }
-                @if (conference(exit); as binding) {
-                  <div>
-                    <dt>Conferida em</dt>
-                    <dd>{{ formatTime(binding.verifiedAt) }}</dd>
-                  </div>
-                  @if (session.hasRole('supervisor')) {
-                    <div>
-                      <dt>Conferida por</dt>
-                      <dd>{{ binding.verifiedByName ?? 'Supervisor' }}</dd>
-                    </div>
-                  }
-                }
-              </dl>
-              @if (exit.signatureStatus === 'VALID') {
-                <p class="op-help">
-                  Autorização conferida por servidor no documento atual. A conferência registra o
-                  arquivo recebido e não é assinatura eletrônica. Confira o pedido antes de decidir.
-                </p>
-              } @else if (
-                exit.signatureStatus === 'UNCERTAIN' || exit.messageStatus === 'UNCERTAIN'
-              ) {
-                <p class="op-warning">
-                  O resultado do envio ainda está sem confirmação. A equipe precisa verificar antes
-                  de um novo envio.
-                </p>
-              } @else {
-                <p class="op-help">
-                  Documento enviado, entregue ou lido não autoriza a saída. A aprovação fica
-                  disponível depois que um supervisor conferir o arquivo do documento atual.
-                </p>
-              }
-              @if (exit.currentDocument; as revision) {
-                <dl class="op-definition">
-                  <div>
-                    <dt>Arquivo conferido</dt>
-                    <dd>
-                      {{
-                        revision.signedState === 'MISSING'
-                          ? 'Ainda não conferido'
-                          : documents[revision.signedState] || 'Ainda não disponível'
-                      }}
-                    </dd>
-                  </div>
-                </dl>
-                <div class="op-actions long-document-actions">
-                  <button
-                    class="btn op-secondary"
-                    type="button"
-                    [disabled]="!exit.capabilities.canDownloadSigned || downloading()"
-                    (click)="download('assinado')"
-                  >
-                    <span class="material-symbols-outlined" aria-hidden="true">download</span>
-                    Baixar autorização conferida
-                  </button>
-                </div>
-              }
-              @if (documentError()) {
-                <p class="op-error" role="alert">{{ documentError() }}</p>
-              }
-              @if (downloading()) {
-                <p role="status">Carregando documento…</p>
-              }
-            </section>
-            <section class="panel op-panel op-exit-actions" aria-labelledby="long-exit-actions">
-              <h2 id="long-exit-actions">
-                {{
-                  session.hasRole('supervisor') ? 'Ações do supervisor' : 'O que você pode fazer'
-                }}
-              </h2>
-              @if (session.hasRole('residente') && exit.capabilities.canEdit && !adult()) {
-                <a
-                  class="btn op-primary"
-                  [routerLink]="busy() || conflict() ? null : ['/saidas/longas', exit.id, 'editar']"
-                  [attr.aria-disabled]="busy() || conflict()"
-                  >Mudar pedido</a
-                >
-                <p class="op-help">
-                  Se você mudar o pedido, seu responsável precisa autorizar de novo.
-                </p>
-              }
-              @if (session.hasRole('supervisor') && exit.status === 'AGUARDANDO_ANALISE') {
-                <div class="op-actions">
-                  <button
-                    class="btn op-primary"
-                    type="button"
-                    [disabled]="busy() || conflict() || !exit.capabilities.canApprove"
-                    (click)="decide('APPROVE')"
-                  >
-                    Aprovar saída longa</button
-                  ><button
-                    class="btn op-secondary"
-                    type="button"
-                    [disabled]="busy() || conflict() || !exit.capabilities.canReject"
-                    (click)="decide('REJECT')"
-                  >
-                    Rejeitar pedido
-                  </button>
-                </div>
-                @if (!exit.capabilities.canApprove) {
-                  <p class="op-help">
-                    Para aprovar, a autorização precisa estar conferida e os documentos precisam
-                    estar disponíveis. Você pode rejeitar antes da conferência.
-                  </p>
-                }
-              }
-              @if (session.hasRole('supervisor') && exit.capabilities.canDepart) {
-                <p>Veja o residente pessoalmente antes de liberar a saída.</p>
-                <button
-                  class="btn op-primary"
-                  type="button"
-                  [disabled]="busy() || conflict()"
-                  (click)="physical('partida')"
-                >
-                  Registrar saída
-                </button>
-              }
-              @if (session.hasRole('supervisor') && exit.capabilities.canReturn) {
-                <p>Veja o residente pessoalmente antes de confirmar a volta.</p>
-                <button
-                  class="btn op-primary"
-                  type="button"
-                  [disabled]="busy() || conflict()"
-                  (click)="physical('retorno')"
-                >
-                  Registrar volta
-                </button>
-              }
-              @if (
-                session.hasRole('supervisor') &&
-                exit.status === 'AGUARDANDO_ANALISE' &&
-                exit.signatureStatus !== 'VALID'
-              ) {
-                <div class="op-actions">
-                  <button
-                    class="btn op-secondary"
-                    type="button"
-                    [disabled]="busy() || conflict() || !exit.capabilities.canResend"
-                    (click)="resend()"
-                  >
-                    Reenviar documento ao responsável
-                  </button>
-                </div>
-                <p class="op-help">
-                  Você ainda pode reenviar
-                  {{ exit.remainingResends === 1 ? '1 vez' : exit.remainingResends + ' vezes' }} em
-                  24 horas.
-                  @if (exit.resendAvailableAt) {
-                    Próximo reenvio possível:
-                    {{ formatTime(exit.resendAvailableAt) }}.
-                  }
-                  @if (hasWaitingFile(exit)) {
-                    Antes de reenviar, confira ou recuse o arquivo recebido.
-                  }
-                </p>
-              }
-              @if (
-                session.hasRole('supervisor', 'residente') &&
-                exit.capabilities.canCancel &&
-                !adult()
-              ) {
-                <div class="op-actions">
-                  <button
-                    class="btn op-secondary"
-                    type="button"
-                    [disabled]="busy() || conflict()"
-                    (click)="cancel()"
-                  >
-                    Cancelar pedido
-                  </button>
-                </div>
-              }
-              @if (session.hasRole('residente')) {
-                <p class="op-help">O supervisor analisa o pedido e registra a saída e a volta.</p>
-              }
-              @if (busy()) {
-                <p role="status">Processando registro…</p>
-              }
-              @if (error()) {
-                <p class="op-error" role="alert">{{ error() }}</p>
-              }
-              @if (success()) {
-                <p class="op-success" role="status">{{ success() }}</p>
-              }
+            @if (exit.capabilities.canCancel) {
               <div class="op-actions">
-                <button class="btn op-secondary" type="button" [disabled]="busy()" (click)="load()">
-                  {{ conflict() ? 'Recarregar dados' : 'Atualizar dados' }}
+                <button
+                  class="btn op-secondary"
+                  type="button"
+                  [disabled]="locked()"
+                  (click)="cancel()"
+                >
+                  Cancelar pedido
                 </button>
               </div>
-            </section>
-          </div>
-        </div>
+            }
+          }
+        </details>
       }
     </main>
+
+    <ng-template #feedback>
+      @if (busy()) {
+        <p role="status">Processando registro…</p>
+      }
+      @if (downloading()) {
+        <p role="status">Carregando documento…</p>
+      }
+      @if (documentError()) {
+        <p class="op-error" role="alert">{{ documentError() }}</p>
+      }
+      @if (error()) {
+        <p class="op-error" role="alert">{{ error() }}</p>
+      }
+      @if (success()) {
+        <p class="op-success" role="status">{{ success() }}</p>
+      }
+      @if (conflict()) {
+        <button class="btn op-secondary" type="button" [disabled]="busy()" (click)="load()">
+          Recarregar dados
+        </button>
+      }
+    </ng-template>
+
+    <ng-template #documentPanels>
+      @if (item(); as exit) {
+        <section class="panel op-panel" aria-labelledby="long-exit-document">
+          <h2 id="long-exit-document">Documento enviado</h2>
+          <dl class="op-definition">
+            <div>
+              <dt>Situação do envio</dt>
+              <dd>
+                <span class="status" [attr.data-tone]="tone(messages[exit.messageStatus])">{{
+                  messages[exit.messageStatus]
+                }}</span>
+              </dd>
+            </div>
+          </dl>
+          @if (exit.currentDocument; as revision) {
+            <h3>Documento atual</h3>
+            <dl class="op-definition">
+              <div>
+                <dt>Código impresso no PDF</dt>
+                <dd>{{ shortCode(revision.documentVersionId) }}</dd>
+              </div>
+              <div>
+                <dt>Original</dt>
+                <dd>{{ documents[revision.originalState] || 'Indisponível' }}</dd>
+              </div>
+            </dl>
+            <div class="op-actions long-document-actions">
+              <button
+                class="btn op-secondary"
+                type="button"
+                [disabled]="!exit.capabilities.canDownloadOriginal || downloading()"
+                (click)="download('original')"
+              >
+                <span class="material-symbols-outlined" aria-hidden="true">picture_as_pdf</span>
+                Baixar PDF original
+              </button>
+            </div>
+          } @else {
+            <p class="op-help">O documento ainda não está disponível.</p>
+          }
+          @if (exit.bindings.length) {
+            <details class="long-bindings">
+              <summary>Histórico dos envios ({{ exit.bindings.length }})</summary>
+              <ol>
+                @for (binding of exit.bindings; track binding.id) {
+                  <li>
+                    <strong>{{ binding.guardianName }}</strong>
+                    <p>{{ signatures[binding.status] }} · {{ messages[binding.messageStatus] }}</p>
+                    <p>
+                      {{
+                        binding.documentVersionId === exit.currentDocument?.documentVersionId
+                          ? 'Documento atual'
+                          : 'Documento anterior'
+                      }}
+                      · Criado em {{ formatTime(binding.createdAt) }}
+                    </p>
+                    @if (binding.revokedAt) {
+                      <p>Revogado em {{ formatTime(binding.revokedAt) }}</p>
+                    } @else {
+                      <p>Prazo: {{ formatTime(binding.expiresAt) }}</p>
+                    }
+                  </li>
+                }
+              </ol>
+            </details>
+          }
+        </section>
+        <section class="panel op-panel" aria-labelledby="long-exit-authorization">
+          <h2 id="long-exit-authorization">Situação da autorização</h2>
+          <dl class="op-definition">
+            <div>
+              <dt>Situação</dt>
+              <dd>
+                <span class="status" [attr.data-tone]="tone(signatures[exit.signatureStatus])">{{
+                  signatures[exit.signatureStatus]
+                }}</span>
+              </dd>
+            </div>
+            @if (exit.signedAt) {
+              <div>
+                <dt>Arquivo recebido em</dt>
+                <dd>{{ formatTime(exit.signedAt) }}</dd>
+              </div>
+            }
+            @if (conference(exit); as binding) {
+              <div>
+                <dt>Conferida em</dt>
+                <dd>{{ formatTime(binding.verifiedAt) }}</dd>
+              </div>
+              @if (session.hasRole('supervisor')) {
+                <div>
+                  <dt>Conferida por</dt>
+                  <dd>{{ binding.verifiedByName ?? 'Supervisor' }}</dd>
+                </div>
+              }
+            }
+          </dl>
+          @if (exit.signatureStatus === 'VALID') {
+            <p class="op-help">
+              A conferência registra o arquivo recebido e não é assinatura eletrônica.
+            </p>
+          } @else if (exit.signatureStatus === 'UNCERTAIN' || exit.messageStatus === 'UNCERTAIN') {
+            <p class="op-warning">O envio ainda está sem confirmação. A equipe vai verificar.</p>
+          } @else {
+            <p class="op-help">
+              Documento enviado ou lido não autoriza a saída: falta conferir o arquivo do
+              responsável.
+            </p>
+          }
+          @if (exit.currentDocument; as revision) {
+            <dl class="op-definition">
+              <div>
+                <dt>Arquivo conferido</dt>
+                <dd>
+                  {{
+                    revision.signedState === 'MISSING'
+                      ? 'Ainda não conferido'
+                      : documents[revision.signedState] || 'Ainda não disponível'
+                  }}
+                </dd>
+              </div>
+            </dl>
+            <div class="op-actions long-document-actions">
+              <button
+                class="btn op-secondary"
+                type="button"
+                [disabled]="!exit.capabilities.canDownloadSigned || downloading()"
+                (click)="download('assinado')"
+              >
+                <span class="material-symbols-outlined" aria-hidden="true">download</span>
+                Baixar autorização conferida
+              </button>
+            </div>
+          }
+        </section>
+      }
+    </ng-template>
+
+    <ng-template #fileItem let-file>
+      @if (item(); as exit) {
+        <li>
+          <span class="status" [attr.data-tone]="tone(fileState(file))">{{ fileState(file) }}</span>
+          <p>
+            {{ mediaLabel(file.mediaType) }} ·
+            {{
+              file.documentVersionId === exit.currentDocument?.documentVersionId
+                ? 'Documento atual'
+                : 'Documento anterior'
+            }}
+          </p>
+          <p>Recebido em {{ formatTime(file.receivedAt) }}</p>
+          <p>{{ originLabel(file) }}</p>
+          @if (file.senderDivergent) {
+            <p class="op-warning">
+              O telefone de origem é diferente do cadastrado para o responsável. A confirmação exige
+              justificativa.
+            </p>
+          }
+          @if (file.decidedAt) {
+            <p>
+              {{ file.state === 'ACCEPTED' ? 'Conferido' : 'Recusado' }} em
+              {{ formatTime(file.decidedAt) }}
+              @if (file.decidedByName) {
+                por {{ file.decidedByName }}
+              }
+            </p>
+          }
+          @if (file.decisionReason) {
+            <p>{{ file.decisionReason }}</p>
+          }
+          @if (file.mediaType.startsWith('image/')) {
+            @if (brokenPreviews().has(file.id)) {
+              <p class="op-help">
+                Este navegador não mostra a imagem. Baixe o arquivo para conferir.
+              </p>
+            } @else {
+              <img
+                class="long-file-preview"
+                [src]="fileUrl(exit, file)"
+                [alt]="'Imagem recebida em ' + formatTime(file.receivedAt)"
+                (error)="previewFailed(file.id)"
+              />
+            }
+          }
+          <div class="op-actions long-document-actions">
+            <button
+              class="btn op-secondary"
+              type="button"
+              [attr.aria-label]="'Baixar arquivo recebido em ' + formatTime(file.receivedAt)"
+              [disabled]="downloading()"
+              (click)="downloadFile(file)"
+            >
+              <span class="material-symbols-outlined" aria-hidden="true">download</span>
+              Baixar arquivo
+            </button>
+            @if (canDecideFile(exit, file)) {
+              <button
+                class="btn op-primary"
+                type="button"
+                [attr.aria-label]="
+                  'Confirmar conferência do arquivo recebido em ' + formatTime(file.receivedAt)
+                "
+                [disabled]="locked()"
+                (click)="confirmFile(file)"
+              >
+                Confirmar conferência</button
+              ><button
+                class="btn-danger"
+                type="button"
+                [attr.aria-label]="'Recusar arquivo recebido em ' + formatTime(file.receivedAt)"
+                [disabled]="locked()"
+                (click)="refuseFile(file)"
+              >
+                Recusar arquivo
+              </button>
+            }
+          </div>
+        </li>
+      }
+    </ng-template>
   `,
   styles: [
     `
@@ -695,14 +778,16 @@ const exitError = (error: unknown): string =>
         font-weight: 400;
         margin-top: 5px;
       }
+      .op-exit-actions .long-document-actions,
       .long-document-actions {
+        display: flex;
         align-items: stretch;
         flex-direction: column;
       }
       .long-bindings {
         margin-top: 20px;
       }
-      summary {
+      .long-bindings summary {
         min-height: 44px;
         display: flex;
         align-items: center;
@@ -752,6 +837,7 @@ export class LongExitDetailComponent {
   readonly adult = computed(() => this.auth.principal()?.maiorDeIdade === true);
   private readonly api = inject(LongExitApiService);
   private readonly dialog = inject(MatDialog);
+  private readonly injector = inject(Injector);
   private readonly route = inject(ActivatedRoute);
   private readonly id = this.route.snapshot.paramMap.get('id') ?? '';
   readonly item = signal<LongExit | null>(null);
@@ -763,14 +849,40 @@ export class LongExitDetailComponent {
   readonly error = signal('');
   readonly success = signal('');
   readonly conflict = signal(false);
+  readonly locked = computed(() => this.busy() || this.conflict());
   readonly unlinked = signal<ReceivedFile[]>([]);
   readonly unlinkedError = signal('');
   readonly brokenPreviews = signal<ReadonlySet<string>>(new Set());
   readonly saved = signal(this.route.snapshot.queryParamMap.get('saved') === '1');
   readonly labels = longExitStatusLabels;
+  readonly tone = toneAttr;
   readonly signatures = signatureStatusLabels;
   readonly messages = messageStatusLabels;
   readonly documents = documentStateLabels;
+  /** Só o próximo passo, pela situação do pedido (simple-screens, design D11). */
+  readonly step = computed<LongExitStep | null>(() => {
+    const exit = this.item();
+    if (exit?.status === 'AGUARDANDO_ANALISE')
+      return exit.signatureStatus === 'VALID' ? 'Decisão' : 'Autorização do responsável';
+    if (exit?.status === 'APROVADA') return 'Saída';
+    return exit?.status === 'EM_ANDAMENTO' ? 'Volta' : null;
+  });
+  readonly steps = computed<LongExitStep[]>(() => [
+    'Autorização do responsável',
+    'Decisão',
+    ...(this.item()?.departureMode === 'SCHEDULED' || this.item()?.status === 'APROVADA'
+      ? (['Saída'] as const)
+      : []),
+    'Volta',
+  ]);
+  readonly candidates = computed(() => {
+    const exit = this.item();
+    return exit ? exit.authorizationFiles.filter((file) => this.canDecideFile(exit, file)) : [];
+  });
+  readonly otherFiles = computed(() => {
+    const exit = this.item();
+    return exit ? exit.authorizationFiles.filter((file) => !this.canDecideFile(exit, file)) : [];
+  });
   readonly events = {
     ...exitEventLabels,
     EDIT: 'Pedido alterado',
@@ -789,36 +901,58 @@ export class LongExitDetailComponent {
     ACCEPTED: 'Autorização conferida por servidor',
     REFUSED: 'Arquivo recusado',
   };
+  readonly legendNames = [
+    ...new Set([
+      ...Object.values(longExitStatusLabels),
+      ...Object.values(signatureStatusLabels),
+      ...Object.values(messageStatusLabels),
+      ...Object.values(this.fileStates),
+    ]),
+  ];
   readonly formatTime = formatOperationsTime;
   readonly shortCode = documentShortCode;
+  fileState(file: AuthorizationFile): string {
+    return this.fileStates[file.state];
+  }
+  private sequence = 0;
+  readonly refresh = autoRefresh(() => this.load(true), {
+    busy: () => this.busy() || this.conflict() || this.loading(),
+  });
   constructor() {
     if (!this.session.active()) void this.load();
   }
-  async load(): Promise<void> {
-    if (this.session.active() || this.busy()) return;
-    this.loading.set(true);
-    this.loadError.set('');
-    this.error.set('');
-    this.success.set('');
-    this.documentError.set('');
-    this.conflict.set(false);
-    this.item.set(null);
+  /** `silent`: atualização automática; mantém mensagens e conflito e lança a falha. */
+  async load(silent = false): Promise<void> {
+    if (this.session.active() || (!silent && this.busy())) return;
+    const sequence = ++this.sequence;
+    if (!silent) {
+      this.loading.set(true);
+      this.loadError.set('');
+      this.error.set('');
+      this.success.set('');
+      this.documentError.set('');
+      this.conflict.set(false);
+      this.item.set(null);
+    }
     try {
       const exit = await this.api.get(this.id);
+      if (sequence !== this.sequence) return;
       this.item.set(exit);
+      this.loadError.set('');
       void this.loadUnlinked(exit);
     } catch (error) {
+      if (sequence !== this.sequence) return;
+      if (silent) throw error;
       this.loadError.set(operationsError(error));
     } finally {
-      this.loading.set(false);
+      if (sequence === this.sequence) this.loading.set(false);
     }
   }
   private async loadUnlinked(exit: LongExit): Promise<void> {
-    this.unlinkedError.set('');
-    this.unlinked.set([]);
-    if (!exit.capabilities.canAttachAuthorization) return;
+    if (!exit.capabilities.canAttachAuthorization) return this.unlinked.set([]);
     try {
       this.unlinked.set(await this.api.unlinkedFiles(exit.id));
+      this.unlinkedError.set('');
     } catch (error) {
       this.unlinkedError.set(operationsError(error));
     }
@@ -835,13 +969,6 @@ export class LongExitDetailComponent {
         !binding.revokedAt && binding.documentVersionId === exit.currentDocument?.documentVersionId,
     )?.failureCode;
     return code ? sendFailureText(code, exit.messageStatus) : '';
-  }
-  hasWaitingFile(exit: LongExit): boolean {
-    return exit.authorizationFiles.some(
-      (file) =>
-        file.state === 'CANDIDATE' &&
-        file.documentVersionId === exit.currentDocument?.documentVersionId,
-    );
   }
   canDecideFile(exit: LongExit, file: AuthorizationFile): boolean {
     return (
@@ -900,10 +1027,9 @@ export class LongExitDetailComponent {
     if (!exit || !this.canDecideFile(exit, file) || this.busy() || this.conflict()) return;
     this.review(
       {
-        title: 'Recusar arquivo recebido',
+        title: 'O arquivo será recusado e o pedido continua aguardando autorização.',
         action: 'Confirmar recusa',
-        warning:
-          'O arquivo fica guardado como recusado e o pedido continua aguardando autorização.',
+        danger: true,
         lines: [
           { label: 'Arquivo', value: this.mediaLabel(file.mediaType) },
           { label: 'Origem', value: this.originLabel(file) },
@@ -977,21 +1103,26 @@ export class LongExitDetailComponent {
       this.conflict()
     )
       return;
+    const approve = decision === 'APPROVE';
     this.review(
       {
-        title:
-          decision === 'APPROVE'
-            ? 'Revisar aprovação da saída longa'
-            : 'Revisar rejeição da saída longa',
-        action: decision === 'APPROVE' ? 'Confirmar aprovação' : 'Confirmar rejeição',
+        title: approve
+          ? leavesNow(exit)
+            ? 'A saída longa será aprovada e registrada agora.'
+            : 'A saída longa será aprovada.'
+          : 'O pedido será rejeitado.',
+        action: approve
+          ? leavesNow(exit)
+            ? 'Aprovar e registrar a saída agora'
+            : 'Confirmar aprovação'
+          : 'Confirmar rejeição',
         lines: this.summary(exit),
-        requireReason: decision === 'REJECT',
-        comment: decision === 'APPROVE',
+        requireReason: !approve,
+        comment: approve,
+        danger: !approve,
       },
       (result) => this.api.decide(exit, decision, result.reason),
-      decision === 'APPROVE'
-        ? 'Pedido aprovado. O supervisor vai registrar a saída.'
-        : 'Rejeição registrada.',
+      approve ? approvalMessage : 'Rejeição registrada.',
     );
   }
   cancel(): void {
@@ -1006,11 +1137,11 @@ export class LongExitDetailComponent {
       return;
     this.review(
       {
-        title: 'Revisar cancelamento da saída longa',
-        action: 'Confirmar cancelamento',
-        warning: 'Se cancelar, as autorizações que ainda faltam deixam de valer.',
+        title: 'O pedido será cancelado e a autorização deixa de valer.',
+        action: 'Cancelar pedido',
         lines: this.summary(exit),
         requireReason: true,
+        danger: true,
       },
       (result) => this.api.cancel(exit, result.reason),
       'Pedido cancelado.',
@@ -1028,10 +1159,9 @@ export class LongExitDetailComponent {
       return;
     this.review(
       {
-        title: 'Revisar reenvio do documento',
+        title: 'O documento será enviado de novo ao responsável.',
         action: 'Confirmar reenvio',
-        warning:
-          'O novo envio substitui o anterior para este responsável. Informe a providência tomada antes do reenvio.',
+        warning: 'O novo envio substitui o anterior. Escreva a providência tomada.',
         lines: [
           ...this.summary(exit),
           { label: 'Reenvios restantes', value: String(exit.remainingResends) },
@@ -1067,9 +1197,12 @@ export class LongExitDetailComponent {
       }
       this.review(
         {
-          title: action === 'partida' ? 'Conferir saída' : 'Conferir volta',
+          title: action === 'partida' ? 'A saída será registrada.' : 'A volta será registrada.',
           action: action === 'partida' ? 'Confirmar saída' : 'Confirmar volta',
-          warning: 'Confirme a identidade do residente e confira os horários antes de registrar.',
+          warning:
+            action === 'partida'
+              ? 'Veja o residente pessoalmente antes de liberar a saída.'
+              : 'Veja o residente pessoalmente antes de confirmar a volta.',
           lines: this.summary(exit),
           physical: {
             action,
@@ -1131,7 +1264,7 @@ export class LongExitDetailComponent {
   private review(
     data: LocalReviewData,
     action: (result: LocalReviewResult) => Promise<LongExit>,
-    message: string,
+    message: string | ((exit: LongExit) => string),
   ): void {
     this.dialog
       .open<LocalOperationsReviewDialogComponent, LocalReviewData, LocalReviewResult>(
@@ -1149,20 +1282,36 @@ export class LongExitDetailComponent {
         if (result) void this.mutate(() => action(result), message);
       });
   }
-  private async mutate(action: () => Promise<LongExit>, message: string): Promise<void> {
+  private async mutate(
+    action: () => Promise<LongExit>,
+    message: string | ((exit: LongExit) => string),
+  ): Promise<void> {
     if (this.busy() || this.conflict()) return;
     this.busy.set(true);
+    this.sequence++; // Descarta a atualização automática que saiu antes da gravação.
     this.error.set('');
     this.success.set('');
     this.saved.set(false);
+    const step = this.step();
     try {
       const exit = await action();
       this.item.set(exit);
-      this.success.set(message);
-      void this.loadUnlinked(exit);
+      this.success.set(typeof message === 'string' ? message : message(exit));
+      // Espera a lista sem vínculo: "Vincular a este pedido" só some quando ela volta.
+      await this.loadUnlinked(exit);
+      // O botão clicado sumiu (com o passo, o arquivo recusado ou o vinculado): o foco vai ao
+      // título do passo, e não fica perdido no topo da página.
+      afterNextRender(
+        () => {
+          const active = document.activeElement;
+          if (this.step() !== step || !active?.isConnected || active === document.body)
+            document.getElementById('exit-step')?.focus();
+        },
+        { injector: this.injector },
+      );
     } catch (error) {
       this.error.set(exitError(error));
-      if (error instanceof OperationsApiError && error.status === 409) this.conflict.set(true);
+      if (freezesActions(error)) this.conflict.set(true);
     } finally {
       this.busy.set(false);
     }

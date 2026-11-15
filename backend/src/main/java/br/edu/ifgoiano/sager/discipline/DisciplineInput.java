@@ -48,8 +48,8 @@ public final class DisciplineInput {
     public static LocalDate date(JsonNode body,String field) {
         try { return LocalDate.parse(text(body,field,10,10)); } catch (java.time.DateTimeException error) { throw invalid(field + " inválida."); }
     }
-    public static List<UUID> ids(JsonNode body,String field,int minimum) {
-        object(body); var values=body.get(field); if (values==null || !values.isArray() || values.size()<minimum || values.size()>100) throw invalid(field + " deve conter " + minimum + " a 100 UUIDs.");
+    public static List<UUID> ids(JsonNode body,String field,int minimum,int maximum) {
+        object(body); var values=body.get(field); if (values==null || !values.isArray() || values.size()<minimum || values.size()>maximum) throw invalid(field + " deve conter " + minimum + " a " + maximum + " UUIDs.");
         List<UUID> ids=new ArrayList<>(); for(var value:values) {
             var holder=tools.jackson.databind.node.JsonNodeFactory.instance.objectNode(); holder.set("id",value); ids.add(uuid(holder,"id"));
         }

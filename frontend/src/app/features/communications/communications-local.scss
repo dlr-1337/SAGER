@@ -112,6 +112,15 @@ mat-dialog-actions {
     grid-template-columns: 1fr;
   }
 }
+.comm-count {
+  margin: 16px 0 0;
+  font-weight: 700;
+}
+@media (max-width: 600px) {
+  .op-heading > .status {
+    margin-top: 16px;
+  }
+}
 @media (max-width: 540px) {
   .comm-links > .btn,
   .comm-links > .btn-secondary {

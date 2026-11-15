@@ -1,4 +1,5 @@
 import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
+import { AutoRefreshStatusComponent } from '../../shared/auto-refresh-status.component';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -214,15 +215,18 @@ type FilterKey = 'accommodationId' | 'unitId' | 'roomId' | 'residentId' | 'statu
     RouterLink,
     ReactiveFormsModule,
     CommunicationsStateComponent,
+    AutoRefreshStatusComponent,
     ReportCardComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `<main class="page op-page comm-page">
     <header class="op-heading">
       <div>
-        <a class="op-back" routerLink="/inicio">← Início</a>
+        <a class="op-back" routerLink="/inicio"
+          ><span class="back-arrow" aria-hidden="true">←</span>Início</a
+        >
         <h1>Relatórios</h1>
-        <p>Escolha o que quer ver e o período. Depois, clique em “Gerar relatório”.</p>
+        <p>Escolha o relatório e o período e clique em “Gerar relatório”.</p>
       </div>
     </header>
     <sager-communications-state
@@ -231,6 +235,7 @@ type FilterKey = 'accommodationId' | 'unitId' | 'roomId' | 'residentId' | 'statu
       [error]="error()"
       (retry)="retry()"
     />
+    <sager-auto-refresh-status [refresh]="list.auto" />
     @if (allowed() && !loading() && !error() && catalog(); as rules) {
       <section class="panel op-panel" aria-label="Gerar relatório">
         <form [formGroup]="form" (ngSubmit)="generate()" novalidate>
@@ -622,6 +627,7 @@ export class ReportsLocalPage implements OnDestroy {
   imports: [
     RouterLink,
     CommunicationsStateComponent,
+    AutoRefreshStatusComponent,
     MonthlyIndicatorsComponent,
     ReportCardComponent,
     PaginationComponent,
@@ -630,7 +636,9 @@ export class ReportsLocalPage implements OnDestroy {
   template: `<main class="page op-page comm-page">
     <header class="op-heading">
       <div>
-        <a class="op-back" routerLink="/relatorios">← Relatórios</a>
+        <a class="op-back" routerLink="/relatorios"
+          ><span class="back-arrow" aria-hidden="true">←</span>Relatórios</a
+        >
         <h1>{{ snapshot() ? labels[snapshot()!.catalogCode] : 'Relatório' }}</h1>
         @if (snapshot(); as result) {
           <p>{{ civil(result.filters.from) }} a {{ civil(result.filters.to) }}</p>
@@ -644,6 +652,7 @@ export class ReportsLocalPage implements OnDestroy {
       [error]="error()"
       (retry)="load()"
     />
+    <sager-auto-refresh-status [refresh]="list.auto" />
     @if (allowed() && !loading() && !error() && snapshot(); as result) {
       <section class="op-section">
         <h2>Baixar arquivos</h2>

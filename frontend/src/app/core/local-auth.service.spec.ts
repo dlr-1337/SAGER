@@ -112,6 +112,35 @@ describe('LocalAuthService', () => {
     }
   });
 
+  it('aceita o quarto ausente, nulo, com e sem casa e recusa outro formato', async () => {
+    const auth = TestBed.inject(LocalAuthService);
+    const resident = {
+      ...principal,
+      perfis: ['residente' as const],
+      residenteId: '00000000-0000-0000-0000-000000000002',
+    };
+    for (const value of [
+      resident,
+      { ...resident, quarto: null },
+      { ...resident, quarto: { alojamento: 'R2', casa: 'Casa 3', numero: '43' } },
+      { ...resident, quarto: { alojamento: 'R2', casa: null, numero: '43' } },
+    ]) {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(value))));
+      expect(await auth.refresh()).toEqual(value);
+    }
+    for (const quarto of [
+      { alojamento: 'R2', casa: null, numero: 43 },
+      { alojamento: 'R2', numero: '43' },
+      'R2 · Quarto 43',
+    ]) {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue(new Response(JSON.stringify({ ...resident, quarto }))),
+      );
+      expect(await auth.refresh()).toBeNull();
+    }
+  });
+
   it('trata como sessão ausente um principal com o perfil de saúde removido', async () => {
     vi.stubGlobal(
       'fetch',

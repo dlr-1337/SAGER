@@ -41,9 +41,11 @@ public class AuthController {
         // Lida a cada consulta: muda no aniversário e quando a secretaria corrige a data.
         boolean adult = account.residentId() != null && accounts.residentBirthDate(account.residentId())
                 .map(birth -> !FieldRules.minor(birth, clock.instant())).orElse(false);
+        LocalAccountRepository.CurrentRoom room = account.residentId() == null ? null
+                : accounts.currentRoom(account.residentId()).orElse(null);
         MeResponse response = new MeResponse(account.id(), account.name(), account.email(),
                 null, List.of(account.profile()), account.residentId(), account.supervisorId(), account.enrollment(),
-                adult);
+                adult, room);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(response);
     }
 
@@ -53,6 +55,7 @@ public class AuthController {
     }
 
     public record MeResponse(UUID id, String nome, String email, String fotoUrl, List<String> perfis,
-            UUID residenteId, UUID supervisorId, String matricula, boolean maiorDeIdade) {
+            UUID residenteId, UUID supervisorId, String matricula, boolean maiorDeIdade,
+            LocalAccountRepository.CurrentRoom quarto) {
     }
 }

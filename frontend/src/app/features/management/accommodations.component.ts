@@ -8,6 +8,8 @@ import { PaginationComponent } from '../../shared/pagination.component';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
+import { autoRefresh } from '../../core/auto-refresh';
+import { AutoRefreshStatusComponent } from '../../shared/auto-refresh-status.component';
 import { accommodationErrorMessage } from './accommodation-api.service';
 import { AccommodationDataService } from './accommodation-data.service';
 import { Accommodation } from './housing.models';
@@ -16,7 +18,7 @@ import { Accommodation } from './housing.models';
   selector: 'app-accommodations',
   styleUrl: './housing.scss',
   standalone: true,
-  imports: [RouterLink, ReactiveFormsModule, PaginationComponent],
+  imports: [RouterLink, ReactiveFormsModule, PaginationComponent, AutoRefreshStatusComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page mg-page">
@@ -36,6 +38,7 @@ import { Accommodation } from './housing.models';
           >
         }
       </header>
+      <sager-auto-refresh-status [refresh]="refresh" />
       <section class="panel mg-panel">
         <label class="field mg-field"
           >Buscar por nome ou código<input type="search" [formControl]="search" /></label
@@ -46,7 +49,7 @@ import { Accommodation } from './housing.models';
         <section class="mg-empty" role="status">
           <span class="material-symbols-rounded" aria-hidden="true">domain</span>
           <h2>Nenhum alojamento cadastrado</h2>
-          <p>O mapa começa vazio. Cadastre um alojamento antes de adicionar quartos.</p>
+          <p>Cadastre um alojamento antes de adicionar quartos.</p>
         </section>
       } @else {
         <section class="panel mg-panel" aria-labelledby="accommodation-list-title">
@@ -151,10 +154,15 @@ export class AccommodationsComponent {
     this.page.set(page);
     if (!this.isDemo()) void this.load();
   }
-  async load(): Promise<void> {
+  readonly refresh = autoRefresh(() => this.load(true));
+  /** `silent`: atualização automática, mesma página e busca, sem "Carregando"; a falha volta. */
+  async load(silent = false): Promise<void> {
+    if (silent && (this.loading() || this.error())) return;
     const generation = ++this.generation;
-    this.loading.set(true);
-    this.error.set('');
+    if (!silent) {
+      this.loading.set(true);
+      this.error.set('');
+    }
     try {
       if (this.isDemo()) {
         this.items.set(await this.data.list());
@@ -175,10 +183,11 @@ export class AccommodationsComponent {
       }
     } catch (error) {
       if (generation !== this.generation) return;
+      if (silent) throw error;
       this.items.set([]);
       this.error.set(accommodationErrorMessage(error));
     } finally {
-      if (generation === this.generation) this.loading.set(false);
+      if (!silent && generation === this.generation) this.loading.set(false);
     }
   }
 }

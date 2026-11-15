@@ -692,6 +692,13 @@ class ConversationApiIntegrationTest {
             assertThat(ok(get(c, "/api/v1/conversas/" + id + "/mensagens")).path("items").get(0)
                             .path("linkable").asBoolean())
                     .isFalse();
+            JsonNode linkedPhoto = message(c, id, photo);
+            assertThat(linkedPhoto.path("linkable").asBoolean()).isFalse();
+            assertThat(linkedPhoto.path("linkedExit").path("id").asString()).isEqualTo(exit.toString());
+            assertThat(linkedPhoto.path("linkedExit").path("residentName").asString())
+                    .isEqualTo(first.path("residentName").asString());
+            assertThat(linkedPhoto.path("linkedExit").path("fileState").asString()).isEqualTo("CANDIDATE");
+            assertThat(message(c, id, audio).path("linkedExit").isNull()).isTrue();
 
             UUID other = UUID.fromString(second.path("id").asString());
             error(
@@ -721,6 +728,76 @@ class ConversationApiIntegrationTest {
                             Map.of("exitId", other.toString(), "version", 0)),
                     404,
                     "not_found");
+        }
+    }
+
+    @Test
+    void filesOfTheOnlyOpenExitShowItAndTheirStateAndARefusedOneIsFreeAgain() throws Exception {
+        JsonNode exit;
+        try (HttpClient student = login("residente")) {
+            exit = created(post(student, "/api/v1/saidas-longas", plan(guardian)));
+        }
+        run();
+        clock.value = clock.value.plusSeconds(60);
+        UUID first = received("autorizacao-1.pdf", "", PDF, "application/pdf");
+        UUID second = received("autorizacao-2.pdf", "", PDF, "application/pdf");
+        String exitId = exit.path("id").asString();
+        try (HttpClient c = login("supervisor")) {
+            UUID id = conversation(c);
+            for (UUID file : List.of(first, second)) {
+                JsonNode item = message(c, id, file);
+                assertThat(item.path("linkable").asBoolean()).isFalse();
+                assertThat(item.path("linkedExit").path("id").asString()).isEqualTo(exitId);
+                assertThat(item.path("linkedExit").path("residentName").asString())
+                        .isEqualTo(exit.path("residentName").asString());
+                assertThat(item.path("linkedExit").path("fileState").asString()).isEqualTo("CANDIDATE");
+            }
+            String files = "/api/v1/saidas-longas/" + exitId + "/autorizacao/arquivos/";
+            long version = ok(get(c, "/api/v1/saidas-longas/" + exitId)).path("version").asLong();
+            JsonNode refused =
+                    ok(
+                            post(
+                                    c,
+                                    files + authorizationFile(first) + "/recusa",
+                                    Map.of("version", version, "comment", "Arquivo ilegível na conferência sintética")));
+            JsonNode free = message(c, id, first);
+            assertThat(free.has("linkedExit")).isTrue();
+            assertThat(free.path("linkedExit").isNull()).isTrue();
+            assertThat(free.path("linkable").asBoolean()).isTrue();
+            ok(
+                    post(
+                            c,
+                            files + authorizationFile(second) + "/conferencia",
+                            Map.of("version", refused.path("version").asLong(), "confirmed", true)));
+            JsonNode accepted = message(c, id, second);
+            assertThat(accepted.path("linkedExit").path("fileState").asString()).isEqualTo("ACCEPTED");
+            assertThat(accepted.path("linkable").asBoolean()).isFalse();
+        }
+    }
+
+    @Test
+    void filesStayFreeWhenTwoExitsAreOpenForThePhone() throws Exception {
+        UUID sibling = resident("CONV-B", "irmao");
+        UUID secondGuardian = guardian(sibling, "Maria Sintética", "+5562999990000");
+        try (HttpClient student = login("residente")) {
+            created(post(student, "/api/v1/saidas-longas", plan(guardian)));
+        }
+        try (HttpClient student = login("irmao")) {
+            created(post(student, "/api/v1/saidas-longas", plan(secondGuardian)));
+        }
+        run();
+        clock.value = clock.value.plusSeconds(60);
+        UUID first = received("sem-citacao-1.pdf", "", PDF, "application/pdf");
+        UUID second = received("sem-citacao-2.pdf", "", PDF, "application/pdf");
+        assertThat(count("sager_guardian_authorization_file", "true")).isZero();
+        try (HttpClient c = login("supervisor")) {
+            UUID id = conversation(c);
+            for (UUID file : List.of(first, second)) {
+                JsonNode item = message(c, id, file);
+                assertThat(item.has("linkedExit")).isTrue();
+                assertThat(item.path("linkedExit").isNull()).isTrue();
+                assertThat(item.path("linkable").asBoolean()).isTrue();
+            }
         }
     }
 
@@ -934,6 +1011,19 @@ class ConversationApiIntegrationTest {
                 created(post(c, "/api/v1/conversas", Map.of("guardianId", guardian.toString())))
                         .path("id")
                         .asString());
+    }
+
+    private JsonNode message(HttpClient c, UUID conversation, UUID message) throws Exception {
+        for (JsonNode item : ok(get(c, "/api/v1/conversas/" + conversation + "/mensagens")).path("items"))
+            if (item.path("id").asString().equals(message.toString())) return item;
+        throw new AssertionError("Mensagem não encontrada: " + message);
+    }
+
+    private UUID authorizationFile(UUID message) {
+        return jdbc.queryForObject(
+                "SELECT id FROM sager_guardian_authorization_file WHERE message_id=? AND state<>'REFUSED'",
+                UUID.class,
+                message);
     }
 
     private UUID conversation(HttpClient c) throws Exception {

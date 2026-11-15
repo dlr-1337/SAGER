@@ -33,9 +33,11 @@ import {
     <main class="page op-page op-narrow">
       <header class="op-heading">
         <div>
-          <a routerLink="/saidas" class="op-back">← Saídas</a>
+          <a routerLink="/saidas" class="op-back"
+            ><span class="back-arrow" aria-hidden="true">←</span>Saídas</a
+          >
           <h1>{{ editing ? 'Mudar saída curta' : 'Pedir saída curta' }}</h1>
-          <p>Diga quando você sai, quando volta e por quê. O supervisor vai ver seu pedido.</p>
+          <p>Diga quando sai, quando volta e por quê.</p>
         </div>
       </header>
       @if (!session.hasRole('residente')) {

@@ -24,7 +24,13 @@ describe('Página válida após atualizar o catálogo de cursos', () => {
           provide: CourseApiService,
           useValue: {
             list,
-            save: vi.fn(async ({ name }: CourseInput, current: Course, active: boolean) => {
+            save: vi.fn(async (input: CourseInput, current?: Course, active = true) => {
+              if (!current) {
+                const created = { ...input, id: `curso-${records.length + 1}`, active, version: 0 };
+                records = [...records, created];
+                return created;
+              }
+              const { name } = input;
               if (records.find((item) => item.id === current.id)?.version !== current.version)
                 throw new Error('Versão desatualizada.');
               const saved = { ...current, name, active, version: current.version + 1 };
@@ -47,8 +53,58 @@ describe('Página válida após atualizar o catálogo de cursos', () => {
     return fixture.componentInstance;
   }
 
+  it('abre com a lista e "Cadastrar curso", sem campo de cadastro', async () => {
+    await create(0);
+    fixture.detectChanges();
+    const element: HTMLElement = fixture.nativeElement;
+    expect(element.querySelector('form')).toBeNull();
+    expect(element.querySelector('#course-create')?.textContent?.trim()).toBe('Cadastrar curso');
+    expect(element.querySelectorAll('.course-row')).toHaveLength(25);
+    expect(element.querySelectorAll('header p')).toHaveLength(1);
+  });
+
+  it('"Cadastrar curso" abre o formulário vazio no Nome, e salvar fecha e mostra o curso', async () => {
+    const component = await create(0);
+    fixture.detectChanges();
+    const element: HTMLElement = fixture.nativeElement;
+    (element.querySelector('#course-create') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    expect(element.querySelector('form h2')?.textContent).toContain('Novo curso');
+    expect(document.activeElement?.id).toBe('course-name');
+    expect(element.querySelector('#course-create')).toBeNull();
+    component.form.setValue({ name: 'Curso Recém Criado', level: 'SUPERIOR', durationYears: 4 });
+    await component.save();
+    await fixture.whenStable();
+    expect(element.querySelector('form')).toBeNull();
+    expect(component.items().some((course) => course.name === 'Curso Recém Criado')).toBe(true);
+    expect(document.activeElement?.id).toBe('course-create');
+  });
+
+  it('Editar abre preenchido e Cancelar fecha sem mudar o curso, com o foco de volta', async () => {
+    const component = await create(0);
+    fixture.detectChanges();
+    const element: HTMLElement = fixture.nativeElement;
+    const editButton = element.querySelector('.course-row button') as HTMLButtonElement;
+    editButton.focus();
+    editButton.click();
+    await fixture.whenStable();
+    const name = element.querySelector('#course-name') as HTMLInputElement;
+    expect(name.value).toBe(records[0].name);
+    expect(document.activeElement).toBe(name);
+    const cancel = [...element.querySelectorAll('form button')].find(
+      (button) => button.textContent?.trim() === 'Cancelar',
+    ) as HTMLButtonElement;
+    cancel.click();
+    await fixture.whenStable();
+    expect(element.querySelector('form')).toBeNull();
+    expect(vi.mocked(TestBed.inject(CourseApiService).save)).not.toHaveBeenCalled();
+    expect(component.items()[0].name).toBe(records[0].name);
+    expect(document.activeElement).toBe(editButton);
+  });
+
   it('recusa no campo o nome só com espaços, sem chamar o servidor', async () => {
     const component = await create();
+    await component.create();
     const save = TestBed.inject(CourseApiService).save as ReturnType<typeof vi.fn>;
     component.form.controls.name.setValue('   ');
     await component.save();
@@ -90,6 +146,7 @@ describe('Página válida após atualizar o catálogo de cursos', () => {
 
   it('exige nível e duração em curso novo sem chamar o servidor', async () => {
     const component = await create(0);
+    await component.create();
     const save = vi.mocked(TestBed.inject(CourseApiService).save);
     expect(fixture.nativeElement.textContent).not.toContain('Não informado');
     component.form.controls.name.setValue('Curso Novo');

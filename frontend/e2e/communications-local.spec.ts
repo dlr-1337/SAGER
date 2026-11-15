@@ -9,6 +9,8 @@ import type {
   PublishedNotice,
   RecurrenceCandidate,
 } from '../src/app/features/communications/communications-local.models';
+import { openMoreFilters } from './more-filters';
+import { expectShortGuidance } from './short-text';
 
 const uuid = (number: number) => `00000000-0000-0000-0000-${String(number).padStart(12, '0')}`;
 const residentId = uuid(41),
@@ -26,12 +28,49 @@ const resident = {
   birthDate: '2010-05-14',
   course: null,
   version: 0,
+  minor: true,
 };
 const otherResident = {
   ...resident,
   id: uuid(42),
   name: 'Outro Estudante',
   enrollment: 'TESTE-002',
+  birthDate: '2000-01-01',
+  minor: false,
+};
+// Moradia sintética para "Quem recebe?": dois alojamentos, três quartos e um residente sem quarto.
+const north = { id: uuid(51), code: 'N', name: 'Alojamento Norte', ageGroup: null, version: 0 };
+const south = { id: uuid(52), code: 'S', name: 'Alojamento Sul', ageGroup: null, version: 0 };
+const room = (number: number, accommodationId: string, code: string) => ({
+  id: uuid(number),
+  code,
+  number: code,
+  accommodationId,
+  unitId: null,
+  floor: null,
+  capacity: null,
+  situation: 'Ocupado',
+  occupancy: 2,
+  vacancies: null,
+  version: 0,
+});
+const rooms = [
+  room(61, north.id, 'N-101'),
+  room(62, north.id, 'N-102'),
+  room(63, south.id, 'S-201'),
+];
+const people = [
+  resident,
+  otherResident,
+  { ...otherResident, id: uuid(43), name: 'Terceira Estudante', enrollment: 'TESTE-003' },
+  { ...otherResident, id: uuid(44), name: 'Estudante Sem Quarto', enrollment: 'TESTE-004' },
+  { ...otherResident, id: uuid(45), name: 'Estudante Sem Data', enrollment: 'TESTE-005' },
+].map((person) => (person.id === uuid(45) ? { ...person, birthDate: null } : person));
+const roomOf: Record<string, string> = {
+  [uuid(41)]: rooms[0].id,
+  [uuid(42)]: rooms[2].id,
+  [uuid(43)]: rooms[1].id,
+  [uuid(45)]: rooms[2].id,
 };
 const document = { id: uuid(702), sha256: 'a'.repeat(64), size: 987, state: 'STORED' };
 function warning(index = 1): DisciplineWarning {
@@ -193,7 +232,22 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
           categories: ['AUSENCIA', 'ATRASO_RETORNO', 'LIMPEZA', 'OUTRA'],
           severities: ['LEVE', 'MODERADA', 'GRAVE'],
         });
-      if (path === '/residentes') return ok([resident, otherResident]);
+      if (path === '/quartos/mapa') return ok({ accommodations: [north, south], units: [], rooms });
+      if (path === '/residentes') {
+        const query = url.searchParams;
+        return ok(
+          people.filter((person) => {
+            const place = rooms.find((item) => item.id === roomOf[person.id]);
+            if (query.get('allocated') === 'true' && !place) return false;
+            if (
+              query.has('accommodationId') &&
+              place?.accommodationId !== query.get('accommodationId')
+            )
+              return false;
+            return !query.has('roomId') || place?.id === query.get('roomId');
+          }),
+        );
+      }
       if (path === '/residentes/' + residentId) return ok(resident);
       if (path === '/notificacoes') return ok(list([state.notification]));
       if (path === '/notificacoes/' + notificationId) return ok(state.notification);
@@ -443,6 +497,9 @@ test('GET não decide; supervisor registra visualização, análise e arquivamen
   await expect(page.getByText('Visualização registrada por ação explícita.')).toBeVisible();
   await page.getByRole('button', { name: 'Iniciar análise', exact: true }).click();
   await expect(page.getByText('Análise iniciada.')).toBeVisible();
+  // Em análise, só restam arquivar e criar advertência: a análise não é registrada de novo.
+  await expect(page.getByRole('button', { name: 'Iniciar análise', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Registrar visualização' })).toHaveCount(0);
   const archive = page.getByRole('button', { name: 'Arquivar com justificativa' });
   await archive.click();
   await expect(page.getByRole('dialog').getByLabel('Motivo do arquivamento')).toBeFocused();
@@ -543,7 +600,7 @@ test('advertência manual valida data do servidor, repete intenção com a mesma
   await confirm(page, 'Confirmar anulação');
   await expect(page.getByText('Advertência anulada. O histórico continua guardado.')).toBeVisible();
   await page.reload();
-  await expect(page.getByText('Anulada', { exact: true })).toBeVisible();
+  await expect(page.locator('.op-heading .status')).toHaveText('Anulada');
 });
 
 test('candidato é revisto, termo exige confirmação humana e PDF privado preserva anulação', async ({
@@ -622,6 +679,7 @@ for (const target of ['Cancelar', 'Residentes']) {
   }) => {
     const state = await mockApi(page);
     await page.goto('/comunicacoes/avisos/novo');
+    await page.getByRole('radio', { name: 'Escolher pessoas', exact: true }).check();
     const checkbox = page.getByRole('checkbox', { name: /Estudante Sintético/ });
     await checkbox.check();
     await expect(page.getByLabel('Título', { exact: true })).toHaveValue('');
@@ -639,17 +697,109 @@ for (const target of ['Cancelar', 'Residentes']) {
   });
 }
 
-test('buscar destinatários sem selecionar permite sair sem confirmação', async ({ page }) => {
+test('sem opção escolhida sai sem confirmação; buscar não marca, escolher a opção marca', async ({
+  page,
+}) => {
   const state = await mockApi(page);
   await page.goto('/comunicacoes/avisos/novo');
-  const search = page.getByRole('searchbox', { name: 'Buscar residente', exact: true });
-  await expect(search).toHaveClass(/ng-valid/);
-  await search.fill('Sintético');
-  await expect(page.getByRole('checkbox')).toHaveCount(1);
+  await expect(page.getByRole('radio', { checked: true })).toHaveCount(0);
   await page.getByRole('link', { name: 'Cancelar', exact: true }).click();
   await expect(page).toHaveURL('/comunicacoes/avisos');
   await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  await page.goto('/comunicacoes/avisos/novo');
+  await page.getByRole('radio', { name: 'Escolher pessoas', exact: true }).check();
+  const search = page.getByRole('searchbox', { name: 'Buscar residente', exact: true });
+  await search.fill('Sintético');
+  await expect(page.getByRole('checkbox')).toHaveCount(1);
+  await page.getByRole('link', { name: 'Cancelar', exact: true }).click();
+  await expect(page.getByRole('alertdialog')).toContainText('Descartar alterações?');
   expect(state.writes).toHaveLength(0);
+});
+
+const audiences = [
+  {
+    option: 'Todos os moradores',
+    review: 'Todos os moradores · 4 residentes',
+    ids: [41, 42, 43, 45],
+  },
+  {
+    option: 'Um alojamento',
+    place: { Alojamento: north.id },
+    review: 'Um alojamento: Alojamento Norte · 2 residentes',
+    ids: [41, 43],
+  },
+  {
+    option: 'Um quarto',
+    place: { Alojamento: south.id, Quarto: rooms[2].id },
+    review: 'Um quarto: S-201 · 2 residentes',
+    ids: [42, 45],
+  },
+  { option: 'Só maiores de 18', review: 'Só maiores de 18 · 2 residentes', ids: [42, 43] },
+  { option: 'Só menores de 18', review: 'Só menores de 18 · 1 residente', ids: [41] },
+];
+for (const audience of audiences) {
+  test(`"${audience.option}" conta quem recebe e grava só esses residentes`, async ({ page }) => {
+    const state = await mockApi(page);
+    await page.goto('/comunicacoes/avisos/novo');
+    await page.getByLabel('Título', { exact: true }).fill('Aviso sintético por opção');
+    await page.getByLabel('Mensagem', { exact: true }).fill('Mensagem sintética para a opção.');
+    await page.getByRole('radio', { name: audience.option, exact: true }).check();
+    for (const [name, value] of Object.entries(audience.place ?? {}))
+      await page.getByRole('combobox', { name, exact: true }).selectOption(value);
+    const count = audience.ids.length;
+    await expect(page.getByRole('status').filter({ hasText: / receber$/ })).toHaveText(
+      count === 1 ? '1 residente vai receber' : `${count} residentes vão receber`,
+    );
+    await expect(page.locator('details.more-details')).not.toHaveAttribute('open');
+    await page.getByRole('button', { name: 'Salvar rascunho', exact: true }).click();
+    await expect(page.getByRole('dialog')).toContainText(audience.review);
+    await confirm(page, 'Salvar rascunho');
+    await expect(page).toHaveURL('/comunicacoes/avisos/' + noticeId);
+    expect(Object.keys(state.writes[0].body).sort()).toEqual([
+      'body',
+      'idempotencyKey',
+      'residentIds',
+      'title',
+    ]);
+    expect([...state.writes[0].body.residentIds].sort()).toEqual(audience.ids.map(uuid));
+  });
+}
+
+test('desmarcar em "Ver quem vai receber" tira o residente da contagem e do envio', async ({
+  page,
+}) => {
+  const state = await mockApi(page);
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/comunicacoes/avisos/novo');
+  await page.getByLabel('Título', { exact: true }).fill('Aviso sintético sem um residente');
+  await page.getByLabel('Mensagem', { exact: true }).fill('Mensagem sintética para a lista.');
+  await page.getByRole('radio', { name: 'Todos os moradores', exact: true }).check();
+  await expect(page.getByText('4 residentes vão receber', { exact: true })).toBeVisible();
+  await page.getByText('Ver quem vai receber', { exact: true }).click();
+  await page.getByRole('checkbox', { name: /Outro Estudante/ }).uncheck();
+  await expect(page.getByText('3 residentes vão receber', { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page.getByRole('button', { name: 'Salvar rascunho', exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText('Todos os moradores · 3 residentes');
+  await confirm(page, 'Salvar rascunho');
+  await expect(page).toHaveURL('/comunicacoes/avisos/' + noticeId);
+  expect([...state.writes[0].body.residentIds].sort()).toEqual([41, 43, 45].map(uuid));
+});
+
+test('"Escolher pessoas" grava quem foi marcado, mesmo sem quarto', async ({ page }) => {
+  const state = await mockApi(page);
+  await page.goto('/comunicacoes/avisos/novo');
+  await page.getByLabel('Título', { exact: true }).fill('Aviso sintético escolhido');
+  await page.getByLabel('Mensagem', { exact: true }).fill('Mensagem sintética escolhida.');
+  await page.getByRole('radio', { name: 'Escolher pessoas', exact: true }).check();
+  await page.getByRole('checkbox', { name: /Estudante Sem Quarto/ }).check();
+  await expect(page.getByText('1 residente vai receber', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Salvar rascunho', exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText('Escolhidos um a um · 1 residente');
+  await confirm(page, 'Salvar rascunho');
+  await expect(page).toHaveURL('/comunicacoes/avisos/' + noticeId);
+  expect(state.writes[0].body.residentIds).toEqual([uuid(44)]);
 });
 
 test('aviso mantém seleção após falha e sai sem alerta de descarte após salvar', async ({
@@ -657,6 +807,7 @@ test('aviso mantém seleção após falha e sai sem alerta de descarte após sal
 }) => {
   const state = await mockApi(page, { failWriteOnce: true });
   await page.goto('/comunicacoes/avisos/novo');
+  await page.getByRole('radio', { name: 'Escolher pessoas', exact: true }).check();
   const checkbox = page.getByRole('checkbox', { name: /Estudante Sintético/ });
   await checkbox.check();
   await page.getByLabel('Título', { exact: true }).fill('Aviso Sintético');
@@ -689,6 +840,7 @@ test('supervisor publica aviso por UUID, revisa preservando destinatários e ret
   await page
     .getByLabel('Mensagem', { exact: true })
     .fill('Compareçam ao auditório às 18 horas para a reunião geral.');
+  await page.getByRole('radio', { name: 'Escolher pessoas', exact: true }).check();
   await page.getByRole('checkbox', { name: /Estudante Sintético/ }).check();
   await page.getByRole('button', { name: 'Salvar rascunho' }).click();
   await confirm(page, 'Salvar rascunho');
@@ -723,7 +875,7 @@ test('supervisor publica aviso por UUID, revisa preservando destinatários e ret
     page.getByText('Aviso retirado com justificativa. Histórico preservado.'),
   ).toBeVisible();
   await page.reload();
-  await expect(page.getByText('Retirado')).toBeVisible();
+  await expect(page.locator('.op-heading .status')).toHaveText('Retirado');
 });
 
 test('residente consulta dados próprios e registra leitura e ciência separadas na versão exata', async ({
@@ -822,7 +974,7 @@ test('termo próprio usa UUID da fonte para PDF e preserva ciência histórica e
   expect(state.writes).toHaveLength(0);
 });
 
-test('filtro Ativa consulta advertências VIGENTE e exclui as anuladas', async ({ page }) => {
+test('filtro Valendo consulta advertências VIGENTE e exclui as anuladas', async ({ page }) => {
   const active = warning(1);
   const annulled = {
     ...warning(2),
@@ -832,9 +984,10 @@ test('filtro Ativa consulta advertências VIGENTE e exclui as anuladas', async (
   const state = await mockApi(page, { warnings: [active, annulled] });
   await page.goto('/advertencias');
   await expect(page.getByText(annulled.description, { exact: true })).toBeVisible();
+  await openMoreFilters(page);
   await page
     .getByRole('combobox', { name: 'Situação', exact: true })
-    .selectOption({ label: 'Ativa' });
+    .selectOption({ label: 'Valendo' });
   await expect(page.getByRole('combobox', { name: 'Situação', exact: true })).toHaveValue(
     'VIGENTE',
   );
@@ -923,7 +1076,8 @@ test('notificações têm um só painel e pedem os residentes uma vez', async ({
   await expect(page.locator('sager-filter-panel')).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Buscar', exact: true })).toHaveCount(0);
   const panel = page.locator('sager-filter-panel details');
-  await expect(panel).toHaveAttribute('open');
+  await expect(panel).not.toHaveAttribute('open');
+  await openMoreFilters(page);
   for (const name of ['Residente', 'Situação', 'Categoria'])
     await expect(panel.getByRole('combobox', { name, exact: true })).toBeVisible();
   await expect(panel.getByLabel('Data inicial')).toBeVisible();
@@ -970,6 +1124,7 @@ test('filtro Anulado nas próprias comunicações envia ANULADO', async ({ page 
     },
   });
   await page.goto('/avisos?tipo=advertencias');
+  await openMoreFilters(page);
   const status = page.getByRole('combobox', { name: 'Situação', exact: true });
   await expect(status.getByRole('option', { name: 'Anulada', exact: true })).toHaveCount(0);
   await status.selectOption({ label: 'Anulado' });
@@ -987,6 +1142,60 @@ test('filtro Anulado nas próprias comunicações envia ANULADO', async ({ page 
   await status.selectOption('PUBLICADO');
   await expect(page.getByRole('heading', { name: state.own.title })).toHaveCount(0);
   expect(state.writes).toHaveLength(0);
+});
+
+test('Advertências abre sem formulário; "Nova advertência" leva ao formulário', async ({
+  page,
+}) => {
+  await mockApi(page);
+  await page.goto('/advertencias');
+  await expect(page.getByText('Ausência conferida na chamada 1', { exact: true })).toBeVisible();
+  await expect(page.locator('main form')).toHaveCount(0);
+  await page.getByRole('link', { name: 'Nova advertência', exact: true }).click();
+  await expect(page).toHaveURL('/advertencias/nova');
+  await expect(page.locator('main form')).toHaveCount(1);
+});
+
+test('listas mostram a cor da situação com legenda, e o detalhe não tem "Atualizar dados"', async ({
+  page,
+}) => {
+  await mockApi(page);
+  await page.goto('/notificacoes');
+  const row = page.locator('.op-row').first();
+  await expect(row.locator('.status')).toHaveText('Pendente');
+  await expect(row.locator('.status')).toHaveAttribute('data-tone', 'warning');
+  await expect(page.locator('sager-status-legend')).toContainText('Pendente');
+  await expect(page.locator('sager-status-legend')).toContainText(
+    'O supervisor marcou que viu a notificação.',
+  );
+  await page.goto('/advertencias');
+  await expect(page.locator('.op-row .status').first()).toHaveAttribute('data-tone', 'success');
+  await expect(page.locator('sager-status-legend')).toContainText('Valendo');
+  await page.getByRole('link', { name: 'Ver advertência' }).first().click();
+  await expect(page.getByRole('heading', { name: 'Advertência registrada' })).toBeVisible();
+  await expect(page.locator('sager-status-legend details')).not.toHaveAttribute('open', '');
+  await expect(page.locator('sager-status-legend')).toContainText('Valendo');
+  await expect(page.getByRole('button', { name: 'Atualizar dados' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Recarregar dados' })).toHaveCount(0);
+});
+
+test('telas de comunicação têm no máximo uma frase curta no topo', async ({ page }) => {
+  const state = await mockApi(page);
+  for (const path of [
+    '/notificacoes',
+    '/advertencias',
+    '/comunicacoes/avisos',
+    '/comunicacoes/avisos/novo',
+    `/residentes/${residentId}/reincidencias`,
+  ]) {
+    await page.goto(path);
+    await expect(page.locator('main h1')).toBeVisible();
+    await expectShortGuidance(page);
+  }
+  state.role = 'residente';
+  await page.goto('/avisos');
+  await expect(page.getByRole('heading', { name: 'Minhas comunicações' })).toBeVisible();
+  await expectShortGuidance(page);
 });
 
 test('320 px e teclado acessíveis; permissões e demonstração mantêm seus escopos', async ({

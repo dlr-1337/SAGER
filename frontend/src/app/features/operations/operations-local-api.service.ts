@@ -296,9 +296,16 @@ export class OperationsLocalApiService {
     return response.json();
   }
 }
+/** 409 de edição concorrente congela as ações até recarregar; o conflito físico diz o que fazer. */
+export const freezesActions = (error: unknown) =>
+  error instanceof OperationsApiError &&
+  error.status === 409 &&
+  error.code !== 'physical_exit_conflict';
 export function operationsError(error: unknown): string {
   if (error instanceof OperationsApiError && error.code === 'overlapping_exit')
     return 'Você já tem outro pedido nesse horário. Mude os horários e envie de novo.';
+  if (error instanceof OperationsApiError && error.code === 'physical_exit_conflict')
+    return 'O residente ainda está fora com outra saída. Confirme a volta dela primeiro.';
   if (error instanceof OperationsApiError && error.status === 409)
     return 'Outra pessoa alterou este registro ou o prazo terminou. Clique em Recarregar, confira e tente de novo.';
   if (error instanceof OperationsApiError && error.status === 401) return ERROR_SESSION;

@@ -17,6 +17,8 @@ import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { map } from 'rxjs';
 import { RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
+import { autoRefresh } from '../../core/auto-refresh';
+import { AutoRefreshStatusComponent } from '../../shared/auto-refresh-status.component';
 import { HousingMap, compareFloors, compareNatural, unitsIn } from './housing.models';
 import { ManagementDemoService } from './management-demo.service';
 import { RoomSituation } from './management.models';
@@ -69,6 +71,7 @@ const freeVacancies = (rooms: MapRoom[]) =>
     FilterPanelComponent,
     ReactiveFormsModule,
     RouterLink,
+    AutoRefreshStatusComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -104,6 +107,7 @@ const freeVacancies = (rooms: MapRoom[]) =>
             </div>
           }
         </header>
+        <sager-auto-refresh-status [refresh]="refresh" />
         <sager-filter-panel
           heading="Buscar quartos"
           key="rooms"
@@ -616,13 +620,18 @@ export class RoomsComponent {
     } else if (this.canView()) void this.load();
   }
 
-  async load(): Promise<void> {
+  readonly refresh = autoRefresh(() => this.load(true));
+  /** `silent`: atualização automática; pede o mapa ao servidor, sem a cópia de 60 s. */
+  async load(silent = false): Promise<void> {
     if (this.isDemo() || !this.canView()) return;
-    this.loading.set(true);
-    this.loadError.set('');
-    this.sessionRequired.set(false);
+    if (silent && (this.loading() || this.loadError())) return;
+    if (!silent) {
+      this.loading.set(true);
+      this.loadError.set('');
+      this.sessionRequired.set(false);
+    }
     try {
-      const map = await this.api.map();
+      const map = await this.api.map(silent);
       this.localMap.set(map);
       // Nível lembrado de um local que deixou de existir volta ao anterior.
       const { accommodationId, unitId } = this.filters.controls;
@@ -633,11 +642,12 @@ export class RoomsComponent {
       const lastPage = Math.max(0, Math.ceil(this.filteredRooms().length / 25) - 1);
       this.page.update((page) => Math.max(0, Math.min(page, lastPage)));
     } catch (error) {
+      if (silent) throw error;
       this.localMap.set({ accommodations: [], units: [], rooms: [] });
       this.loadError.set(roomLoadError(error));
       this.sessionRequired.set(error instanceof RoomApiError && [401, 403].includes(error.status));
     } finally {
-      this.loading.set(false);
+      if (!silent) this.loading.set(false);
     }
   }
 

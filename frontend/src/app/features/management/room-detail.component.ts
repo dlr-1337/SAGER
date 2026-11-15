@@ -8,6 +8,8 @@ import {
 } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
+import { autoRefresh } from '../../core/auto-refresh';
+import { AutoRefreshStatusComponent } from '../../shared/auto-refresh-status.component';
 import {
   AllocationApiService,
   AllocationRecord,
@@ -23,7 +25,7 @@ import { formattedDate } from './management.utils';
   selector: 'app-room-detail',
   styleUrl: './housing.scss',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, AutoRefreshStatusComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page mg-page mg-narrow">
@@ -77,6 +79,7 @@ import { formattedDate } from './management.utils';
             >
           }
         </header>
+        <sager-auto-refresh-status [refresh]="refresh" />
         @if (saved()) {
           <p class="mg-success" role="status">
             <span class="material-symbols-rounded" aria-hidden="true">check_circle</span> Quarto
@@ -180,14 +183,14 @@ import { formattedDate } from './management.utils';
             </div>
           }
         </section>
-        <div class="mg-note">
-          <span class="material-symbols-rounded" aria-hidden="true">info</span>
-          <p>
+        <details class="learn-more">
+          <summary>Saiba mais</summary>
+          <p class="mg-muted">
             Disponível e Ocupado mudam sozinhos com os moradores. Manutenção e Indisponível são
             escolhidos no cadastro do quarto. O quarto não recebe mais moradores do que a
             capacidade.
           </p>
-        </div>
+        </details>
       } @else if (isDemo() && room(); as item) {
         <header class="mg-heading">
           <div>
@@ -321,33 +324,43 @@ export class RoomDetailComponent {
     if (!this.isDemo() && this.canView()) void this.load();
   }
 
-  async load(): Promise<void> {
+  readonly refresh = autoRefresh(() => this.load(true));
+  /** `silent`: atualização automática; pede o mapa ao servidor, sem a cópia de 60 s. */
+  async load(silent = false): Promise<void> {
     if (this.isDemo() || !this.canView()) return;
-    this.loading.set(true);
-    this.loadError.set('');
-    this.missing.set(false);
-    this.sessionRequired.set(false);
+    if (silent && (this.loading() || this.loadError())) return;
+    if (!silent) {
+      this.loading.set(true);
+      this.loadError.set('');
+      this.missing.set(false);
+      this.sessionRequired.set(false);
+    }
     try {
-      const map = await this.api.map();
+      const map = await this.api.map(silent);
       const item = map.rooms.find((room) => room.id === this.id);
       if (!item) throw new RoomApiError(404);
       this.localRoom.set(item);
       this.localMap.set(map);
-      if (!this.destroyRef.destroyed) void this.loadOccupants();
+      if (this.destroyRef.destroyed) return;
+      if (silent) await this.loadOccupants(true);
+      else void this.loadOccupants();
     } catch (error) {
+      if (silent) throw error;
       this.localRoom.set(null);
       this.missing.set(error instanceof RoomApiError && error.status === 404);
       this.sessionRequired.set(error instanceof RoomApiError && [401, 403].includes(error.status));
       this.loadError.set(roomLoadError(error));
     } finally {
-      this.loading.set(false);
+      if (!silent) this.loading.set(false);
     }
   }
 
-  async loadOccupants(): Promise<void> {
+  async loadOccupants(silent = false): Promise<void> {
     if (this.isDemo() || !this.canView()) return;
-    this.occupantsLoading.set(true);
-    this.occupantsError.set('');
+    if (!silent) {
+      this.occupantsLoading.set(true);
+      this.occupantsError.set('');
+    }
     try {
       const [allocations, { items: residents }] = await Promise.all([
         this.allocationApi.activeInRoom(this.id),
@@ -359,11 +372,12 @@ export class RoomDetailComponent {
       this.occupantResidents.set(residents);
     } catch (error) {
       if (this.destroyRef.destroyed) return;
+      if (silent) throw error;
       this.occupants.set([]);
       this.occupantResidents.set([]);
       this.occupantsError.set(allocationErrorMessage(error));
     } finally {
-      if (!this.destroyRef.destroyed) this.occupantsLoading.set(false);
+      if (!silent && !this.destroyRef.destroyed) this.occupantsLoading.set(false);
     }
   }
 

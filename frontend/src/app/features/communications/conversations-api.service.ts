@@ -85,7 +85,15 @@ function isMessage(value: unknown): value is ConversationMessage {
       ])) &&
     nullableStrings(value, ['failureCode']) &&
     instant(value['sentAt']) &&
-    typeof value['linkable'] === 'boolean'
+    typeof value['linkable'] === 'boolean' &&
+    (value['linkedExit'] === null || isLinkedExit(value['linkedExit']))
+  );
+}
+function isLinkedExit(value: unknown): boolean {
+  return (
+    record(value) &&
+    strings(value, ['id', 'residentName']) &&
+    oneOf(value['fileState'], ['CANDIDATE', 'ACCEPTED'])
   );
 }
 function isOpenExit(value: unknown): value is OpenExit {
@@ -142,8 +150,13 @@ export class ConversationsApiService {
   async get(id: string): Promise<Conversation> {
     return this.read(`${base}/${encodeURIComponent(id)}`, isConversation);
   }
-  async markRead(id: string): Promise<void> {
-    await this.send(`${base}/${encodeURIComponent(id)}/leitura`);
+  /** `automatic`: lida pela atualização automática, que o servidor não conta como ação (D11). */
+  async markRead(id: string, automatic = false): Promise<void> {
+    await api(`${base}/${encodeURIComponent(id)}/leitura`, {
+      method: 'POST',
+      headers: automatic ? { 'X-Sager-Auto-Refresh': '1' } : {},
+      error: (response) => this.error(response),
+    });
   }
   async messages(id: string, before?: string): Promise<ConversationPage<ConversationMessage>> {
     const query = before ? `?${new URLSearchParams({ before })}` : '';

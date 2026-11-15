@@ -281,15 +281,20 @@
   gap: 6px;
   flex: 0 1 200px;
 }
+// inline-block com o ícone inline-block: o sublinhado do hover fica só no texto (action-links).
 .op-row-link,
 .op-inline-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  display: inline-block;
   min-height: 44px;
+  padding-block: 10px;
+  line-height: 24px;
   color: var(--green-800);
   font-weight: 700;
   text-decoration: none;
+}
+.op-row-link :is(.material-symbols-rounded, .material-symbols-outlined),
+.op-inline-link :is(.material-symbols-rounded, .material-symbols-outlined) {
+  margin-inline-start: 6px;
 }
 .op-row-link {
   flex: 0 0 auto;
@@ -613,7 +618,7 @@
 .op-exit-actions .op-actions > :nth-child(n + 3) {
   grid-column: 1 / -1;
 }
-.op-exit-actions .op-actions .btn,
+.op-exit-actions .op-actions :is(.btn, .btn-danger),
 .op-exit-actions > .btn {
   width: 100%;
   padding-inline: 10px;
@@ -640,6 +645,10 @@
 @container (min-width: 1040px) {
   .op-exit-grid {
     grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr) minmax(0, 0.95fr);
+  }
+  // Detalhe em passos: resumo e passo atual lado a lado; histórico em "Mais detalhes".
+  .op-exit-grid.op-step-grid {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
   }
   .op-exit-grid:has(> .op-exit-side:empty) {
     grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);

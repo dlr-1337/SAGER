@@ -13,6 +13,8 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { debounceTime } from 'rxjs';
 import { RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
+import { autoRefresh } from '../../core/auto-refresh';
+import { AutoRefreshStatusComponent } from '../../shared/auto-refresh-status.component';
 import { FilterState, rememberFilters } from '../../core/filter-state';
 import { normalizeSearch } from '../../shared/search';
 import { PaginationComponent } from '../../shared/pagination.component';
@@ -42,6 +44,7 @@ import {
     ReactiveFormsModule,
     PaginationComponent,
     FilterPanelComponent,
+    AutoRefreshStatusComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: ` <main class="page mg-page">
@@ -53,6 +56,7 @@ import {
       </div>
       <a class="btn mg-primary" routerLink="/residentes/novo">Cadastrar residente</a>
     </header>
+    <sager-auto-refresh-status [refresh]="refresh" />
     <sager-filter-panel
       heading="Buscar residentes"
       key="residents"
@@ -367,11 +371,16 @@ export class ResidentsComponent {
         this.optionsError.set('Não foi possível carregar todas as opções de curso e alojamento.');
     }
   }
-  async load(): Promise<void> {
+  readonly refresh = autoRefresh(() => this.load(true));
+  /** `silent`: atualização automática, mesma página e filtros, sem "Carregando"; a falha volta. */
+  async load(silent = false): Promise<void> {
+    if (silent && (this.loading() || this.loadError())) return;
     this.request?.abort();
     const request = (this.request = new AbortController());
-    this.loading.set(true);
-    this.loadError.set('');
+    if (!silent) {
+      this.loading.set(true);
+      this.loadError.set('');
+    }
     const params = Object.fromEntries(
       Object.entries(this.filters.getRawValue()).filter(([, value]) => value),
     );
@@ -388,6 +397,7 @@ export class ResidentsComponent {
       }
     } catch (error) {
       if (request.signal.aborted || this.destroy.destroyed) return;
+      if (silent) throw error;
       this.items.set([]);
       this.remoteTotal.set(0);
       this.loadError.set(
@@ -396,7 +406,7 @@ export class ResidentsComponent {
           : ERROR_GENERIC,
       );
     } finally {
-      if (!request.signal.aborted && !this.destroy.destroyed) this.loading.set(false);
+      if (!silent && !request.signal.aborted && !this.destroy.destroyed) this.loading.set(false);
     }
   }
   changePage(page: number): void {

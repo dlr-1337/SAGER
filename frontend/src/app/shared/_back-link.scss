@@ -1,11 +1,12 @@
 // Link de voltar no topo das páginas: alvo de 44 px, verde de ação e sublinhado no hover. Cada
-// área inclui o mixin na própria classe (mg-back, op-back, back-link).
+// área inclui o mixin na própria classe (mg-back, op-back, back-link). É inline-block, não
+// inline-flex: num link flex o ícone vira item e herda o sublinhado; inline-block, fica de fora.
 @mixin back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  display: inline-block;
   min-height: 44px;
   min-width: 44px;
+  padding-block: 10px;
+  line-height: 24px;
   color: var(--green-800);
   font-weight: 600;
   text-decoration: none;
@@ -17,5 +18,11 @@
   }
   :is(.material-symbols-rounded, .material-symbols-outlined) {
     font-size: 20px;
+    margin-inline-end: 4px;
+  }
+  // Seta de texto: inline-block também, para o sublinhado do hover não passar por ela.
+  .back-arrow {
+    display: inline-block;
+    margin-inline-end: 4px;
   }
 }

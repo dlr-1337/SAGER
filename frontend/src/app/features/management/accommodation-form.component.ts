@@ -103,13 +103,13 @@ import { Accommodation, AgeGroup } from './housing.models';
               >
             </label>
           </div>
-          <div class="mg-note">
-            <span class="material-symbols-rounded" aria-hidden="true">info</span>
-            <p>
+          <details class="learn-more">
+            <summary>Saiba mais</summary>
+            <p class="mg-muted">
               Casas e blocos são opcionais e podem ser adicionados depois. A capacidade será
               informada em cada quarto.
             </p>
-          </div>
+          </details>
           @if (error()) {
             <p class="mg-alert" role="alert">{{ error() }}</p>
           }

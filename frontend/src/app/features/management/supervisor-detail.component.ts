@@ -2,6 +2,8 @@ import { ERROR_GENERIC } from '../../core/error-messages';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
+import { autoRefresh } from '../../core/auto-refresh';
+import { AutoRefreshStatusComponent } from '../../shared/auto-refresh-status.component';
 import { ManagementDemoService } from './management-demo.service';
 import { Supervisor } from './management.models';
 import { SupervisorApiError, SupervisorApiService } from './supervisor-api.service';
@@ -9,7 +11,7 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
 @Component({
   selector: 'app-supervisor-detail',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, AutoRefreshStatusComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page mg-page mg-narrow">
@@ -47,6 +49,7 @@ import { SupervisorApiError, SupervisorApiService } from './supervisor-api.servi
             supervisor</a
           >
         </header>
+        <sager-auto-refresh-status [refresh]="refresh" />
         @if (saved()) {
           <p class="mg-success" role="status">
             <span class="material-symbols-rounded" aria-hidden="true">check_circle</span>
@@ -110,14 +113,20 @@ export class SupervisorDetailComponent {
     if (!this.isDemo()) void this.load();
   }
 
-  async load(): Promise<void> {
+  readonly refresh = autoRefresh(() => this.load(true));
+  /** `silent`: atualização automática, sem "Carregando"; a falha volta para o aviso comum. */
+  async load(silent = false): Promise<void> {
     if (this.isDemo()) return;
-    this.loading.set(true);
-    this.loadError.set('');
-    this.missing.set(false);
+    if (silent && (this.loading() || this.loadError())) return;
+    if (!silent) {
+      this.loading.set(true);
+      this.loadError.set('');
+      this.missing.set(false);
+    }
     try {
       this.localSupervisor.set(await this.api.get(this.id));
     } catch (error) {
+      if (silent) throw error;
       this.localSupervisor.set(null);
       this.missing.set(error instanceof SupervisorApiError && error.status === 404);
       this.loadError.set(
@@ -126,7 +135,7 @@ export class SupervisorDetailComponent {
           : ERROR_GENERIC,
       );
     } finally {
-      this.loading.set(false);
+      if (!silent) this.loading.set(false);
     }
   }
 }

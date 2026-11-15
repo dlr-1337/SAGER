@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { enterDemo } from './demo-session';
+import { openMoreFilters } from './more-filters';
 
 for (const config of [
   { resource: 'residentes', entity: 'residente', search: 'search', field: 'name' },
@@ -62,11 +63,14 @@ for (const config of [
     await expect(search).toHaveClass(/ng-valid/);
     await search.fill('Sintético');
     if (config.resource === 'residentes') {
+      await openMoreFilters(page);
       await page.locator('[formControlName="courseId"]').selectOption('course-1');
     } else if (config.resource === 'responsaveis') {
+      await openMoreFilters(page);
       await page.getByRole('combobox', { name: 'Situação', exact: true }).selectOption('true');
       await page.getByRole('combobox', { name: 'Residente', exact: true }).selectOption('r-ana');
     } else if (config.resource === 'quartos') {
+      await openMoreFilters(page);
       await page.locator('[formControlName="block"]').selectOption('A');
       await page.locator('[formControlName="floor"]').selectOption('Térreo');
     }
@@ -103,6 +107,7 @@ for (const config of [
     if (config.resource === 'residentes')
       await expect(page.locator('[formControlName="courseId"]')).toHaveValue('course-1');
     if (config.resource === 'responsaveis') {
+      await openMoreFilters(page);
       await expect(page.getByRole('combobox', { name: 'Situação', exact: true })).toHaveValue(
         'true',
       );

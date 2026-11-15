@@ -30,10 +30,10 @@ import { guardianBlocker, longExitFormError, longPeriodError } from './long-exit
       <header class="op-heading">
         <div>
           <a routerLink="/saidas" [queryParams]="{ tipo: 'longa' }" class="op-back"
-            >← Saídas longas</a
+            ><span class="back-arrow" aria-hidden="true">←</span>Saídas longas</a
           >
           <h1>{{ editing ? 'Mudar saída longa' : 'Pedir saída longa' }}</h1>
-          <p>Diga quando você sai e quando volta, e escolha quem vai autorizar pelo WhatsApp.</p>
+          <p>Diga quando sai, quando volta, por quê e quem autoriza.</p>
         </div>
       </header>
       @if (session.active()) {
@@ -97,7 +97,7 @@ import { guardianBlocker, longExitFormError, longPeriodError } from './long-exit
               {{ resident.roomNumber }}
             </p>
             <p class="op-help">
-              Saída longa: mais de 3 horas. Seu responsável precisa autorizar antes de o supervisor
+              Seu responsável precisa autorizar esta saída de mais de 3 horas antes de o supervisor
               aprovar.
             </p>
             <div class="op-form-grid">

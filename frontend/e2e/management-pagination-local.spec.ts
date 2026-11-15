@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
+import { openMoreFilters } from './more-filters';
 
 for (const config of [
   {
@@ -98,6 +99,7 @@ for (const config of [
     const search = page.getByRole('searchbox', { name: config.search, exact: true });
     await search.fill('Sintético');
     if (config.resource === 'responsaveis') {
+      await openMoreFilters(page);
       await page.getByRole('combobox', { name: 'Situação', exact: true }).selectOption('true');
       await page
         .getByRole('combobox', { name: 'Residente', exact: true })

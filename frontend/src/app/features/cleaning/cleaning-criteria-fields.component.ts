@@ -40,6 +40,7 @@ export function criteriaInput(form: CriteriaForm): CleaningCriteria {
       <label class="field"
         >{{ labels[key]
         }}<input
+          [id]="'cleaning-' + key"
           type="number"
           min="0"
           max="10"

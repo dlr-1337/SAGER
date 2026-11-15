@@ -24,6 +24,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.session.jdbc.PostgreSqlJdbcIndexedSessionRepositoryCustomizer;
 import org.springframework.session.web.http.CookieSerializer;
 import org.springframework.session.web.http.DefaultCookieSerializer;
 
@@ -41,6 +42,12 @@ public class SecurityConfiguration {
         serializer.setUseHttpOnlyCookie(true);
         serializer.setSameSite("Lax");
         return serializer;
+    }
+
+    // Parallel requests of one session may both add an attribute; upsert instead of a duplicate key.
+    @Bean
+    PostgreSqlJdbcIndexedSessionRepositoryCustomizer postgreSqlSessionCustomizer() {
+        return new PostgreSqlJdbcIndexedSessionRepositoryCustomizer();
     }
 
     @Bean
@@ -149,6 +156,7 @@ public class SecurityConfiguration {
                         .passwordParameter("password")
                         .successHandler((request, response, authentication) -> {
                             if (production) rateLimiter.getObject().succeeded(((LocalAccountPrincipal) authentication.getPrincipal()).enrollment());
+                            accountStatusFilter.recordAction(request);
                             response.setHeader("Cache-Control", "no-store");
                             response.setStatus(HttpStatus.NO_CONTENT.value());
                         })

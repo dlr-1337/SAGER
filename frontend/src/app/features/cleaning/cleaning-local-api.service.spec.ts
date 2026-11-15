@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CleaningLocalApiService } from './cleaning-local-api.service';
 import { ReportingApiError, reportingError } from './reporting-local.transport';
 import { resetSession } from '../../core/api';
@@ -38,6 +38,8 @@ const item = {
 };
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status });
 describe('Projeções e gravação de limpeza', () => {
+  // Um token CSRF guardado por outro arquivo de teste trocaria a ordem das respostas simuladas.
+  beforeEach(() => resetSession());
   afterEach(() => {
     vi.unstubAllGlobals();
     resetSession();

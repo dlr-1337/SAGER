@@ -101,13 +101,12 @@ class DisciplineApiIntegrationTest {
         try(var sup=login("supervisor");var student=login("residente")) {
             var exit=ok(student,"POST","/api/v1/saidas-curtas",Map.of("departureMode","NOW","expectedReturnAt",START.plusSeconds(3600).toString(),"reason","Compromisso sintético"));String id=exit.path("id").asText();
             ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/decisao",Map.of("version",0,"decision","APPROVE"));
-            clock.set(START.plusSeconds(1));ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/partida",Map.of("version",1,"timeMode","NOW"));
             clock.set(START.plusSeconds(3601));read(sup,"/api/v1/saidas-curtas/"+id);assertThat(count("sager_occurrence")).isZero();
             ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/retorno",Map.of("version",2,"timeMode","NOW","lateObservation","Trânsito atrasou o retorno confirmado presencialmente."));
             assertThat(count("sager_occurrence")).isEqualTo(1);assertThat(count("sager_warning")).isZero();
             var next=ok(student,"POST","/api/v1/saidas-curtas",Map.of("departureMode","NOW","expectedReturnAt",clock.instant().plusSeconds(3600).toString(),"reason","Outra saída sintética"));id=next.path("id").asText();
             ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/decisao",Map.of("version",0,"decision","APPROVE"));
-            clock.set(clock.instant().plusSeconds(1));ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/partida",Map.of("version",1,"timeMode","NOW"));
+            clock.set(clock.instant().plusSeconds(1));
             clock.set(clock.instant().plusSeconds(30));ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/retorno",Map.of("version",2,"timeMode","NOW"));
             assertThat(count("sager_occurrence")).isEqualTo(1);
         }
@@ -170,6 +169,24 @@ class DisciplineApiIntegrationTest {
             ok(sup,"POST","/api/v1/avisos/"+notice+"/retirar",Map.of("version",2,"reason","Retirada após revisão institucional sintética."));
             assertError(write(student,"POST","/api/v1/me/comunicacoes/"+current+"/ciencia",Map.of("version",2)),409,"content_not_current");
             assertThat(count("sager_communication")).isEqualTo(2);
+        }
+    }
+    @Test void noticeAcceptsUpTo2000RecipientsWhileTheTermKeeps100Warnings() throws Exception {
+        List<UUID> many=new ArrayList<>(List.of(resident,other));
+        while(many.size()<101) many.add(UUID.randomUUID());
+        jdbc.batchUpdate("INSERT INTO sager_resident(id,name,enrollment,birth_date) VALUES (?,'Estudante Sintético',?,'2009-01-01')",
+                many.subList(2,101).stream().map(id->new Object[]{id,id.toString()}).toList());
+        try(var sup=login("supervisor")) {
+            var notice=ok(sup,"POST","/api/v1/avisos",Map.of("title","Aviso para muitos","body","Orientação sintética para todos.","residentIds",many,"idempotencyKey",UUID.randomUUID()));
+            assertThat(notice.path("residentIds").size()).isEqualTo(101);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_notice_draft_recipient WHERE notice_id=?",Integer.class,UUID.fromString(notice.path("id").asText()))).isEqualTo(101);
+            List<UUID> tooMany=new ArrayList<>();while(tooMany.size()<2001) tooMany.add(UUID.randomUUID());
+            for(Object recipients:List.of(tooMany,List.of(),List.of(resident,resident),List.of(UUID.randomUUID())))
+                assertError(write(sup,"POST","/api/v1/avisos",Map.of("title","Aviso recusado","body","Orientação sintética recusada.","residentIds",recipients,"idempotencyKey",UUID.randomUUID())),400,"invalid_input");
+            assertThat(count("sager_notice")).isEqualTo(1);
+            var term=new LinkedHashMap<String,Object>();term.put("warningIds",many);term.put("decision","O supervisor confirmou a relação dos fatos e orientou o compromisso de convivência.");term.put("confirmed",true);term.put("idempotencyKey",UUID.randomUUID());
+            assertError(write(sup,"POST","/api/v1/residentes/"+resident+"/termos",term),400,"invalid_input");
+            assertThat(count("sager_commitment_term")).isZero();
         }
     }
     @Test void recurrenceRequiresHumanConfirmationAndImmutableOwnPdfNeverClaimsSignature() throws Exception {

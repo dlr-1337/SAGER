@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, Page, test } from '@playwright/test';
+import { expectShortGuidance } from './short-text';
 
 const residentId = '00000000-0000-0000-0000-000000000041';
 const guardianId = '00000000-0000-0000-0000-000000000051';
@@ -195,6 +196,7 @@ test('gestor cadastra, consulta, edita e recarrega responsável sem autorizaçã
   await data.attach(page);
   await page.goto('/responsaveis');
   await expect(page.getByRole('heading', { name: 'Nenhum responsável cadastrado' })).toBeVisible();
+  await expectShortGuidance(page);
   await expect(page.getByText('Mariana Ribeiro')).toHaveCount(0);
   await page.getByRole('link', { name: 'Cadastrar responsável' }).click();
   await page.getByLabel('Residente *', { exact: true }).selectOption(residentId);

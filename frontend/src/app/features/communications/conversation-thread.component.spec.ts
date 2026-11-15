@@ -33,17 +33,41 @@ const message = (id: string, values: Partial<ConversationMessage> = {}): Convers
   failureCode: null,
   sentAt: `2026-11-11T12:0${id}:00Z`,
   linkable: false,
+  linkedExit: null,
   ...values,
 });
 
+const exit = {
+  id: 'saida-1',
+  version: 1,
+  residentId: 'r1',
+  residentName: 'Residente Sintético',
+  guardianId: 'g1',
+  guardianName: 'Responsável Sintético',
+  requestedDepartureAt: '2026-11-15T12:00:00Z',
+  expectedReturnAt: '2026-11-17T12:00:00Z',
+};
+const pdf = (id: string, values: Partial<ConversationMessage> = {}) =>
+  message(id, {
+    kind: 'DOCUMENT',
+    body: null,
+    mediaState: 'STORED',
+    mediaType: 'application/pdf',
+    mediaFilename: `autorizacao-${id}.pdf`,
+    mediaSize: 2048,
+    ...values,
+  });
+
 /** jsdom has no layout: the list gets a fixed 200 px window over a content height the test sets. */
-async function setup() {
-  const state = { items: [message('1'), message('2')], height: 1000, top: 0 };
+async function setup(items = [message('1'), message('2')]) {
+  const state = { items, height: 1000, top: 0 };
   const api = {
     get: vi.fn(async () => conversation),
     messages: vi.fn(async () => ({ items: state.items, nextCursor: null })),
     markRead: vi.fn(async () => undefined),
     mediaUrl: (id: string) => `/midia/${id}`,
+    openExits: vi.fn(async () => [exit]),
+    link: vi.fn(async () => ({ id: exit.id })),
     sendText: vi.fn(async (_id: string, text: string) =>
       message('3', {
         direction: 'OUT',
@@ -118,6 +142,20 @@ describe('Rolagem da conversa', () => {
     expect(state.top).toBe(100);
   });
 
+  it('rascunho apagado deixa de segurar a atualização automática', async () => {
+    const { harness, thread } = await setup();
+    const draft = harness.routeNativeElement!.querySelector('textarea')!;
+    const type = async (value: string) => {
+      draft.value = value;
+      draft.dispatchEvent(new Event('input', { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve));
+    };
+    await type('Oi');
+    expect(thread.form.dirty).toBe(true);
+    await type('');
+    expect(thread.form.dirty).toBe(false);
+  });
+
   it('ao enviar, desce ao fim e devolve o foco ao campo sem rolar a página', async () => {
     const { harness, state, thread, scrollTo, settle } = await setup();
     await scrollTo(100);
@@ -132,5 +170,95 @@ describe('Rolagem da conversa', () => {
     await settle();
     expect(state.top).toBe(900);
     expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+  });
+});
+
+describe('Situação do arquivo recebido', () => {
+  afterEach(() => vi.restoreAllMocks());
+  const bubble = (root: HTMLElement, file: string) =>
+    [...root.querySelectorAll<HTMLElement>('.conv-msg')].find((item) =>
+      item.textContent!.includes(file),
+    )!;
+
+  it('mostra livre, ligado (aguardando e conferido) e falha, sem identificadores', async () => {
+    const { harness } = await setup([
+      pdf('1', { linkable: true }),
+      pdf('2', {
+        linkedExit: { id: exit.id, residentName: 'Ana Sintética', fileState: 'CANDIDATE' },
+      }),
+      pdf('3', {
+        linkedExit: { id: exit.id, residentName: 'Ana Sintética', fileState: 'ACCEPTED' },
+      }),
+      pdf('4', { mediaState: 'FAILED', mediaFailureCode: 'download_failed' }),
+    ]);
+    const root = harness.routeNativeElement!;
+    expect(bubble(root, 'autorizacao-1.pdf').textContent).toContain('Vincular a uma saída longa');
+    for (const [file, state] of [
+      ['autorizacao-2.pdf', 'aguardando conferência'],
+      ['autorizacao-3.pdf', 'conferido'],
+    ]) {
+      const item = bubble(root, file);
+      expect(item.textContent).toContain('Na saída longa de Ana Sintética');
+      expect(item.querySelector('.conv-linked')!.textContent).toContain(state);
+      expect(item.textContent).not.toContain('Vincular a uma saída longa');
+      expect(item.textContent).not.toContain(exit.id);
+      const link = item.querySelector<HTMLAnchorElement>('.conv-linked a')!;
+      expect(link.textContent!.trim()).toBe('Abrir saída');
+      expect(link.getAttribute('href')).toBe(`/saidas/longas/${exit.id}`);
+    }
+    const failed = [...root.querySelectorAll<HTMLElement>('.conv-msg')][3];
+    expect(failed.textContent).toContain('Arquivo indisponível');
+    expect(failed.querySelector('.conv-linked, .conv-inline')).toBeNull();
+  });
+
+  it('depois de vincular, o aviso fica sem link e o foco vai ao Abrir saída do balão', async () => {
+    const { api, state, thread, harness, settle } = await setup([pdf('1', { linkable: true })]);
+    thread.openLink(state.items[0]);
+    await settle();
+    state.items = [
+      pdf('1', {
+        linkedExit: { id: exit.id, residentName: exit.residentName, fileState: 'CANDIDATE' },
+      }),
+    ];
+    await thread.link(thread.linking()!);
+    await settle();
+    const root = harness.routeNativeElement!;
+    expect(api.link).toHaveBeenCalledWith('1', exit);
+    const notice = root.querySelector<HTMLElement>('.conv-banner[data-tone=success]')!;
+    expect(notice.textContent).toContain('Arquivo vinculado à saída de Residente Sintético');
+    expect(notice.querySelector('a')).toBeNull();
+    expect(root.querySelector('.conv-linked')!.textContent).toContain('aguardando conferência');
+    expect(document.activeElement?.id).toBe('conv-exit-1');
+  });
+
+  it('vincular arquivo antigo, fora da página recarregada, troca o botão pelo Abrir saída', async () => {
+    const { state, thread, harness, settle } = await setup([
+      pdf('1', { linkable: true }),
+      message('2'),
+    ]);
+    thread.openLink(state.items[0]);
+    await settle();
+    // The latest page no longer brings the file: it was loaded by "mensagens anteriores".
+    state.items = [message('2')];
+    await thread.link(thread.linking()!);
+    await settle();
+    const item = bubble(harness.routeNativeElement!, 'autorizacao-1.pdf');
+    expect(item.textContent).not.toContain('Vincular a uma saída longa');
+    expect(item.querySelector('.conv-linked')!.textContent).toContain('aguardando conferência');
+    expect(document.activeElement?.id).toBe('conv-exit-1');
+  });
+});
+
+describe('Leitura da conversa', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('marca como lida sem o cabeçalho ao abrir e com ele na atualização automática', async () => {
+    const { api, state, thread } = await setup();
+    api.get.mockResolvedValue({ ...conversation, unreadCount: 1 });
+    await thread.reload();
+    expect(api.markRead).toHaveBeenLastCalledWith('c1', false);
+    state.items = [...state.items, message('3')];
+    await thread.refresh();
+    expect(api.markRead).toHaveBeenLastCalledWith('c1', true);
   });
 });

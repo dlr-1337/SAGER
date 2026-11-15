@@ -52,6 +52,13 @@ export interface ConversationMessage {
   failureCode: string | null;
   sentAt: string;
   linkable: boolean;
+  /** Saída longa em que o arquivo já está; null quando livre (recusado também conta como livre). */
+  linkedExit: LinkedExit | null;
+}
+export interface LinkedExit {
+  id: string;
+  residentName: string;
+  fileState: 'CANDIDATE' | 'ACCEPTED';
 }
 export interface OpenExit {
   id: string;

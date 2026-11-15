@@ -11,7 +11,13 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
+import java.util.UUID;
 
 import br.edu.ifgoiano.sager.SagerApplication;
 import tools.jackson.databind.JsonNode;
@@ -26,6 +32,9 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.env.MockEnvironment;
+import org.springframework.session.Session;
+import org.springframework.session.SessionRepository;
+import org.springframework.session.jdbc.JdbcIndexedSessionRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -36,6 +45,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 @ActiveProfiles("local")
 class AuthFlowIntegrationTest {
     private static final String PASSWORD = "Senha sintetica 123!";
+    private static final Instant START = Instant.parse("2026-10-01T12:00:00Z");
     private static final PostgreSQLContainer POSTGRES =
             new PostgreSQLContainer("postgres:17.11");
 
@@ -65,11 +75,21 @@ class AuthFlowIntegrationTest {
     @Autowired
     private ObjectMapper json;
 
+    @Autowired
+    private LocalAccountStatusFilter accountStatus;
+
+    @Autowired
+    private JdbcIndexedSessionRepository sessions;
+
+    private final MutableClock clock = new MutableClock();
+
     @LocalServerPort
     private int port;
 
     @BeforeEach
     void cleanDatabase() {
+        clock.value = START;
+        accountStatus.clock = clock;
         jdbc.update("DELETE FROM spring_session");
         jdbc.update("DELETE FROM sager_local_account");
     }
@@ -151,6 +171,93 @@ class AuthFlowIntegrationTest {
                     .isEqualTo(204);
             assertThat(get(client, "/api/v1/auth/me").statusCode()).isEqualTo(401);
         }
+    }
+
+    @Test
+    void automaticRefreshesDoNotKeepTheSessionAliveButThePersonsActionsDo() throws Exception {
+        String email = "supervisor-atualizacao@example.invalid";
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(email), email, "Supervisor Sintetico",
+                "supervisor", PASSWORD.toCharArray());
+        try (HttpClient client = browser()) {
+            assertThat(login(client, email, PASSWORD, csrfToken(client)).statusCode()).isEqualTo(204);
+            clock.value = START.plus(Duration.ofMinutes(14));
+            assertThat(automatic(client, "/api/v1/auth/me").statusCode()).isEqualTo(200);
+            clock.value = START.plus(Duration.ofMinutes(28));
+            assertThat(automatic(client, "/api/v1/auth/me").statusCode()).isEqualTo(200);
+            clock.value = START.plus(Duration.ofMinutes(31));
+            assertThat(automatic(client, "/api/v1/auth/me").statusCode()).isEqualTo(401);
+            assertThat(get(client, "/api/v1/auth/me").statusCode()).isEqualTo(401);
+        }
+        clock.value = START;
+        try (HttpClient client = browser()) {
+            assertThat(login(client, email, PASSWORD, csrfToken(client)).statusCode()).isEqualTo(204);
+            clock.value = START.plus(Duration.ofMinutes(20));
+            assertThat(get(client, "/api/v1/auth/me").statusCode()).isEqualTo(200);
+            clock.value = START.plus(Duration.ofMinutes(31));
+            assertThat(automatic(client, "/api/v1/auth/me").statusCode()).isEqualTo(200);
+            clock.value = START.plus(Duration.ofMinutes(51));
+            assertThat(automatic(client, "/api/v1/auth/me").statusCode()).isEqualTo(401);
+        }
+    }
+
+    @Test
+    void anIdleSessionStillGetsACsrfTokenSoTheNextLoginWorks() throws Exception {
+        String email = "supervisor-ociosa@example.invalid";
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(email), email, "Supervisor Sintetico",
+                "supervisor", PASSWORD.toCharArray());
+        try (HttpClient client = browser()) {
+            assertThat(login(client, email, PASSWORD, csrfToken(client)).statusCode()).isEqualTo(204);
+            clock.value = START.plus(Duration.ofMinutes(31));
+            assertThat(login(client, email, PASSWORD, csrfToken(client)).statusCode()).isEqualTo(204);
+            assertThat(get(client, "/api/v1/auth/me").statusCode()).isEqualTo(200);
+        }
+        clock.value = START;
+        try (HttpClient client = browser()) {
+            assertThat(login(client, email, PASSWORD, csrfToken(client)).statusCode()).isEqualTo(204);
+            String token = csrfToken(client);
+            clock.value = START.plus(Duration.ofMinutes(31));
+            // Reaches the recovery's own validation (400) instead of the idle session's 401.
+            assertThat(post(client, "/api/v1/auth/recover",
+                    "matricula=1&name=x&birthDate=x&password=x&passwordConfirmation=x", token).statusCode())
+                    .isEqualTo(400);
+        }
+    }
+
+    @Test
+    void imagesTheBrowserLoadsByItselfDoNotKeepTheSessionAlive() throws Exception {
+        String email = "supervisor-imagens@example.invalid";
+        provisioning.create(br.edu.ifgoiano.sager.TestIdentity.enrollment(email), email, "Supervisor Sintetico",
+                "supervisor", PASSWORD.toCharArray());
+        try (HttpClient client = browser()) {
+            assertThat(login(client, email, PASSWORD, csrfToken(client)).statusCode()).isEqualTo(204);
+            clock.value = START.plus(Duration.ofMinutes(20));
+            assertThat(get(client, "/api/v1/conversas/sessao/qr").statusCode()).isNotEqualTo(401);
+            assertThat(get(client, "/api/v1/conversas/mensagens/" + UUID.randomUUID() + "/midia")
+                    .statusCode()).isNotEqualTo(401);
+            assertThat(get(client, "/api/v1/saidas-longas/" + UUID.randomUUID() + "/autorizacao/arquivos/"
+                    + UUID.randomUUID()).statusCode()).isNotEqualTo(401);
+            clock.value = START.plus(Duration.ofMinutes(31));
+            assertThat(automatic(client, "/api/v1/auth/me").statusCode()).isEqualTo(401);
+        }
+    }
+
+    @Test
+    void twoRequestsOfOneSessionCanAddTheSameAttribute() {
+        addTheSameAttributeTwice(sessions);
+    }
+
+    // Two copies of one stored session, as two parallel requests load it, both add the attribute.
+    private <S extends Session> void addTheSameAttributeTwice(SessionRepository<S> repository) {
+        S created = repository.createSession();
+        repository.save(created);
+        S first = repository.findById(created.getId());
+        S second = repository.findById(created.getId());
+        first.setAttribute(LocalAccountStatusFilter.LAST_ACTION, START);
+        second.setAttribute(LocalAccountStatusFilter.LAST_ACTION, START.plusSeconds(1));
+        repository.save(first);
+        repository.save(second);
+        assertThat(repository.findById(created.getId()).<Instant>getAttribute(LocalAccountStatusFilter.LAST_ACTION))
+                .isEqualTo(START.plusSeconds(1));
     }
 
     @Test
@@ -335,11 +442,35 @@ class AuthFlowIntegrationTest {
         return request(client, HttpRequest.newBuilder(uri(path)).GET().build());
     }
 
+    private HttpResponse<String> automatic(HttpClient client, String path) throws Exception {
+        return request(client, HttpRequest.newBuilder(uri(path))
+                .header(LocalAccountStatusFilter.AUTO_REFRESH_HEADER, "1").GET().build());
+    }
+
     private HttpResponse<String> request(HttpClient client, HttpRequest request) throws Exception {
         return client.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     private URI uri(String path) {
         return URI.create("http://127.0.0.1:" + port + path);
+    }
+
+    static class MutableClock extends Clock {
+        volatile Instant value = START;
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneOffset.UTC;
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return Clock.fixed(value, zone);
+        }
+
+        @Override
+        public Instant instant() {
+            return value;
+        }
     }
 }

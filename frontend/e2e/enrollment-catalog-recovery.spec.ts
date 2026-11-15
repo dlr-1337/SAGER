@@ -1,6 +1,8 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import { enterDemo } from './demo-session';
+import { openMoreFilters } from './more-filters';
+import { expectShortGuidance } from './short-text';
 
 const account = {
   id: '00000000-0000-0000-0000-000000000001',
@@ -215,6 +217,7 @@ for (const action of ['desativar', 'renomear'] as const) {
     });
     await page.goto('/cursos');
     await page.getByLabel('Buscar curso', { exact: true }).fill('Sintético');
+    await openMoreFilters(page);
     const status = page.getByRole('combobox', { name: 'Situação', exact: true });
     await status.selectOption('active');
     await page.getByRole('button', { name: 'Próxima', exact: true }).click();
@@ -270,7 +273,13 @@ test('gestor cadastra e desativa curso, e pode continuar uma edição não salva
     return route.fulfill({ json: item });
   });
   await page.goto('/cursos');
-  await page.getByLabel('Nome do curso', { exact: true }).fill('Curso Sintético');
+  await expectShortGuidance(page);
+  const name = page.getByLabel('Nome do curso', { exact: true });
+  await expect(name).toHaveCount(0);
+  const create = page.getByRole('button', { name: 'Cadastrar curso', exact: true });
+  await create.click();
+  await expect(name).toBeFocused();
+  await name.fill('Curso Sintético');
   await page.getByRole('button', { name: 'Salvar curso' }).click();
   await expect(page.getByText('Escolha o nível.')).toBeVisible();
   expect(courses).toHaveLength(0);
@@ -279,14 +288,20 @@ test('gestor cadastra e desativa curso, e pode continuar uma edição não salva
   await page.getByRole('button', { name: 'Salvar curso' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Curso salvo' })).toBeVisible();
   await expect(page.getByText('Curso Sintético', { exact: true })).toBeVisible();
+  await expect(name).toHaveCount(0);
+  await expect(create).toBeFocused();
   await page.getByRole('button', { name: 'Desativar', exact: true }).click();
   await expect(page.getByText('Inativo · mantido nos cadastros existentes')).toBeVisible();
   await page.getByRole('button', { name: 'Editar', exact: true }).click();
-  await page.getByLabel('Nome do curso', { exact: true }).fill('Rascunho não salvo');
-  await page.getByRole('button', { name: 'Cancelar edição' }).click();
+  await name.fill('Rascunho não salvo');
+  await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
   const dialog = page.getByRole('alertdialog');
   await expect(dialog).toContainText('Descartar alterações?');
   await dialog.getByRole('button', { name: 'Continuar preenchendo' }).click();
-  await expect(page.getByLabel('Nome do curso', { exact: true })).toHaveValue('Rascunho não salvo');
+  await expect(name).toHaveValue('Rascunho não salvo');
   expect(courses[0].name).toBe('Curso Sintético');
+  await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Descartar e sair' }).click();
+  await expect(name).toHaveCount(0);
+  await expect(page.getByText('Curso Sintético', { exact: true })).toBeVisible();
 });

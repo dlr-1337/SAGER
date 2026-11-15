@@ -322,7 +322,7 @@ describe('Residentes em sessão local', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Estudante Sintético');
     expect(fixture.nativeElement.textContent).toContain('Não informado');
-    expect(fixture.nativeElement.textContent).toContain(
+    expect(fixture.nativeElement.querySelector('.learn-more')?.textContent).toContain(
       'A ausência da data de nascimento não indica maioridade',
     );
     expect(fixture.nativeElement.textContent).not.toContain('anos');
@@ -919,5 +919,68 @@ describe('Residentes em sessão local', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Ana Luísa Ribeiro');
     expect(api.list).not.toHaveBeenCalled();
+  });
+
+  it('tem uma só frase no cabeçalho da lista', async () => {
+    const fixture = TestBed.createComponent(ResidentsComponent);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('header p')).toHaveLength(1);
+  });
+
+  it('mostra aos 15 s o residente alterado por outra pessoa, na mesma página e filtro', async () => {
+    vi.useFakeTimers();
+    try {
+      TestBed.inject(FilterState).values.set('resident-page', 1);
+      api.page.mockResolvedValue({ items: [structuredClone(resident)], total: 30 });
+      const fixture = TestBed.createComponent(ResidentsComponent);
+      const page = fixture.componentInstance;
+      await vi.advanceTimersByTimeAsync(0);
+      page.filters.controls.allocated.setValue('true');
+      page.changePage(1);
+      await vi.advanceTimersByTimeAsync(300);
+      fixture.detectChanges();
+      const calls = api.page.mock.calls.length;
+      api.page.mockResolvedValue({
+        items: [{ ...structuredClone(resident), name: 'Estudante Renomeado' }],
+        total: 30,
+      });
+      await vi.advanceTimersByTimeAsync(15_000);
+      expect(page.loading()).toBe(false);
+      fixture.detectChanges();
+      expect(api.page).toHaveBeenCalledTimes(calls + 1);
+      expect(api.page).toHaveBeenLastCalledWith(
+        expect.objectContaining({ allocated: 'true', offset: '25' }),
+        expect.anything(),
+      );
+      expect(fixture.nativeElement.textContent).toContain('Estudante Renomeado');
+      expect(fixture.nativeElement.textContent).not.toContain('Carregando residentes');
+      expect(page.page()).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('o detalhe com quarto escolhido e não confirmado não troca a escolha', async () => {
+    vi.useFakeTimers();
+    try {
+      route.snapshot.paramMap = convertToParamMap({ id: resident.id });
+      const fixture = TestBed.createComponent(ResidentDetailComponent);
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+      const page = fixture.componentInstance;
+      page.selectedRoom.setValue(secondRoomId);
+      const calls = api.get.mock.calls.length;
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(api.get).toHaveBeenCalledTimes(calls);
+      expect(page.selectedRoom.value).toBe(secondRoomId);
+      page.selectedRoom.setValue('');
+      api.get.mockResolvedValue({ ...structuredClone(resident), name: 'Nome Atualizado' });
+      await vi.advanceTimersByTimeAsync(15_000);
+      expect(page.localResident()?.name).toBe('Nome Atualizado');
+      expect(roomApi.map).toHaveBeenLastCalledWith(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
