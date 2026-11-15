@@ -24,7 +24,7 @@ public class ReportCatalog {
   item("SAIDAS","Saídas curtas e longas",EXITS),
   item("LIMPEZA","Avaliações de limpeza",List.of("ABAIXO_LIMITE","DENTRO_LIMITE")),
   item("OCORRENCIAS","Ocorrências",List.of("VALIDA","INVALIDADA")),
-  item("NOTIFICACOES","Notificações",List.of("PENDENTE","VISUALIZADA","EM_ANALISE","ARQUIVADA","CONVERTIDA")),
+  item("NOTIFICACOES","Notificações de ocorrência",List.of("PENDENTE","VISUALIZADA","EM_ANALISE","ARQUIVADA","CONVERTIDA")),
   item("ADVERTENCIAS","Advertências",List.of("VIGENTE","ANULADA")),
   item("TERMOS","Termos de compromisso",List.of("EMITIDO","ANULADO")),
   item("CONSOLIDADO","Consolidado administrativo",List.of())),366,10000,20,100,24);}

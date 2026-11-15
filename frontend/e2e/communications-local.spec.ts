@@ -451,7 +451,7 @@ test('lista longa em diálogo: painel acima do diálogo, Esc fecha só o painel,
   await page.setViewportSize({ width: 320, height: 568 });
   await mockApi(page);
   await page.goto('/notificacoes');
-  await page.getByRole('link', { name: 'Ver notificação' }).click();
+  await page.getByRole('link', { name: 'Ver notificação de ocorrência' }).click();
   await page.getByRole('button', { name: 'Registrar visualização' }).click();
   await page.getByRole('button', { name: 'Iniciar análise', exact: true }).click();
   await page.getByRole('button', { name: 'Arquivar com justificativa' }).click();
@@ -490,7 +490,7 @@ test('GET não decide; supervisor registra visualização, análise e arquivamen
 }) => {
   const state = await mockApi(page);
   await page.goto('/notificacoes');
-  await page.getByRole('link', { name: 'Ver notificação' }).click();
+  await page.getByRole('link', { name: 'Ver notificação de ocorrência' }).click();
   await expect(page.getByRole('heading', { name: 'O que aconteceu' })).toBeVisible();
   expect(state.writes).toHaveLength(0);
   await page.getByRole('button', { name: 'Registrar visualização' }).click();
@@ -513,7 +513,9 @@ test('GET não decide; supervisor registra visualização, análise e arquivamen
     .getByLabel('Justificativa', { exact: true })
     .fill('A ocorrência não procede após conferir o registro de origem.');
   await confirm(page, 'Confirmar arquivamento');
-  await expect(page.getByText('Notificação arquivada com justificativa.')).toBeVisible();
+  await expect(
+    page.getByText('Notificação de ocorrência arquivada com justificativa.'),
+  ).toBeVisible();
   expect(state.writes[2].body).toEqual({
     version: 2,
     reasonCode: 'NAO_PROCEDE',
@@ -521,7 +523,9 @@ test('GET não decide; supervisor registra visualização, análise e arquivamen
   });
   expect(state.writes.every((item) => item.csrf === 'synthetic-csrf')).toBe(true);
   await page.reload();
-  await expect(page.getByText('Notificação arquivada', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText('Notificação de ocorrência arquivada', { exact: true }),
+  ).toBeVisible();
 });
 
 test('origem corrigida exige revisão humana antes da conversão com gravidade e data próprias', async ({
@@ -1166,7 +1170,7 @@ test('listas mostram a cor da situação com legenda, e o detalhe não tem "Atua
   await expect(row.locator('.status')).toHaveAttribute('data-tone', 'warning');
   await expect(page.locator('sager-status-legend')).toContainText('Pendente');
   await expect(page.locator('sager-status-legend')).toContainText(
-    'O supervisor marcou que viu a notificação.',
+    'O supervisor marcou que viu a notificação de ocorrência.',
   );
   await page.goto('/advertencias');
   await expect(page.locator('.op-row .status').first()).toHaveAttribute('data-tone', 'success');
@@ -1204,7 +1208,9 @@ test('320 px e teclado acessíveis; permissões e demonstração mantêm seus es
   const state = await mockApi(page);
   await page.setViewportSize({ width: 320, height: 740 });
   await page.goto('/notificacoes/' + notificationId);
-  await expect(page.getByRole('heading', { name: 'Analisar notificação' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Analisar notificação de ocorrência' }),
+  ).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.getByRole('button', { name: 'Arquivar com justificativa' }).click();
