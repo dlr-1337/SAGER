@@ -13,6 +13,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
 import static br.edu.ifgoiano.sager.discipline.OccurrenceSourceReader.Evidence;
@@ -41,6 +42,9 @@ public class DisciplineEvidenceService implements OccurrenceEvidenceSink {
         UUID id;
         long version;
         boolean changed=!existing.isEmpty();
+        boolean progressed=false;
+        // A rotina de saídas vencidas roda sem requisição HTTP e audita como sistema.
+        UUID systemRequest=RequestContextHolder.getRequestAttributes()==null?UUID.randomUUID():null;
         if(!changed) {
             id=UUID.randomUUID();version=0;
             jdbc.update("INSERT INTO sager_occurrence(id,resident_id,source_type,source_id,category,source_version,occurred_at,valid,evidence) VALUES (?,?,?,?,?,?,?,?,?::jsonb)",id,residentId,sourceType,sourceId,evidence.category(),evidence.sourceVersion(),evidence.occurredAt(),evidence.qualifies(),evidence.snapshot().toString());
@@ -51,10 +55,13 @@ public class DisciplineEvidenceService implements OccurrenceEvidenceSink {
                     && json.readTree(row.get("evidence").toString()).equals(evidence.snapshot())) return;
             if(evidence.sourceVersion()<((Number)row.get("source_version")).longValue()) return;
             version=((Number)row.get("version")).longValue()+1;
+            // Volta confirmada de uma saída que já era atraso continua o mesmo fato: não é correção da origem.
+            progressed=(boolean)row.get("valid") && evidence.qualifies()
+                    && "EM_ANDAMENTO".equals(json.readTree(row.get("evidence").toString()).path("status").asString());
             jdbc.update("UPDATE sager_occurrence SET source_version=?,occurred_at=?,valid=?,evidence=?::jsonb,version=? WHERE id=?",evidence.sourceVersion(),evidence.occurredAt(),evidence.qualifies(),evidence.snapshot().toString(),version,id);
         }
         jdbc.update("INSERT INTO sager_occurrence_revision(occurrence_id,version,source_version,occurred_at,valid,evidence,recorded_at) VALUES (?,?,?,?,?,?::jsonb,?)",id,version,evidence.sourceVersion(),evidence.occurredAt(),evidence.qualifies(),evidence.snapshot().toString(),now);
-        audit.record(AuditResource.OCCURRENCE,id,changed?AuditAction.UPDATE:AuditAction.CREATE,version,Set.of("sourceVersion","evidence","status"));
+        log(systemRequest,AuditResource.OCCURRENCE,id,changed?AuditAction.UPDATE:AuditAction.CREATE,version,Set.of("sourceVersion","evidence","status"));
         String policy=switch(evidence.category()) {case "AUSENCIA" -> "ABSENCE";case "ATRASO_RETORNO" -> "LATE_RETURN";case "LIMPEZA" -> "LOW_CLEANING";default -> null;};
         if(policy==null) return;
         var notifications=jdbc.queryForList("SELECT id,version FROM sager_discipline_notification WHERE occurrence_id=? AND policy_code=? FOR UPDATE",id,policy);
@@ -62,12 +69,12 @@ public class DisciplineEvidenceService implements OccurrenceEvidenceSink {
             if(!evidence.qualifies()) return;
             UUID nid=UUID.randomUUID();
             jdbc.update("INSERT INTO sager_discipline_notification(id,occurrence_id,policy_code,policy_version,reviewed_occurrence_version,created_at) VALUES (?,?,?,1,?,?)",nid,id,policy,version,now);
-            audit.record(AuditResource.DISCIPLINE_NOTIFICATION,nid,AuditAction.CREATE,0,Set.of("occurrenceId","status"));
-        } else if(changed) {
+            log(systemRequest,AuditResource.DISCIPLINE_NOTIFICATION,nid,AuditAction.CREATE,0,Set.of("occurrenceId","status"));
+        } else if(changed && !progressed) {
             for(var notification:notifications) {
                 UUID nid=(UUID)notification.get("id");long nv=((Number)notification.get("version")).longValue()+1;
                 jdbc.update("UPDATE sager_discipline_notification SET requires_review=true,version=? WHERE id=?",nv,nid);
-                audit.record(AuditResource.DISCIPLINE_NOTIFICATION,nid,AuditAction.UPDATE,nv,Set.of("requiresReview"));
+                log(systemRequest,AuditResource.DISCIPLINE_NOTIFICATION,nid,AuditAction.UPDATE,nv,Set.of("requiresReview"));
             }
         }
     }
@@ -93,8 +100,15 @@ public class DisciplineEvidenceService implements OccurrenceEvidenceSink {
         if(rows.isEmpty()) throw DisciplineInput.missing();var row=rows.getFirst();
         OffsetDateTime expected=time(row.get("expected_return_at"));OffsetDateTime actual=row.get("actual_return_at")==null?null:time(row.get("actual_return_at"));
         ObjectNode snapshot=json.createObjectNode();snapshot.put("status",(String)row.get("status"));snapshot.put("expectedReturnAt",expected.toString());snapshot.put("actualReturnAt",actual==null?null:actual.toString());
-        boolean qualifies=actual!=null && actual.isAfter(expected) && "RETORNO_CONFIRMADO_COM_ATRASO".equals(row.get("status"));
-        return new Evidence("ATRASO_RETORNO",((Number)row.get("version")).longValue(),actual==null?time(row.get("created_at")):actual,qualifies,snapshot);
+        // Saída curta em andamento depois do prazo já é atraso, antes da volta (RN11).
+        boolean overdue="sager_short_exit".equals(table) && actual==null && "EM_ANDAMENTO".equals(row.get("status"))
+                && !clock.instant().isBefore(expected.toInstant());
+        boolean qualifies=overdue || actual!=null && actual.isAfter(expected) && "RETORNO_CONFIRMADO_COM_ATRASO".equals(row.get("status"));
+        return new Evidence("ATRASO_RETORNO",((Number)row.get("version")).longValue(),actual==null?expected:actual,qualifies,snapshot);
+    }
+    private void log(UUID systemRequest,AuditResource resource,UUID id,AuditAction action,long version,Set<String> fields) {
+        if(systemRequest!=null) audit.recordSystem(systemRequest,resource,id,action,version,fields);
+        else audit.record(resource,id,action,version,fields);
     }
     private OffsetDateTime time(Object value) {
         if(value instanceof OffsetDateTime t) return t;

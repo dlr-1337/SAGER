@@ -3,6 +3,7 @@ package br.edu.ifgoiano.sager.operations.shortexits;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -10,6 +11,7 @@ import java.util.UUID;
 import br.edu.ifgoiano.sager.audit.AuditAction;
 import br.edu.ifgoiano.sager.audit.AuditResource;
 import br.edu.ifgoiano.sager.audit.AuditService;
+import br.edu.ifgoiano.sager.operations.OccurrenceEvidenceSink;
 import br.edu.ifgoiano.sager.operations.OperationResidents;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
@@ -23,13 +25,36 @@ public class ShortExitExpiryService {
     private final OperationResidents residents;
     private final AuditService audit;
     private final Clock clock;
+    private final List<OccurrenceEvidenceSink> evidenceSinks;
 
     public ShortExitExpiryService(ShortExitRepository exits, OperationResidents residents,
-            AuditService audit, Clock clock) {
+            AuditService audit, Clock clock, List<OccurrenceEvidenceSink> evidenceSinks) {
         this.exits = exits;
         this.residents = residents;
         this.audit = audit;
         this.clock = clock;
+        this.evidenceSinks = List.copyOf(evidenceSinks);
+    }
+
+    /** A saída curta em andamento que passou do prazo vira ocorrência sem esperar a volta (RN11). */
+    @Transactional
+    public int flagOverdue() {
+        if (RequestContextHolder.getRequestAttributes() != null) {
+            throw new IllegalStateException("A varredura exige execução interna sem requisição HTTP.");
+        }
+        Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
+        int flagged = 0;
+        for (UUID id : exits.overdue(now)) {
+            ShortExit snapshot = exits.find(id, false).orElse(null);
+            if (snapshot == null || !residents.lock(snapshot.residentId())) continue;
+            // Relida com o residente travado: uma volta confirmada no meio do caminho não vira atraso.
+            ShortExit current = exits.find(id, true).orElse(null);
+            if (current == null || !ShortExit.IN_PROGRESS.equals(current.status())
+                    || now.isBefore(current.expectedReturnAt())) continue;
+            evidenceSinks.forEach(sink -> sink.reconcile("SHORT_RETURN", id, current.residentId()));
+            flagged++;
+        }
+        return flagged;
     }
 
     @Transactional

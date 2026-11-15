@@ -15,6 +15,7 @@ import java.time.*;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import br.edu.ifgoiano.sager.auth.LocalAccountProvisioningService;
+import br.edu.ifgoiano.sager.operations.shortexits.ShortExitExpiryService;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,6 +56,7 @@ class DisciplineApiIntegrationTest {
     @Autowired LocalAccountProvisioningService accounts;
     @Autowired MutableClock clock;
     @Autowired DisciplineEvidenceService evidence;
+    @Autowired ShortExitExpiryService expiry;
     @Autowired PlatformTransactionManager transactions;
     @LocalServerPort int port;
     UUID resident,other,accommodation,room;
@@ -97,19 +99,48 @@ class DisciplineApiIntegrationTest {
             assertThat(read(sup,"/api/v1/notificacoes/"+item.path("id").asText()).path("status").asText()).isEqualTo("ARQUIVADA");
         }
     }
-    @Test void actualDelayedReturnCreatesAlertButMereDeadlineAndOnTimeReturnDoNot() throws Exception {
+    @Test void lateShortReturnCreatesOneAlertAndExitInsideTheDeadlineDoesNot() throws Exception {
         try(var sup=login("supervisor");var student=login("residente")) {
-            var exit=ok(student,"POST","/api/v1/saidas-curtas",Map.of("departureMode","NOW","expectedReturnAt",START.plusSeconds(3600).toString(),"reason","Compromisso sintético"));String id=exit.path("id").asText();
-            ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/decisao",Map.of("version",0,"decision","APPROVE"));
-            clock.set(START.plusSeconds(3601));read(sup,"/api/v1/saidas-curtas/"+id);assertThat(count("sager_occurrence")).isZero();
+            String id=departedShortExit(sup,student);
+            clock.set(START.plusSeconds(3*3600+1));
             ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/retorno",Map.of("version",2,"timeMode","NOW","lateObservation","Trânsito atrasou o retorno confirmado presencialmente."));
             assertThat(count("sager_occurrence")).isEqualTo(1);assertThat(count("sager_warning")).isZero();
-            var next=ok(student,"POST","/api/v1/saidas-curtas",Map.of("departureMode","NOW","expectedReturnAt",clock.instant().plusSeconds(3600).toString(),"reason","Outra saída sintética"));id=next.path("id").asText();
-            ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/decisao",Map.of("version",0,"decision","APPROVE"));
-            clock.set(clock.instant().plusSeconds(1));
-            clock.set(clock.instant().plusSeconds(30));ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/retorno",Map.of("version",2,"timeMode","NOW"));
+            id=departedShortExit(sup,student);
+            clock.set(clock.instant().plusSeconds(3*3600-1));assertThat(expiry.flagOverdue()).isZero();
+            ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/retorno",Map.of("version",2,"timeMode","NOW"));
             assertThat(count("sager_occurrence")).isEqualTo(1);
         }
+    }
+    @Test void overdueShortExitAlertsBeforeTheReturnAndTheConfirmedReturnKeepsTheSameAlert() throws Exception {
+        try(var sup=login("supervisor");var student=login("residente")) {
+            String id=departedShortExit(sup,student);
+            clock.set(START.plusSeconds(3*3600));
+            assertThat(expiry.flagOverdue()).isEqualTo(1);
+            assertThat(count("sager_occurrence")).isEqualTo(1);assertThat(count("sager_discipline_notification")).isEqualTo(1);assertThat(count("sager_warning")).isZero();
+            assertThat(jdbc.queryForObject("SELECT occurred_at FROM sager_occurrence",OffsetDateTime.class).toInstant()).isEqualTo(START.plusSeconds(3*3600));
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_audit_event WHERE origin='SYSTEM_JOB' AND resource_id IN (SELECT id FROM sager_occurrence UNION SELECT id FROM sager_discipline_notification)",Integer.class)).isEqualTo(2);
+            expiry.flagOverdue();assertThat(count("sager_occurrence_revision")).isEqualTo(1);
+            clock.set(START.plusSeconds(3*3600+1800));
+            ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/retorno",Map.of("version",2,"timeMode","NOW","lateObservation","Voltou meia hora depois, confirmado presencialmente."));
+            assertThat(count("sager_occurrence")).isEqualTo(1);assertThat(count("sager_discipline_notification")).isEqualTo(1);assertThat(count("sager_occurrence_revision")).isEqualTo(2);
+            assertThat(jdbc.queryForObject("SELECT valid FROM sager_occurrence",Boolean.class)).isTrue();
+            assertThat(jdbc.queryForObject("SELECT requires_review FROM sager_discipline_notification",Boolean.class)).isFalse();
+        }
+    }
+    @Test void retroactiveReturnInsideTheDeadlineInvalidatesTheOverdueAlert() throws Exception {
+        try(var sup=login("supervisor");var student=login("residente")) {
+            String id=departedShortExit(sup,student);
+            clock.set(START.plusSeconds(3*3600+60));expiry.flagOverdue();
+            ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/retorno",Map.of("version",2,"timeMode","RETROACTIVE","occurredAt",START.plusSeconds(3*3600-600).toString(),"justification","Retorno conferido depois no livro da portaria."));
+            assertThat(jdbc.queryForObject("SELECT valid FROM sager_occurrence",Boolean.class)).isFalse();
+            assertThat(jdbc.queryForObject("SELECT requires_review FROM sager_discipline_notification",Boolean.class)).isTrue();
+        }
+    }
+    /** Pedido para sair agora aprovado: a aprovação registra a partida e o prazo fica em 3 horas. */
+    private String departedShortExit(HttpClient sup,HttpClient student) throws Exception {
+        String id=ok(student,"POST","/api/v1/saidas-curtas",Map.of("departureMode","NOW","reason","Compromisso sintético")).path("id").asText();
+        assertThat(ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/decisao",Map.of("version",0,"decision","APPROVE")).path("status").asText()).isEqualTo("EM_ANDAMENTO");
+        return id;
     }
     @Test void conversionIsIdempotentConcurrentAndOnlyOwnFormalContentIsPublished() throws Exception {
         try(var sup=login("supervisor");var student=login("residente");var stranger=login("other")) {

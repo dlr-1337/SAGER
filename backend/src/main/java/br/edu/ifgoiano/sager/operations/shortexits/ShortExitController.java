@@ -47,7 +47,7 @@ public class ShortExitController {
 
     @PostMapping
     public ResponseEntity<ShortExit> create(@RequestBody JsonNode body) {
-        OpsInput.object(body, "departureMode", "requestedDepartureAt", "expectedReturnAt", "reason", "notes");
+        OpsInput.object(body, "departureMode", "requestedDepartureAt", "reason", "notes");
         ShortExit created = service.create(plan(body));
         return ResponseEntity.created(URI.create("/api/v1/saidas-curtas/" + created.id()))
                 .cacheControl(CacheControl.noStore()).body(created);
@@ -55,7 +55,7 @@ public class ShortExitController {
 
     @PutMapping("/{id}")
     public ResponseEntity<ShortExit> update(@PathVariable UUID id, @RequestBody JsonNode body) {
-        OpsInput.object(body, "departureMode", "requestedDepartureAt", "expectedReturnAt", "reason", "notes", "version");
+        OpsInput.object(body, "departureMode", "requestedDepartureAt", "reason", "notes", "version");
         return ok(service.update(id, OpsInput.version(body), plan(body)));
     }
 
@@ -91,7 +91,7 @@ public class ShortExitController {
             throw OpsInput.invalid("NOW usa somente o horário do servidor.");
         }
         return new ShortExitService.Plan(mode, OpsInput.instant(body, "requestedDepartureAt", false),
-                OpsInput.instant(body, "expectedReturnAt", true), OpsInput.text(body, "reason", true, 3, 2000),
+                null, OpsInput.text(body, "reason", true, 3, 2000),
                 OpsInput.text(body, "notes", false, 1, 2000));
     }
 

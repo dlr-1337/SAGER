@@ -386,6 +386,7 @@ class LongExitApiIntegrationTest {
             created(post(student, ROOT, plan(4 * 3600)));
             Map<String, Object> shortBody = new LinkedHashMap<>(plan(3600));
             shortBody.remove("guardianId");
+            shortBody.remove("expectedReturnAt");
             error(post(student, "/api/v1/saidas-curtas", shortBody), 409, "overlapping_exit");
         }
     }
@@ -532,6 +533,7 @@ class LongExitApiIntegrationTest {
                 HttpClient supervisor = login("supervisor")) {
             Map<String, Object> shortPlan = plan(3600);
             shortPlan.remove("guardianId");
+            shortPlan.remove("expectedReturnAt");
             String shortId = created(post(student, "/api/v1/saidas-curtas", shortPlan)).path("id").asText();
             JsonNode out =
                     readResponse(
@@ -541,8 +543,8 @@ class LongExitApiIntegrationTest {
                                     Map.of("version", 0, "decision", "APPROVE")),
                             200);
             assertThat(out.path("status").asText()).isEqualTo("EM_ANDAMENTO");
-            // The short exit is late and still without a confirmed return.
-            clock.value = START.plusSeconds(7200);
+            // The short exit is late (3 hours after the recorded departure) and still without a confirmed return.
+            clock.value = START.plusSeconds(3 * 3600 + 600);
             JsonNode confirmed = confirmed(student, supervisor, plan(4 * 3600));
             error(approve(supervisor, confirmed), 409, "physical_exit_conflict");
             JsonNode unchanged = read(supervisor, ROOT + "/" + confirmed.path("id").asText());
@@ -833,6 +835,7 @@ FROM sager_document_version WHERE exit_id=?
             String csrf = csrf(student);
             Map<String, Object> shortPlan = plan(3600);
             shortPlan.remove("guardianId");
+            shortPlan.remove("expectedReturnAt");
             HttpRequest one =
                     HttpRequest.newBuilder(uri(ROOT))
                             .header("Content-Type", "application/json")

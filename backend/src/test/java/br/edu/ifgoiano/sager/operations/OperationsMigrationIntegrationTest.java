@@ -123,6 +123,24 @@ class OperationsMigrationIntegrationTest {
     }
 
     @Test
+    void databaseMeasuresTheThreeHoursFromTheRecordedDeparture() {
+        String schema = "ops_recorded_departure";
+        migrate(schema, null);
+        JdbcTemplate jdbc = jdbc(schema);
+        UUID exit = approvedExit(jdbc, resident(jdbc), 0);
+        assertThatThrownBy(() -> jdbc.update("UPDATE sager_short_exit SET status = 'EM_ANDAMENTO',"
+                + " actual_departure_at = requested_departure_at + INTERVAL '40 minutes',"
+                + " expected_return_at = requested_departure_at + INTERVAL '3 hours 40 minutes 1 second'"
+                + " WHERE id = ?", exit))
+                .satisfies(error -> assertThat(sqlState(error)).isEqualTo("23514"));
+        jdbc.update("UPDATE sager_short_exit SET status = 'EM_ANDAMENTO',"
+                + " actual_departure_at = requested_departure_at + INTERVAL '40 minutes',"
+                + " expected_return_at = requested_departure_at + INTERVAL '3 hours 40 minutes' WHERE id = ?", exit);
+        assertThat(jdbc.queryForObject("SELECT expected_return_at - actual_departure_at FROM sager_short_exit"
+                + " WHERE id = ?", String.class, exit)).isEqualTo("03:00:00");
+    }
+
+    @Test
     void markHistoryAcceptsSystemActorOnlyForJustifiedAbsenceAtCallVersionZero() {
         String schema = "ops_mark_history_actor";
         migrate(schema, null);
