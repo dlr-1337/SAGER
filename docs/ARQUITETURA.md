@@ -189,7 +189,7 @@ Nenhuma das escolhas abaixo tem aprovação institucional registrada. Elas permi
 | D10 Limpeza | Quatro critérios de 0 a 10 com média calculada no servidor; ranking por período. | Escala, pesos, períodos, desempate e limiar de alerta. |
 | D11 Evolução do comportamento | Relatório individual com séries mensais de faltas sem justificativa, voltas com atraso e advertências vigentes, calculadas na consulta (RF011). Com a API, barras em HTML e CSS com tabela; na demonstração, Chart.js. Não há nota de comportamento. | Se esses indicadores bastam e como são agregados. |
 | D12 Cancelar notificação | Arquivamento motivado, sem exclusão nem reabertura silenciosa. | Estado e revisão posterior. |
-| D13 Critérios de notificação | Ausência injustificada em chamada fechada, retorno físico atrasado e limpeza abaixo de 6,00 geram análise interna; gravidade e advertência são decisão humana. | Catálogo de critérios, gravidades e evidências. |
+| D13 Critérios de notificação | Ausência injustificada em chamada fechada, saída curta que passou do prazo (mesmo antes da volta), retorno físico atrasado e limpeza abaixo de 6,00 geram análise interna; gravidade e advertência são decisão humana. | Catálogo de critérios, gravidades e evidências. |
 | D14 Termo de compromisso | Duas advertências vigentes da mesma categoria, de origens distintas, em 90 dias geram candidato; o supervisor confirma e emite o termo. Ciência não é assinatura. | Limiar, modelo, signatários e procedimento. |
 | D15 Responsáveis | Uma autorização conferida de qualquer responsável vinculado basta. Telefone obrigatório em novo cadastro ou valor alterado. | Comprovação de vínculo e identidade, destinatário e telefone válido. |
 | D16 Forma da autorização | Sem provedor de assinatura: arquivo devolvido pelo WhatsApp ou anexado e conferido por um servidor. | Se o método basta e qual nível de assinatura o ato exige. |
@@ -221,6 +221,7 @@ Nenhuma das escolhas abaixo tem aprovação institucional registrada. Elas permi
 | Item | Regra local adotada | A confirmar com a AE/TI |
 | --- | --- | --- |
 | Residente maior de idade | O servidor recusa pedido de saída de residente com 18 anos ou mais, ou sem nascimento. | Se o maior de idade fica fora de todo controle de saída. |
+| Prazo da saída curta | O residente não informa a volta: a saída curta dura até 3 horas a partir da saída registrada pelo supervisor (antes dela, conta da partida pedida). Passado o prazo sem volta, a rotina de 60 s abre a ocorrência e a notificação de ocorrência pendente, sem advertência automática (reunião de 14/11/2026). | Se o prazo conta da saída registrada e se a notificação antes da volta está certa. |
 | Retenção dos demais dados | Nada é apagado automaticamente, salvo relatórios temporários. | Prazos de retenção e descarte. |
 | Custódia da recuperação | A identidade privada `age` fica fora do servidor, com o operador. | Quem guarda e como. |
 | Backups | Feitos sob demanda pelo operador, sem agendamento. | Frequência e cópia externa. |
