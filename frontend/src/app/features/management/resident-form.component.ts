@@ -246,6 +246,7 @@ import {
                 ><select
                   id="new-course-level"
                   [formControl]="newCourseLevel"
+                  (change)="newCourseLevelChanged()"
                   [attr.aria-invalid]="
                     newCourseLevel.invalid && newCourseLevel.touched ? 'true' : null
                   "
@@ -258,23 +259,25 @@ import {
                 @if (newCourseLevel.invalid && newCourseLevel.touched) {
                   <span class="mg-field-error" id="new-course-level-error">Escolha o nível.</span>
                 }
-                <label for="new-course-duration">Duração do novo curso (anos)</label
-                ><input
-                  id="new-course-duration"
-                  type="number"
-                  min="1"
-                  max="6"
-                  step="1"
-                  [formControl]="newCourseDuration"
-                  [attr.aria-invalid]="
-                    newCourseDuration.invalid && newCourseDuration.touched ? 'true' : null
-                  "
-                  aria-describedby="new-course-duration-error"
-                />
-                @if (newCourseDuration.invalid && newCourseDuration.touched) {
-                  <span class="mg-field-error" id="new-course-duration-error"
-                    >Use um número de 1 a 6 anos.</span
-                  >
+                @if (!newCourseDurationHidden()) {
+                  <label for="new-course-duration">Duração do novo curso (anos)</label
+                  ><input
+                    id="new-course-duration"
+                    type="number"
+                    min="1"
+                    max="6"
+                    step="1"
+                    [formControl]="newCourseDuration"
+                    [attr.aria-invalid]="
+                      newCourseDuration.invalid && newCourseDuration.touched ? 'true' : null
+                    "
+                    aria-describedby="new-course-duration-error"
+                  />
+                  @if (newCourseDuration.invalid && newCourseDuration.touched) {
+                    <span class="mg-field-error" id="new-course-duration-error"
+                      >Use um número de 1 a 6 anos.</span
+                    >
+                  }
                 }
                 <button
                   type="button"
@@ -409,6 +412,8 @@ export class ResidentFormComponent {
     nonNullable: true,
     validators: [Validators.required],
   });
+  /** Ensino médio dura 3 anos: a tela grava a duração e esconde o campo. */
+  readonly newCourseDurationHidden = signal(false);
   readonly newCourseDuration = new FormControl<number | null>(null, {
     validators: [
       Validators.required,
@@ -430,6 +435,11 @@ export class ResidentFormComponent {
         this.coursesError.set('Não foi possível carregar os cursos. Tente novamente.');
     }
   }
+  newCourseLevelChanged(): void {
+    const medio = this.newCourseLevel.value === 'MEDIO';
+    if (medio || this.newCourseDurationHidden()) this.newCourseDuration.setValue(medio ? 3 : null);
+    this.newCourseDurationHidden.set(medio);
+  }
   async createCourse(): Promise<void> {
     if (this.saving() || this.courseSaving()) return;
     const fields = [this.newCourse, this.newCourseLevel, this.newCourseDuration];
@@ -450,6 +460,7 @@ export class ResidentFormComponent {
       this.form.controls.courseId.setValue(course.id);
       this.form.markAsDirty();
       fields.forEach((field) => field.reset());
+      this.newCourseDurationHidden.set(false);
       this.addingCourse.set(false);
     } catch (error) {
       if (!this.destroyRef.destroyed) this.coursesError.set(readableError(error));
