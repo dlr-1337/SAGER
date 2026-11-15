@@ -16,7 +16,7 @@ const resident = {
   residenteId: '00000000-0000-0000-0000-000000000002',
   supervisorId: null,
 };
-const notice = 'Maiores de idade podem sair do IF até 23h e devem voltar até 5h.';
+const notice = 'Maiores de idade podem sair do IF até 23h e voltar a partir das 6h.';
 
 function setup(principal: Parameters<LocalAuthService['principal']['set']>[0]) {
   TestBed.configureTestingModule({ providers: [provideRouter([])] });

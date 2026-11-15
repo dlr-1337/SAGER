@@ -44,11 +44,11 @@ const supervisorTasks: HomeTask[] = [
     links: [{ label: 'Ver saídas', to: '/saidas' }],
   },
   {
-    title: 'Notificações e advertências',
+    title: 'Notificações de ocorrência e advertências',
     text: 'Veja o que aconteceu e decida o que fazer.',
     icon: 'notifications',
     links: [
-      { label: 'Ver notificações', to: '/notificacoes' },
+      { label: 'Ver notificações de ocorrência', to: '/notificacoes' },
       { label: 'Ver advertências', to: '/advertencias' },
     ],
   },
@@ -87,7 +87,7 @@ const residentTasks: HomeTask[] = [
 // shortcut: horário fixo no texto; se a AE mudar a regra ou pedir controle, vira configuração ou registro de circulação
 const adultSchedule: HomeTask = {
   title: 'Horário de saída e volta',
-  text: 'Maiores de idade podem sair do IF até 23h e devem voltar até 5h.',
+  text: 'Maiores de idade podem sair do IF até 23h e voltar a partir das 6h.',
   icon: 'schedule',
   links: [],
 };
