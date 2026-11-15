@@ -284,7 +284,7 @@ test('gestor cadastra e desativa curso, e pode continuar uma edição não salva
   await expect(page.getByText('Escolha o nível.')).toBeVisible();
   expect(courses).toHaveLength(0);
   await page.getByLabel('Nível').selectOption('MEDIO');
-  await page.getByLabel('Duração (anos)').fill('3');
+  await expect(page.getByLabel('Duração (anos)')).toHaveCount(0);
   await page.getByRole('button', { name: 'Salvar curso' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Curso salvo' })).toBeVisible();
   await expect(page.getByText('Curso Sintético', { exact: true })).toBeVisible();

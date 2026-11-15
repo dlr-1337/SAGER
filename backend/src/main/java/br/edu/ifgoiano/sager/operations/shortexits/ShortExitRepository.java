@@ -123,6 +123,12 @@ public class ShortExitRepository implements AuthorizedExitLookup, ExitOccupancyL
         return overlaps(residentId, excludedId, departure, returning, now);
     }
 
+    public List<UUID> overdue(Instant now) {
+        return jdbc.query("SELECT id FROM sager_short_exit WHERE status = 'EM_ANDAMENTO'"
+                + " AND expected_return_at <= ? ORDER BY resident_id, id",
+                (result, row) -> result.getObject(1, UUID.class), timestamp(now));
+    }
+
     public List<UUID> due(Instant now) {
         return jdbc.query("""
                 SELECT id FROM sager_short_exit

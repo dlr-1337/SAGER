@@ -58,7 +58,7 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
       <header class="op-heading">
         <div>
           <a class="op-back" routerLink="/notificacoes"
-            ><span class="back-arrow" aria-hidden="true">←</span>Notificações</a
+            ><span class="back-arrow" aria-hidden="true">←</span>Notificações de ocorrência</a
           >
           <h1>Advertências</h1>
           <p>Advertências dadas pelo supervisor, com o histórico guardado.</p>
@@ -215,7 +215,8 @@ export class WarningsLocalPage {
           >
             <h2>Dados da advertência</h2>
             <p class="comm-help">
-              Se já existe uma notificação sobre este fato, crie a advertência por ela.
+              Se já existe uma notificação de ocorrência sobre este fato, crie a advertência por
+              ela.
             </p>
             <label class="field"
               >Residente<select sagerSearchable [formControl]="residentId">
@@ -480,7 +481,7 @@ export class WarningFormLocalPage {
               >
               @if (warning.notificationId) {
                 <a [routerLink]="['/notificacoes', warning.notificationId]"
-                  >Ver análise da notificação</a
+                  >Ver análise da notificação de ocorrência</a
                 >
               }
             </div>

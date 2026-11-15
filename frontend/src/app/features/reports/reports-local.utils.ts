@@ -18,7 +18,7 @@ export const reportLabels = {
   SAIDAS: 'Saídas e retornos',
   LIMPEZA: 'Limpeza dos quartos',
   OCORRENCIAS: 'Ocorrências',
-  NOTIFICACOES: 'Notificações',
+  NOTIFICACOES: 'Notificações de ocorrência',
   ADVERTENCIAS: 'Advertências',
   TERMOS: 'Termos de compromisso',
   CONSOLIDADO: 'Tudo junto',

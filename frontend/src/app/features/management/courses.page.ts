@@ -58,6 +58,7 @@ import { PaginationComponent } from '../../shared/pagination.component';
             >Nível<select
               sagerSearchable
               formControlName="level"
+              (change)="levelChanged()"
               required
               aria-describedby="course-level-error"
               [attr.aria-invalid]="
@@ -69,21 +70,23 @@ import { PaginationComponent } from '../../shared/pagination.component';
               <option value="SUPERIOR">Superior</option>
             </select></label
           >
-          <label class="mg-field"
-            >Duração (anos)<input
-              type="number"
-              formControlName="durationYears"
-              min="1"
-              max="6"
-              step="1"
-              required
-              aria-describedby="course-duration-error"
-              [attr.aria-invalid]="
-                form.controls.durationYears.invalid && form.controls.durationYears.touched
-                  ? 'true'
-                  : null
-              "
-          /></label>
+          @if (!durationHidden()) {
+            <label class="mg-field"
+              >Duração (anos)<input
+                type="number"
+                formControlName="durationYears"
+                min="1"
+                max="6"
+                step="1"
+                required
+                aria-describedby="course-duration-error"
+                [attr.aria-invalid]="
+                  form.controls.durationYears.invalid && form.controls.durationYears.touched
+                    ? 'true'
+                    : null
+                "
+            /></label>
+          }
         </div>
         @if (form.controls.level.invalid && form.controls.level.touched) {
           <p class="mg-field-error" id="course-level-error">Escolha o nível.</p>
@@ -231,6 +234,8 @@ export class CoursesPage {
   readonly saving = signal(false);
   readonly error = signal('');
   readonly notice = signal('');
+  /** Ensino médio dura 3 anos: a tela grava a duração e esconde o campo. */
+  readonly durationHidden = signal(false);
   readonly form = new FormGroup({
     name: new FormControl('', {
       nonNullable: true,
@@ -308,6 +313,11 @@ export class CoursesPage {
   create(): Promise<void> {
     return this.open(null);
   }
+  levelChanged(): void {
+    const medio = this.form.controls.level.value === 'MEDIO';
+    if (medio || this.durationHidden()) this.form.controls.durationYears.setValue(medio ? 3 : null);
+    this.durationHidden.set(medio);
+  }
   edit(course: Course): Promise<void> {
     return this.open(course);
   }
@@ -329,6 +339,8 @@ export class CoursesPage {
           }
         : undefined,
     );
+    // Curso médio antigo com outra duração mostra o valor salvo, sem trocá-lo sozinho.
+    this.durationHidden.set(course?.level === 'MEDIO' && course.durationYears === 3);
     this.formOpen.set(true);
     afterNextRender(() => document.getElementById('course-name')?.focus(), {
       injector: this.injector,

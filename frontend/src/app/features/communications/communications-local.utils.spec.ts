@@ -8,6 +8,7 @@ import {
 import {
   CommunicationIntent,
   communicationStateLabels,
+  evidenceRows,
   noticeStatusLabels,
   notificationLabels,
   recurrenceSelectionError,
@@ -117,5 +118,21 @@ describe('Situações das comunicações na legenda', () => {
     expect(toneAttr(noticeStatusLabels.RASCUNHO)).toBeNull();
     expect(toneAttr(noticeStatusLabels.RETIRADO)).toBeNull();
     expect(toneAttr(warningStatusLabels.ANULADA)).toBeNull();
+  });
+});
+
+describe('Origem da notificação de ocorrência', () => {
+  it('saída curta vencida aparece "Em andamento", sem volta registrada', () => {
+    expect(
+      evidenceRows({
+        status: 'EM_ANDAMENTO',
+        expectedReturnAt: '2026-10-02T20:40:00Z',
+        actualReturnAt: null,
+      }),
+    ).toEqual([
+      { label: 'Situação da origem', value: 'Em andamento' },
+      { label: 'Retorno previsto', value: '02/10/2026, 17:40' },
+      { label: 'Voltou em', value: 'Não informado' },
+    ]);
   });
 });

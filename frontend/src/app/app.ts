@@ -77,7 +77,7 @@ const roomItem: NavItem = { label: 'Quartos', path: '/quartos', icon: 'bed' };
 const supervisorItems: NavItem[] = [
   residentItem,
   { label: 'Saídas e retornos', path: '/saidas', icon: 'move_item' },
-  { label: 'Notificações', path: '/notificacoes', icon: 'notifications' },
+  { label: 'Notificações de ocorrência', path: '/notificacoes', icon: 'notifications' },
 ];
 
 const navByRole: Record<Role, NavItem[]> = {

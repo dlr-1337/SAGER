@@ -25,5 +25,10 @@ public class ShortExitExpiryScheduler {
         } catch (RuntimeException error) {
             LOG.error("short_exit_expiry_failure exceptionType={}", error.getClass().getSimpleName());
         }
+        try {
+            expiry.flagOverdue();
+        } catch (RuntimeException error) {
+            LOG.error("short_exit_overdue_failure exceptionType={}", error.getClass().getSimpleName());
+        }
     }
 }

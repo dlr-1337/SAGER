@@ -164,6 +164,51 @@ describe('Página válida após atualizar o catálogo de cursos', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
+  it('ensino médio grava 3 anos e esconde a duração; superior pede a duração', async () => {
+    const component = await create(0);
+    const save = vi.mocked(TestBed.inject(CourseApiService).save);
+    await component.create();
+    fixture.detectChanges();
+    const element: HTMLElement = fixture.nativeElement;
+    const level = element.querySelector('select[formcontrolname="level"]') as HTMLSelectElement;
+    const duration = () =>
+      element.querySelector('input[formcontrolname="durationYears"]') as HTMLInputElement | null;
+    const choose = (value: string) => {
+      level.value = value;
+      level.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+    };
+    expect(duration()).not.toBeNull();
+    choose('MEDIO');
+    expect(duration()).toBeNull();
+    choose('SUPERIOR');
+    expect(duration()?.value).toBe('');
+    expect(component.form.controls.durationYears.invalid).toBe(true);
+    choose('MEDIO');
+    component.form.controls.name.setValue('Técnico Sintético');
+    await component.save();
+    expect(save).toHaveBeenCalledWith(
+      { name: 'Técnico Sintético', level: 'MEDIO', durationYears: 3 },
+      undefined,
+      true,
+    );
+  });
+
+  it('edita curso médio de 3 anos sem o campo e de outra duração com o valor salvo', async () => {
+    const component = await create(0);
+    const duration = () =>
+      fixture.nativeElement.querySelector(
+        'input[formcontrolname="durationYears"]',
+      ) as HTMLInputElement | null;
+    await component.edit(component.items()[0]);
+    fixture.detectChanges();
+    expect(duration()).toBeNull();
+    await component.edit({ ...component.items()[1], durationYears: 4 });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(duration()?.value).toBe('4');
+  });
+
   it('desativa curso antigo sem nível nem duração', async () => {
     records[0] = { ...records[0], level: null, durationYears: null };
     const component = await create(0);

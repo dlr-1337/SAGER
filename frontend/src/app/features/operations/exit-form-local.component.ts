@@ -13,15 +13,11 @@ import {
 import { ExitEligibility, ShortExit, ShortExitInput } from './operations-local.models';
 import {
   eligibilityBlocker,
-  formatOperationsTime,
   minutesAfter,
-  nextReturn,
-  periodHint,
   saoPauloInput,
   saoPauloInstant,
   serverClock,
   shortExitFormError,
-  shortPeriodError,
 } from './operations-local.utils';
 
 @Component({
@@ -37,7 +33,7 @@ import {
             ><span class="back-arrow" aria-hidden="true">←</span>Saídas</a
           >
           <h1>{{ editing ? 'Mudar saída curta' : 'Pedir saída curta' }}</h1>
-          <p>Diga quando sai, quando volta e por quê.</p>
+          <p>Diga quando sai e por quê.</p>
         </div>
       </header>
       @if (!session.hasRole('residente')) {
@@ -86,8 +82,9 @@ import {
               {{ resident.roomNumber }}
             </p>
             <p class="op-help">
-              Saída curta: até 3 horas. Fale com o supervisor antes de sair e ao voltar. Vai ficar
-              mais tempo? Peça uma saída longa.
+              Saída curta: até 3 horas a partir da hora em que o supervisor registra sua saída. Fale
+              com o supervisor antes de sair e ao voltar. Vai ficar mais tempo? Peça uma saída
+              longa.
             </p>
             <label class="field"
               >Quando você quer sair?<select
@@ -99,52 +96,19 @@ import {
                 <option value="SCHEDULED">Escolher data e hora</option>
               </select></label
             >
-            @let hint = periodHint();
-            <div class="op-form-grid">
-              @if (form.controls.departureMode.value === 'SCHEDULED') {
-                <label class="field"
-                  >Data e hora de saída<input
-                    type="datetime-local"
-                    formControlName="departure"
-                    required
-                    [attr.min]="departureMin()"
-                    (change)="departureChanged()"
-                  />
-                  @if (form.controls.departure.touched && !form.controls.departure.value) {
-                    <span class="op-field-error">Informe a data e hora de saída.</span>
-                  }
-                </label>
-              }
+            @if (form.controls.departureMode.value === 'SCHEDULED') {
               <label class="field"
-                >Que horas você volta?<input
+                >Data e hora de saída<input
                   type="datetime-local"
-                  formControlName="expectedReturn"
+                  formControlName="departure"
                   required
-                  [attr.min]="hint.returnMin"
-                  [attr.max]="hint.returnMax"
-                  aria-describedby="exit-period-hint"
-                  (input)="returnNotice.set('')"
+                  [attr.min]="departureMin()"
                 />
-                @if (form.controls.expectedReturn.touched && form.controls.expectedReturn.invalid) {
-                  <span class="op-field-error">Escolha a data e a hora da volta.</span>
-                }
-                @if (hint.error) {
-                  <span class="op-field-error">{{ hint.error }}</span>
+                @if (form.controls.departure.touched && !form.controls.departure.value) {
+                  <span class="op-field-error">Informe a data e hora de saída.</span>
                 }
               </label>
-            </div>
-            <p class="op-help" id="exit-period-hint">
-              @if (hint.duration) {
-                Duração: {{ hint.duration }} (máx. 3 h).
-              } @else {
-                Duração máxima: 3 h.
-              }
-            </p>
-            <div role="status">
-              @if (returnNotice()) {
-                <p class="op-warning">{{ returnNotice() }}</p>
-              }
-            </div>
+            }
             <label class="field"
               >Por que você quer sair?<textarea
                 rows="3"
@@ -204,14 +168,11 @@ export class ExitFormLocalComponent {
   readonly loadError = signal('');
   readonly error = signal('');
   readonly conflict = signal<string | null>(null);
-  readonly returnNotice = signal('');
   private clock: () => string = () => '';
-  private savedReturn = false;
   readonly blockerLabel = eligibilityBlocker;
   readonly form = new FormGroup({
     departureMode: new FormControl<'NOW' | 'SCHEDULED'>('NOW', { nonNullable: true }),
     departure: new FormControl('', { nonNullable: true }),
-    expectedReturn: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     reason: new FormControl('', {
       nonNullable: true,
       validators: [trimmedLength(3, 2000)],
@@ -227,7 +188,6 @@ export class ExitFormLocalComponent {
     this.loadError.set('');
     this.error.set('');
     this.conflict.set(null);
-    this.returnNotice.set('');
     try {
       const [eligibility, original] = await Promise.all([
         this.api.eligibility(),
@@ -236,16 +196,12 @@ export class ExitFormLocalComponent {
       this.eligibility.set(eligibility);
       this.original.set(original);
       this.clock = serverClock(eligibility.now);
-      this.savedReturn = !!original;
       this.form.reset({
         departureMode: original?.departureMode ?? 'NOW',
         departure:
           original?.departureMode === 'SCHEDULED'
             ? saoPauloInput(original.requestedDepartureAt)
             : '',
-        expectedReturn: saoPauloInput(
-          original?.expectedReturnAt ?? minutesAfter(eligibility.now, 180),
-        ),
         reason: original?.reason ?? '',
         notes: original?.notes ?? '',
       });
@@ -257,49 +213,9 @@ export class ExitFormLocalComponent {
   }
   modeChanged(): void {
     this.error.set('');
-    this.departureChanged();
-  }
-  departureChanged(): void {
-    const control = this.form.controls.expectedReturn;
-    this.returnNotice.set('');
-    const next = nextReturn(
-      this.departure(),
-      saoPauloInstant(control.value),
-      this.returnEdited(),
-      180,
-      shortPeriodError,
-    );
-    if (!next) return;
-    this.savedReturn = false;
-    control.reset(saoPauloInput(next.value));
-    if (next.adjusted)
-      this.returnNotice.set(
-        `Volta ajustada para ${formatOperationsTime(next.value)}, porque o horário anterior não dava.`,
-      );
   }
   departureMin(): string {
     return saoPauloInput(minutesAfter(this.clock(), 1));
-  }
-  periodHint() {
-    return periodHint(
-      this.departure(),
-      saoPauloInstant(this.form.controls.expectedReturn.value),
-      1,
-      180,
-      shortPeriodError,
-    );
-  }
-  private departure(): string | null {
-    return this.form.controls.departureMode.value === 'NOW'
-      ? this.clock()
-      : saoPauloInstant(this.form.controls.departure.value);
-  }
-  private returnEdited(): boolean {
-    return this.savedReturn || this.form.controls.expectedReturn.dirty;
-  }
-  private refreshNowReturn(): void {
-    if (this.form.controls.departureMode.value === 'NOW' && !this.returnEdited())
-      this.form.controls.expectedReturn.setValue(saoPauloInput(minutesAfter(this.clock(), 180)));
   }
   async save(): Promise<void> {
     const resident = this.eligibility();
@@ -321,18 +237,15 @@ export class ExitFormLocalComponent {
       this.error.set('Revise os campos obrigatórios indicados.');
       return;
     }
-    this.refreshNowReturn();
     const value = this.form.getRawValue();
-    const expectedReturnAt = saoPauloInstant(value.expectedReturn);
     const requestedDepartureAt =
       value.departureMode === 'SCHEDULED' ? saoPauloInstant(value.departure) : null;
-    if (!expectedReturnAt || (value.departureMode === 'SCHEDULED' && !requestedDepartureAt)) {
+    if (value.departureMode === 'SCHEDULED' && !requestedDepartureAt) {
       this.error.set('Informe datas e horas válidas no horário de Brasília.');
       return;
     }
     const input: ShortExitInput = {
       departureMode: value.departureMode,
-      expectedReturnAt,
       reason: value.reason.trim(),
       notes: value.notes.trim() || null,
       ...(requestedDepartureAt ? { requestedDepartureAt } : {}),
@@ -351,9 +264,6 @@ export class ExitFormLocalComponent {
         this.error.set('Seu cadastro deixou de atender aos requisitos da saída curta.');
         return;
       }
-      this.refreshNowReturn();
-      input.expectedReturnAt =
-        saoPauloInstant(this.form.controls.expectedReturn.value) ?? input.expectedReturnAt;
       const freshError = shortExitFormError(input, fresh.now);
       if (freshError) {
         this.error.set(freshError);

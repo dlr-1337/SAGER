@@ -25,6 +25,7 @@ import {
   exitEventLabels,
   exitStatusLabels,
   formatOperationsTime,
+  shortReturnText,
   leavesNow,
 } from './operations-local.utils';
 import {
@@ -100,7 +101,7 @@ type ExitStep = 'Decisão' | 'Saída' | 'Volta';
               </div>
               <div>
                 <dt>Retorno previsto</dt>
-                <dd>{{ formatTime(exit.expectedReturnAt) }}</dd>
+                <dd>{{ shortReturn(exit) }}</dd>
               </div>
               <div>
                 <dt>Motivo</dt>
@@ -379,6 +380,7 @@ export class ExitDetailLocalComponent {
     EXPIRE: 'Pedido expirado',
   } as Record<string, string>;
   readonly formatTime = formatOperationsTime;
+  readonly shortReturn = shortReturnText;
   private sequence = 0;
   readonly refresh = autoRefresh(() => this.load(true), {
     busy: () => this.busy() || this.conflict() || this.loading(),
@@ -520,7 +522,7 @@ export class ExitDetailLocalComponent {
       { label: 'Residente', value: exit.residentName },
       { label: 'Matrícula', value: exit.enrollment },
       { label: 'Saída pedida', value: formatOperationsTime(exit.requestedDepartureAt) },
-      { label: 'Retorno previsto', value: formatOperationsTime(exit.expectedReturnAt) },
+      { label: 'Retorno previsto', value: shortReturnText(exit) },
       { label: 'Motivo', value: exit.reason },
     ];
   }

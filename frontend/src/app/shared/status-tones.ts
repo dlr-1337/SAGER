@@ -48,11 +48,11 @@ export const statusTones: Record<string, { tone: StatusTone; meaning: string }> 
   Presente: success('O residente está no quarto.'),
   Ausente: danger('O residente não estava e gera ocorrência.'),
   'Ausência justificada': info('O residente está fora com saída autorizada.'),
-  // Notificações
-  Visualizada: info('O supervisor marcou que viu a notificação.'),
-  'Em análise': info('A notificação está sendo analisada.'),
-  Arquivada: neutral('A notificação foi encerrada sem advertência.'),
-  'Convertida em advertência': neutral('A notificação virou uma advertência.'),
+  // Notificações de ocorrência
+  Visualizada: info('O supervisor marcou que viu a notificação de ocorrência.'),
+  'Em análise': info('A notificação de ocorrência está sendo analisada.'),
+  Arquivada: neutral('A notificação de ocorrência foi encerrada sem advertência.'),
+  'Convertida em advertência': neutral('A notificação de ocorrência virou uma advertência.'),
   // Advertências, avisos e comunicações do residente
   Valendo: success('Está em vigor.'),
   Anulada: neutral('A advertência foi anulada.'),

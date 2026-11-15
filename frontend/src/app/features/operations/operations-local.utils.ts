@@ -120,20 +120,26 @@ export function periodHint(
   };
 }
 export function shortExitFormError(input: ShortExitInput, serverNow: string): string {
-  const departureAt =
-    input.departureMode === 'NOW' ? serverNow : (input.requestedDepartureAt ?? '');
-  const departure = Date.parse(departureAt);
-  const expectedReturn = Date.parse(input.expectedReturnAt);
-  if (!Number.isFinite(departure) || !Number.isFinite(expectedReturn))
-    return 'Escolha uma data e uma hora válidas.';
-  if (input.departureMode === 'SCHEDULED' && departure < Date.parse(serverNow))
-    return 'A saída não pode ser antes de agora. Escolha outro horário.';
-  const period = shortPeriodError(departureAt, input.expectedReturnAt);
-  if (period) return period;
+  // A volta não é pedida: o servidor fixa 3 horas a partir da saída registrada.
+  if (input.departureMode === 'SCHEDULED') {
+    const departure = Date.parse(input.requestedDepartureAt ?? '');
+    if (!Number.isFinite(departure)) return 'Escolha uma data e uma hora válidas.';
+    if (departure < Date.parse(serverNow))
+      return 'A saída não pode ser antes de agora. Escolha outro horário.';
+  }
   if (input.reason.trim().length < 3 || input.reason.trim().length > 2000)
     return 'Escreva o motivo da saída.';
   if ((input.notes?.length ?? 0) > 2000) return 'As observações devem ter até 2.000 caracteres.';
   return '';
+}
+/** Antes da saída registrada, a volta da saída curta ainda não tem hora: são 3 h a partir dela. */
+export function shortReturnText(exit: {
+  actualDepartureAt?: string | null;
+  expectedReturnAt: string;
+}): string {
+  return exit.actualDepartureAt
+    ? formatOperationsTime(exit.expectedReturnAt)
+    : 'até 3 h depois da saída';
 }
 export const exitStatusLabels: Record<ShortExitStatus, string> = {
   AGUARDANDO_ANALISE: 'Aguardando análise',

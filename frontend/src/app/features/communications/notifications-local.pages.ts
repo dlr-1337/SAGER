@@ -59,7 +59,7 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
           <a class="op-back" routerLink="/inicio"
             ><span class="back-arrow" aria-hidden="true">←</span>Início</a
           >
-          <h1>Notificações</h1>
+          <h1>Notificações de ocorrência</h1>
           <p>Veja o que aconteceu antes de decidir.</p>
         </div>
       </header>
@@ -75,18 +75,18 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
         <sager-auto-refresh-status [refresh]="refresh" />
         <sager-communication-filters
           mode="notifications"
-          heading="Filtrar notificações"
+          heading="Filtrar notificações de ocorrência"
           (changed)="filter($event)"
         />
         <details class="learn-more">
           <summary>Saiba mais</summary>
           <p class="comm-help">
-            Abrir um item não registra visualização. Uma notificação não é uma advertência e nenhuma
-            penalidade é automática.
+            Abrir um item não registra visualização. Uma notificação de ocorrência não é uma
+            advertência e nenhuma penalidade é automática.
           </p>
         </details>
         <section class="op-section">
-          <h2 id="notification-results-title" tabindex="-1">Notificações</h2>
+          <h2 id="notification-results-title" tabindex="-1">Notificações de ocorrência</h2>
           <sager-status-legend [names]="legendNames" />
           <sager-communications-state
             [loading]="list.loading()"
@@ -96,7 +96,7 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
           @if (!list.loading() && !list.error()) {
             @if (!list.items().length) {
               <div class="op-empty" role="status">
-                <h3>Nenhuma notificação encontrada</h3>
+                <h3>Nenhuma notificação de ocorrência encontrada</h3>
                 <p>Quando acontecer algo para analisar, vai aparecer aqui.</p>
               </div>
             } @else {
@@ -119,7 +119,9 @@ import { WarningFieldsComponent, warningForm, warningInput } from './warning-fie
                       }
                     </div>
                     <a class="op-row-link" [routerLink]="['/notificacoes', item.id]"
-                      >Ver notificação<span class="material-symbols-outlined" aria-hidden="true"
+                      >Ver notificação de ocorrência<span
+                        class="material-symbols-outlined"
+                        aria-hidden="true"
                         >arrow_forward</span
                       ></a
                     >
@@ -188,9 +190,9 @@ export class NotificationsLocalPage {
       <header class="op-heading">
         <div>
           <a class="op-back" routerLink="/notificacoes"
-            ><span class="back-arrow" aria-hidden="true">←</span>Notificações</a
+            ><span class="back-arrow" aria-hidden="true">←</span>Notificações de ocorrência</a
           >
-          <h1>Analisar notificação</h1>
+          <h1>Analisar notificação de ocorrência</h1>
           @if (item(); as notification) {
             <p>{{ notification.residentName }} · {{ categories[notification.category] }}</p>
           }
@@ -331,13 +333,15 @@ export class NotificationsLocalPage {
               </form>
             }
             @if (notification.status === 'CONVERTIDA') {
-              <p>Esta notificação virou advertência.</p>
+              <p>Esta notificação de ocorrência virou advertência.</p>
               <a routerLink="/advertencias" [queryParams]="{ residente: notification.residentId }"
                 >Ver advertências do residente</a
               >
             }
             @if (notification.status === 'ARQUIVADA') {
-              <p>Notificação arquivada. O conteúdo e a decisão permanecem no histórico.</p>
+              <p>
+                Notificação de ocorrência arquivada. O conteúdo e a decisão permanecem no histórico.
+              </p>
             }
             @if (error()) {
               <p class="comm-error" role="alert">{{ error() }}</p>
@@ -432,7 +436,7 @@ export class NotificationDetailLocalPage {
       if (item.occurrenceVersion !== occurrence.version || item.valid !== occurrence.valid) {
         this.conflict.set(true);
         this.error.set(
-          'Outra pessoa alterou esta notificação. Clique em Recarregar, confira e tente de novo.',
+          'Outra pessoa alterou esta notificação de ocorrência. Clique em Recarregar, confira e tente de novo.',
         );
       }
     } catch (error) {
@@ -488,12 +492,13 @@ export class NotificationDetailLocalPage {
     if (!item || this.terminal(item) || this.busy() || this.conflict()) return;
     this.review(
       {
-        title: 'A notificação será arquivada.',
+        title: 'A notificação de ocorrência será arquivada.',
         action: 'Confirmar arquivamento',
         lines: this.summary(item),
         requireReason: true,
         archive: true,
-        warning: 'A notificação é encerrada, e o registro e a decisão ficam guardados.',
+        warning:
+          'A notificação de ocorrência é encerrada, e o registro e a decisão ficam guardados.',
       },
       (result) =>
         this.mutate(async () => {
@@ -504,7 +509,7 @@ export class NotificationDetailLocalPage {
               reason: result.reason,
             }),
           );
-        }, 'Notificação arquivada com justificativa.'),
+        }, 'Notificação de ocorrência arquivada com justificativa.'),
     );
   }
   async convert(): Promise<void> {
@@ -541,7 +546,9 @@ export class NotificationDetailLocalPage {
         this.terminal(fresh)
       ) {
         this.conflict.set(true);
-        this.error.set('A notificação ou a origem mudou. Recarregue os dados antes de converter.');
+        this.error.set(
+          'A notificação de ocorrência ou a origem mudou. Recarregue os dados antes de converter.',
+        );
         return;
       }
       invalid = warningFormError(input, context.currentDate);

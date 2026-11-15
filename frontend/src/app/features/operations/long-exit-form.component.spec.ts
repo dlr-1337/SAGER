@@ -124,6 +124,18 @@ describe('Formulário de saída longa', () => {
     expect(status).toContain('não dava');
   });
 
+  it('partida movida para depois do retorno leva a volta ao dia seguinte, com aviso', async () => {
+    const form = await create();
+    await form.mode('SCHEDULED');
+    await form.type(form.departure(), '2026-09-30T14:00');
+    await form.type(form.expectedReturn(), '2026-09-30T20:00');
+    await form.type(form.departure(), '2026-09-30T21:00');
+    expect(form.expectedReturn().value).toBe('2026-10-01T01:00');
+    const status = form.root.querySelector('[role="status"]')!.textContent!;
+    expect(status).toContain('01:00');
+    expect(status).toContain('não dava');
+  });
+
   it('mantém o retorno salvo ao editar', async () => {
     const form = await create('saida-sintetica');
     expect(form.departure().value).toBe('2026-09-30T14:00');

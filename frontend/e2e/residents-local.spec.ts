@@ -261,7 +261,7 @@ test('aguarda o curso pendente e só salva o residente com seu vínculo após co
   await page.getByRole('button', { name: 'Novo curso', exact: true }).click();
   await page.getByLabel('Nome do novo curso').fill(course.name);
   await page.getByLabel('Nível do novo curso').selectOption('MEDIO');
-  await page.getByLabel('Duração do novo curso (anos)').fill('3');
+  await expect(page.getByLabel('Duração do novo curso (anos)')).toHaveCount(0);
   await page.getByRole('button', { name: 'Cadastrar e selecionar', exact: true }).click();
   await expect.poll(() => courseWrites).toBe(1);
   const save = page.getByRole('button', { name: 'Salvar residente', exact: true });

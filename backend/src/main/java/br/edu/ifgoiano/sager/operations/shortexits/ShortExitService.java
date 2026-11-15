@@ -38,6 +38,7 @@ public class ShortExitService {
     private final OpsActor actors;
     private final AuditService audit;
     private final Clock clock;
+    private static final Duration LIMIT = Duration.ofHours(3);
     private final List<ExitOccupancyLookup> occupancies;
     private final List<OccurrenceEvidenceSink> evidenceSinks;
 
@@ -154,9 +155,10 @@ public class ShortExitService {
                 Objects.equals(current.decisionComment(), updated.decisionComment())
                         ? Set.of("status", "decision") : Set.of("status", "decision", "decisionComment"));
         if (departNow) {
-            updated = changed(updated, Map.of("status", ShortExit.IN_PROGRESS, "actual_departure_at", now), now);
+            updated = changed(updated, Map.of("status", ShortExit.IN_PROGRESS, "actual_departure_at", now,
+                    "expected_return_at", now.plus(LIMIT)), now);
             record(updated, "DEPARTURE", now, now, actor, null, AuditAction.UPDATE,
-                    Set.of("status", "actualDepartureAt"));
+                    Set.of("status", "actualDepartureAt", "expectedReturnAt"));
         }
         return view(updated, actor);
     }
@@ -194,10 +196,11 @@ public class ShortExitService {
             throw OpsInput.invalid("A partida física deve seguir a partida solicitada e a aprovação, antes do retorno previsto.");
         }
         noPhysicalExitOpen(current.residentId());
+        // As 3 horas contam da partida registrada, mesmo retroativa (RN01, RN06).
         ShortExit updated = changed(current, Map.of("status", ShortExit.IN_PROGRESS,
-                "actual_departure_at", departure), now);
+                "actual_departure_at", departure, "expected_return_at", departure.plus(LIMIT)), now);
         record(updated, "DEPARTURE", now, departure, actor, request.justification(), AuditAction.UPDATE,
-                Set.of("status", "actualDepartureAt"));
+                Set.of("status", "actualDepartureAt", "expectedReturnAt"));
         return view(updated, actor);
     }
 
@@ -268,11 +271,8 @@ public class ShortExitService {
             departure = normalize(request.requestedDepartureAt());
             if (departure == null || departure.isBefore(now)) throw OpsInput.invalid("A partida agendada não pode ser passada.");
         }
-        Instant returning = normalize(request.expectedReturnAt());
-        if (returning == null || !returning.isAfter(departure)
-                || Duration.between(departure, returning).compareTo(Duration.ofHours(3)) > 0) {
-            throw OpsInput.invalid("O retorno previsto deve superar a partida em até três horas.");
-        }
+        // O residente não escolhe a volta: até a partida registrada, o prazo conta da partida pedida (RN01).
+        Instant returning = departure.plus(LIMIT);
         if (request.reason() == null || OpsInput.characters(request.reason()) < 3
                 || OpsInput.characters(request.reason()) > 2000) {
             throw OpsInput.invalid("Informe o motivo da saída, de 3 a 2000 caracteres.");

@@ -17,6 +17,8 @@ const roomBId = '00000000-0000-0000-0000-000000000112';
 const callId = '00000000-0000-0000-0000-000000000901';
 const exitId = '00000000-0000-0000-0000-000000000801';
 const initialNow = '2026-09-30T16:00:00Z';
+// Como o servidor: a saída curta volta até 3 h depois da partida (pedida, depois registrada).
+const plus3h = (instant: string) => new Date(Date.parse(instant) + 3 * 3_600_000).toISOString();
 
 function exitFixture(): ShortExit {
   return {
@@ -351,8 +353,11 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
       const exit = editing ? state.exits[0] : exitFixture();
       if (editing) expect(body.version).toBe(exit.version);
       if (body.departureMode === 'NOW') expect(body).not.toHaveProperty('requestedDepartureAt');
+      expect(body).not.toHaveProperty('expectedReturnAt');
+      const requested = body.departureMode === 'NOW' ? state.now : body.requestedDepartureAt;
       Object.assign(exit, body, {
-        requestedDepartureAt: body.departureMode === 'NOW' ? state.now : body.requestedDepartureAt,
+        requestedDepartureAt: requested,
+        expectedReturnAt: plus3h(requested),
       });
       event(exit, editing ? 'EDIT' : 'CREATE', body);
       state.exits = [exit];
@@ -377,6 +382,7 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
           kind = 'DEPARTURE';
           exit.status = 'EM_ANDAMENTO';
           exit.actualDepartureAt = state.now;
+          exit.expectedReturnAt = plus3h(state.now);
           exit.departureRecordedAt = state.now;
           exit.deadlineAt = null;
           event(exit, kind, {});
@@ -397,6 +403,7 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
         if (path.endsWith('/partida')) {
           kind = 'DEPARTURE';
           exit.actualDepartureAt = actual;
+          exit.expectedReturnAt = plus3h(actual);
           exit.departureRecordedAt = state.now;
           exit.status = 'EM_ANDAMENTO';
           exit.deadlineAt = null;
@@ -649,7 +656,7 @@ test('residente maior de idade consulta as saídas sem pedir, mudar nem cancelar
   });
   await page.goto('/inicio');
   await expect(
-    page.getByText('Maiores de idade podem sair do IF até 23h e devem voltar até 5h.'),
+    page.getByText('Maiores de idade podem sair do IF até 23h e voltar a partir das 6h.'),
   ).toBeVisible();
   await expect(page.getByRole('link', { name: 'Minhas saídas' })).toHaveCount(0);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
@@ -676,12 +683,14 @@ test('residente envia NOW sem relógio do navegador, edita e consulta depois de 
   await page.goto('/saidas');
   await expect(page.getByRole('heading', { name: 'Nenhum pedido ainda.' })).toBeVisible();
   await page.getByRole('link', { name: 'Pedir saída curta' }).click();
-  await expect(page.getByLabel('Que horas você volta?')).toHaveValue('2026-09-30T16:00');
+  await expect(page.getByLabel('Que horas você volta?')).toHaveCount(0);
   await page.getByLabel('Por que você quer sair?').fill('Buscar material escolar');
   await page.getByRole('button', { name: 'Enviar pedido' }).click();
   await expect(page).toHaveURL(new RegExp(`/saidas/${exitId}`));
   await expect(page.getByText('Pedido salvo.', { exact: true })).toBeVisible();
   expect(state.writes[0].body).not.toHaveProperty('requestedDepartureAt');
+  expect(state.writes[0].body).not.toHaveProperty('expectedReturnAt');
+  await expect(page.getByText('até 3 h depois da saída', { exact: true })).toBeVisible();
   expect(state.exits[0].residentId).toBe(residentId);
   await page.reload();
   await expect(page.getByText('Buscar material escolar', { exact: true })).toBeVisible();
@@ -702,23 +711,19 @@ test('residente envia NOW sem relógio do navegador, edita e consulta depois de 
   expect(state.writes).toHaveLength(2);
 });
 
-test('saída agendada limita duração, converte São Paulo e não solicita sem alocação', async ({
+test('saída agendada converte São Paulo, não pede volta e não solicita sem alocação', async ({
   page,
 }) => {
   const state = await mockApi(page, { role: 'residente' });
   await page.goto('/saidas/nova');
   await page.getByLabel('Quando você quer sair?').selectOption('SCHEDULED');
   await page.getByLabel('Data e hora de saída').fill('2026-09-30T14:00');
-  await page.getByLabel('Que horas você volta?').fill('2026-09-30T17:01');
   await page.getByLabel('Por que você quer sair?').fill('Buscar material escolar');
-  await page.getByRole('button', { name: 'Enviar pedido' }).click();
-  await expect(page.getByRole('alert')).toContainText('3 horas');
-  expect(state.writes).toHaveLength(0);
-  await page.getByLabel('Que horas você volta?').fill('2026-09-30T17:00');
   await page.getByRole('button', { name: 'Enviar pedido' }).click();
   await expect(page).toHaveURL(new RegExp(`/saidas/${exitId}`));
   expect(state.writes[0].body.requestedDepartureAt).toBe('2026-09-30T17:00:00.000Z');
-  expect(state.writes[0].body.expectedReturnAt).toBe('2026-09-30T20:00:00.000Z');
+  expect(state.writes[0].body).not.toHaveProperty('expectedReturnAt');
+  await expect(page.getByText('até 3 h depois da saída', { exact: true })).toBeVisible();
   state.eligible = false;
   await page.goto('/saidas/nova');
   await expect(
@@ -730,14 +735,17 @@ test('saída agendada limita duração, converte São Paulo e não solicita sem 
   await expect(page.getByRole('button', { name: 'Enviar pedido' })).toHaveCount(0);
 });
 
-test('Agendar pede a partida, retorno manual sobrevive e ajuste fora do limite é anunciado', async ({
+test('Agendar pede a partida e a ajuda diz que são 3 horas a partir da saída registrada', async ({
   page,
 }) => {
   const state = await mockApi(page, { role: 'residente', now: '2026-09-30T16:00:20Z' });
   await page.goto('/saidas/nova');
+  await expect(page.getByText('Diga quando sai e por quê.', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText('até 3 horas a partir da hora em que o supervisor registra sua saída'),
+  ).toBeVisible();
+  await expect(page.getByLabel('Que horas você volta?')).toHaveCount(0);
   const departure = page.getByLabel('Data e hora de saída');
-  const expectedReturn = page.getByLabel('Que horas você volta?');
-  await expect(expectedReturn).toHaveValue('2026-09-30T16:00');
   await page.getByLabel('Quando você quer sair?').selectOption('SCHEDULED');
   await expect(departure).toHaveValue('');
   await expect(departure).toHaveAttribute('min', '2026-09-30T13:01');
@@ -745,22 +753,12 @@ test('Agendar pede a partida, retorno manual sobrevive e ajuste fora do limite �
   await page.getByRole('button', { name: 'Enviar pedido' }).click();
   await expect(page.getByText('Informe a data e hora de saída.', { exact: true })).toBeVisible();
   expect(state.writes).toHaveLength(0);
-  await departure.fill('2026-09-30T14:00');
-  await expect(expectedReturn).toHaveValue('2026-09-30T17:00');
-  await expectedReturn.fill('2026-09-30T15:30');
-  await departure.fill('2026-09-30T14:10');
-  await expect(expectedReturn).toHaveValue('2026-09-30T15:30');
-  await expect(expectedReturn).toHaveAttribute('max', '2026-09-30T17:10');
-  await expect(page.getByText('Duração: 1 h 20 min (máx. 3 h).', { exact: true })).toBeVisible();
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await departure.fill('2026-09-30T16:00');
-  await expect(expectedReturn).toHaveValue('2026-09-30T19:00');
-  await expect(page.getByRole('status').filter({ hasText: 'não dava' })).toContainText('19:00');
-  await expectedReturn.fill('2026-09-30T18:00');
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.getByRole('button', { name: 'Enviar pedido' }).click();
   await expect(page).toHaveURL(new RegExp(`/saidas/${exitId}`));
   expect(state.writes[0].body.requestedDepartureAt).toBe('2026-09-30T19:00:00.000Z');
-  expect(state.writes[0].body.expectedReturnAt).toBe('2026-09-30T21:00:00.000Z');
+  expect(state.writes[0].body).not.toHaveProperty('expectedReturnAt');
 });
 
 test('supervisor aprova o pedido para sair agora, que já sai em andamento, e registra a volta tardia', async ({
@@ -845,10 +843,14 @@ test('saída agendada aprovada mostra a hora marcada e só oferece "Registrar sa
   await expect(page.locator('.op-exit-actions').getByRole('button')).toHaveText([
     'Registrar saída',
   ]);
+  const returnAt = page.locator('dt:has-text("Retorno previsto") + dd').first();
+  await expect(returnAt).toHaveText('até 3 h depois da saída');
   await page.getByRole('button', { name: 'Registrar saída' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Confirmar saída' }).click();
   await expect(page.locator('.op-exit-heading .status')).toHaveText('Em andamento');
   expect(state.writes[1].body).toEqual({ version: 1, timeMode: 'NOW' });
+  // Saída registrada às 15:00 de Brasília: a volta fica para 18:00.
+  await expect(returnAt).toHaveText('30/09/2026, 18:00');
 });
 
 test('conflito físico na aprovação explica o que fazer e mantém as ações', async ({ page }) => {

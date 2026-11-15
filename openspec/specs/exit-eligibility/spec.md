@@ -127,7 +127,7 @@ O residente maior de idade SHALL continuar abrindo, pelo endereço, a lista das 
 
 ### Requirement: Aviso de horário para o adulto
 
-A página de início do residente maior de idade SHALL mostrar o aviso "Maiores de idade podem sair do IF até 23h e devem voltar até 5h.", sem botão, formulário nem registro de saída ou volta. O residente menor de idade MUST NOT ver esse aviso.
+A página de início do residente maior de idade SHALL mostrar o aviso "Maiores de idade podem sair do IF até 23h e voltar a partir das 6h.", sem botão, formulário nem registro de saída ou volta. O residente menor de idade MUST NOT ver esse aviso.
 
 #### Scenario: Início do adulto
 

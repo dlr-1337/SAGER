@@ -46,13 +46,12 @@ public class OperationsOpenApiConfiguration {
             var plan = new ObjectSchema()
                     .addProperty("departureMode", choice("NOW", "SCHEDULED"))
                     .addProperty("requestedDepartureAt", instant(true))
-                    .addProperty("expectedReturnAt", instant(false))
                     .addProperty("reason", text(3, false)).addProperty("notes", text(1, true))
-                    .required(List.of("departureMode", "expectedReturnAt", "reason"));
+                    .required(List.of("departureMode", "reason"));
             body(api, "/api/v1/saidas-curtas", false, "ShortExitCreateRequest", plan);
             body(api, "/api/v1/saidas-curtas/{id}", true, "ShortExitUpdateRequest",
                     copy(plan).addProperty("version", version())
-                            .required(List.of("version", "departureMode", "expectedReturnAt", "reason")));
+                            .required(List.of("version", "departureMode", "reason")));
             body(api, "/api/v1/saidas-curtas/{id}/decisao", false, "ShortExitDecisionRequest",
                     new ObjectSchema().addProperty("version", version())
                             .addProperty("decision", choice("APPROVE", "REJECT"))

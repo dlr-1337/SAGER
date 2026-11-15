@@ -136,6 +136,34 @@ describe('ResidentFormComponent', () => {
     );
   });
 
+  it('creates a high-school course with 3 years and hides the duration', async () => {
+    const save = vi.spyOn(TestBed.inject(CourseApiService), 'save');
+    const fixture = TestBed.createComponent(ResidentFormComponent);
+    await fixture.whenStable();
+    const component = fixture.componentInstance;
+    component.addingCourse.set(true);
+    fixture.detectChanges();
+    const native = fixture.nativeElement as HTMLElement;
+    const level = native.querySelector('#new-course-level') as HTMLSelectElement;
+    const choose = (value: string) => {
+      level.value = value;
+      level.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+    };
+    choose('MEDIO');
+    expect(native.querySelector('#new-course-duration')).toBeNull();
+    choose('SUPERIOR');
+    expect((native.querySelector('#new-course-duration') as HTMLInputElement).value).toBe('');
+    choose('MEDIO');
+    component.newCourse.setValue('Técnico Sintético');
+    await component.createCourse();
+    expect(save).toHaveBeenCalledWith({
+      name: 'Técnico Sintético',
+      level: 'MEDIO',
+      durationYears: 3,
+    });
+  });
+
   it('accepts a simple 8-character phrase', async () => {
     vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     const service = TestBed.inject(ManagementDemoService);

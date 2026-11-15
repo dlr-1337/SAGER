@@ -152,6 +152,19 @@ describe('Detalhe da saída curta em passos', () => {
     );
   });
 
+  it('a volta aparece como 3 h depois da saída até a partida ser registrada', async () => {
+    const before = await create();
+    expect(text(before)).toContain('até 3 h depois da saída');
+    api['exit'].mockResolvedValue({
+      ...leaving(),
+      actualDepartureAt: '2026-10-02T17:40:00Z',
+      expectedReturnAt: '2026-10-02T20:40:00Z',
+    });
+    const after = await create();
+    expect(text(after)).not.toContain('até 3 h depois da saída');
+    expect(text(after)).toContain('02/10/2026, 17:40');
+  });
+
   it('agendada aprovada mostra a hora marcada e, antes da hora, nenhuma ação', async () => {
     api['exit'].mockResolvedValue(scheduled(false));
     const fixture = await create();

@@ -107,7 +107,6 @@ describe('OperationsLocalApiService', () => {
     await TestBed.inject(OperationsLocalApiService).saveExit(
       {
         departureMode: 'NOW',
-        expectedReturnAt: exit.expectedReturnAt,
         reason: exit.reason,
         notes: null,
       },
@@ -119,7 +118,6 @@ describe('OperationsLocalApiService', () => {
     expect(request.headers).toMatchObject({ 'X-CSRF-TOKEN': 'synthetic-token' });
     expect(JSON.parse(request.body as string)).toEqual({
       departureMode: 'NOW',
-      expectedReturnAt: exit.expectedReturnAt,
       reason: exit.reason,
       notes: null,
       version: 2,

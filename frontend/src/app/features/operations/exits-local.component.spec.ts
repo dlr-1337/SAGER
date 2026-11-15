@@ -470,6 +470,27 @@ describe('Critérios restaurados da lista de saídas', () => {
     expect(legend.querySelectorAll('dl > div')).toHaveLength(8);
   });
 
+  it('mostra a volta da saída curta como 3 h depois da saída até a partida ser registrada', async () => {
+    shortPage.mockResolvedValue({
+      items: [
+        item('1', 'APROVADA'),
+        {
+          ...item('2', 'EM_ANDAMENTO'),
+          actualDepartureAt: '2026-10-02T17:40:00Z',
+          expectedReturnAt: '2026-10-02T20:40:00Z',
+        },
+      ],
+      total: 2,
+    });
+    const fixture = TestBed.createComponent(ExitsLocalComponent);
+    await fixture.whenStable();
+    const rows = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('.op-row-main p:last-child'),
+    ).map((row) => row.textContent!.replace(/\s+/g, ' ').trim());
+    expect(rows[0]).toContain('Volta: até 3 h depois da saída');
+    expect(rows[1]).toContain('Volta: 02/10/2026, 17:40');
+  });
+
   describe('atualização automática', () => {
     beforeEach(() => {
       Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });

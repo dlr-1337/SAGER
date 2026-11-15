@@ -18,7 +18,6 @@ const now = '2026-09-30T16:00:00Z';
 const input: ShortExitInput = {
   departureMode: 'SCHEDULED',
   requestedDepartureAt: now,
-  expectedReturnAt: '2026-09-30T19:00:00Z',
   reason: 'Buscar material escolar',
   notes: null,
 };
@@ -46,21 +45,18 @@ describe('Horários e regras das operações locais', () => {
     expect(saoPauloInstant('2018-12-01T13:00')).toBe('2018-12-01T15:00:00.000Z');
     expect(saoPauloInstant('2018-11-04T00:30')).toBeNull();
   });
-  it('aceita duração exata de 3 horas e exige retorno posterior à saída', () => {
+  it('aceita o pedido sem horário de volta e exige data válida ao agendar', () => {
     expect(shortExitFormError(input, now)).toBe('');
-    expect(shortExitFormError({ ...input, expectedReturnAt: now }, now)).toContain('posterior');
-    expect(
-      shortExitFormError({ ...input, expectedReturnAt: '2026-09-30T19:00:01Z' }, now),
-    ).toContain('3 horas');
+    expect(shortExitFormError({ ...input, requestedDepartureAt: undefined }, now)).toContain(
+      'válidas',
+    );
   });
   it('usa o horário do servidor para NOW e para o limite da saída agendada', () => {
     expect(
       shortExitFormError({ ...input, departureMode: 'NOW', requestedDepartureAt: undefined }, now),
     ).toBe('');
     expect(shortExitFormError(input, '2026-09-30T16:00:01Z')).toContain('antes de agora');
-    expect(
-      shortExitFormError({ ...input, departureMode: 'NOW' }, '2026-09-30T19:00:01Z'),
-    ).toContain('posterior');
+    expect(shortExitFormError({ ...input, departureMode: 'NOW' }, '2026-09-30T19:00:01Z')).toBe('');
   });
   it('limita a saída curta: 1 min e 3 h aceitos, 3 h 01 recusado', () => {
     expect(shortPeriodError(now, minutesAfter(now, 1))).toBe('');
