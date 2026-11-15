@@ -62,12 +62,11 @@ describe('Formulário local de saída curta', () => {
     const root = fixture.nativeElement as HTMLElement;
     const inputs = () => root.querySelectorAll<HTMLInputElement>('input[type="datetime-local"]');
     const departure = () => inputs()[0];
-    const expectedReturn = () => inputs()[inputs().length - 1];
     return {
       fixture,
       root,
+      inputs,
       departure,
-      expectedReturn,
       async type(input: HTMLInputElement, value: string) {
         input.value = value;
         input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -96,7 +95,7 @@ describe('Formulário local de saída curta', () => {
   it('cabeçalho com uma frase só', async () => {
     const form = await create();
     expect(form.root.querySelector('.op-heading p')!.textContent).toBe(
-      'Diga quando sai, quando volta e por quê.',
+      'Diga quando sai e por quê.',
     );
   });
 
@@ -107,53 +106,49 @@ describe('Formulário local de saída curta', () => {
     expect(form.root.querySelector('.op-field-error')).not.toBeNull();
   });
 
-  it('acompanha a partida enquanto o retorno não foi editado', async () => {
+  it('não pede horário de volta e diz que o prazo conta da saída registrada', async () => {
     const form = await create();
-    expect(form.expectedReturn().value).toBe('2026-09-30T16:00');
+    expect(form.inputs().length).toBe(0);
+    expect(form.root.textContent).not.toContain('Que horas você volta?');
+    expect(form.root.querySelector('form .op-help')!.textContent!.replace(/\s+/g, ' ')).toContain(
+      'até 3 horas a partir da hora em que o supervisor registra sua saída',
+    );
     await form.mode('SCHEDULED');
-    expect(form.departure().value).toBe('');
-    expect(form.expectedReturn().value).toBe('');
-    await form.type(form.departure(), '2026-09-30T14:00');
-    expect(form.expectedReturn().value).toBe('2026-09-30T17:00');
-    await form.type(form.departure(), '2026-09-30T15:00');
-    expect(form.expectedReturn().value).toBe('2026-09-30T18:00');
-    expect(form.root.querySelector('[role="status"]')!.textContent!.trim()).toBe('');
+    expect(form.inputs().length).toBe(1);
   });
 
-  it('preserva a edição manual válida ao mudar a partida e o modo', async () => {
+  it('envia o pedido Agora sem horário de volta', async () => {
     const form = await create();
-    await form.mode('SCHEDULED');
-    await form.type(form.departure(), '2026-09-30T14:00');
-    await form.type(form.expectedReturn(), '2026-09-30T15:30');
-    await form.type(form.departure(), '2026-09-30T14:10');
-    expect(form.expectedReturn().value).toBe('2026-09-30T15:30');
-    await form.mode('NOW');
-    expect(form.expectedReturn().value).toBe('2026-09-30T15:30');
+    await form.submit();
+    expect(api['saveExit'].mock.calls[0][0]).toEqual({
+      departureMode: 'NOW',
+      reason: 'Buscar material escolar',
+      notes: null,
+    });
   });
 
-  it('substitui e anuncia o retorno editado que ficou fora do limite, voltando a sugerir', async () => {
+  it('envia a saída agendada no horário de São Paulo sem horário de volta', async () => {
+    vi.stubEnv('TZ', 'Pacific/Auckland');
+    expect(new Date(2026, 0, 1).getTimezoneOffset()).toBe(-780);
     const form = await create();
     await form.mode('SCHEDULED');
+    expect(form.departure().min).toBe('2026-09-30T13:01');
     await form.type(form.departure(), '2026-09-30T14:00');
-    await form.type(form.expectedReturn(), '2026-09-30T15:30');
-    await form.type(form.departure(), '2026-09-30T16:00');
-    expect(form.expectedReturn().value).toBe('2026-09-30T19:00');
-    const status = form.root.querySelector('[role="status"]')!.textContent!;
-    expect(status).toContain('19:00');
-    expect(status).toContain('não dava');
-    await form.type(form.departure(), '2026-09-30T16:10');
-    expect(form.expectedReturn().value).toBe('2026-09-30T19:10');
-    expect(form.root.querySelector('[role="status"]')!.textContent!.trim()).toBe('');
+    await form.submit();
+    expect(api['saveExit'].mock.calls[0][0]).toEqual({
+      departureMode: 'SCHEDULED',
+      requestedDepartureAt: '2026-09-30T17:00:00.000Z',
+      reason: 'Buscar material escolar',
+      notes: null,
+    });
   });
 
-  it('mantém o retorno salvo ao editar e o limite continua valendo', async () => {
+  it('na edição envia a partida salva sem o retorno guardado', async () => {
     const form = await create('saida-sintetica');
     expect(form.departure().value).toBe('2026-09-30T14:00');
-    expect(form.expectedReturn().value).toBe('2026-09-30T16:00');
-    await form.type(form.departure(), '2026-09-30T14:30');
-    expect(form.expectedReturn().value).toBe('2026-09-30T16:00');
-    await form.type(form.departure(), '2026-09-30T16:30');
-    expect(form.expectedReturn().value).toBe('2026-09-30T19:30');
+    await form.submit();
+    expect(api['saveExit'].mock.calls[0][0]).not.toHaveProperty('expectedReturnAt');
+    expect(api['saveExit'].mock.calls[0][0].requestedDepartureAt).toBe('2026-09-30T17:00:00.000Z');
   });
 
   it('não reaproveita a partida de um pedido NOW ao agendar na edição', async () => {
@@ -161,51 +156,6 @@ describe('Formulário local de saída curta', () => {
     const form = await create('saida-sintetica');
     await form.mode('SCHEDULED');
     expect(form.departure().value).toBe('');
-    expect(form.expectedReturn().value).toBe('2026-09-30T16:00');
-  });
-
-  it('mostra duração, limites e erro junto ao campo no horário de São Paulo', async () => {
-    vi.stubEnv('TZ', 'Pacific/Auckland');
-    expect(new Date(2026, 0, 1).getTimezoneOffset()).toBe(-780);
-    const form = await create();
-    await form.mode('SCHEDULED');
-    expect(form.departure().min).toBe('2026-09-30T13:01');
-    await form.type(form.departure(), '2026-09-30T14:00');
-    await form.type(form.expectedReturn(), '2026-09-30T16:30');
-    expect(form.root.querySelector('#exit-period-hint')!.textContent).toContain(
-      'Duração: 2 h 30 min (máx. 3 h)',
-    );
-    expect(form.expectedReturn().min).toBe('2026-09-30T14:01');
-    expect(form.expectedReturn().max).toBe('2026-09-30T17:00');
-    expect(form.root.querySelector('.op-field-error')).toBeNull();
-    await form.type(form.expectedReturn(), '2026-09-30T17:01');
-    expect(form.root.querySelector('.op-field-error')!.textContent).toContain('3 horas');
-  });
-
-  it('usa o horário do servidor mais o tempo decorrido ao voltar para Agora', async () => {
-    const form = await create();
-    await form.mode('SCHEDULED');
-    vi.advanceTimersByTime(50 * 60_000);
-    await form.mode('NOW');
-    expect(form.expectedReturn().value).toBe('2026-09-30T16:50');
-  });
-
-  it('recalcula no envio somente o retorno não editado no modo Agora', async () => {
-    const form = await create();
-    vi.advanceTimersByTime(30 * 60_000);
-    api['eligibility'].mockResolvedValue(eligibility('2026-09-30T16:30:40Z'));
-    await form.submit();
-    expect(api['saveExit'].mock.calls[0][0].expectedReturnAt).toBe('2026-09-30T19:30:00.000Z');
-    expect(form.expectedReturn().value).toBe('2026-09-30T16:30');
-  });
-
-  it('não altera no envio o retorno editado no modo Agora', async () => {
-    const form = await create();
-    await form.type(form.expectedReturn(), '2026-09-30T15:00');
-    vi.advanceTimersByTime(30 * 60_000);
-    api['eligibility'].mockResolvedValue(eligibility('2026-09-30T16:30:40Z'));
-    await form.submit();
-    expect(api['saveExit'].mock.calls[0][0].expectedReturnAt).toBe('2026-09-30T18:00:00.000Z');
   });
 
   it('pede a partida ao agendar e não trava ao voltar para Agora', async () => {
@@ -235,10 +185,6 @@ describe('Formulário local de saída curta', () => {
     await form.fixture.componentInstance.load();
     await form.fixture.whenStable();
     expect(form.button().disabled).toBe(false);
-    expect(form.expectedReturn().value).toBe('2026-09-30T16:00');
-    await form.mode('SCHEDULED');
-    await form.type(form.departure(), '2026-09-30T14:00');
-    expect(form.expectedReturn().value).toBe('2026-09-30T17:00');
   });
 
   it('outro conflito oferece recarga sem travar o envio', async () => {

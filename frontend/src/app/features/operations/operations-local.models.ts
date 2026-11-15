@@ -86,7 +86,6 @@ export type ShortExitStatus =
 export interface ShortExitInput {
   departureMode: 'NOW' | 'SCHEDULED';
   requestedDepartureAt?: string;
-  expectedReturnAt: string;
   reason: string;
   notes: string | null;
 }

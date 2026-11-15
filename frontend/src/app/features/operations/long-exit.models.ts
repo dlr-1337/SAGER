@@ -11,6 +11,7 @@ export type SignatureStatus =
 export type DocumentMessageStatus =
   'UNAVAILABLE' | 'QUEUED' | 'ACCEPTED' | 'SENT' | 'DELIVERED' | 'READ' | 'FAILED' | 'UNCERTAIN';
 export interface LongExitInput extends ShortExitInput {
+  expectedReturnAt: string;
   guardianId: string;
 }
 export interface LongExitGuardian {

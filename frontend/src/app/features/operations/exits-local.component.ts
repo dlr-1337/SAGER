@@ -33,7 +33,7 @@ import { DemoSessionService } from '../../core/demo-session.service';
 import { LocalAuthService } from '../../core/local-auth.service';
 import { OperationsLocalApiService, operationsError } from './operations-local-api.service';
 import { ShortExit } from './operations-local.models';
-import { exitStatusLabels, formatOperationsTime } from './operations-local.utils';
+import { exitStatusLabels, formatOperationsTime, shortReturnText } from './operations-local.utils';
 import { LongExitApiService } from './long-exit-api.service';
 import { LongExit } from './long-exit.models';
 import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
@@ -197,7 +197,7 @@ import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
                     </p>
                     <p>
                       Saída: {{ formatTime(exit.requestedDepartureAt) }} · Volta:
-                      {{ formatTime(exit.expectedReturnAt) }}
+                      {{ longMode() ? formatTime(exit.expectedReturnAt) : shortReturn(exit) }}
                     </p>
                   </div>
                   <div class="op-row-side">
@@ -286,6 +286,7 @@ export class ExitsLocalComponent {
   readonly tone = toneAttr;
   readonly statuses = Object.keys(exitStatusLabels) as (keyof typeof exitStatusLabels)[];
   readonly formatTime = formatOperationsTime;
+  readonly shortReturn = shortReturnText;
   readonly filters = new FormGroup({
     search: new FormControl('', { nonNullable: true }),
     status: new FormControl('', { nonNullable: true }),

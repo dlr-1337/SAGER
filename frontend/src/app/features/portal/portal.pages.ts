@@ -1236,7 +1236,13 @@ export class HomePage {
         </details>
         <details>
           <summary>Quem confirma o retorno de uma saída curta?</summary>
-          <p>O supervisor registra a volta depois de ver o residente chegar.</p>
+          <p>
+            O supervisor registra a volta depois de ver o residente chegar.
+            @if (!session.active()) {
+              A saída curta dura até 3 horas a partir da saída registrada. Passou disso sem volta, o
+              sistema abre uma notificação de ocorrência.
+            }
+          </p>
         </details>
         <details>
           <summary>A saída longa pode ser aprovada antes da autorização?</summary>
@@ -1257,7 +1263,7 @@ export class HomePage {
           </details>
         }
         <details>
-          <summary>Uma notificação vira advertência sozinha?</summary>
+          <summary>Uma notificação de ocorrência vira advertência sozinha?</summary>
           <p>Não. O supervisor vê o que aconteceu e decide se arquiva ou dá uma advertência.</p>
         </details>
         <details>

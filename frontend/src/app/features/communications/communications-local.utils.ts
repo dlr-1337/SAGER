@@ -45,7 +45,7 @@ export const eventLabels: Record<string, string> = {
   VISUALIZAR: 'Visualização registrada',
   ANALISAR: 'Análise iniciada',
   REVISAR_ORIGEM: 'Registro atual confirmado',
-  ARQUIVAR: 'Notificação arquivada',
+  ARQUIVAR: 'Notificação de ocorrência arquivada',
   CONVERTER: 'Advertência criada',
 };
 export const communicationLabels = {
@@ -157,6 +157,7 @@ export function evidenceRows(evidence: EvidenceValue): { label: string; value: s
     AUSENCIA_JUSTIFICADA: 'Ausência justificada',
     FECHADA: 'Fechada',
     ABERTA: 'Aberta',
+    EM_ANDAMENTO: 'Em andamento',
     RETORNO_CONFIRMADO_COM_ATRASO: 'Retorno confirmado com atraso',
     RETORNO_CONFIRMADO: 'Retorno confirmado',
   };
