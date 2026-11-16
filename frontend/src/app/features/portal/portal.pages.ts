@@ -124,7 +124,7 @@ import { LocalHomePage } from './local-home.page';
     `
       :host {
         display: block;
-        min-height: 100vh;
+        min-height: 100dvh;
         background: var(--surface);
       }
       .access-main {
@@ -245,13 +245,39 @@ import { LocalHomePage } from './local-home.page';
         font-weight: 400;
         color: var(--muted);
       }
-      @media (max-width: 760px) {
+      /* Telas baixas e celulares: o formulário cabe sem rolar; se não couber, a página ainda rola. */
+      @media (max-height: 800px) {
         .access-main {
-          padding-top: 24px;
+          padding-block: 24px;
+        }
+      }
+      @media (max-width: 760px), (max-height: 700px) {
+        .access-main {
+          gap: 16px;
+          padding-block: 16px;
+        }
+        .access-login {
+          gap: 16px;
+        }
+        .access-head {
+          gap: 6px;
+        }
+        .access-head .eyebrow {
+          display: none;
+        }
+        h1 {
+          font-size: 1.6rem;
+        }
+        .lead {
+          font-size: 1rem;
         }
         .access-card,
         .access-demo {
-          padding: 18px;
+          gap: 14px;
+          padding: 16px;
+        }
+        .access-support {
+          row-gap: 0;
         }
       }
     `,

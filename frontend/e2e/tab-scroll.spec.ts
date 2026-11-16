@@ -15,11 +15,15 @@ const scrollY = (page: Page) =>
       ),
   );
 
-// Rola até as abas, ou até onde a página deixar: é daí que o navegador corta a rolagem.
+// Rola até as abas ficarem logo abaixo do cabeçalho fixo, ou até onde a página deixar: é daí
+// que o navegador corta a rolagem.
 async function scrollToTabs(page: Page, tabs: Locator): Promise<number> {
   await tabs.evaluate((element) =>
     window.scrollTo({
-      top: element.getBoundingClientRect().top + window.scrollY,
+      top:
+        element.getBoundingClientRect().top +
+        window.scrollY -
+        document.querySelector('.app-shell > .masthead')!.getBoundingClientRect().height,
       behavior: 'instant',
     }),
   );

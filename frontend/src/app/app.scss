@@ -1,3 +1,12 @@
+// Altura fixa do cabeçalho das telas internas: o menu lateral para logo abaixo dele.
+:root {
+  --masthead-h: 100px;
+}
+// Foco e âncoras não param escondidos sob o cabeçalho fixo.
+html:has(.app-shell:not(.public-shell)) {
+  scroll-padding-top: var(--masthead-h);
+}
+
 app-root {
   display: block;
   min-height: 100dvh;
@@ -6,6 +15,11 @@ app-root {
 .app-shell {
   min-height: 100dvh;
   background: var(--surface);
+}
+.app-shell > .masthead {
+  position: sticky;
+  top: 0;
+  height: var(--masthead-h);
 }
 .public-shell .workspace {
   min-height: 100dvh;
@@ -157,15 +171,36 @@ app-root {
 
 .workspace {
   display: flex;
-  min-height: calc(100dvh - 92px);
+  min-height: calc(100dvh - var(--masthead-h));
 }
+// O menu fica parado ao lado do conteúdo: só a lista rola, e "Sair" fica sempre ao pé.
 .sidebar {
   flex: 0 0 252px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  position: sticky;
+  top: var(--masthead-h);
+  align-self: flex-start;
+  height: calc(100dvh - var(--masthead-h));
+  overflow-y: auto;
   border-right: 1px solid var(--line);
   background: #fff;
+}
+// Sombra na borda que ainda tem itens: mostra que a lista rola. As faixas brancas "local"
+// rolam junto e cobrem a sombra quando a lista chega à ponta.
+.sidebar nav {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background:
+    linear-gradient(#fff 30%, rgb(255 255 255 / 0)) top / 100% 32px no-repeat local,
+    linear-gradient(rgb(255 255 255 / 0), #fff 70%) bottom / 100% 32px no-repeat local,
+    radial-gradient(farthest-side at 50% 0, rgb(6 39 31 / 0.18), transparent) top / 100% 12px
+      no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, rgb(6 39 31 / 0.18), transparent) bottom / 100% 12px
+      no-repeat scroll,
+    #fff;
 }
 .sidebar nav {
   display: grid;
@@ -295,6 +330,9 @@ app-root {
 }
 
 @media (max-width: 800px) {
+  :root {
+    --masthead-h: 72px;
+  }
   .masthead {
     min-height: 72px;
     display: flex;
@@ -347,6 +385,9 @@ app-root {
     bottom: 0;
     left: 0;
     width: min(300px, calc(100vw - 24px));
+    // Sem isso, align-self: flex-start encolhe a gaveta fixa ao conteúdo e ela passa da tela.
+    align-self: auto;
+    height: auto;
     z-index: 101;
     overflow-y: auto;
     justify-content: flex-start;
@@ -399,7 +440,10 @@ app-root {
   .nav-close .material-symbols-rounded {
     font-size: 21px;
   }
+  // Na gaveta do celular rola a gaveta inteira, não só a lista.
   .sidebar nav {
+    flex-shrink: 0;
+    overflow-y: visible;
     padding: 12px 0 16px;
   }
   .sidebar-demo-controls {
