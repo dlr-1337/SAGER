@@ -17,13 +17,16 @@ Afeta o requisito "Destinatários por critério" de `institutional-notices` (RF0
   - "Quarto S-201, Alojamento Sul · 2 residentes";
   - "Só maiores de 18 · 10 residentes" e "Só menores de 18 · 14 residentes";
   - "Escolhidos um a um · 3 residentes".
-- **Aviso salvo** ("Revisar publicação", "Publicar correção" e "Retirar com justificativa"): "Quem vai receber" mostra "Lista salva no rascunho · 24 residentes", sem nomes. A API não guarda a opção escolhida, só a lista.
+- **Grupo gravado:** ao salvar o rascunho, a tela manda a opção escolhida, e o servidor monta o grupo com os nomes cadastrados e o grava com o aviso (migração V39). O servidor não aceita o texto do grupo vindo da tela.
+- **Aviso salvo** ("Revisar publicação", "Publicar correção" e "Retirar com justificativa"): "Quem vai receber" mostra o grupo gravado e a quantidade, como "Todos os moradores · 24 residentes", sem nomes.
+- **Aviso antigo**, sem grupo gravado: os mesmos diálogos mostram "Lista salva no rascunho · 24 residentes".
 - A página do aviso salvo continua listando os nomes em "Quem recebe".
 - O guia de uso (`docs/MANUAL.md`) explica onde ficam os nomes.
 
 **Fora do escopo:**
 
-- guardar a opção escolhida no rascunho (pede backend e migração);
+- conferir no servidor se cada destinatário pertence ao grupo;
+- deduzir o grupo dos avisos antigos;
 - mudar a lista "Ver quem vai receber" do formulário, que continua com nome e matrícula para desmarcar alguém;
 - mudar a página do aviso salvo;
 - outras telas de comunicação (advertências, termos, notificações de ocorrência e conversas);
@@ -37,14 +40,21 @@ Nenhuma.
 
 ### Modified Capabilities
 
-- `institutional-notices`: o requisito "Destinatários por critério" passa a dizer que os diálogos do aviso mostram só o grupo e a quantidade.
+- `institutional-notices`: o requisito "Destinatários por critério" passa a dizer que os diálogos do aviso mostram só o grupo e a quantidade; novo requisito "Grupo gravado no rascunho".
 
 ## Impact
 
 - **Frontend:**
   - `features/communications/notices-local.pages.ts` (`NoticeFormLocalPage` e `NoticeDetailLocalPage`);
+  - `communications-local.models.ts` e `communications-local-api.service.ts` (campo `audienceLabel`);
   - `notices-local.pages.spec.ts`;
   - e2e `communications-local.spec.ts`.
-- **Backend, API e banco:** sem mudança. Sem migração.
-- **Demonstração:** sem mudança; `notices-demo.service.ts` serve só as comunicações do residente.
-- **Documentação:** `docs/MANUAL.md` (Supervisor, item Avisos). `AGENTS.md` e `docs/ARQUITETURA.md` não mudam: a regra de quem recebe é a mesma.
+- **Backend:**
+  - `CommunicationService.createNotice` e `CommunicationModels.Notice`;
+  - `CommunicationOpenApiConfiguration` (`audience` em `NoticeCreateRequest`);
+  - `AuditResource` (campo `audience` de `NOTICE`);
+  - testes `DisciplineApiIntegrationTest` e `ApiFoundationIntegrationTest`.
+- **API:** `POST /api/v1/avisos` aceita `audience`, opcional; o aviso devolve `audienceLabel`, nulo nos antigos. Clientes que não mandam `audience` continuam funcionando.
+- **Banco:** V39 cria `sager_notice.audience_label` (nulo) e libera o campo `audience` na auditoria de `NOTICE`.
+- **Demonstração:** sem mudança; não há telas de aviso do supervisor nela, e `notices-demo.service.ts` serve só as comunicações do residente.
+- **Documentação:** `docs/MANUAL.md` (Supervisor, item Avisos) e `docs/ARQUITETURA.md` (D18). `AGENTS.md` não muda: quem gerencia avisos e quem recebe seguem as mesmas regras.
