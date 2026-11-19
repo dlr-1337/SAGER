@@ -112,7 +112,11 @@ test('residente do ambiente local mantém a posição em cada aba', async ({ pag
 
 test('avisos da demonstração mantêm a posição ao trocar de aba', async ({ page }) => {
   await enterDemo(page, 'Residente');
-  await page.getByRole('link', { name: 'Avisos e advertências', exact: true }).click();
+  // O item traz o contador de pendências no nome ("Avisos e advertências, 2 pendentes").
+  await page
+    .locator('#app-navigation')
+    .getByRole('link', { name: /^Avisos e advertências\b/ })
+    .click();
   const tabs = page.getByRole('tablist', { name: 'Categorias de comunicação' });
   // Sem item aberto o painel de detalhe já é alto: o corte só aparece com um item aberto.
   await page.locator('.notice-row').first().click();
