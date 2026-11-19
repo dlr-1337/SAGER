@@ -403,6 +403,7 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
         title: body.title,
         body: body.body,
         residentIds: body.residentIds,
+        audienceLabel: audienceLabel(body.audience),
         status: 'RASCUNHO',
         version: 0,
         publishedAt: null,
@@ -430,6 +431,23 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
     return route.fulfill({ status: 404, json: { code: 'not_found' } });
   });
   return state;
+}
+/** O grupo que o servidor monta da opção de "Quem recebe?" (o cliente nunca manda o texto). */
+function audienceLabel(audience?: { kind: string; accommodationId?: string; roomId?: string }) {
+  if (!audience) return null;
+  if (audience.kind === 'ALOJAMENTO')
+    return [north, south].find((item) => item.id === audience.accommodationId)!.name;
+  if (audience.kind === 'QUARTO') {
+    const place = rooms.find((item) => item.id === audience.roomId)!;
+    const building = [north, south].find((item) => item.id === place.accommodationId)!;
+    return `Quarto ${place.code}, ${building.name}`;
+  }
+  return {
+    TODOS: 'Todos os moradores',
+    MAIORES: 'Só maiores de 18',
+    MENORES: 'Só menores de 18',
+    ESCOLHER: 'Escolhidos um a um',
+  }[audience.kind]!;
 }
 async function fillWarning(page: Page): Promise<void> {
   await page.getByLabel('Gravidade decidida pelo supervisor').selectOption('GRAVE');
@@ -733,22 +751,35 @@ const audiences = [
   {
     option: 'Todos os moradores',
     review: 'Todos os moradores · 4 residentes',
+    sent: { kind: 'TODOS' },
     ids: [41, 42, 43, 45],
   },
   {
     option: 'Um alojamento',
     place: { Alojamento: north.id },
     review: 'Alojamento Norte · 2 residentes',
+    sent: { kind: 'ALOJAMENTO', accommodationId: north.id },
     ids: [41, 43],
   },
   {
     option: 'Um quarto',
     place: { Alojamento: south.id, Quarto: rooms[2].id },
     review: 'Quarto S-201, Alojamento Sul · 2 residentes',
+    sent: { kind: 'QUARTO', roomId: rooms[2].id },
     ids: [42, 45],
   },
-  { option: 'Só maiores de 18', review: 'Só maiores de 18 · 2 residentes', ids: [42, 43] },
-  { option: 'Só menores de 18', review: 'Só menores de 18 · 1 residente', ids: [41] },
+  {
+    option: 'Só maiores de 18',
+    review: 'Só maiores de 18 · 2 residentes',
+    sent: { kind: 'MAIORES' },
+    ids: [42, 43],
+  },
+  {
+    option: 'Só menores de 18',
+    review: 'Só menores de 18 · 1 residente',
+    sent: { kind: 'MENORES' },
+    ids: [41],
+  },
 ];
 for (const audience of audiences) {
   test(`"${audience.option}" conta quem recebe e grava só esses residentes`, async ({ page }) => {
@@ -769,12 +800,17 @@ for (const audience of audiences) {
     await confirm(page, 'Salvar rascunho');
     await expect(page).toHaveURL('/comunicacoes/avisos/' + noticeId);
     expect(Object.keys(state.writes[0].body).sort()).toEqual([
+      'audience',
       'body',
       'idempotencyKey',
       'residentIds',
       'title',
     ]);
+    expect(state.writes[0].body.audience).toEqual(audience.sent);
     expect([...state.writes[0].body.residentIds].sort()).toEqual(audience.ids.map(uuid));
+    // "Revisar publicação" mostra o grupo gravado no rascunho, sem nomes.
+    await page.getByRole('button', { name: 'Revisar publicação' }).click();
+    await expectRecipients(page, audience.review);
   });
 }
 
@@ -864,7 +900,7 @@ test('supervisor publica aviso por UUID, revisa preservando destinatários e ret
     'Estudante Sintético · TESTE-001',
   );
   await page.getByRole('button', { name: 'Revisar publicação' }).click();
-  await expectRecipients(page, 'Lista salva no rascunho · 1 residente');
+  await expectRecipients(page, 'Escolhidos um a um · 1 residente');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Revisar publicação' })).toBeFocused();
@@ -878,13 +914,13 @@ test('supervisor publica aviso por UUID, revisa preservando destinatários e ret
     .getByLabel('Mensagem', { exact: true })
     .fill('A reunião foi transferida para as 19 horas no mesmo auditório.');
   await page.getByRole('button', { name: 'Publicar correção' }).click();
-  await expectRecipients(page, 'Lista salva no rascunho · 1 residente');
+  await expectRecipients(page, 'Escolhidos um a um · 1 residente');
   await confirm(page, 'Publicar correção');
   await expect(page.getByText('Correção publicada.')).toBeVisible();
   expect(state.writes[2].body).toMatchObject({ version: 1, title: 'Reunião geral de residentes' });
   expect(state.writes[2].body).not.toHaveProperty('residentIds');
   await page.getByRole('button', { name: 'Retirar com justificativa' }).click();
-  await expectRecipients(page, 'Lista salva no rascunho · 1 residente');
+  await expectRecipients(page, 'Escolhidos um a um · 1 residente');
   await page
     .getByRole('dialog')
     .getByLabel('Justificativa', { exact: true })
@@ -895,6 +931,30 @@ test('supervisor publica aviso por UUID, revisa preservando destinatários e ret
   ).toBeVisible();
   await page.reload();
   await expect(page.locator('.op-heading .status')).toHaveText('Retirado');
+});
+
+test('aviso antigo, sem grupo gravado, mostra a lista salva e a quantidade em "Revisar publicação"', async ({
+  page,
+}) => {
+  const legacy: PublishedNotice = {
+    id: noticeId,
+    title: 'Aviso antigo sintético',
+    body: 'Mensagem sintética salva antes do grupo.',
+    residentIds: [residentId, otherResident.id],
+    status: 'RASCUNHO',
+    version: 0,
+    publishedAt: null,
+    communicationId: null,
+    withdrawalReason: null,
+  };
+  await mockApi(page, { notices: [legacy] });
+  await page.goto('/comunicacoes/avisos/' + noticeId);
+  await expect(page.locator('h3:has-text("Quem recebe") + ul li')).toHaveText([
+    'Estudante Sintético · TESTE-001',
+    'Outro Estudante · TESTE-002',
+  ]);
+  await page.getByRole('button', { name: 'Revisar publicação' }).click();
+  await expectRecipients(page, 'Lista salva no rascunho · 2 residentes');
 });
 
 test('residente consulta dados próprios e registra leitura e ciência separadas na versão exata', async ({
