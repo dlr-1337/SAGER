@@ -22,7 +22,7 @@ As telas se atualizam sozinhas a cada 15 segundos. Depois de 30 minutos sem uso,
 
 Depois de 5 senhas erradas para o mesmo usuário, o login fica bloqueado por até 15 minutos. Não há cadastro público: as contas nascem com o cadastro do residente ou do supervisor, e as de gestor são criadas pelo suporte da instituição.
 
-No celular, as telas ficam no botão **Menu**. Tudo também funciona só pelo teclado.
+No celular, as telas ficam no botão **Menu**. Tudo também funciona só pelo teclado. Nas decisões do supervisor, a ação principal vem primeiro e cada botão ocupa uma linha; nas janelas de confirmação, o conteúdo rola por dentro e os botões ficam sempre à vista.
 
 Em cada lista, a busca fica à vista; os outros filtros ficam em **Mais filtros**, que abre fechado. A situação de cada registro aparece escrita e com uma cor: amarelo espera alguém agir, azul está em curso, verde deu certo ou está valendo, vermelho foi negado ou deu problema e cinza está encerrado. Abra **O que significa cada cor?** para ver os nomes de cada tela.
 
