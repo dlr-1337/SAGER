@@ -82,8 +82,8 @@ function assessment(): CleaningAssessment {
       delta: null,
       periodMean: 6,
       position: 1,
-      rankingReference: 'MONTH',
-      from: '2026-09-01',
+      rankingReference: 'LAST_5_DAYS',
+      from: '2026-09-26',
       to: '2026-09-30',
     },
   };
@@ -312,7 +312,6 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
             roomCode: room.code,
             mean: 6,
             position: 1,
-            assessmentCount: 1,
             own: state.role === 'residente',
           },
           {
@@ -320,7 +319,6 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
             roomCode: 'T-102',
             mean: state.role === 'residente' && !state.leakRanking ? null : 6,
             position: 1,
-            assessmentCount: state.role === 'residente' ? null : 1,
             own: false,
           },
           {
@@ -328,7 +326,6 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
             roomCode: 'T-103',
             mean: state.role === 'residente' ? null : 4,
             position: 3,
-            assessmentCount: state.role === 'residente' ? null : 1,
             own: false,
           },
           {
@@ -336,7 +333,6 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
             roomCode: 'T-104',
             mean: null,
             position: null,
-            assessmentCount: state.role === 'residente' ? null : 0,
             own: false,
           },
         ];
@@ -348,15 +344,15 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
               roomCode: `T-${200 + i}`,
               mean: resident ? null : 5,
               position: 4 + i,
-              assessmentCount: resident ? null : 1,
               own: false,
             })),
             { ...items.shift()!, position: 4 + state.rankingRooms },
           );
+        const fiveDays = url.searchParams.get('period') === 'LAST_5_DAYS';
         return ok({
           period: url.searchParams.get('period'),
           referenceDate: url.searchParams.get('referenceDate'),
-          from: '2026-09-01',
+          from: fiveDays ? '2026-09-26' : '2026-09-01',
           to: '2026-09-30',
           items,
         });
@@ -762,7 +758,14 @@ test('residente consulta avaliações pela participação histórica e ranking o
   await expect(page.getByRole('link', { name: 'Corrigir com justificativa' })).toHaveCount(0);
   await page.goto('/ranking');
   await expect(page.getByRole('heading', { name: 'Ranking de limpeza' })).toBeVisible();
-  await expect(page.getByText('Nota privada do quarto')).toHaveCount(3);
+  const own = page.getByRole('region', { name: 'Seu quarto neste período' });
+  await expect(own.locator('.cleaning-score')).toHaveText('6,00');
+  await expect(
+    page.getByLabel('Posições dos quartos').locator('article.cleaning-rank'),
+  ).toHaveCount(3);
+  await expect(page.getByLabel('Posições dos quartos').locator('.cleaning-score')).toHaveCount(0);
+  await expect(page.getByText('Nota privada do quarto')).toHaveCount(0);
+  await expect(page.getByText('Sua participação registrada neste período')).toHaveCount(0);
   expect(state.writes).toHaveLength(0);
   state.leakRanking = true;
   await page.getByRole('button', { name: 'Ver período', exact: true }).click();
@@ -774,10 +777,19 @@ test('ranking usa posições e nulos do servidor, empates 1 1 3 e período expl�
 }) => {
   const state = await mockApi(page, { role: 'gestor' });
   await page.goto('/ranking');
+  await expect(
+    page.getByRole('heading', { name: 'Últimos 5 dias · 26/09/2026 a 30/09/2026' }),
+  ).toBeVisible();
+  expect(state.gets.some((path) => path.includes('period=LAST_5_DAYS'))).toBe(true);
+  await expect(page.getByRole('combobox', { name: 'Período', exact: true })).toHaveValue(
+    'LAST_5_DAYS',
+  );
+  await expect(page.getByLabel('Último dia', { exact: true })).toHaveValue('2026-09-30');
   await expect(page.getByText('1º', { exact: true })).toHaveCount(2);
   await expect(page.getByText('3º', { exact: true })).toHaveCount(1);
   await expect(page.getByText('Sem posição', { exact: true })).toHaveCount(1);
-  await expect(page.getByText('Sem avaliações no período', { exact: true })).toBeVisible();
+  await expect(page.getByText('Sem nota', { exact: true })).toBeVisible();
+  await expect(page.locator('article.cleaning-rank').filter({ hasText: /avalia/i })).toHaveCount(0);
   await page.getByRole('combobox', { name: 'Período', exact: true }).selectOption('SEMESTER');
   await page.getByRole('button', { name: 'Ver período', exact: true }).click();
   await expect(
@@ -792,7 +804,7 @@ test('ranking usa posições e nulos do servidor, empates 1 1 3 e período expl�
   await expect(page.getByText('Fórmula pendente da AE')).toHaveCount(0);
   await expect(page.getByText('db-password-secret')).toHaveCount(0);
 });
-test('ranking mostra 25 quartos por página e repete o quarto do residente no topo', async ({
+test('ranking mostra 25 quartos por página e o quarto do residente só no topo', async ({
   page,
 }) => {
   const state = await mockApi(page, { role: 'gestor', rankingRooms: 26 });
@@ -805,7 +817,9 @@ test('ranking mostra 25 quartos por página e repete o quarto do residente no to
   await expect(page.getByText('26–30 de 30', { exact: true })).toBeVisible();
   await expect(ranks).toHaveCount(5);
   await expect(ranks.last()).toContainText('Quarto T-101');
-  await expect(page.getByRole('heading', { name: 'Mês · 01/09/2026 a 30/09/2026' })).toBeFocused();
+  await expect(
+    page.getByRole('heading', { name: 'Últimos 5 dias · 26/09/2026 a 30/09/2026' }),
+  ).toBeFocused();
   state.role = 'residente';
   await page.goto('/ranking');
   const own = page.getByRole('region', { name: 'Seu quarto neste período' });
@@ -813,8 +827,13 @@ test('ranking mostra 25 quartos por página e repete o quarto do residente no to
   await expect(own).toContainText('Quarto T-101');
   await expect(own).toContainText('30º');
   await expect(own.locator('.cleaning-score')).toHaveText('6,00');
+  await expect(page.getByRole('heading', { name: 'Outros quartos' })).toBeVisible();
   await expect(ranks.first()).toContainText('Quarto T-102');
-  await expect(page.getByText('1–25 de 30', { exact: true })).toBeVisible();
+  await expect(page.getByText('1–25 de 29', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Próxima', exact: true }).click();
+  await expect(page.getByText('26–29 de 29', { exact: true })).toBeVisible();
+  await expect(ranks).toHaveCount(4);
+  await expect(ranks.filter({ hasText: 'Quarto T-101' })).toHaveCount(0);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });
 const ready = (state: State) => {
