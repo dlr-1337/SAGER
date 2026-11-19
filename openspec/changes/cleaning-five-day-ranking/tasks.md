@@ -49,7 +49,8 @@ O modo demonstração (RF027) continua: não remover os ramos `session.active()`
     - o título mostra "Últimos 5 dias" com as datas;
     - a linha não mostra quantidade de avaliações;
     - o residente vê o quarto dele uma vez, e a paginação conta só os outros quartos.
-- [ ] 2.3 Ajustar `e2e/cleaning-reports-local.spec.ts`: dados simulados sem `assessmentCount`, período padrão `LAST_5_DAYS`, "Sem nota", residente sem repetição e a paginação "1–25 de 29" na lista dos outros quartos.
+- [ ] 2.3 Na Ajuda (`portal.pages.ts`), dizer que o ranking abre com a média dos últimos 5 dias e que dia sem avaliação não conta. Verificar lendo a resposta "Como são calculados o ranking e os relatórios?" e com `npx ng build`.
+- [ ] 2.4 Ajustar `e2e/cleaning-reports-local.spec.ts`: dados simulados sem `assessmentCount`, período padrão `LAST_5_DAYS`, "Sem nota", residente sem repetição e a paginação "1–25 de 29" na lista dos outros quartos.
   - Verificar com `SAGER_E2E_PORT=4334 CI=1 npx playwright test e2e/cleaning-reports-local.spec.ts --workers=1 -g "ranking|residente consulta"`.
 
 ## 3. Demonstração
@@ -58,11 +59,13 @@ O modo demonstração (RF027) continua: não remover os ramos `session.active()`
   - pôr "Últimos 5 dias" como primeira opção e padrão;
   - mostrar a nota ilustrativa com duas casas ao lado da posição, e para o residente só a do próprio quarto;
   - citar a média dos últimos 5 dias em "Como o ranking é calculado".
-  - Verificar com um spec do componente e com `e2e/journeys.spec.ts` ("limpeza e ranking da demonstração descrevem a regra adotada com duas casas"), que confere a opção "Últimos 5 dias" selecionada.
+  - Verificar com `ranking.component.spec.ts` e com `e2e/journeys.spec.ts`:
+    - "limpeza e ranking da demonstração descrevem a regra adotada com duas casas" confere "Últimos 5 dias" selecionado e a nota 8,50;
+    - "telas no celular de 320 px sem rolagem horizontal da página" confere o ranking do residente sem rolagem lateral.
 
 ## 4. Documentação e validação
 
-- [ ] 4.1 Atualizar a documentação:
+- [x] 4.1 Atualizar a documentação:
   - `docs/MANUAL.md`: Gestor, item 3; Residente, item 3; glossário, "Ranking";
   - `README.md`: linha da limpeza;
   - `docs/ARQUITETURA.md`: D10, com os últimos 5 dias como padrão;

@@ -22,7 +22,7 @@ A regra do `AGENTS.md` de que os três perfis leem o ranking e o residente vê s
 - O ranking deixa de trazer a quantidade de avaliações: `assessmentCount` sai da resposta da API e a linha da tela mostra só o quarto, a posição e a nota. Quarto sem avaliação mostra "Sem posição" e "Sem nota".
 - O residente vê o próprio quarto uma vez só: no topo, em "Seu quarto neste período", com posição e nota. A lista abaixo, "Outros quartos", traz só os demais, 25 por página, sem repetir essa linha e sem a frase "Nota privada do quarto" em cada linha.
 - O ranking da demonstração ganha "Últimos 5 dias" como primeira opção e padrão, e mostra a nota ilustrativa ao lado da posição (para o residente, só a do próprio quarto).
-- `docs/MANUAL.md`, `README.md`, `docs/ARQUITETURA.md` e o `AGENTS.md` passam a citar o período de 5 dias.
+- A Ajuda, `docs/MANUAL.md`, `README.md`, `docs/ARQUITETURA.md` e o `AGENTS.md` passam a citar o período de 5 dias.
 
 **Fora do escopo:**
 
@@ -56,8 +56,9 @@ Nenhuma.
 - **Frontend:**
   - `cleaning-local.models.ts`, `cleaning-local.utils.ts` e `cleaning-local-api.service.ts`: período novo e linha sem `assessmentCount`;
   - `cleaning-local.pages.ts`: `RankingLocalPage` e a devolutiva no detalhe;
-  - `operations/ranking.component.ts`: ranking da demonstração;
-  - specs `cleaning-local-api.service.spec.ts` e `cleaning-local.pages.spec.ts`, e os e2e `cleaning-reports-local.spec.ts` e `journeys.spec.ts`.
+  - `operations/ranking.component.ts` e `operations.scss`: ranking da demonstração;
+  - `portal/portal.pages.ts`: resposta da Ajuda sobre o cálculo do ranking;
+  - specs `cleaning-local-api.service.spec.ts`, `cleaning-local.pages.spec.ts` e `ranking.component.spec.ts`, e os e2e `cleaning-reports-local.spec.ts` e `journeys.spec.ts`.
 - **API:** `GET /api/v1/limpeza/ranking` aceita `period=LAST_5_DAYS` e o usa quando `period` falta (antes, `MONTH`). `assessmentCount` sai das linhas. `rankingReference` da devolutiva passa a valer `LAST_5_DAYS`. A tela e a API mudam juntas na mesma versão.
 - **Banco:** sem migração. A unicidade por quarto e data (V18) já garante uma nota por dia, e o índice `sager_cleaning_period_idx` atende a janela.
 - **Monografia:** RF012 cita semana, mês e semestre. O período de 5 dias é acréscimo e precisa entrar no texto (ver design.md).
