@@ -213,7 +213,7 @@ describe('Detalhe da saída longa em passos', () => {
   it('sem arquivo recebido: aguarda o responsável, com "Anexar arquivo" à vista e "Rejeitar" em vermelho', async () => {
     const fixture = await create();
     expect(heading(fixture)).toBe('Autorização do responsável');
-    expect(step(fixture).textContent).toContain('Passo 1 de 3');
+    expect(step(fixture).textContent).toContain('Passo 1 de 4');
     expect(step(fixture).textContent).toContain('Aguardando o responsável enviar pelo WhatsApp.');
     expect(step(fixture).querySelector('input[type=file]')?.closest('details')).toBeNull();
     expect(step(fixture).querySelector('label')?.textContent).toContain('Anexar arquivo');
@@ -364,23 +364,27 @@ describe('Detalhe da saída longa em passos', () => {
     expect(step(fixture).textContent).toContain('Rejeição registrada.');
   });
 
-  it('aprovar o pedido para sair agora registra também a saída', async () => {
+  it('aprovar o pedido para sair agora só aprova; a saída fica para quando o residente se apresentar', async () => {
     api['get'].mockResolvedValue(verified());
     api['decide'].mockResolvedValue(
-      afterConference(
-        { status: 'EM_ANDAMENTO', actualDepartureAt: now },
-        { canReturn: true, canCancel: false },
-      ),
+      afterConference({ status: 'APROVADA' }, { canDepart: true, canCancel: true }),
     );
     const fixture = await create();
     button(fixture, 'Aprovar saída')!.click();
     await fixture.whenStable();
     expect(reviewData()).toMatchObject({
-      title: 'A saída longa será aprovada e registrada agora.',
-      action: 'Aprovar e registrar a saída agora',
+      title: 'A saída longa será aprovada.',
+      action: 'Confirmar aprovação',
+      note: 'Aprovar não registra a saída; ela é registrada quando o residente se apresentar.',
     });
-    expect(step(fixture).textContent).toContain('Aprovação e saída registradas.');
-    expect(actions(fixture)).toEqual(['Registrar volta']);
+    expect(step(fixture).textContent).toContain('Aprovação registrada.');
+    expect(heading(fixture)).toBe('Saída');
+    expect(step(fixture).textContent).toContain('Passo 3 de 4');
+    expect(step(fixture).textContent).toContain(
+      'Registre a saída quando o residente se apresentar.',
+    );
+    expect(step(fixture).textContent).not.toContain('Saída marcada para');
+    expect(actions(fixture)).toEqual(['Registrar saída']);
   });
 
   it('agendada aprovada antes da hora: "Saída marcada para", sem "Registrar saída"', async () => {
