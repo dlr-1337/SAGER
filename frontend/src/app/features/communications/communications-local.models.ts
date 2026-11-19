@@ -115,13 +115,21 @@ export interface DisciplineTerm {
   version: number;
   annulmentReason: string | null;
 }
+/** A opção de "Quem recebe?"; o servidor monta dela o grupo gravado (notice-recipient-summary). */
+export type NoticeAudienceInput =
+  | { kind: 'TODOS' | 'MAIORES' | 'MENORES' | 'ESCOLHER' }
+  | { kind: 'ALOJAMENTO'; accommodationId: string }
+  | { kind: 'QUARTO'; roomId: string };
 export interface NoticeInput {
   title: string;
   body: string;
   residentIds: string[];
+  audience?: NoticeAudienceInput;
 }
-export interface PublishedNotice extends NoticeInput {
+export interface PublishedNotice extends Omit<NoticeInput, 'audience'> {
   id: string;
+  /** Grupo de "Quem recebe?" gravado no rascunho; nulo ou ausente em aviso antigo. */
+  audienceLabel?: string | null;
   status: 'RASCUNHO' | 'PUBLICADO' | 'RETIRADO';
   version: number;
   publishedAt: string | null;

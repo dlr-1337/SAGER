@@ -22,7 +22,7 @@ import {
   CommunicationsLocalApiService,
   communicationsError,
 } from './communications-local-api.service';
-import { NoticeInput, PublishedNotice } from './communications-local.models';
+import { NoticeAudienceInput, NoticeInput, PublishedNotice } from './communications-local.models';
 import {
   CommunicationReviewData,
   CommunicationReviewDialogComponent,
@@ -104,8 +104,21 @@ const residentsCount = (count: number) => (count === 1 ? '1 residente' : `${coun
  */
 export const recipientsSummary = (group: string, count: number) =>
   `${group} · ${residentsCount(count)}`;
-/** O aviso salvo traz só a lista: a opção que a montou não é gravada (notice-recipient-summary). */
+/** Aviso salvo antes de o grupo ser gravado: só a lista, sem a opção que a montou. */
 export const savedListGroup = 'Lista salva no rascunho';
+/** A opção enviada ao servidor, que monta e grava o grupo; o texto da tela nunca vai na API. */
+export function audienceInput(
+  audience: NoticeAudience | '',
+  place: { accommodationId?: string; roomId?: string } = {},
+): NoticeAudienceInput | undefined {
+  if (audience === 'ALOJAMENTO')
+    return place.accommodationId
+      ? { kind: audience, accommodationId: place.accommodationId }
+      : undefined;
+  if (audience === 'QUARTO')
+    return place.roomId ? { kind: audience, roomId: place.roomId } : undefined;
+  return audience ? { kind: audience } : undefined;
+}
 
 @Component({
   standalone: true,
@@ -500,7 +513,14 @@ export class NoticeFormLocalPage {
     )
       return;
     this.form.markAllAsTouched();
-    const input = { ...noticeContent(this.form), residentIds: [...this.selected()].sort() };
+    const input: NoticeInput = {
+      ...noticeContent(this.form),
+      residentIds: [...this.selected()].sort(),
+      audience: audienceInput(this.chosen(), {
+        accommodationId: this.accommodationId.value,
+        roomId: this.roomId.value,
+      }),
+    };
     if (
       this.form.invalid ||
       noticeInvalid(input) ||
@@ -542,7 +562,7 @@ export class NoticeFormLocalPage {
   }
   /**
    * O grupo da confirmação (notice-recipient-summary, D1): o nome do alojamento, o quarto com o
-   * alojamento ou o nome da opção.
+   * alojamento ou o nome da opção. É a mesma regra com que o servidor monta o grupo gravado.
    */
   private criterion(): string {
     const audience = this.chosen();
@@ -858,7 +878,7 @@ export class NoticeDetailLocalPage {
       { label: 'Mensagem', value: item.body },
       {
         label: 'Quem vai receber',
-        value: recipientsSummary(savedListGroup, item.residentIds.length),
+        value: recipientsSummary(item.audienceLabel || savedListGroup, item.residentIds.length),
       },
     ];
   }

@@ -11,7 +11,12 @@ import { RoomApiService } from '../management/room-api.service';
 import { CommunicationsLocalApiService } from './communications-local-api.service';
 import { PublishedNotice } from './communications-local.models';
 import { CommunicationReviewData } from './communications-local.shared';
-import { NoticeDetailLocalPage, NoticeFormLocalPage, audienceQuery } from './notices-local.pages';
+import {
+  NoticeDetailLocalPage,
+  NoticeFormLocalPage,
+  audienceInput,
+  audienceQuery,
+} from './notices-local.pages';
 
 const person = (id: string, values: Partial<ResidentRecord> = {}): ResidentRecord => ({
   id,
@@ -70,6 +75,21 @@ describe('Filtros de cada opção de "Quem recebe?"', () => {
     expect(audienceQuery('QUARTO', { accommodationId: 'aloj-1' })).toBeNull();
     expect(audienceQuery('ESCOLHER')).toBeNull();
     expect(audienceQuery('')).toBeNull();
+  });
+
+  it('envia ao servidor só a opção e o lugar, nunca o texto do grupo', () => {
+    expect(audienceInput('TODOS')).toEqual({ kind: 'TODOS' });
+    expect(audienceInput('ESCOLHER')).toEqual({ kind: 'ESCOLHER' });
+    expect(audienceInput('ALOJAMENTO', { accommodationId: 'aloj-1', roomId: 'quarto-1' })).toEqual({
+      kind: 'ALOJAMENTO',
+      accommodationId: 'aloj-1',
+    });
+    expect(audienceInput('QUARTO', { accommodationId: 'aloj-1', roomId: 'quarto-1' })).toEqual({
+      kind: 'QUARTO',
+      roomId: 'quarto-1',
+    });
+    expect(audienceInput('QUARTO', { accommodationId: 'aloj-1' })).toBeUndefined();
+    expect(audienceInput('')).toBeUndefined();
   });
 
   it('separa por idade só com a data de nascimento e o "minor" do servidor', () => {
@@ -156,7 +176,11 @@ describe('Formulário do aviso por opção', () => {
     expectNoNames(data, [adult, minor]);
     await fixture.whenStable();
     expect(createNotice).toHaveBeenCalledWith(
-      expect.objectContaining({ residentIds: ['B'], title: 'Aviso sintético' }),
+      expect.objectContaining({
+        residentIds: ['B'],
+        title: 'Aviso sintético',
+        audience: { kind: 'TODOS' },
+      }),
     );
   });
 
@@ -212,9 +236,24 @@ describe('Formulário do aviso por opção', () => {
   });
 
   const places = [
-    { audience: 'ALOJAMENTO', room: '', group: 'Alojamento Um' },
-    { audience: 'QUARTO', room: 'quarto-1', group: 'Quarto U-101, Alojamento Um' },
-    { audience: 'QUARTO', room: 'quarto-2', group: 'Quarto U-102, Casa 1, Alojamento Um' },
+    {
+      audience: 'ALOJAMENTO',
+      room: '',
+      group: 'Alojamento Um',
+      sent: { kind: 'ALOJAMENTO', accommodationId: 'aloj-1' },
+    },
+    {
+      audience: 'QUARTO',
+      room: 'quarto-1',
+      group: 'Quarto U-101, Alojamento Um',
+      sent: { kind: 'QUARTO', roomId: 'quarto-1' },
+    },
+    {
+      audience: 'QUARTO',
+      room: 'quarto-2',
+      group: 'Quarto U-102, Casa 1, Alojamento Um',
+      sent: { kind: 'QUARTO', roomId: 'quarto-2' },
+    },
   ] as const;
   for (const place of places) {
     it(`a revisão de "${place.group}" mostra o lugar e a quantidade, sem nomes`, async () => {
@@ -229,6 +268,8 @@ describe('Formulário do aviso por opção', () => {
       const data = open.mock.calls[0][1].data as CommunicationReviewData;
       expect(recipientsLine(data)).toBe(`${place.group} · 2 residentes`);
       expectNoNames(data, [adult, minor]);
+      await fixture.whenStable();
+      expect(createNotice.mock.calls[0][0].audience).toEqual(place.sent);
     });
   }
 });
@@ -282,7 +323,7 @@ describe('Diálogos do aviso salvo', () => {
     };
   }
 
-  it('"Revisar publicação" mostra a lista do rascunho e a quantidade, e a página lista os nomes', async () => {
+  it('aviso antigo em "Revisar publicação" mostra a lista salva e a quantidade, e a página lista os nomes', async () => {
     const { view, element } = await create();
     expect(element.textContent).toContain('Residente A · TESTE-A');
     expect(element.textContent).toContain('Residente B · TESTE-B');
@@ -293,7 +334,33 @@ describe('Diálogos do aviso salvo', () => {
     expectNoNames(data, [adult, minor]);
   });
 
-  it('correção e retirada do aviso publicado também mostram só a lista e a quantidade', async () => {
+  it('o grupo gravado no rascunho aparece em "Revisar publicação", na correção e na retirada', async () => {
+    notice.mockResolvedValue({ ...draft, audienceLabel: 'Todos os moradores' });
+    const { view } = await create();
+    await view.publish();
+    notice.mockResolvedValue({
+      ...draft,
+      audienceLabel: 'Todos os moradores',
+      status: 'PUBLICADO',
+      version: 1,
+    });
+    await view.load();
+    view.form.setValue({ title: 'Aviso sintético', body: 'Mensagem corrigida.' });
+    await view.revise();
+    view.withdraw();
+    const dialogs = open.mock.calls.map((call) => call[1].data as CommunicationReviewData);
+    expect(dialogs.map((data) => data.action)).toEqual([
+      'Confirmar publicação',
+      'Publicar correção',
+      'Confirmar retirada',
+    ]);
+    for (const data of dialogs) {
+      expect(recipientsLine(data)).toBe('Todos os moradores · 2 residentes');
+      expectNoNames(data, [adult, minor]);
+    }
+  });
+
+  it('aviso antigo, sem grupo gravado, mostra a lista salva na correção e na retirada', async () => {
     notice.mockResolvedValue({ ...draft, status: 'PUBLICADO', version: 1 });
     const { view } = await create();
     view.form.setValue({ title: 'Aviso sintético', body: 'Mensagem corrigida.' });
