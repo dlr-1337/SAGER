@@ -30,7 +30,7 @@ O modo demonstração (RF027) continua: não remover os ramos `session.active()`
 
 ## 2. Interface
 
-- [ ] 2.1 Aceitar o período novo e a linha sem quantidade.
+- [x] 2.1 Aceitar o período novo e a linha sem quantidade.
   - Em `cleaning-local.models.ts`, incluir `LAST_5_DAYS` em `RankingPeriod` e tirar `assessmentCount` de `CleaningRankRow`.
   - Em `cleaning-local.utils.ts`, dar o rótulo "Últimos 5 dias".
   - Em `cleaning-local-api.service.ts`, aceitar `LAST_5_DAYS` em `period` e tirar `assessmentCount` da conferência da linha e da projeção do residente.
@@ -38,7 +38,7 @@ O modo demonstração (RF027) continua: não remover os ramos `session.active()`
     - ranking e devolutiva com `LAST_5_DAYS` são aceitos;
     - período desconhecido é recusado;
     - nota de outro quarto na projeção do residente continua recusada.
-- [ ] 2.2 Em `RankingLocalPage` (`cleaning-local.pages.ts`):
+- [x] 2.2 Em `RankingLocalPage` (`cleaning-local.pages.ts`):
   - abrir em "Últimos 5 dias", com Semana, Mês e Semestre como opções, e aceitar `periodo=LAST_5_DAYS` no endereço;
   - com "Últimos 5 dias", o campo de data se chama "Último dia";
   - a linha mostra só o quarto, a posição e a nota, ou "Sem posição" e "Sem nota";
@@ -49,13 +49,13 @@ O modo demonstração (RF027) continua: não remover os ramos `session.active()`
     - o título mostra "Últimos 5 dias" com as datas;
     - a linha não mostra quantidade de avaliações;
     - o residente vê o quarto dele uma vez, e a paginação conta só os outros quartos.
-- [ ] 2.3 Na Ajuda (`portal.pages.ts`), dizer que o ranking abre com a média dos últimos 5 dias e que dia sem avaliação não conta. Verificar lendo a resposta "Como são calculados o ranking e os relatórios?" e com `npx ng build`.
-- [ ] 2.4 Ajustar `e2e/cleaning-reports-local.spec.ts`: dados simulados sem `assessmentCount`, período padrão `LAST_5_DAYS`, "Sem nota", residente sem repetição e a paginação "1–25 de 29" na lista dos outros quartos.
+- [x] 2.3 Na Ajuda (`portal.pages.ts`), dizer que o ranking abre com a média dos últimos 5 dias e que dia sem avaliação não conta. Verificar lendo a resposta "Como são calculados o ranking e os relatórios?" e com `npx ng build`.
+- [x] 2.4 Ajustar `e2e/cleaning-reports-local.spec.ts`: dados simulados sem `assessmentCount`, período padrão `LAST_5_DAYS`, "Sem nota", residente sem repetição e a paginação "1–25 de 29" na lista dos outros quartos.
   - Verificar com `SAGER_E2E_PORT=4334 CI=1 npx playwright test e2e/cleaning-reports-local.spec.ts --workers=1 -g "ranking|residente consulta"`.
 
 ## 3. Demonstração
 
-- [ ] 3.1 Em `operations/ranking.component.ts`:
+- [x] 3.1 Em `operations/ranking.component.ts`:
   - pôr "Últimos 5 dias" como primeira opção e padrão;
   - mostrar a nota ilustrativa com duas casas ao lado da posição, e para o residente só a do próprio quarto;
   - citar a média dos últimos 5 dias em "Como o ranking é calculado".
@@ -71,4 +71,4 @@ O modo demonstração (RF027) continua: não remover os ramos `session.active()`
   - `docs/ARQUITETURA.md`: D10, com os últimos 5 dias como padrão;
   - `AGENTS.md`: o ranking abre nos últimos 5 dias.
   - Verificar com `grep -n "5 dias\|5 days" docs/MANUAL.md README.md docs/ARQUITETURA.md AGENTS.md`.
-- [ ] 4.2 Rodar `npx ng build` e `npx @fission-ai/openspec@2.0.0 validate cleaning-five-day-ranking --strict`.
+- [x] 4.2 Rodar `npx ng build` e `npx @fission-ai/openspec@2.0.0 validate cleaning-five-day-ranking --strict`.
