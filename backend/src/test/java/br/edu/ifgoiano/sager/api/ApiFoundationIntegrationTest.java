@@ -110,7 +110,7 @@ class ApiFoundationIntegrationTest {
             for (String path : new String[] { "/api/v1/auth/me", "/api/v1/auth/login",
                     "/api/v1/auth/logout", "/api/v1/residentes", "/api/v1/supervisores",
                     "/api/v1/alojamentos", "/api/v1/quartos", "/api/v1/responsaveis",
-                    "/api/v1/alocacoes", "/api/v1/auditoria" }) {
+                    "/api/v1/alocacoes", "/api/v1/auditoria", "/api/v1/me/pendencias" }) {
                 assertThat(document.path("paths").has(path)).as(path).isTrue();
             }
             assertThat(document.path("components").path("securitySchemes")
