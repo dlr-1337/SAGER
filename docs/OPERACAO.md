@@ -84,7 +84,7 @@ O backend roda direto no host com JDK 21 e um PostgreSQL local; veja o [README d
 ## Produção
 
 - [infra/production/README.md](../infra/production/README.md): instalação com Docker Compose, HTTPS, segredos externos, migração, contas, backup criptografado e restauração.
-- [infra/coolify/README.md](../infra/coolify/README.md): homologação no Coolify com [compose.coolify.yml](../compose.coolify.yml).
+- [infra/coolify/README.md](../infra/coolify/README.md): homologação no Coolify com [compose.coolify.yml](../compose.coolify.yml). Para consultar o banco sem alterar nada, veja [Ver o banco](../infra/coolify/README.md#ver-o-banco).
 - [whatsapp/OPERACAO.md](whatsapp/OPERACAO.md): como ligar e operar o gateway de WhatsApp.
 
 O `compose.yaml` da raiz é só para uso local. No stack de `infra/production`, os três serviços permanentes têm limites de 512 MiB e 0,25 CPU para o PostgreSQL, 1.024 MiB e 0,65 CPU para o backend e 96 MiB e 0,10 CPU para o gateway HTTPS: 1.632 MiB e 1 CPU no total. Com o WhatsApp ligado, somam-se 768 MiB e 0,5 CPU do gateway de WhatsApp e 32 MiB e 0,10 CPU do seu proxy, num total de 2.432 MiB e 1,6 CPU. Nesse caso, a VPS precisa de pelo menos 2 vCPU e 4 GB de RAM, mais swap. No Coolify (`compose.coolify.yml`), o PostgreSQL tem 1,0 CPU e o backend 2,0, num total de 3,1 CPU (3,7 com o WhatsApp); a memória é a mesma. Os containers de manutenção têm limites próprios. Esses números são configuração, não medição de desempenho na VPS.
