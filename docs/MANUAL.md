@@ -42,10 +42,10 @@ O gestor não opera chamada noturna, saídas, disciplina nem avisos.
 ## Supervisor
 
 1. **Chamada noturna.** Entre 22h e 23h30, escolha o alojamento e clique em **Abrir chamada**. A lista dos residentes menores alocados fica congelada na abertura, e quem está fora com saída válida já aparece com ausência justificada; confira e corrija se preciso. Para achar alguém, use a busca por nome ou matrícula, ou casa ou bloco e quarto em **Mais filtros**. Marque cada um e clique em **Fechar chamada**, que só funciona com todos marcados. Fora desse horário, o sistema pede confirmação e justificativa. Corrigir depois também exige justificativa e preserva o registro original.
-2. **Saídas e retornos.** Analise os pedidos e registre a partida e o retorno reais. Ao aprovar um pedido para sair agora, a aprovação já registra a saída; no pedido agendado, registre a saída a partir do horário marcado. Na saída curta, as 3 horas contam da saída que você registra; se o residente não voltar nesse prazo, o sistema abre uma notificação de ocorrência. O detalhe da saída mostra só o passo da vez:
+2. **Saídas e retornos.** Analise os pedidos e registre a partida e o retorno reais. Aprovar não registra a saída, nem no pedido para sair agora: registre a saída quando o residente se apresentar a você, a partir do horário pedido. Na saída curta, as 3 horas contam da saída que você registra; se o residente não voltar nesse prazo, o sistema abre uma notificação de ocorrência. O detalhe da saída mostra só o passo da vez:
    - **Autorização do responsável** (só na longa): abra o arquivo com **Baixar arquivo** e clique em **Confirmar conferência** ou **Recusar arquivo**. Recebeu por outro meio? Use **Anexar arquivo**. A rejeição, com motivo, pode vir antes da conferência.
    - **Decisão:** **Aprovar** (na longa, **Aprovar saída**) ou **Rejeitar**. Aprovar é um passo separado da conferência. Mensagem enviada ou arquivo recebido não aprova nada.
-   - **Saída** (só na agendada): quando chegar a hora marcada, **Registrar saída**.
+   - **Saída:** a partir do horário pedido, quando o residente se apresentar, **Registrar saída**. Se a saída não for registrada até o fim do prazo, o pedido aprovado expira.
    - **Volta:** quando o residente chegar, **Registrar volta**.
 
    Histórico, arquivos antigos e **Cancelar pedido** ficam em **Mais detalhes**.
@@ -60,7 +60,7 @@ O gestor não opera chamada noturna, saídas, disciplina nem avisos.
 1. **Meu perfil.** Confira seu nome, sua matrícula e seu quarto. Se algum dado estiver errado, ou se o quarto não aparecer, procure a equipe da residência. Se a tela disser que sua conta não está ligada ao seu cadastro, peça ao suporte da instituição para ligar.
 2. **Minhas comunicações.** Leia avisos, advertências e termos de compromisso. O que está em vigor aparece como **Valendo**, na lista e no filtro. Confirme a ciência só depois de ler a versão apresentada. Ciência não é assinatura.
 3. **Minha limpeza e Ranking.** Veja as avaliações do seu quarto e a posição geral.
-4. **Minhas saídas** (só para menores de idade). Peça uma saída curta ou longa e acompanhe o pedido. Na curta, você diz só quando quer sair e por quê: ela dura até 3 horas a partir da hora em que o supervisor registra sua saída. Na saída longa, escolha o responsável que vai autorizar; o supervisor confere a autorização antes de aprovar. Quem registra a saída e a volta é o supervisor; no pedido para sair agora, a aprovação já registra a saída. O residente maior de idade não pede saídas e não vê esse item no menu.
+4. **Minhas saídas** (só para menores de idade). Peça uma saída curta ou longa e acompanhe o pedido. Na curta, você diz só quando quer sair e por quê: ela dura até 3 horas a partir da hora em que o supervisor registra sua saída. Na saída longa, escolha o responsável que vai autorizar; o supervisor confere a autorização antes de aprovar. Quem registra a saída e a volta é o supervisor: depois da aprovação, apresente-se a ele para ele registrar a saída. O tempo fora só começa a contar nesse registro. O residente maior de idade não pede saídas e não vê esse item no menu.
 
 ## Quando algo dá errado
 

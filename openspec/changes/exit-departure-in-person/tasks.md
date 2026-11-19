@@ -32,15 +32,15 @@ Os caminhos são relativos à raiz do repositório. Comandos Maven rodam em `bac
 
 ## 3. Jornadas no navegador
 
-- [ ] 3.1 Em `frontend/e2e/operations-local.spec.ts`, o `mockApi` deixa de registrar a partida na aprovação. O teste do pedido para sair agora passa a aprovar ("Confirmar aprovação", nota no diálogo, "Aprovada", "Registrar saída"), registrar a saída e depois a volta tardia, com a volta na versão 3. O conflito físico passa a vir do registro da saída e mantém "Registrar saída" ativo. O teste do conflito de edição usa "Confirmar aprovação". Verificar com `SAGER_E2E_PORT=4331 CI=1 npx playwright test e2e/operations-local.spec.ts --workers=1`.
+- [ ] 3.1 Em `frontend/e2e/operations-local.spec.ts`, o `mockApi` deixa de registrar a partida na aprovação. O teste do pedido para sair agora passa a aprovar ("Confirmar aprovação", nota no diálogo, "Aprovada", "Registrar saída"), registrar a saída (versão 1) e depois a volta tardia (versão 2), com três eventos no histórico. O conflito físico passa a vir do registro da saída e mantém "Registrar saída" ativo. O teste do conflito de edição usa "Confirmar aprovação". Verificar com `SAGER_E2E_PORT=4331 CI=1 npx playwright test e2e/operations-local.spec.ts --workers=1`.
 - [ ] 3.2 Em `frontend/e2e/long-exits-local.spec.ts`, a mesma mudança no `mockApi` e nos testes que aprovavam e já saíam: a aprovação deixa "Aprovada", "Registrar saída" registra a partida e a volta retroativa continua preservando os horários. Verificar com `SAGER_E2E_PORT=4331 CI=1 npx playwright test e2e/long-exits-local.spec.ts --workers=1`.
 
 ## 4. Documentação
 
-- [ ] 4.1 AGENTS.md, "Current Domain Decisions": trocar "approving an exit whose requested departure has arrived (a request to leave now) records the departure in the same act, ..." por "approval never records the departure; the supervisor records it in a separate act, in person, from the requested time" e dizer na frase do prazo que as 3 horas contam da partida registrada em pessoa. Verificar com `rg -n "same act" AGENTS.md` sem resultado.
-- [ ] 4.2 docs/ARQUITETURA.md, D05 e D06: a aprovação não registra a partida, o supervisor registra a partida presencialmente a partir do horário pedido, e a aprovada sem partida, "agora" ou agendada, expira no retorno previsto. Verificar com `rg -n "no mesmo ato" docs/ARQUITETURA.md` sem resultado.
-- [ ] 4.3 docs/MANUAL.md: Supervisor item 2 (registre a saída quando o residente se apresentar; passo "Saída" em toda aprovada) e Residente item 4 (apresente-se ao supervisor; a aprovação não registra a saída). Verificar com `rg -n "já registra a saída" docs/MANUAL.md` sem resultado.
+- [x] 4.1 AGENTS.md, "Current Domain Decisions": trocar "approving an exit whose requested departure has arrived (a request to leave now) records the departure in the same act, ..." por "approval never records the departure; the supervisor records it in a separate act, in person, from the requested time" e dizer na frase do prazo que as 3 horas contam da partida registrada em pessoa. Verificar com `rg -n "same act" AGENTS.md` sem resultado.
+- [x] 4.2 docs/ARQUITETURA.md, D05 e D06: a aprovação não registra a partida, o supervisor registra a partida presencialmente a partir do horário pedido, e a aprovada sem partida, "agora" ou agendada, expira no retorno previsto. Verificar com `rg -n "no mesmo ato" docs/ARQUITETURA.md` sem resultado.
+- [x] 4.3 docs/MANUAL.md: Supervisor item 2 (registre a saída quando o residente se apresentar; passo "Saída" em toda aprovada) e Residente item 4 (apresente-se ao supervisor; a aprovação não registra a saída). Verificar com `rg -n "já registra a saída" docs/MANUAL.md` sem resultado.
 
 ## 5. Validação
 
-- [ ] 5.1 Rodar `npx @fission-ai/openspec@2.0.0 validate exit-departure-in-person --strict` na raiz; verificar que passa.
+- [x] 5.1 Rodar `npx @fission-ai/openspec@2.0.0 validate exit-departure-in-person --strict` na raiz; verificar que passa.
