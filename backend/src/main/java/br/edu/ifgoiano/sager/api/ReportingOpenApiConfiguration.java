@@ -74,7 +74,8 @@ public class ReportingOpenApiConfiguration {
                                     + "não futuro e registrationReason de pelo menos 10 caracteres. Uma avaliação por "
                                     + "quarto/data America/Sao_Paulo, participantes históricos capturados. Quatro critérios "
                                     + "com peso igual; média HALF_UP com duas casas. Correção preserva quarto/data e "
-                                    + "histórico. Ranking WEEK/MONTH/SEMESTER tem empates 1,1,3 e ausências null. "
+                                    + "histórico. Ranking LAST_5_DAYS (padrão: data de referência e 4 dias anteriores)/WEEK/MONTH/SEMESTER "
+                                    + "tem empates 1,1,3, ausências null e linhas sem contagem de avaliações. "
                                     + "Residente consulta somente avaliações próprias e código/posição dos outros quartos.";
                     operation.setDescription(description);
                     for (String status : List.of("409", "410", "503")) {

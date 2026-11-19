@@ -15,7 +15,7 @@ public class CleaningController {
  @GetMapping("/limpeza/avaliacoes/{id}") public ResponseEntity<Assessment> detail(@PathVariable UUID id){return ok(service.get(id));}
  @PostMapping("/limpeza/avaliacoes") public ResponseEntity<Assessment> create(@RequestBody JsonNode body){return ok(service.create(body));}
  @PostMapping("/limpeza/avaliacoes/{id}/corrigir") public ResponseEntity<Assessment> correct(@PathVariable UUID id,@RequestBody JsonNode body){return ok(service.correct(id,body));}
- @GetMapping("/limpeza/ranking") public ResponseEntity<Ranking> ranking(@RequestParam(defaultValue="MONTH")String period,@RequestParam(required=false)LocalDate referenceDate){return ok(service.ranking(period,referenceDate));}
+ @GetMapping("/limpeza/ranking") public ResponseEntity<Ranking> ranking(@RequestParam(defaultValue=CleaningService.LAST_5_DAYS)String period,@RequestParam(required=false)LocalDate referenceDate){return ok(service.ranking(period,referenceDate));}
  @GetMapping("/limpeza/indicadores") public ResponseEntity<List<Indicator>> indicators(@RequestParam(required=false)LocalDate from,@RequestParam(required=false)LocalDate to,@RequestParam(required=false)UUID residentId){return ok(service.indicators(from,to,residentId));}
  @GetMapping("/me/limpeza/avaliacoes") public ResponseEntity<Page<OwnAssessment>> ownList(@RequestParam(required=false)LocalDate from,@RequestParam(required=false)LocalDate to,@RequestParam(defaultValue="20")int limit,@RequestParam(required=false)Long beforeSequence){return ok(service.ownList(from,to,limit,beforeSequence));}
  @GetMapping("/me/limpeza/avaliacoes/{id}") public ResponseEntity<OwnAssessment> own(@PathVariable UUID id){return ok(service.own(id));}
