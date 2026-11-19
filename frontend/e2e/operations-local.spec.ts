@@ -7,6 +7,7 @@ import type {
   ShortExit,
   ShortExitStatus,
 } from '../src/app/features/operations/operations-local.models';
+import { capture, expectFits, phoneSizes } from './mobile-fit';
 import { openMoreFilters } from './more-filters';
 import { expectShortGuidance } from './short-text';
 
@@ -1033,3 +1034,73 @@ test('saídas e chamada com orientação curta, cores, legenda e detalhes recolh
   await expect(page.locator('sager-status-legend dl > div')).toHaveCount(6);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });
+
+// 360×600 é o 360×740 com a barra do navegador à vista.
+for (const size of [...phoneSizes, { width: 360, height: 600 }]) {
+  test(`no celular (${size.width}×${size.height}), chamada, saídas e diálogos cabem na tela`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(size);
+    await mockApi(page, {
+      outsideWindow: true,
+      now: '2026-10-01T01:00:00Z',
+      exits: [exitFixture()],
+    });
+    await page.goto('/chamada');
+    await expect(page.getByRole('button', { name: 'Abrir chamada' })).toBeVisible();
+    await expectFits(page, 'chamada antes de abrir');
+    await page.getByRole('button', { name: 'Abrir chamada' }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText('não é o horário da chamada');
+    // A confirmação fica numa caixa como o aviso acima dela, com o texto quebrando a linha.
+    const confirmation = dialog
+      .locator('label')
+      .filter({ hasText: 'Confirmo o registro fora do horário' });
+    await confirmation.scrollIntoViewIfNeeded();
+    await capture(page, 'chamada-fora-do-horario');
+    await expectFits(page, 'diálogo fora do horário');
+    const boxStyle = (element: Element) => {
+      const style = getComputedStyle(element);
+      const box = element.getBoundingClientRect();
+      return {
+        x: Math.round(box.x),
+        width: Math.round(box.width),
+        padding: style.paddingLeft,
+        radius: style.borderTopLeftRadius,
+      };
+    };
+    const warningBox = await dialog.locator('.op-warning').evaluate(boxStyle);
+    expect(await confirmation.evaluate(boxStyle)).toEqual(warningBox);
+    expect(await confirmation.evaluate((element) => getComputedStyle(element).borderTopWidth)).toBe(
+      '1px',
+    );
+    // O diálogo inteiro cabe na altura da tela; o conteúdo rola por dentro.
+    const surface = (await dialog.boundingBox())!;
+    expect(surface.y).toBeGreaterThanOrEqual(0);
+    expect(surface.y + surface.height).toBeLessThanOrEqual(size.height);
+    await expect(
+      dialog.getByRole('button', { name: 'Abrir chamada', exact: true }),
+    ).toBeInViewport();
+    await dialog
+      .getByLabel('Justificativa', { exact: true })
+      .fill('Ronda presencial concluída antes da janela.');
+    await dialog.getByLabel('Confirmo o registro fora do horário').check();
+    await dialog.getByRole('button', { name: 'Abrir chamada', exact: true }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Chamada aberta' })).toBeVisible();
+    await openMoreFilters(page);
+    await expectFits(page, 'chamada aberta');
+    await page.goto('/saidas');
+    await openMoreFilters(page);
+    await expectFits(page, 'lista de saídas');
+    await page.goto(`/saidas/${exitId}`);
+    await expect(page.getByRole('heading', { name: 'Decisão' })).toBeVisible();
+    await expectFits(page, 'detalhe da saída');
+    for (const action of ['Aprovar', 'Rejeitar']) {
+      await page.getByRole('button', { name: action, exact: true }).click();
+      await expect(dialog).toBeVisible();
+      await expectFits(page, `diálogo ${action}`);
+      await page.keyboard.press('Escape');
+      await expect(dialog).toHaveCount(0);
+    }
+  });
+}

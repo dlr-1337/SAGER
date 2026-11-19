@@ -665,35 +665,36 @@ export class NoticeFormLocalPage {
               </div>
             </dl>
           }
-          <div class="comm-actions">
-            @if (notice.status === 'RASCUNHO') {
-              <button
-                class="btn"
-                type="button"
-                [disabled]="busy() || conflict()"
-                (click)="publish()"
-              >
-                Revisar publicação
-              </button>
-            }
-            @if (notice.status === 'PUBLICADO') {
-              <button
-                class="btn-secondary"
-                type="button"
-                [disabled]="busy() || conflict()"
-                (click)="edit.set(!edit())"
-              >
-                {{ edit() ? 'Fechar correção' : 'Corrigir aviso' }}</button
-              ><button
-                class="btn-secondary"
-                type="button"
-                [disabled]="busy() || conflict()"
-                (click)="withdraw()"
-              >
-                Retirar com justificativa
-              </button>
-            }
-          </div>
+          @if (notice.status === 'RASCUNHO' || notice.status === 'PUBLICADO') {
+            <div class="decision-actions">
+              @if (notice.status === 'RASCUNHO') {
+                <button
+                  class="btn"
+                  type="button"
+                  [disabled]="busy() || conflict()"
+                  (click)="publish()"
+                >
+                  Revisar publicação
+                </button>
+              } @else {
+                <button
+                  class="btn-secondary"
+                  type="button"
+                  [disabled]="busy() || conflict()"
+                  (click)="edit.set(!edit())"
+                >
+                  {{ edit() ? 'Fechar correção' : 'Corrigir aviso' }}</button
+                ><button
+                  class="btn-secondary"
+                  type="button"
+                  [disabled]="busy() || conflict()"
+                  (click)="withdraw()"
+                >
+                  Retirar com justificativa
+                </button>
+              }
+            </div>
+          }
           @if (edit() && notice.status === 'PUBLICADO') {
             <form
               sagerUnsaved

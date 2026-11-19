@@ -255,6 +255,78 @@ textarea {
 .action-row.end {
   justify-content: flex-end;
 }
+/* Decisões do supervisor (notificação, avaliação de limpeza, aviso, advertência, termo): um grupo
+   só, com a ação principal primeiro e destacada, as outras na ordem do fluxo. Botões do mesmo
+   tamanho numa grade que quebra o texto dentro do botão; no celular, um por linha, na largura toda. */
+.decision-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: var(--space-3);
+  margin: var(--space-5) 0 var(--space-3);
+}
+.decision-actions > :is(.btn, .btn-secondary, .btn-danger) {
+  min-width: 0;
+  white-space: normal;
+  text-align: center;
+}
+/* Declaração com caixa de marcar nos diálogos: caixa com a largura e o recuo dos avisos acima
+   dela, e o texto quebrando a linha ao lado da marca. */
+.confirm-check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 75ch;
+  min-height: 48px;
+  margin: var(--space-4) 0;
+  padding: var(--space-4) 18px;
+  border: 1px solid var(--field-border);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 600;
+  line-height: 1.55;
+  cursor: pointer;
+}
+.confirm-check:has(input:checked) {
+  border-color: var(--green-900);
+  box-shadow: inset 0 0 0 1px var(--green-900);
+  background: var(--green-50);
+}
+.confirm-check input {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  accent-color: var(--green-900);
+}
+.confirm-check > span {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* Diálogos: cabem na altura visível do celular, com a barra do navegador; o conteúdo rola por
+   dentro e os botões ficam sempre à vista. No celular, os botões dividem a largura por igual. */
+// Os estilos do CDK e do Material entram depois deste arquivo: as classes a mais vencem os deles.
+.cdk-overlay-pane.mat-mdc-dialog-panel {
+  max-height: calc(100dvh - 32px);
+}
+// O componente do diálogo vira coluna: só o conteúdo encolhe e rola; título e botões ficam.
+.mat-mdc-dialog-surface > .mat-mdc-dialog-component-host {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.cdk-overlay-pane .mat-mdc-dialog-container .mat-mdc-dialog-content {
+  max-height: none;
+}
+@media (max-width: 540px) {
+  .mat-mdc-dialog-actions > :is(.btn, .btn-secondary, .btn-danger) {
+    flex: 1 1 140px;
+    white-space: normal;
+  }
+}
 .btn,
 .btn-secondary,
 .btn-danger {
@@ -454,6 +526,27 @@ textarea.field {
 .field select:focus,
 .field textarea:focus {
   border-color: var(--green-800);
+}
+/* Data e hora: o campo nativo tem largura mínima própria e, no Safari do iPhone, passa do card
+   mesmo com width: 100%. */
+input:is([type='date'], [type='datetime-local'], [type='time'], [type='month']) {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+}
+@supports (-webkit-touch-callout: none) {
+  input:is([type='date'], [type='datetime-local'], [type='time'], [type='month']) {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  input:is(
+      [type='date'],
+      [type='datetime-local'],
+      [type='time'],
+      [type='month']
+    )::-webkit-date-and-time-value {
+    text-align: left;
+  }
 }
 /* Campo inválido: aria-invalid nos campos .field e .mg-field; as telas de operação ainda marcam
    pelas classes do Angular. Uma regra só, com a variante de foco que combina o vermelho com o anel. */

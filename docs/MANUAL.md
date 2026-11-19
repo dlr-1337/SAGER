@@ -22,7 +22,7 @@ As telas se atualizam sozinhas a cada 15 segundos. Depois de 30 minutos sem uso,
 
 Depois de 5 senhas erradas para o mesmo usuário, o login fica bloqueado por até 15 minutos. Não há cadastro público: as contas nascem com o cadastro do residente ou do supervisor, e as de gestor são criadas pelo suporte da instituição.
 
-No celular, as telas ficam no botão **Menu**. Tudo também funciona só pelo teclado.
+No celular, as telas ficam no botão **Menu**. Tudo também funciona só pelo teclado. Nas decisões do supervisor, a ação principal vem primeiro e cada botão ocupa uma linha; nas janelas de confirmação, o conteúdo rola por dentro e os botões ficam sempre à vista.
 
 Um número amarelo ao lado de um item do menu diz quantas coisas esperam você ali; sem número, não há nada à espera. No celular, o botão **Menu** mostra a soma. O número se atualiza a cada troca de tela, logo depois de você gravar algo e a cada 30 segundos, e não mantém a sessão aberta.
 
