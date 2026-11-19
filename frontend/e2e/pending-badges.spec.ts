@@ -4,12 +4,37 @@ import { enterDemo } from './demo-session';
 
 // Contadores de pendências (pending-badges) na demonstração: números dos dados fictícios em memória.
 
-function apiCalls(page: Page): string[] {
-  const calls: string[] = [];
+const PENDING = '/api/v1/me/pendencias';
+
+/**
+ * Caminhos de API pedidos pela página. Escolher o perfil da demonstração confere `/auth/me` uma vez,
+ * antes de a demonstração começar, para fechar uma conta aberta no navegador (demo-entry.service):
+ * por isso `inDemo` só conta o que veio depois de entrar.
+ */
+function apiCalls(page: Page) {
+  const all: string[] = [];
+  let entered = 0;
   page.on('request', (request) => {
-    if (new URL(request.url()).pathname.startsWith('/api/')) calls.push(request.url());
+    const path = new URL(request.url()).pathname;
+    if (path.startsWith('/api/')) all.push(path);
   });
+  return {
+    all,
+    entered: () => (entered = all.length),
+    inDemo: () => all.slice(entered),
+  };
+}
+
+async function enterDemoCounting(page: Page, profile: 'Supervisor' | 'Residente') {
+  const calls = apiCalls(page);
+  await enterDemo(page, profile);
+  calls.entered();
   return calls;
+}
+
+function expectNoApiInDemo(calls: ReturnType<typeof apiCalls>): void {
+  expect(calls.inDemo()).toEqual([]);
+  expect(calls.all).not.toContain(PENDING);
 }
 
 /** Nome do item com o contador: o leitor de tela lê "Nome, N pendentes". */
@@ -27,8 +52,7 @@ test('supervisor da demonstração vê no menu o que espera por ele, sem consult
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  const calls = apiCalls(page);
-  await enterDemo(page, 'Supervisor');
+  const calls = await enterDemoCounting(page, 'Supervisor');
   const menu = page.getByRole('complementary', { name: 'Navegação principal' });
 
   const exits = menu.getByRole('link', { name: withCount('Saídas e retornos', 3) });
@@ -49,13 +73,12 @@ test('supervisor da demonstração vê no menu o que espera por ele, sem consult
   await expect(menu.getByRole('link', { name: 'Saídas e retornos', exact: true })).toBeVisible();
 
   await page.waitForLoadState('networkidle');
-  expect(calls).toEqual([]);
+  expectNoApiInDemo(calls);
 });
 
 test('no celular, o botão Menu mostra a soma e mantém o nome', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 800 });
-  const calls = apiCalls(page);
-  await enterDemo(page, 'Supervisor');
+  const calls = await enterDemoCounting(page, 'Supervisor');
   const toggle = page.getByRole('button', { name: 'Menu', exact: true });
   await expect(toggle).toBeVisible();
   await expect(toggle.locator('.pending-badge')).toHaveText('6');
@@ -64,15 +87,14 @@ test('no celular, o botão Menu mostra a soma e mantém o nome', async ({ page }
   const drawer = page.getByRole('dialog', { name: 'SAGER' });
   await expect(drawer.getByRole('link', { name: withCount('Saídas e retornos', 3) })).toBeVisible();
   await expectNoAxeViolations(page);
-  expect(calls).toEqual([]);
+  expectNoApiInDemo(calls);
 });
 
 test('residente da demonstração vê as comunicações sem ciência no menu e nas abas', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  const calls = apiCalls(page);
-  await enterDemo(page, 'Residente');
+  const calls = await enterDemoCounting(page, 'Residente');
   const menu = page.getByRole('complementary', { name: 'Navegação principal' });
   await menu.getByRole('link', { name: withCount('Avisos e advertências', 2) }).click();
 
@@ -95,5 +117,5 @@ test('residente da demonstração vê as comunicações sem ciência no menu e n
   await expect(tabs.getByRole('tab', { name: withCount('Advertências', 1) })).toBeVisible();
 
   await page.waitForLoadState('networkidle');
-  expect(calls).toEqual([]);
+  expectNoApiInDemo(calls);
 });
