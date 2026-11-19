@@ -25,11 +25,18 @@ public class PdfTextRenderer {
     private static final float BODY_BOTTOM = 77;
     private static final float BODY_SIZE = 10.5f;
     private static final float BODY_LEADING = 14.5f;
+    private static final float TABLE_SIZE = 8.5f;
+    private static final float TABLE_LEADING = 10.5f;
+    private static final float CELL_PADDING = 3.5f;
     private static final Color INK = new Color(35, 45, 49);
     private static final Color MUTED = new Color(86, 102, 107);
     private static final Color ACCENT = new Color(21, 76, 81);
+    private static final Color RULE = new Color(207, 216, 218);
+    private static final Color HEADER_FILL = new Color(226, 236, 237);
+    private static final Color STRIPE_FILL = new Color(245, 248, 248);
     private static final int MAX_CHARACTERS = 2_000_000;
     private static final int MAX_PAGES = 1000;
+    private static final int MAX_COLUMNS = 12;
 
     public byte[] render(Document content) {
         validateContent(content);
@@ -54,15 +61,33 @@ public class PdfTextRenderer {
         }
     }
 
-    public record Document(String title, String subtitle, List<Section> sections) {
+    /** {@code landscape} turns every page of the document to A4 lying down, for wide tables. */
+    public record Document(String title, String subtitle, List<Section> sections, boolean landscape) {
         public Document {
             sections = List.copyOf(sections);
         }
+
+        public Document(String title, String subtitle, List<Section> sections) {
+            this(title, subtitle, sections, false);
+        }
     }
 
-    public record Section(String heading, List<String> paragraphs) {
+    /** Paragraphs come first; the optional table follows them. A section needs one of the two. */
+    public record Section(String heading, List<String> paragraphs, Table table) {
         public Section {
             paragraphs = List.copyOf(paragraphs);
+        }
+
+        public Section(String heading, List<String> paragraphs) {
+            this(heading, paragraphs, null);
+        }
+    }
+
+    /** One line per record; the header repeats on every page and long values wrap inside the cell. */
+    public record Table(List<String> headers, List<List<String>> rows) {
+        public Table {
+            headers = List.copyOf(headers);
+            rows = rows.stream().map(List::copyOf).toList();
         }
     }
 
@@ -77,7 +102,7 @@ public class PdfTextRenderer {
                 + (document.subtitle() == null ? 0 : document.subtitle().length());
         for (Section section : document.sections()) {
             if (section.heading() == null || section.heading().isBlank() || section.heading().length() > 120
-                    || section.paragraphs().isEmpty()) {
+                    || section.paragraphs().isEmpty() && section.table() == null) {
                 throw new PdfGenerationException();
             }
             characters += section.heading().length();
@@ -87,10 +112,38 @@ public class PdfTextRenderer {
                 }
                 characters += paragraph.length();
             }
+            if (section.table() != null) {
+                characters += tableCharacters(section.table());
+            }
         }
         if (characters > MAX_CHARACTERS) {
             throw new PdfGenerationException();
         }
+    }
+
+    private static long tableCharacters(Table table) {
+        if (table.headers().isEmpty() || table.headers().size() > MAX_COLUMNS) {
+            throw new PdfGenerationException();
+        }
+        long characters = 0;
+        for (String header : table.headers()) {
+            if (header == null || header.isBlank()) {
+                throw new PdfGenerationException();
+            }
+            characters += header.length();
+        }
+        for (List<String> row : table.rows()) {
+            if (row.size() != table.headers().size()) {
+                throw new PdfGenerationException();
+            }
+            for (String cell : row) {
+                if (cell == null) {
+                    throw new PdfGenerationException();
+                }
+                characters += cell.length();
+            }
+        }
+        return characters;
     }
 
     private static PDType0Font loadFont(PDDocument pdf, String resource) throws IOException {
@@ -107,7 +160,7 @@ public class PdfTextRenderer {
             PDPage page = pdf.getPage(index);
             try (PDPageContentStream stream = new PDPageContentStream(pdf, page,
                     PDPageContentStream.AppendMode.APPEND, true, true)) {
-                stream.setStrokingColor(new Color(207, 216, 218));
+                stream.setStrokingColor(RULE);
                 stream.setLineWidth(0.5f);
                 stream.moveTo(MARGIN, 61);
                 stream.lineTo(page.getMediaBox().getWidth() - MARGIN, 61);
@@ -153,7 +206,10 @@ public class PdfTextRenderer {
             if (pdf.getNumberOfPages() >= MAX_PAGES) {
                 throw new PdfGenerationException();
             }
-            PDPage page = new PDPage(PDRectangle.A4);
+            PDRectangle size = document.landscape()
+                    ? new PDRectangle(PDRectangle.A4.getHeight(), PDRectangle.A4.getWidth())
+                    : PDRectangle.A4;
+            PDPage page = new PDPage(size);
             pdf.addPage(page);
             stream = new PDPageContentStream(pdf, page);
             width = page.getMediaBox().getWidth() - 2 * MARGIN;
@@ -173,9 +229,12 @@ public class PdfTextRenderer {
         }
 
         private void section(Section section) throws IOException {
-            List<String> heading = wrap(section.heading(), semibold, 11.5f);
-            // Keep the heading and the first body line together whenever a page break is needed.
-            ensureSpace(heading.size() * 16 + BODY_LEADING + 6);
+            float[] columns = section.table() == null ? null : columnWidths(section.table());
+            List<String> heading = wrap(section.heading(), semibold, 11.5f, width);
+            // Keep the heading and the first body line, or the table header and first record, together.
+            float first = section.paragraphs().isEmpty() ? 3 + tableStart(section.table(), columns)
+                    : BODY_LEADING;
+            ensureSpace(heading.size() * 16 + first + 6);
             for (String line : heading) {
                 line(line, semibold, 11.5f, 16, ACCENT);
             }
@@ -186,12 +245,148 @@ public class PdfTextRenderer {
                     y -= 3;
                 }
             }
+            if (section.table() != null) {
+                if (!section.paragraphs().isEmpty()) {
+                    y -= 6;
+                }
+                table(section.table(), columns);
+            }
             y -= 13;
+        }
+
+        private void table(Table table, float[] columns) throws IOException {
+            List<List<String>> header = cells(table.headers(), semibold, columns);
+            float headerHeight = rowHeight(header);
+            if (y - tableStart(table, columns) < BODY_BOTTOM) {
+                newPage(false);
+            }
+            row(header, columns, semibold, headerHeight, HEADER_FILL);
+            for (int index = 0; index < table.rows().size(); index++) {
+                List<List<String>> cells = cells(table.rows().get(index), regular, columns);
+                float height = rowHeight(cells);
+                if (y - height < BODY_BOTTOM) {
+                    newPage(false);
+                    row(header, columns, semibold, headerHeight, HEADER_FILL);
+                    if (y - height < BODY_BOTTOM) {
+                        // A single record taller than a page cannot be shown whole.
+                        throw new PdfGenerationException();
+                    }
+                }
+                row(cells, columns, regular, height, index % 2 == 1 ? STRIPE_FILL : null);
+            }
+        }
+
+        private float tableStart(Table table, float[] columns) throws IOException {
+            float height = rowHeight(cells(table.headers(), semibold, columns));
+            if (!table.rows().isEmpty()) {
+                height += rowHeight(cells(table.rows().getFirst(), regular, columns));
+            }
+            return height;
+        }
+
+        /**
+         * A column whose content fits in its share keeps its natural width (date, room, score); the
+         * others split what is left and wrap. When everything fits, the spare width follows the content.
+         */
+        private float[] columnWidths(Table table) throws IOException {
+            int count = table.headers().size();
+            float[] natural = new float[count];
+            for (int column = 0; column < count; column++) {
+                natural[column] = textWidth(table.headers().get(column), semibold);
+            }
+            for (List<String> row : table.rows()) {
+                for (int column = 0; column < count; column++) {
+                    natural[column] = Math.max(natural[column], textWidth(row.get(column), regular));
+                }
+            }
+            float total = 0;
+            for (int column = 0; column < count; column++) {
+                natural[column] += 2 * CELL_PADDING + 1;
+                total += natural[column];
+            }
+            float[] widths = new float[count];
+            boolean[] fixed = new boolean[count];
+            float remaining = width;
+            int open = count;
+            boolean changed = true;
+            while (changed && open > 0) {
+                changed = false;
+                float share = remaining / open;
+                for (int column = 0; column < count; column++) {
+                    if (!fixed[column] && natural[column] <= share) {
+                        widths[column] = natural[column];
+                        fixed[column] = true;
+                        remaining -= natural[column];
+                        open--;
+                        changed = true;
+                    }
+                }
+            }
+            for (int column = 0; column < count; column++) {
+                widths[column] = open > 0
+                        ? fixed[column] ? widths[column] : remaining / open
+                        : widths[column] + remaining * natural[column] / total;
+            }
+            return widths;
+        }
+
+        private float textWidth(String value, PDType0Font font) throws IOException {
+            float result = 0;
+            for (int point : value.codePoints().toArray()) {
+                if (!Character.isISOControl(point)) {
+                    result += glyphWidth(font, point) * TABLE_SIZE;
+                }
+            }
+            return result;
+        }
+
+        private List<List<String>> cells(List<String> values, PDType0Font font, float[] columns)
+                throws IOException {
+            List<List<String>> result = new ArrayList<>(values.size());
+            for (int column = 0; column < values.size(); column++) {
+                result.add(wrap(values.get(column), font, TABLE_SIZE, columns[column] - 2 * CELL_PADDING));
+            }
+            return result;
+        }
+
+        private static float rowHeight(List<List<String>> cells) {
+            int lines = 1;
+            for (List<String> cell : cells) {
+                lines = Math.max(lines, cell.size());
+            }
+            return 2 * CELL_PADDING + TABLE_SIZE * 1.05f + (lines - 1) * TABLE_LEADING;
+        }
+
+        private void row(List<List<String>> cells, float[] columns, PDType0Font font, float height, Color fill)
+                throws IOException {
+            float top = y;
+            if (fill != null) {
+                stream.setNonStrokingColor(fill);
+                stream.addRect(MARGIN, top - height, width, height);
+                stream.fill();
+            }
+            float x = MARGIN;
+            for (int column = 0; column < cells.size(); column++) {
+                float baseline = top - CELL_PADDING - TABLE_SIZE * 0.8f;
+                for (String line : cells.get(column)) {
+                    if (!line.isEmpty()) {
+                        text(stream, font, TABLE_SIZE, x + CELL_PADDING, baseline, line, INK);
+                    }
+                    baseline -= TABLE_LEADING;
+                }
+                x += columns[column];
+            }
+            stream.setStrokingColor(RULE);
+            stream.setLineWidth(0.5f);
+            stream.moveTo(MARGIN, top - height);
+            stream.lineTo(MARGIN + width, top - height);
+            stream.stroke();
+            y = top - height;
         }
 
         private void paragraph(String value, PDType0Font font, float size, float leading, Color color)
                 throws IOException {
-            for (String line : wrap(value, font, size)) {
+            for (String line : wrap(value, font, size, width)) {
                 line(line, font, size, leading, color);
             }
         }
@@ -211,7 +406,7 @@ public class PdfTextRenderer {
             }
         }
 
-        private List<String> wrap(String raw, PDType0Font font, float size) throws IOException {
+        private List<String> wrap(String raw, PDType0Font font, float size, float available) throws IOException {
             String normalized = raw.replace("\r\n", "\n").replace('\r', '\n').replace('\t', ' ');
             List<String> lines = new ArrayList<>();
             for (String logicalLine : normalized.split("\n", -1)) {
@@ -231,7 +426,7 @@ public class PdfTextRenderer {
                             throw new PdfGenerationException();
                         }
                         float glyph = glyphWidth(font, point) * size;
-                        if (used + glyph > width) {
+                        if (used + glyph > available) {
                             break;
                         }
                         used += glyph;

@@ -143,7 +143,7 @@ test('relatório na demonstração segue o mesmo fluxo e não baixa arquivo', as
   await expect(page.getByRole('alert')).toContainText('A data inicial deve anteceder');
   await page.getByRole('radio', { name: 'Este mês', exact: true }).check();
   await page.getByRole('button', { name: 'Gerar relatório' }).click();
-  await expect(page.getByText('3 registros', { exact: false })).toBeVisible();
+  await expect(page.getByText('4 registros', { exact: false })).toBeVisible();
   const download = page.getByRole('button', { name: 'Baixar PDF' });
   await expect(download).toBeVisible({ timeout: 8000 });
   await download.click();
@@ -151,6 +151,21 @@ test('relatório na demonstração segue o mesmo fluxo e não baixa arquivo', as
   await page.getByRole('link', { name: 'Ver na tela' }).click();
   await expect(page.getByRole('heading', { name: 'Registros', exact: true })).toBeVisible();
   await expect(page.getByText('Ana Luísa Ribeiro').first()).toBeVisible();
+  // Só o assunto das saídas, como no modo real, e do mais recente para o mais antigo.
+  await expect(page.locator('dl dt').filter({ hasText: /^Voltaram atrasados$/ })).toBeVisible();
+  await expect(page.getByText('Nota média de limpeza')).toHaveCount(0);
+  await expect(page.getByText('Faltas sem justificativa')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Registros por tipo' })).toHaveCount(0);
+  const table = page.getByRole('table', { name: 'Registros do relatório' });
+  await expect(table.getByRole('columnheader')).toHaveText([
+    'Data',
+    'Residente',
+    'Quarto',
+    'Tipo de saída',
+    'Situação',
+  ]);
+  await expect(table.getByRole('row').nth(1)).toContainText('23/09/2026');
+  await expect(table.getByRole('row').last()).toContainText('16/09/2026');
 });
 
 test('telas no celular de 320 px sem rolagem horizontal da página', async ({ page }) => {
