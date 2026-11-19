@@ -39,6 +39,9 @@
   min-height: 0;
   padding: var(--space-5) var(--space-6);
   overflow-y: auto;
+  // Prende aqui dentro os textos só para leitores de tela (.sr-only, posição absoluta) dos balões.
+  // Sem isso, os de balões fora da vista esticam a página para baixo da conversa.
+  position: relative;
   // No começo ou no fim das mensagens, a roda do mouse não passa a rolar a janela.
   overscroll-behavior: contain;
   background: var(--green-50);
