@@ -118,9 +118,13 @@ import { ExitDetailLocalComponent } from './exit-detail-local.component';
                     }}.
                   </p>
                 }
-                @if (exit.kind === 'Curta' && exit.status === 'Aprovada') {
+                @if (exit.status === 'Aprovada') {
                   <p class="op-timeline-next">
-                    Saída marcada para {{ exit.departure | date: 'dd/MM/yyyy, HH:mm' }}.
+                    @if (service.canRecordDeparture(exit)) {
+                      O supervisor registra a saída quando o residente se apresentar.
+                    } @else {
+                      Saída marcada para {{ exit.departure | date: 'dd/MM/yyyy, HH:mm' }}.
+                    }
                   </p>
                 }
               </section>
@@ -254,6 +258,12 @@ import { ExitDetailLocalComponent } from './exit-detail-local.component';
                           antes da conferência, com justificativa de 10 a 2.000 caracteres.
                         </p>
                       }
+                    } @else if (service.canRecordDeparture(exit)) {
+                      <p>Registre a saída quando o residente se apresentar.</p>
+                      <button class="btn op-primary" type="button" (click)="reviewDeparture(exit)">
+                        <span class="material-symbols-outlined" aria-hidden="true">logout</span>
+                        Registrar saída
+                      </button>
                     } @else if (exit.kind === 'Curta' && exit.status === 'Em andamento') {
                       <p>Identifique o residente presencialmente antes de registrar o retorno.</p>
                       <button class="btn op-primary" type="button" (click)="reviewReturn(exit)">
@@ -390,6 +400,20 @@ export class ExitDetailComponent {
       },
       (result) => this.service.resendLongExit(item.id, result.reason),
       'Reenvio simulado registrado na linha do tempo.',
+    );
+  }
+  reviewDeparture(item: ExitRequest): void {
+    if (!this.session.hasRole('supervisor')) return;
+    this.review(
+      {
+        title: 'A saída será registrada.',
+        action: 'Confirmar saída',
+        mode: 'simple',
+        warning: 'Veja o residente pessoalmente antes de liberar a saída.',
+        lines: this.summary(item),
+      },
+      () => this.service.recordDeparture(item.id),
+      'Saída simulada registrada.',
     );
   }
   reviewReturn(item: ExitRequest): void {

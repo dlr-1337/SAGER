@@ -142,9 +142,7 @@ public class ShortExitService {
         Instant now = now();
         checkDeadline(current, now);
         if ("APPROVE".equals(decision)) eligible(current.residentId(), now);
-        // A request whose departure has arrived is approved and departed in the same act (RN06).
-        boolean departNow = "APPROVE".equals(decision) && !now.isBefore(current.requestedDepartureAt());
-        if (departNow) noPhysicalExitOpen(current.residentId());
+        // A aprovação só decide: a partida é registrada à parte, com o residente presente (RN06).
         Map<String, Object> changes = new HashMap<>();
         changes.put("status", "APPROVE".equals(decision) ? ShortExit.APPROVED : "REJEITADA");
         changes.put("decision", decision);
@@ -154,12 +152,6 @@ public class ShortExitService {
         record(updated, decision, now, null, actor, comment, AuditAction.UPDATE,
                 Objects.equals(current.decisionComment(), updated.decisionComment())
                         ? Set.of("status", "decision") : Set.of("status", "decision", "decisionComment"));
-        if (departNow) {
-            updated = changed(updated, Map.of("status", ShortExit.IN_PROGRESS, "actual_departure_at", now,
-                    "expected_return_at", now.plus(LIMIT)), now);
-            record(updated, "DEPARTURE", now, now, actor, null, AuditAction.UPDATE,
-                    Set.of("status", "actualDepartureAt", "expectedReturnAt"));
-        }
         return view(updated, actor);
     }
 

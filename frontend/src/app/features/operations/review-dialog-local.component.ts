@@ -16,6 +16,8 @@ export interface LocalReviewData {
   action: string;
   lines: { label: string; value: string }[];
   warning?: string;
+  /** Orientação curta sobre o efeito da ação, sem tom de alerta. */
+  note?: string;
   /** Rejeitar, recusar e cancelar: o botão de confirmar fica vermelho. */
   danger?: boolean;
   requireConfirmation?: boolean;
@@ -50,6 +52,9 @@ export interface LocalReviewResult {
     <mat-dialog-content>
       @if (data.warning) {
         <p class="op-warning" role="alert">{{ data.warning }}</p>
+      }
+      @if (data.note) {
+        <p class="op-help">{{ data.note }}</p>
       }
       <dl class="review-list">
         @for (line of data.lines; track line.label) {

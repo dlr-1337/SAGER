@@ -167,11 +167,11 @@ export class OperationsDemoService {
       signed: false,
       timeline: [
         { label: 'Solicitação registrada', at: offset(-4) },
-        { label: 'Aprovada por supervisor', at: offset(-1) },
+        { label: 'Aprovada por supervisor', at: offset(-1, -20) },
         {
-          label: 'Em andamento',
+          label: 'Saída registrada pelo supervisor',
           at: offset(-1),
-          detail: 'Saída registrada na aprovação.',
+          detail: 'O supervisor viu o residente sair.',
         },
       ],
     },
@@ -470,11 +470,10 @@ export class OperationsDemoService {
     if (decision === 'approve' && item.kind === 'Longa' && !item.signed) return false;
     const reason = justification.trim().length;
     if (decision === 'reject' && (reason < 10 || reason > 2000)) return false;
-    // Pedido para sair agora: a aprovação já registra a saída (auto-departure-on-approval, D6).
-    const leaving = decision === 'approve' && Date.parse(item.departure) <= Date.now();
+    // A aprovação só decide; a saída é registrada à parte (exit-departure-in-person, D6).
     this.replaceExit({
       ...item,
-      status: leaving ? 'Em andamento' : decision === 'approve' ? 'Aprovada' : 'Rejeitada',
+      status: decision === 'approve' ? 'Aprovada' : 'Rejeitada',
       timeline: [
         ...item.timeline,
         {
@@ -482,8 +481,25 @@ export class OperationsDemoService {
           at: now(),
           detail: justification.trim() || undefined,
         },
-        ...(leaving ? [{ label: 'Saída registrada na aprovação', at: now() }] : []),
       ],
+    });
+    return true;
+  }
+
+  /** A saída aprovada cuja hora pedida chegou: o supervisor registra a saída ao ver o residente. */
+  canRecordDeparture(item: ExitRequest): boolean {
+    return item.status === 'Aprovada' && Date.parse(item.departure) <= Date.now();
+  }
+
+  recordDeparture(id: string): boolean {
+    const item = this.getExit(id);
+    if (!item || !this.canRecordDeparture(item)) return false;
+    this.replaceExit({
+      ...item,
+      status: 'Em andamento',
+      // Na curta, as 3 horas contam da saída registrada (RN01).
+      expectedReturn: item.kind === 'Curta' ? offset(3) : item.expectedReturn,
+      timeline: [...item.timeline, { label: 'Saída registrada pelo supervisor', at: now() }],
     });
     return true;
   }

@@ -456,7 +456,7 @@ class IntegrationFlowIntegrationTest {
                             confirm(supervisor, id, attachedFile, attached.path("version").asLong(), null),
                             200);
             assertThat(response(post(supervisor, path(id, "decisao"), approval(confirmed)), 200).path("status").asText())
-                    .isEqualTo("EM_ANDAMENTO");
+                    .isEqualTo("APROVADA");
         }
     }
 
@@ -686,7 +686,7 @@ class IntegrationFlowIntegrationTest {
                     .contains(".jpg");
             JsonNode approved =
                     response(post(supervisor, path(id, "decisao"), approval(confirmed)), 200);
-            assertThat(approved.path("status").asText()).isEqualTo("EM_ANDAMENTO");
+            assertThat(approved.path("status").asText()).isEqualTo("APROVADA");
         }
     }
 
