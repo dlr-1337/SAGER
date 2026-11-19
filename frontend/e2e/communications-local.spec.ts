@@ -9,6 +9,7 @@ import type {
   PublishedNotice,
   RecurrenceCandidate,
 } from '../src/app/features/communications/communications-local.models';
+import { capture, expectFits, openCollapsed, phoneSizes } from './mobile-fit';
 import { openMoreFilters } from './more-filters';
 import { expectShortGuidance } from './short-text';
 
@@ -1312,4 +1313,104 @@ test('320 px e teclado acessíveis; permissões e demonstração mantêm seus es
     page.getByText('Os registros abaixo são fictícios.', { exact: false }),
   ).toBeVisible();
   expect(state.writes).toHaveLength(0);
+});
+
+for (const size of phoneSizes) {
+  test(`no celular (${size.width} px), decisões em coluna e nada vaza das comunicações`, async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    const state = await mockApi(page);
+    await page.setViewportSize(size);
+    await page.goto('/notificacoes/' + notificationId);
+    const decision = page
+      .locator('section')
+      .filter({ has: page.getByRole('heading', { name: 'Decisão do supervisor' }) });
+    await decision.scrollIntoViewIfNeeded();
+    await capture(page, 'notificacao-decisao');
+    await expectFits(page, 'notificação');
+    // Principal primeiro e destacada; todas com a mesma altura e a largura do painel.
+    const buttons = decision.locator('.decision-actions > :is(.btn, .btn-secondary, .btn-danger)');
+    await expect(buttons).toHaveText([
+      'Criar advertência',
+      'Registrar visualização',
+      'Iniciar análise',
+      'Arquivar com justificativa',
+    ]);
+    await expect(buttons.first()).toHaveClass(/(^|\s)btn(\s|$)/);
+    const boxes = await Promise.all((await buttons.all()).map((button) => button.boundingBox()));
+    const actions = (await decision.locator('.decision-actions').boundingBox())!;
+    for (const box of boxes) {
+      expect(Math.round(box!.width)).toBe(Math.round(actions.width));
+      expect(Math.round(box!.height)).toBe(Math.round(boxes[0]!.height));
+    }
+    await decision.getByRole('button', { name: 'Criar advertência' }).click();
+    await expectFits(page, 'notificação com advertência aberta');
+    await decision.getByRole('button', { name: 'Arquivar com justificativa' }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expectFits(page, 'diálogo de arquivar');
+    await page.keyboard.press('Escape');
+    for (const path of [
+      '/notificacoes',
+      '/advertencias',
+      '/advertencias/nova',
+      '/advertencias/' + uuid(911),
+      `/residentes/${residentId}/reincidencias`,
+      '/comunicacoes/avisos',
+      '/comunicacoes/avisos/novo',
+    ]) {
+      await page.goto(path);
+      await expect(page.locator('main h1').first(), path).toBeVisible();
+      await openCollapsed(page);
+      await expectFits(page, path);
+    }
+    await page.getByLabel('Título', { exact: true }).fill('Reunião geral de residentes');
+    await page
+      .getByLabel('Mensagem', { exact: true })
+      .fill('Compareçam ao auditório às 18 horas para a reunião geral.');
+    await page.getByRole('radio', { name: 'Escolher pessoas', exact: true }).check();
+    await page.getByRole('checkbox', { name: /Estudante Sintético/ }).check();
+    await expectFits(page, 'aviso com pessoas escolhidas');
+    await page.getByRole('button', { name: 'Salvar rascunho' }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expectFits(page, 'diálogo de salvar aviso');
+    await page.keyboard.press('Escape');
+    state.role = 'residente';
+    for (const path of ['/avisos', '/avisos?tipo=advertencias', '/minhas-comunicacoes/' + ownId]) {
+      await page.goto(path);
+      await expect(page.locator('main h1').first(), path).toBeVisible();
+      await openCollapsed(page);
+      await expectFits(page, path);
+    }
+  });
+}
+
+test('no computador, as decisões da notificação ficam juntas, iguais e alinhadas', async ({
+  page,
+}) => {
+  await mockApi(page);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/notificacoes/' + notificationId);
+  const group = page
+    .locator('section')
+    .filter({ has: page.getByRole('heading', { name: 'Decisão do supervisor' }) })
+    .locator('.decision-actions');
+  const buttons = group.locator(':scope > :is(.btn, .btn-secondary, .btn-danger)');
+  await expect(buttons).toHaveText([
+    'Criar advertência',
+    'Registrar visualização',
+    'Iniciar análise',
+    'Arquivar com justificativa',
+  ]);
+  await expect(buttons.first()).toHaveClass(/(^|\s)btn(\s|$)/);
+  // A decisão fica na coluna lateral: grade alinhada à esquerda, botões do mesmo tamanho.
+  const boxes = await Promise.all((await buttons.all()).map((button) => button.boundingBox()));
+  const first = boxes[0]!;
+  const panel = (await group.boundingBox())!;
+  expect(Math.round(first.x)).toBe(Math.round(panel.x));
+  for (const box of boxes) {
+    expect(Math.round(box!.width)).toBe(Math.round(first.width));
+    expect(Math.round(box!.height)).toBe(Math.round(first.height));
+    expect(box!.x + box!.width).toBeLessThanOrEqual(panel.x + panel.width + 1);
+  }
 });

@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, Page, test } from '@playwright/test';
+import { capture, expectFits, openCollapsed, phoneSizes } from './mobile-fit';
 import { openMoreFilters } from './more-filters';
 import { expectShortGuidance } from './short-text';
 import type {
@@ -1193,3 +1194,60 @@ test('320px sem overflow e axe, teclado em revisão, papéis protegidos e demons
   await page.getByRole('button', { name: 'Baixar PDF', exact: true }).click();
   await expect(page.getByText('Na demonstração nenhum arquivo é baixado.')).toBeVisible();
 });
+
+for (const size of phoneSizes) {
+  test(`no celular (${size.width} px), filtros de data, avaliações e relatórios cabem no card`, async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    const state = await mockApi(page);
+    await page.setViewportSize(size);
+    await page.goto('/relatorios');
+    await page.getByRole('radio', { name: 'Escolher datas', exact: true }).check();
+    await expect(page.getByLabel('Data inicial', { exact: true })).toBeVisible();
+    await openCollapsed(page);
+    await page.getByLabel('Data inicial', { exact: true }).scrollIntoViewIfNeeded();
+    await capture(page, 'relatorio-datas');
+    await expectFits(page, 'relatório com datas');
+    await page.goto('/limpeza');
+    await openMoreFilters(page);
+    await expect(page.getByLabel('Data inicial', { exact: true })).toBeVisible();
+    await expectFits(page, 'filtros da limpeza');
+    await page.goto('/limpeza/' + assessmentId);
+    await expect(page.locator('main h1')).toBeVisible();
+    await openCollapsed(page);
+    await expectFits(page, 'detalhe da avaliação');
+    // Ação do supervisor na avaliação no mesmo padrão das outras decisões.
+    const correct = page.getByRole('link', { name: 'Corrigir com justificativa' });
+    const actions = page.locator('.decision-actions').filter({ has: correct });
+    expect(Math.round((await correct.boundingBox())!.width)).toBe(
+      Math.round((await actions.boundingBox())!.width),
+    );
+    await page.goto('/limpeza/nova');
+    await page.getByRole('combobox', { name: 'Quarto', exact: true }).selectOption(roomId);
+    await page.getByText('Foi em outro dia?', { exact: true }).click();
+    await expectFits(page, 'avaliação: passo 1');
+    await page.getByText('Foi em outro dia?', { exact: true }).click();
+    await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+    await grades(page);
+    await expectFits(page, 'avaliação: passo 2');
+    await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Conferir e salvar' })).toBeFocused();
+    await expectFits(page, 'avaliação: passo 3');
+    for (const path of [
+      '/limpeza/' + assessmentId + '/corrigir',
+      '/ranking',
+      '/relatorios/individual/' + residentId,
+      '/relatorios/consultas/' + snapshotId,
+    ]) {
+      await page.goto(path);
+      await expect(page.locator('main h1').first(), path).toBeVisible();
+      await openCollapsed(page);
+      await expectFits(page, path);
+    }
+    state.role = 'residente';
+    await page.goto('/minha-limpeza');
+    await expect(page.getByLabel('Data inicial', { exact: true })).toBeVisible();
+    await expectFits(page, 'minhas avaliações');
+  });
+}
