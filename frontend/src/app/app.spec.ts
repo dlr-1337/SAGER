@@ -1,4 +1,5 @@
 import { vi } from 'vitest';
+import { signal } from '@angular/core';
 import { UnsavedForms } from './shared/unsaved-form';
 import { TestBed } from '@angular/core/testing';
 import {
@@ -14,6 +15,12 @@ import { Subject } from 'rxjs';
 import { App } from './app';
 import { DemoSessionService } from './core/demo-session.service';
 import { LocalAuthService } from './core/local-auth.service';
+import {
+  PENDING_BY_PATH,
+  PendingBadgesService,
+  type PendingCounts,
+  type PendingKey,
+} from './core/pending-badges.service';
 
 describe('App', () => {
   beforeEach(async () => {
@@ -172,5 +179,113 @@ describe('App', () => {
       events.next(end);
       expect(state()).toEqual([false, null]);
     }
+  });
+});
+
+describe('App: contadores de pendências', () => {
+  const counts = signal<PendingCounts>({});
+  const count = (keys: readonly PendingKey[]) =>
+    keys.reduce((total, key) => total + (counts()[key] ?? 0), 0);
+  const pending = {
+    counts,
+    count,
+    forPath: (path: string) => count(PENDING_BY_PATH[path] ?? []),
+    start: vi.fn(),
+    refresh: vi.fn(),
+  };
+  const account = {
+    id: '00000000-0000-0000-0000-000000000001',
+    nome: 'Conta Sintética',
+    email: null,
+    matricula: 'TESTE-LOGIN',
+    fotoUrl: null,
+    residenteId: null,
+    supervisorId: null,
+  };
+
+  beforeEach(async () => {
+    counts.set({});
+    pending.start.mockClear();
+    pending.refresh.mockClear();
+    await TestBed.configureTestingModule({
+      imports: [App],
+      providers: [provideRouter([]), { provide: PendingBadgesService, useValue: pending }],
+    }).compileComponents();
+    TestBed.inject(DemoSessionService).deactivate();
+  });
+
+  async function shell(profile: 'gestor' | 'supervisor' | 'residente') {
+    TestBed.inject(LocalAuthService).principal.set({
+      ...account,
+      perfis: [profile],
+      residenteId: profile === 'residente' ? '00000000-0000-0000-0000-000000000002' : null,
+    });
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    const link = (path: string) =>
+      element.querySelector<HTMLAnchorElement>(`#app-navigation nav a[href="${path}"]`);
+    return { fixture, element, link };
+  }
+
+  it('mostra o número e lê "N pendentes" nos itens do supervisor', async () => {
+    counts.set({ shortExits: 2, longExits: 1, notifications: 3, nightCalls: 1, conversations: 0 });
+    const { link } = await shell('supervisor');
+    expect(link('/saidas')?.querySelector('.pending-badge')?.textContent?.trim()).toBe('3');
+    expect(link('/saidas')?.querySelector('.pending-badge')?.getAttribute('aria-hidden')).toBe(
+      'true',
+    );
+    expect(link('/saidas')?.querySelector('.sr-only')?.textContent).toBe(', 3 pendentes');
+    expect(link('/notificacoes')?.querySelector('.sr-only')?.textContent).toBe(', 3 pendentes');
+    expect(link('/chamada')?.querySelector('.sr-only')?.textContent).toBe(', 1 pendente');
+    // Zero não desenha nada; itens sem regra de contagem também não.
+    expect(link('/conversas')).not.toBeNull();
+    expect(link('/conversas')?.querySelector('.pending-badge')).toBeNull();
+    expect(link('/limpeza')?.querySelector('.pending-badge')).toBeNull();
+    expect(link('/advertencias')?.querySelector('.pending-badge')).toBeNull();
+  });
+
+  it('soma os contadores no botão "Menu", que mantém o nome e lê a soma como descrição', async () => {
+    counts.set({ shortExits: 2, longExits: 1, notifications: 3, nightCalls: 1, conversations: 0 });
+    const { fixture, element } = await shell('supervisor');
+    const button = element.querySelector<HTMLButtonElement>('.menu-toggle')!;
+    expect(button.querySelector('.pending-badge')?.textContent?.trim()).toBe('7');
+    expect(button.querySelector('.sr-only')).toBeNull();
+    expect(button.getAttribute('aria-describedby')).toBe('menu-pending');
+    const description = element.querySelector<HTMLElement>('#menu-pending')!;
+    expect(description.hidden).toBe(true);
+    expect(description.textContent?.trim()).toBe('7 pendentes no menu');
+
+    counts.set({ shortExits: 0, longExits: 0, notifications: 0, nightCalls: 0, conversations: 0 });
+    fixture.detectChanges();
+    expect(button.querySelector('.pending-badge')).toBeNull();
+    expect(button.hasAttribute('aria-describedby')).toBe(false);
+    expect(element.querySelector('#menu-pending')).toBeNull();
+  });
+
+  it('mostra as comunicações sem ciência do residente em "Minhas comunicações"', async () => {
+    counts.set({ notices: 1, warnings: 3, terms: 0 });
+    const { link } = await shell('residente');
+    expect(link('/avisos')?.textContent).toContain('Minhas comunicações');
+    expect(link('/avisos')?.querySelector('.pending-badge')?.textContent?.trim()).toBe('4');
+    expect(link('/avisos')?.querySelector('.sr-only')?.textContent).toBe(', 4 pendentes');
+    expect(link('/saidas')?.querySelector('.pending-badge')).toBeNull();
+  });
+
+  it('não mostra contador ao gestor', async () => {
+    counts.set({ shortExits: 2 });
+    const { element } = await shell('gestor');
+    expect(element.querySelector('.pending-badge')).toBeNull();
+    expect(element.querySelector('.menu-toggle')?.hasAttribute('aria-describedby')).toBe(false);
+  });
+
+  it('liga a contagem ao abrir e a refaz a cada troca de tela', async () => {
+    await shell('supervisor');
+    expect(pending.start).toHaveBeenCalledTimes(1);
+    const events = TestBed.inject(Router).events as Subject<RouterEvent>;
+    events.next(new NavigationEnd(1, '/saidas', '/saidas'));
+    events.next(new NavigationEnd(2, '/inicio', '/inicio'));
+    expect(pending.refresh).toHaveBeenCalledTimes(2);
   });
 });

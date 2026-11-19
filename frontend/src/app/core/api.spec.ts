@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ACCOUNT_OPEN, api, asAutoRefresh, cached, onUnauthorized, resetSession } from './api';
+import {
+  ACCOUNT_OPEN,
+  afterWrite,
+  api,
+  asAutoRefresh,
+  cached,
+  onUnauthorized,
+  resetSession,
+} from './api';
 
 const token = (value = 'csrf-1') =>
   new Response(JSON.stringify({ headerName: 'X-CSRF-TOKEN', token: value }), { status: 200 });
@@ -294,5 +302,23 @@ describe('api', () => {
       await expect(cached('cursos', loader)).rejects.toThrow('falhou');
       expect(await cached('cursos', loader)).toEqual(['lista']);
     });
+  });
+
+  it('avisa as gravações aceitas, com o endereço, e não as leituras nem as recusadas', async () => {
+    const seen: string[] = [];
+    const stop = afterWrite((url) => seen.push(url));
+    fetchMock
+      .mockResolvedValueOnce(json([]))
+      .mockResolvedValueOnce(token())
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(json({ code: 'version_conflict' }, 409));
+    await api('/api/v1/cursos');
+    await api('/api/v1/cursos/1/ativo', { method: 'POST' });
+    await expect(api('/api/v1/cursos/1', { method: 'PUT', body: {}, error })).rejects.toThrow();
+    expect(seen).toEqual(['/api/v1/cursos/1/ativo']);
+    stop();
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await api('/api/v1/cursos/2/ativo', { method: 'POST' });
+    expect(seen).toEqual(['/api/v1/cursos/1/ativo']);
   });
 });

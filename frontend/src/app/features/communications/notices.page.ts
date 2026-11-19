@@ -3,11 +3,12 @@ import { DatePipe, DOCUMENT } from '@angular/common';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { NoticesDemoService, NoticeKind } from './notices-demo.service';
 import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
+import { PendingBadgeComponent } from '../../shared/pending-badge.component';
 
 @Component({
   standalone: true,
   selector: 'sager-notices',
-  imports: [DatePipe, OwnCommunicationsLocalPage],
+  imports: [DatePipe, OwnCommunicationsLocalPage, PendingBadgeComponent],
   template: `
     @if (!session.active()) {
       <sager-own-communications-local />
@@ -54,7 +55,7 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
               (keydown.arrowright)="moveTab($event, 'advertencia')"
               (keydown.arrowleft)="moveTab($event, 'advertencia')"
             >
-              Avisos <span>{{ count('aviso') }}</span>
+              Avisos<sager-pending-badge [count]="count('aviso')" />
             </button>
             <button
               type="button"
@@ -67,7 +68,7 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
               (keydown.arrowright)="moveTab($event, 'aviso')"
               (keydown.arrowleft)="moveTab($event, 'aviso')"
             >
-              Advertências <span>{{ count('advertencia') }}</span>
+              Advertências<sager-pending-badge [count]="count('advertencia')" />
             </button>
           </div>
           <div
@@ -203,14 +204,6 @@ import { OwnCommunicationsLocalPage } from './own-communications-local.pages';
       }
       .tabs {
         margin-bottom: 20px;
-      }
-      .tabs button span {
-        font-size: var(--text-meta);
-        font-weight: 700;
-        border-radius: 999px;
-        background: var(--green-100);
-        color: var(--green-950);
-        padding: 2px 8px;
       }
       .notice-row:focus-visible {
         outline-offset: -3px;
@@ -441,10 +434,11 @@ export class NoticesPage {
       ? null
       : (this.data.notices().find((item) => item.id === this.selectedId()) ?? null),
   );
+  /** Itens sem ciência da aba, como no menu (pending-badges). */
   count(kind: NoticeKind) {
     return !this.session.active() || this.session.scenario() === 'vazio'
       ? 0
-      : this.data.notices().filter((item) => item.kind === kind).length;
+      : this.data.notices().filter((item) => item.kind === kind && !item.acknowledgedAt).length;
   }
   selectTab(kind: NoticeKind) {
     this.tab.set(kind);
