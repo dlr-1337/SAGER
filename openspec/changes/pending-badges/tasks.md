@@ -40,7 +40,7 @@ Comandos:
   - "Avisos", "Advertências" e "Termos de compromisso" (`own-communications-local.pages.ts`);
   - abas da demonstração em `notices.page.ts`, que passam a mostrar só os itens sem ciência.
 
-  Verificar com `exits-local.component.spec.ts` e `notices-local.pages.spec.ts`.
+  Verificar com `exits-local.component.spec.ts` e `own-communications-local.pages.spec.ts`; as abas da demonstração, com `e2e/pending-badges.spec.ts`.
 
 ## 3. Demonstração
 
