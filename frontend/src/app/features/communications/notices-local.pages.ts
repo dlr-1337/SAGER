@@ -98,6 +98,14 @@ export function audienceQuery(
   return null;
 }
 const residentsCount = (count: number) => (count === 1 ? '1 residente' : `${count} residentes`);
+/**
+ * "Quem vai receber" dos diálogos do aviso: só o grupo e a quantidade (notice-recipient-summary).
+ * Os nomes ficam na página do aviso salvo, em "Quem recebe".
+ */
+export const recipientsSummary = (group: string, count: number) =>
+  `${group} · ${residentsCount(count)}`;
+/** O aviso salvo traz só a lista: a opção que a montou não é gravada (notice-recipient-summary). */
+export const savedListGroup = 'Lista salva no rascunho';
 
 @Component({
   standalone: true,
@@ -505,9 +513,6 @@ export class NoticeFormLocalPage {
       return;
     }
     this.error.set('');
-    const names = [...this.known().values()]
-      .filter((item) => input.residentIds.includes(item.id))
-      .map((item) => `${item.name} · ${item.enrollment}`);
     this.dialogs
       .open<CommunicationReviewDialogComponent, CommunicationReviewData, CommunicationReviewResult>(
         CommunicationReviewDialogComponent,
@@ -520,10 +525,7 @@ export class NoticeFormLocalPage {
               { label: 'Mensagem', value: input.body },
               {
                 label: 'Quem vai receber',
-                value: [
-                  `${this.criterion()} · ${residentsCount(input.residentIds.length)}`,
-                  ...names,
-                ].join('\n'),
+                value: recipientsSummary(this.criterion(), input.residentIds.length),
               },
             ],
           },
@@ -538,15 +540,23 @@ export class NoticeFormLocalPage {
         if (result) void this.save(input);
       });
   }
-  /** A opção como aparece na revisão (design D8): o nome da opção e, se houver, o lugar. */
+  /**
+   * O grupo da confirmação (notice-recipient-summary, D1): o nome do alojamento, o quarto com o
+   * alojamento ou o nome da opção.
+   */
   private criterion(): string {
     const audience = this.chosen();
     const map = this.housing();
-    if (audience === 'ALOJAMENTO')
-      return `${audienceLabels.ALOJAMENTO}: ${map.accommodations.find((item) => item.id === this.accommodationId.value)?.name ?? ''}`;
+    const accommodation = (id: string) =>
+      map.accommodations.find((item) => item.id === id)?.name ?? '';
+    if (audience === 'ALOJAMENTO') return accommodation(this.accommodationId.value);
     if (audience === 'QUARTO') {
       const room = map.rooms.find((item) => item.id === this.roomId.value);
-      return `${audienceLabels.QUARTO}: ${room ? this.roomLabel(room) : ''}`;
+      if (!room) return audienceLabels.QUARTO;
+      const unit = map.units.find((item) => item.id === room.unitId)?.name;
+      return [`Quarto ${room.code}`, unit, accommodation(room.accommodationId)]
+        .filter(Boolean)
+        .join(', ');
     }
     return audience === 'ESCOLHER'
       ? 'Escolhidos um a um'
@@ -848,7 +858,7 @@ export class NoticeDetailLocalPage {
       { label: 'Mensagem', value: item.body },
       {
         label: 'Quem vai receber',
-        value: item.residentIds.map((id) => this.residentLabel(id)).join('\n'),
+        value: recipientsSummary(savedListGroup, item.residentIds.length),
       },
     ];
   }

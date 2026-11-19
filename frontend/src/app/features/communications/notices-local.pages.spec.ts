@@ -1,15 +1,17 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { MatDialog } from '@angular/material/dialog';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DemoSessionService } from '../../core/demo-session.service';
+import { RoomRecord } from '../management/housing.models';
 import { ResidentApiService, ResidentRecord } from '../management/resident-api.service';
 import { RoomApiService } from '../management/room-api.service';
 import { CommunicationsLocalApiService } from './communications-local-api.service';
+import { PublishedNotice } from './communications-local.models';
 import { CommunicationReviewData } from './communications-local.shared';
-import { NoticeFormLocalPage, audienceQuery } from './notices-local.pages';
+import { NoticeDetailLocalPage, NoticeFormLocalPage, audienceQuery } from './notices-local.pages';
 
 const person = (id: string, values: Partial<ResidentRecord> = {}): ResidentRecord => ({
   id,
@@ -24,6 +26,34 @@ const person = (id: string, values: Partial<ResidentRecord> = {}): ResidentRecor
 const adult = person('A');
 const minor = person('B', { birthDate: '2011-03-02', minor: true });
 const undated = person('C', { birthDate: null, minor: false });
+const room = (id: string, code: string, unitId: string | null = null): RoomRecord => ({
+  id,
+  code,
+  number: code,
+  accommodationId: 'aloj-1',
+  unitId,
+  floor: null,
+  capacity: null,
+  situation: 'Ocupado',
+  occupancy: 2,
+  vacancies: null,
+  version: 0,
+});
+const housing = {
+  accommodations: [{ id: 'aloj-1', code: 'A1', name: 'Alojamento Um', version: 0 }],
+  units: [{ id: 'casa-1', code: 'C1', name: 'Casa 1', accommodationId: 'aloj-1', version: 0 }],
+  rooms: [room('quarto-1', 'U-101'), room('quarto-2', 'U-102', 'casa-1')],
+};
+const recipientsLine = (data: CommunicationReviewData) =>
+  data.lines.find((line) => line.label === 'Quem vai receber')!.value;
+/** O diálogo não lista ninguém: nem nome nem matrícula (notice-recipient-summary). */
+function expectNoNames(data: CommunicationReviewData, people: ResidentRecord[]) {
+  const text = data.lines.map((line) => line.value).join('\n');
+  for (const item of people) {
+    expect(text).not.toContain(item.name);
+    expect(text).not.toContain(item.enrollment);
+  }
+}
 
 describe('Filtros de cada opção de "Quem recebe?"', () => {
   it('pede ao servidor os moradores com quarto, do alojamento ou do quarto', () => {
@@ -69,16 +99,7 @@ describe('Formulário do aviso por opção', () => {
           provide: ResidentApiService,
           useValue: { list: vi.fn().mockResolvedValue([adult, minor, undated]), page },
         },
-        {
-          provide: RoomApiService,
-          useValue: {
-            map: vi.fn().mockResolvedValue({
-              accommodations: [{ id: 'aloj-1', code: 'A1', name: 'Alojamento Um', version: 0 }],
-              units: [],
-              rooms: [],
-            }),
-          },
-        },
+        { provide: RoomApiService, useValue: { map: vi.fn().mockResolvedValue(housing) } },
         { provide: MatDialog, useValue: { open, openDialogs: [] } },
         { provide: DemoSessionService, useValue: { active: signal(false), hasRole: () => true } },
       ],
@@ -120,7 +141,7 @@ describe('Formulário do aviso por opção', () => {
     expect(details.querySelectorAll('input[type=checkbox]:checked')).toHaveLength(2);
   });
 
-  it('desmarcar reduz a contagem e o envio, e a revisão começa pela opção e a quantidade', async () => {
+  it('desmarcar reduz a contagem e o envio, e a revisão mostra só o grupo e a quantidade', async () => {
     const { fixture, view, element, choose } = await create();
     await choose('TODOS');
     const box = element.querySelector<HTMLInputElement>('details input[type=checkbox]')!;
@@ -131,11 +152,8 @@ describe('Formulário do aviso por opção', () => {
     view.form.setValue({ title: 'Aviso sintético', body: 'Mensagem sintética.' });
     view.review();
     const data = open.mock.calls[0][1].data as CommunicationReviewData;
-    const recipients = data.lines.find((line) => line.label === 'Quem vai receber')!.value;
-    expect(recipients.split('\n')).toEqual([
-      'Todos os moradores · 1 residente',
-      'Residente B · TESTE-B',
-    ]);
+    expect(recipientsLine(data)).toBe('Todos os moradores · 1 residente');
+    expectNoNames(data, [adult, minor]);
     await fixture.whenStable();
     expect(createNotice).toHaveBeenCalledWith(
       expect.objectContaining({ residentIds: ['B'], title: 'Aviso sintético' }),
@@ -191,5 +209,101 @@ describe('Formulário do aviso por opção', () => {
     );
     await choose('TODOS');
     expect(element.textContent).not.toContain('Escolha o alojamento');
+  });
+
+  const places = [
+    { audience: 'ALOJAMENTO', room: '', group: 'Alojamento Um' },
+    { audience: 'QUARTO', room: 'quarto-1', group: 'Quarto U-101, Alojamento Um' },
+    { audience: 'QUARTO', room: 'quarto-2', group: 'Quarto U-102, Casa 1, Alojamento Um' },
+  ] as const;
+  for (const place of places) {
+    it(`a revisão de "${place.group}" mostra o lugar e a quantidade, sem nomes`, async () => {
+      const { fixture, view, choose } = await create();
+      await choose(place.audience);
+      view.accommodationId.setValue('aloj-1');
+      await fixture.whenStable();
+      if (place.room) view.roomId.setValue(place.room);
+      await vi.waitFor(() => expect(view.resolved()).toBe(true));
+      view.form.setValue({ title: 'Aviso sintético', body: 'Mensagem sintética.' });
+      view.review();
+      const data = open.mock.calls[0][1].data as CommunicationReviewData;
+      expect(recipientsLine(data)).toBe(`${place.group} · 2 residentes`);
+      expectNoNames(data, [adult, minor]);
+    });
+  }
+});
+
+describe('Diálogos do aviso salvo', () => {
+  const draft: PublishedNotice = {
+    id: 'aviso-1',
+    title: 'Aviso sintético',
+    body: 'Mensagem sintética.',
+    residentIds: ['A', 'B'],
+    status: 'RASCUNHO',
+    version: 0,
+    publishedAt: null,
+    communicationId: null,
+    withdrawalReason: null,
+  };
+  let notice: ReturnType<typeof vi.fn>;
+  let open: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    notice = vi.fn().mockResolvedValue(draft);
+    // Fecha sem confirmar: o teste confere só o que o diálogo mostra.
+    open = vi.fn(() => ({ afterClosed: () => of(undefined) }));
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: convertToParamMap({ id: draft.id }) } },
+        },
+        { provide: CommunicationsLocalApiService, useValue: { notice } },
+        {
+          provide: ResidentApiService,
+          useValue: { list: vi.fn().mockResolvedValue([adult, minor]) },
+        },
+        { provide: MatDialog, useValue: { open, openDialogs: [] } },
+        { provide: DemoSessionService, useValue: { active: signal(false), hasRole: () => true } },
+      ],
+    });
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  async function create() {
+    const fixture = TestBed.createComponent(NoticeDetailLocalPage);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    return {
+      fixture,
+      view: fixture.componentInstance,
+      element: fixture.nativeElement as HTMLElement,
+    };
+  }
+
+  it('"Revisar publicação" mostra a lista do rascunho e a quantidade, e a página lista os nomes', async () => {
+    const { view, element } = await create();
+    expect(element.textContent).toContain('Residente A · TESTE-A');
+    expect(element.textContent).toContain('Residente B · TESTE-B');
+    await view.publish();
+    const data = open.mock.calls[0][1].data as CommunicationReviewData;
+    expect(data.action).toBe('Confirmar publicação');
+    expect(recipientsLine(data)).toBe('Lista salva no rascunho · 2 residentes');
+    expectNoNames(data, [adult, minor]);
+  });
+
+  it('correção e retirada do aviso publicado também mostram só a lista e a quantidade', async () => {
+    notice.mockResolvedValue({ ...draft, status: 'PUBLICADO', version: 1 });
+    const { view } = await create();
+    view.form.setValue({ title: 'Aviso sintético', body: 'Mensagem corrigida.' });
+    await view.revise();
+    view.withdraw();
+    const dialogs = open.mock.calls.map((call) => call[1].data as CommunicationReviewData);
+    expect(dialogs.map((data) => data.action)).toEqual(['Publicar correção', 'Confirmar retirada']);
+    for (const data of dialogs) {
+      expect(recipientsLine(data)).toBe('Lista salva no rascunho · 2 residentes');
+      expectNoNames(data, [adult, minor]);
+    }
   });
 });
