@@ -1,20 +1,16 @@
 .conv-page-header .page-header {
   margin-bottom: var(--space-4);
 }
-// A tela de Conversas ocupa a altura visível abaixo do cabeçalho fixo (--masthead-h), sem o rodapé:
-// só a lista e as mensagens rolam por dentro, e a janela e o menu lateral ficam parados. A altura
-// fixa antiga contava 92 px de cabeçalho (hoje 100 px) e deixava o rodapé de fora, e a janela rolava
-// essa sobra. Abaixo de 500 px úteis (janela baixa ou zoom), a janela volta a rolar.
-.work-area:has(.conv-page) {
-  height: max(500px, calc(100dvh - var(--masthead-h)));
-}
-.work-area:has(.conv-page) > .app-footer {
-  display: none;
-}
+// A tela de Conversas ocupa a altura visível abaixo do cabeçalho fixo (--masthead-h), e o rodapé
+// fica logo abaixo dela, como num aplicativo de conversa: rolar a página só o revela, e o menu
+// lateral fica parado. A lista e as mensagens rolam por dentro. A altura antiga contava 92 px de
+// cabeçalho (hoje 100 px), e a tela passava da janela. Com menos de 500 px úteis (janela baixa ou
+// zoom), a página rola o que faltar.
 .work-area:has(.conv-page) > .app-main {
+  flex: none;
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  height: max(500px, calc(100dvh - var(--masthead-h)));
 }
 .app-main > sager-conversations {
   flex: 1 1 auto;
@@ -91,11 +87,10 @@ sager-conversation-thread {
 }
 @media (max-width: 800px) {
   // Só a lista: ela segue a rolagem da página, com o rodapé no fim.
-  .work-area:has(.conv-page:not(.conv-has-thread)) {
+  .work-area:has(.conv-page:not(.conv-has-thread)) > .app-main {
+    flex: 1;
+    display: block;
     height: auto;
-  }
-  .work-area:has(.conv-page:not(.conv-has-thread)) > .app-footer {
-    display: flex;
   }
   .page.conv-page {
     display: block;
@@ -129,8 +124,8 @@ sager-conversation-thread {
     clip-path: inset(50%);
     white-space: nowrap;
   }
-  // A conversa ocupa a altura visível, com o campo de texto sempre à vista e sem o rodapé.
-  .work-area:has(.conv-has-thread) {
+  // A conversa ocupa a altura visível, com o campo de texto sempre à vista e o rodapé logo abaixo.
+  .work-area:has(.conv-has-thread) > .app-main {
     height: max(420px, calc(100dvh - var(--masthead-h)));
   }
   .page.conv-has-thread {
