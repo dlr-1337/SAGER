@@ -23,7 +23,7 @@ public enum AuditResource {
     DISCIPLINE_NOTIFICATION(Set.of("occurrenceId", "status", "requiresReview", "reason")),
     WARNING(Set.of("residentId", "occurrenceId", "notificationId", "category", "severity",
             "description", "justification", "warningDate", "status", "reason")),
-    NOTICE(Set.of("title", "body", "residentIds", "status", "contentVersion", "reason")),
+    NOTICE(Set.of("title", "body", "residentIds", "audience", "status", "contentVersion", "reason")),
     COMMUNICATION(Set.of("contentVersion", "residentId", "readAt", "acknowledgedAt", "status", "reason")),
     COMMITMENT_TERM(Set.of("residentId", "warningIds", "decision", "document", "status", "reason")),
     CLEANING_ASSESSMENT(Set.of("roomId", "evaluatedAt", "criteria", "score", "observation", "participantIds", "reason")),

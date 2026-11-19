@@ -54,9 +54,16 @@ public class CommunicationOpenApiConfiguration {
                     .addProperty("confirmed", new BooleanSchema()._enum(List.of(true)))
                     .addProperty("idempotencyKey", uuid())
                     .required(List.of("warningIds", "decision", "confirmed", "idempotencyKey")));
+            var audience = new ObjectSchema()
+                    .addProperty("kind", choice("TODOS", "ALOJAMENTO", "QUARTO", "MAIORES", "MENORES", "ESCOLHER"))
+                    .addProperty("accommodationId", uuid()).addProperty("roomId", uuid())
+                    .required(List.of("kind"));
+            audience.setAdditionalProperties(false);
+            audience.nullable(true).description("Opção de \"Quem recebe?\". O servidor monta o grupo gravado em "
+                    + "audienceLabel: accommodationId só em ALOJAMENTO e roomId só em QUARTO.");
             var notice = new ObjectSchema().addProperty("title", text(3, 200))
                     .addProperty("body", text(3, 4000)).addProperty("residentIds", ids(1, 2000))
-                    .addProperty("idempotencyKey", uuid())
+                    .addProperty("audience", audience).addProperty("idempotencyKey", uuid())
                     .required(List.of("title", "body", "residentIds", "idempotencyKey"));
             body(api, "/avisos", "NoticeCreateRequest", notice);
             body(api, "/avisos/{id}/publicar", "NoticePublishRequest", copy(version)
