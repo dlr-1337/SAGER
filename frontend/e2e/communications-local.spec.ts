@@ -443,6 +443,15 @@ async function fillWarning(page: Page): Promise<void> {
 async function confirm(page: Page, name: string): Promise<void> {
   await page.getByRole('dialog').getByRole('button', { name, exact: true }).click();
 }
+/** "Quem vai receber" no diálogo do aviso: só grupo e quantidade (notice-recipient-summary). */
+async function expectRecipients(page: Page, summary: string): Promise<void> {
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.locator('dt:has-text("Quem vai receber") + dd')).toHaveText(summary);
+  for (const person of people) {
+    await expect(dialog).not.toContainText(person.name);
+    await expect(dialog).not.toContainText(person.enrollment);
+  }
+}
 test.use({ timezoneId: 'Pacific/Auckland' });
 
 test('lista longa em diálogo: painel acima do diálogo, Esc fecha só o painel, sem erro de axe', async ({
@@ -729,13 +738,13 @@ const audiences = [
   {
     option: 'Um alojamento',
     place: { Alojamento: north.id },
-    review: 'Um alojamento: Alojamento Norte · 2 residentes',
+    review: 'Alojamento Norte · 2 residentes',
     ids: [41, 43],
   },
   {
     option: 'Um quarto',
     place: { Alojamento: south.id, Quarto: rooms[2].id },
-    review: 'Um quarto: S-201 · 2 residentes',
+    review: 'Quarto S-201, Alojamento Sul · 2 residentes',
     ids: [42, 45],
   },
   { option: 'Só maiores de 18', review: 'Só maiores de 18 · 2 residentes', ids: [42, 43] },
@@ -756,7 +765,7 @@ for (const audience of audiences) {
     );
     await expect(page.locator('details.more-details')).not.toHaveAttribute('open');
     await page.getByRole('button', { name: 'Salvar rascunho', exact: true }).click();
-    await expect(page.getByRole('dialog')).toContainText(audience.review);
+    await expectRecipients(page, audience.review);
     await confirm(page, 'Salvar rascunho');
     await expect(page).toHaveURL('/comunicacoes/avisos/' + noticeId);
     expect(Object.keys(state.writes[0].body).sort()).toEqual([
@@ -785,7 +794,7 @@ test('desmarcar em "Ver quem vai receber" tira o residente da contagem e do envi
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.getByRole('button', { name: 'Salvar rascunho', exact: true }).click();
-  await expect(page.getByRole('dialog')).toContainText('Todos os moradores · 3 residentes');
+  await expectRecipients(page, 'Todos os moradores · 3 residentes');
   await confirm(page, 'Salvar rascunho');
   await expect(page).toHaveURL('/comunicacoes/avisos/' + noticeId);
   expect([...state.writes[0].body.residentIds].sort()).toEqual([41, 43, 45].map(uuid));
@@ -800,7 +809,7 @@ test('"Escolher pessoas" grava quem foi marcado, mesmo sem quarto', async ({ pag
   await page.getByRole('checkbox', { name: /Estudante Sem Quarto/ }).check();
   await expect(page.getByText('1 residente vai receber', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Salvar rascunho', exact: true }).click();
-  await expect(page.getByRole('dialog')).toContainText('Escolhidos um a um · 1 residente');
+  await expectRecipients(page, 'Escolhidos um a um · 1 residente');
   await confirm(page, 'Salvar rascunho');
   await expect(page).toHaveURL('/comunicacoes/avisos/' + noticeId);
   expect(state.writes[0].body.residentIds).toEqual([uuid(44)]);
@@ -850,8 +859,12 @@ test('supervisor publica aviso por UUID, revisa preservando destinatários e ret
   await confirm(page, 'Salvar rascunho');
   await expect(page).toHaveURL('/comunicacoes/avisos/' + noticeId);
   expect(state.writes[0].body.residentIds).toEqual([residentId]);
+  // Os nomes ficam na página do aviso, em "Quem recebe"; os diálogos mostram só a quantidade.
+  await expect(page.locator('h3:has-text("Quem recebe") + ul')).toHaveText(
+    'Estudante Sintético · TESTE-001',
+  );
   await page.getByRole('button', { name: 'Revisar publicação' }).click();
-  await expect(page.getByRole('dialog')).toBeVisible();
+  await expectRecipients(page, 'Lista salva no rascunho · 1 residente');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Revisar publicação' })).toBeFocused();
@@ -865,11 +878,13 @@ test('supervisor publica aviso por UUID, revisa preservando destinatários e ret
     .getByLabel('Mensagem', { exact: true })
     .fill('A reunião foi transferida para as 19 horas no mesmo auditório.');
   await page.getByRole('button', { name: 'Publicar correção' }).click();
+  await expectRecipients(page, 'Lista salva no rascunho · 1 residente');
   await confirm(page, 'Publicar correção');
   await expect(page.getByText('Correção publicada.')).toBeVisible();
   expect(state.writes[2].body).toMatchObject({ version: 1, title: 'Reunião geral de residentes' });
   expect(state.writes[2].body).not.toHaveProperty('residentIds');
   await page.getByRole('button', { name: 'Retirar com justificativa' }).click();
+  await expectRecipients(page, 'Lista salva no rascunho · 1 residente');
   await page
     .getByRole('dialog')
     .getByLabel('Justificativa', { exact: true })
