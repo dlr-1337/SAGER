@@ -59,7 +59,7 @@ Comandos:
 ## 4. Documentação e verificação final
 
 - [x] 4.1 Descrever os contadores em `docs/MANUAL.md` (Acesso, Supervisor e Residente) e o pacote `pending` e a consulta de 30 s em `docs/ARQUITETURA.md`. Verificar relendo as seções.
-- [ ] 4.2 Rodar:
+- [x] 4.2 Rodar:
   - `npx -y @fission-ai/openspec@2.0.0 validate pending-badges --strict`;
   - `npm run build`;
   - os testes das tarefas 1 a 3.

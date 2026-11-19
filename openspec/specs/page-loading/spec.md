@@ -255,13 +255,19 @@ O detalhe de um quarto SHALL buscar apenas os residentes alocados naquele quarto
 
 ### Requirement: Feedback da limpeza igual ao ranking
 
-Na lista de avaliações de limpeza, tanto na gestão quanto na do residente, cada avaliação SHALL trazer a média e a posição do quarto na semana iguais às do ranking semanal daquela semana. Isso vale também quando várias avaliações da mesma página caem na mesma semana.
+Na lista de avaliações de limpeza, tanto na gestão quanto na do residente, cada avaliação SHALL trazer a média e a posição do quarto nos últimos 5 dias terminados na data da avaliação, iguais às do ranking desse período. Isso vale também quando várias avaliações da mesma página caem em janelas que se cruzam.
 
 #### Scenario: Três avaliações na mesma semana
 
-- **GIVEN** três quartos avaliados na mesma semana, dois empatados
+- **GIVEN** três quartos avaliados no mesmo dia, dois empatados
 - **WHEN** o supervisor abre a lista de avaliações
-- **THEN** cada avaliação traz a mesma média e a mesma posição que o ranking semanal mostra para o seu quarto
+- **THEN** cada avaliação traz a mesma média e a mesma posição que o ranking dos últimos 5 dias até aquela data mostra para o seu quarto
+
+#### Scenario: Avaliações em dias diferentes
+
+- **GIVEN** o quarto A avaliado em 15/11 e em 19/11
+- **WHEN** o supervisor abre a lista de avaliações
+- **THEN** a de 15/11 traz a média e a posição de 11/11 a 15/11, e a de 19/11, as de 15/11 a 19/11
 
 #### Scenario: Lista do residente
 

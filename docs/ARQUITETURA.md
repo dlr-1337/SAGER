@@ -167,7 +167,7 @@ Cada decisão traz o contexto, a escolha, o que foi descartado e a consequência
 
 As specs de cada capacidade ficam em [`openspec/specs`](../openspec/specs/). O fluxo de mudança está na seção [OpenSpec workflow do AGENTS.md](../AGENTS.md#openspec-workflow).
 
-São 40 capacidades. Desde 13/11/2026 (change `document-core-baseline`), as regras centrais da monografia também têm spec: acesso, cadastros, alocação, chamada noturna, saídas, disciplina, avisos, limpeza, auditoria, demonstração e ajuda. As divergências entre código e monografia achadas nessa conferência estão no [design.md da change arquivada](../openspec/changes/archive/2026-11-13-document-core-baseline/design.md). Os contratos antigos por fase continuam no histórico do git, na revisão `7d22855` (`git show 7d22855:docs/`), só como registro.
+São 41 capacidades. Desde 13/11/2026 (change `document-core-baseline`), as regras centrais da monografia também têm spec: acesso, cadastros, alocação, chamada noturna, saídas, disciplina, avisos, limpeza, auditoria, demonstração e ajuda. As divergências entre código e monografia achadas nessa conferência estão no [design.md da change arquivada](../openspec/changes/archive/2026-11-13-document-core-baseline/design.md). Os contratos antigos por fase continuam no histórico do git, na revisão `7d22855` (`git show 7d22855:docs/`), só como registro.
 
 O método de desenvolvimento, os padrões de código e o passo a passo de uma mudança estão em [DESENVOLVIMENTO.md](DESENVOLVIMENTO.md).
 

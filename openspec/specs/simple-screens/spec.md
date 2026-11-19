@@ -157,7 +157,7 @@ A avaliação de limpeza nova SHALL ser feita em três passos, um por vez, com "
 
 ### Requirement: Saída longa com só o próximo passo
 
-No detalhe da saída longa, o supervisor SHALL ver o resumo do pedido (residente, saída, volta, motivo e responsável) e só o passo atual: "Autorização do responsável" até a conferência; "Decisão", com "Aprovar saída"; "Saída", só na agendada aprovada, com "Registrar saída" a partir da hora pedida; e, em andamento, "Volta", só com "Registrar volta". "Rejeitar" MUST continuar à vista nos dois primeiros passos, também antes da conferência.
+No detalhe da saída longa, o supervisor SHALL ver o resumo do pedido (residente, saída, volta, motivo e responsável) e só o passo atual: "Autorização do responsável" até a conferência; "Decisão", com "Aprovar saída"; "Saída", na saída aprovada, com "Registrar saída" a partir da hora pedida; e, em andamento, "Volta", só com "Registrar volta". "Rejeitar" MUST continuar à vista nos dois primeiros passos, também antes da conferência.
 
 #### Scenario: Sem arquivo recebido
 
@@ -176,6 +176,12 @@ No detalhe da saída longa, o supervisor SHALL ver o resumo do pedido (residente
 - **GIVEN** uma saída longa agendada, aprovada, com partida pedida para daqui a 2 horas
 - **WHEN** o supervisor abre o detalhe
 - **THEN** o passo "Saída" mostra "Saída marcada para" com a data e a hora, sem "Registrar saída"
+
+#### Scenario: Pedido para sair agora aprovado
+
+- **GIVEN** uma saída longa com partida imediata, aprovada e sem partida registrada
+- **WHEN** o supervisor abre o detalhe
+- **THEN** o passo "Saída" diz para registrar a saída quando o residente se apresentar e a única ação à vista é "Registrar saída"
 
 #### Scenario: Saída em andamento
 
@@ -215,13 +221,19 @@ O histórico, o documento enviado, os arquivos já decididos, os arquivos sem v�
 
 ### Requirement: Saída curta com só a ação do momento
 
-No detalhe da saída curta, o supervisor SHALL ver o resumo do pedido e só a ação do momento: "Aprovar" e "Rejeitar" enquanto aguarda análise; na agendada aprovada, "Saída marcada para" com a data e a hora e, a partir da hora pedida, só "Registrar saída"; com a saída em andamento, só "Registrar volta". O histórico e "Cancelar pedido" ficam em "Mais detalhes", recolhido.
+No detalhe da saída curta, o supervisor SHALL ver o resumo do pedido e só a ação do momento: "Aprovar" e "Rejeitar" enquanto aguarda análise; na saída aprovada, "Saída marcada para" com a data e a hora antes da hora pedida e, a partir dela, só "Registrar saída"; com a saída em andamento, só "Registrar volta". O histórico e "Cancelar pedido" ficam em "Mais detalhes", recolhido.
 
 #### Scenario: Saída agendada na hora
 
 - **GIVEN** uma saída curta agendada e aprovada cuja partida pedida chegou
 - **WHEN** o supervisor abre o detalhe
 - **THEN** a única ação à vista é "Registrar saída"
+
+#### Scenario: Pedido para sair agora aprovado
+
+- **GIVEN** uma saída curta com partida imediata, aprovada e sem partida registrada
+- **WHEN** o supervisor abre o detalhe
+- **THEN** a tela diz para registrar a saída quando o residente se apresentar e a única ação à vista é "Registrar saída"
 
 #### Scenario: Saída em andamento
 
@@ -288,3 +300,55 @@ A tela de acesso SHALL caber na altura visível da janela, sem rolar, a partir d
 - **GIVEN** o acesso numa tela de 320 por 568 px
 - **WHEN** o usuário rola até o fim
 - **THEN** o botão "Entrar" e os links de ajuda ficam alcançáveis
+
+### Requirement: Nada vaza no celular
+
+A partir de 320 px de largura, no acesso por conta e na demonstração, a página MUST NOT rolar na horizontal, e nenhum texto, campo, botão, caixa de marcar ou cartão SHALL passar da borda da tela ou do painel, cartão, filtro, diálogo ou item de lista em que está. Tabelas largas rolam dentro da própria caixa. Um diálogo aberto SHALL caber na altura visível, com o conteúdo rolando por dentro e os botões à vista.
+
+#### Scenario: Filtro com datas
+
+- **GIVEN** o supervisor no celular, numa tela de 320 px de largura
+- **WHEN** ele escolhe "Escolher datas" em Relatórios ou abre os filtros da limpeza
+- **THEN** "Data inicial" e "Data final" ficam dentro do card, sem rolagem horizontal
+
+#### Scenario: Diálogo com a barra do navegador
+
+- **GIVEN** a chamada noturna fora do horário, num celular de 360 px com 600 px de altura visível
+- **WHEN** o supervisor clica em "Abrir chamada"
+- **THEN** o diálogo cabe na tela, o conteúdo rola por dentro e "Cancelar" e "Abrir chamada" ficam à vista
+
+#### Scenario: Menu no celular
+
+- **WHEN** o usuário abre o Menu num celular de 320 px
+- **THEN** a gaveta e todos os itens dela cabem na largura da tela
+
+### Requirement: Botões de decisão no mesmo padrão
+
+Nas decisões do supervisor da notificação de ocorrência, da avaliação de limpeza, do aviso, da advertência e do termo, os botões SHALL ficar num grupo só, com a ação principal primeiro e destacada e as outras na ordem do fluxo, todos do mesmo tamanho, alinhados numa grade e com o texto quebrando dentro do botão. No celular, cada botão SHALL ocupar a largura do painel. Links de consulta ficam fora do grupo.
+
+#### Scenario: Notificação pendente no celular
+
+- **GIVEN** uma notificação de ocorrência pendente, aberta num celular de 360 px
+- **WHEN** o supervisor olha "Decisão do supervisor"
+- **THEN** ele vê, um por linha e com a mesma largura e altura, "Criar advertência" em destaque, "Registrar visualização", "Iniciar análise" e "Arquivar com justificativa"
+
+#### Scenario: Avaliação de limpeza
+
+- **WHEN** o supervisor abre uma avaliação de limpeza no celular
+- **THEN** "Corrigir com justificativa" ocupa a largura do painel e "Ver ranking deste período" fica abaixo, como link
+
+#### Scenario: Computador
+
+- **GIVEN** a notificação de ocorrência aberta no computador
+- **WHEN** o supervisor olha "Decisão do supervisor"
+- **THEN** os botões ficam juntos, do mesmo tamanho e alinhados, com "Criar advertência" primeiro
+
+### Requirement: Confirmação marcada em caixa
+
+Num diálogo, a declaração com caixa de marcar SHALL ficar numa caixa com a largura e o recuo dos avisos do mesmo diálogo, com a marca à esquerda e o texto quebrando a linha ao lado dela. A caixa marcada SHALL mudar de cor, e o texto da declaração MUST continuar o mesmo.
+
+#### Scenario: Chamada fora do horário
+
+- **GIVEN** o diálogo "A chamada será aberta." fora do horário, num celular de 320 px
+- **WHEN** o supervisor rola até a confirmação
+- **THEN** "Confirmo o registro fora do horário da chamada (22h às 23h30)." aparece numa caixa da largura do aviso amarelo, com o texto quebrado em linhas dentro dela
