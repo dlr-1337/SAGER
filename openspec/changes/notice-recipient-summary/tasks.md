@@ -23,11 +23,11 @@ Comandos: frontend em `frontend/` com `npx ng test --watch=false --include <spec
   - "Revisar publicação", "Publicar correção" e "Retirar com justificativa" mostram "Lista salva no rascunho · 1 residente", sem o nome;
   - a página do aviso lista o nome em "Quem recebe".
 
-  Verificar com `SAGER_E2E_PORT=4333 CI=1 npx playwright test e2e/communications-local.spec.ts --workers=1 -g "aviso|Quem recebe|receber|Escolher pessoas"`.
+  Verificar com `SAGER_E2E_PORT=4333 CI=1 npx playwright test e2e/communications-local.spec.ts --workers=1 -g "aviso|quem recebe|receber|Escolher pessoas"`.
 
 ## 4. Documentação
 
-- [ ] 4.1 Em `docs/MANUAL.md` (Supervisor, item Avisos), dizer que a confirmação mostra o grupo e a quantidade, e os nomes ficam na página do aviso, em **Quem recebe**. Verificar lendo o trecho.
+- [x] 4.1 Em `docs/MANUAL.md` (Supervisor, item Avisos), dizer que a confirmação mostra o grupo e a quantidade, e os nomes ficam na página do aviso, em **Quem recebe**. Verificar lendo o trecho.
 
 ## 5. Verificação final
 
