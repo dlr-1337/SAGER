@@ -10,16 +10,36 @@ import org.springframework.stereotype.Component;
 /** Fixed projections only. No clinical table, invitation, credentials or internal analysis column. */
 @Component @Profile({ "local", "production" })
 public class ReportCatalog {
+ /**
+  * Version 2: each report has its own columns and summary metrics, and records come newest first.
+  * A version 1 snapshot keeps the columns, summary and order it stored; its hash covers them.
+  */
+ public static final long VERSION=2;
  private final JdbcTemplate jdbc;
  public ReportCatalog(JdbcTemplate jdbc){this.jdbc=jdbc;}
- private static final List<Column> COLUMNS=List.of(
-  new Column("id","Identificador","UUID"),new Column("date","Data","DATE"),
-  new Column("type","Tipo","STRING"),new Column("status","Situação","STRING"),
-  new Column("residentId","Residente UUID","UUID"),new Column("residentName","Residente","STRING"),
-  new Column("roomCode","Quarto","STRING"),new Column("score","Nota","DECIMAL"),
-  new Column("category","Categoria","STRING"),new Column("sourceType","Origem","STRING"));
+ // Column keeps its three fields: a new one would read as null in stored snapshots and change their hash.
+ private static final Column DATE=new Column("date","Data","DATE"),TYPE=new Column("type","Tipo","STRING"),
+  STATUS=new Column("status","Situação","STRING"),RESIDENT=new Column("residentName","Residente","STRING"),
+  ROOM=new Column("roomCode","Quarto","STRING"),SCORE=new Column("score","Nota","DECIMAL"),
+  CATEGORY=new Column("category","Categoria","STRING"),SOURCE=new Column("sourceType","Origem","STRING");
+ // Only the columns that mean something in each report: when, who, where, what and, last, the status.
+ private static final Map<String,List<Column>> COLUMNS=Map.of(
+  "PRESENCA",List.of(DATE,RESIDENT,ROOM,STATUS),
+  "SAIDAS",List.of(DATE,RESIDENT,ROOM,new Column("sourceType","Tipo de saída","STRING"),STATUS),
+  "LIMPEZA",List.of(DATE,ROOM,RESIDENT,SCORE,STATUS),
+  "OCORRENCIAS",List.of(DATE,RESIDENT,ROOM,CATEGORY,SOURCE,STATUS),
+  "NOTIFICACOES",List.of(DATE,RESIDENT,ROOM,CATEGORY,SOURCE,STATUS),
+  "ADVERTENCIAS",List.of(DATE,RESIDENT,ROOM,CATEGORY,SOURCE,STATUS),
+  "TERMOS",List.of(DATE,RESIDENT,ROOM,STATUS),
+  "CONSOLIDADO",List.of(DATE,TYPE,RESIDENT,ROOM,SCORE,CATEGORY,SOURCE,STATUS));
+ /** Metrics a summary may carry besides totalRows, countsByStatus and, when consolidated, countsByType. */
+ public static final List<String> METRIC_KEYS=List.of("cleaningMean","unjustifiedAbsences","confirmedLateReturns","activeWarnings");
+ private static final Map<String,List<String>> METRICS=Map.of(
+  "PRESENCA",List.of("unjustifiedAbsences"),"SAIDAS",List.of("confirmedLateReturns"),"LIMPEZA",List.of("cleaningMean"),
+  "OCORRENCIAS",List.of(),"NOTIFICACOES",List.of(),"ADVERTENCIAS",List.of("activeWarnings"),"TERMOS",List.of(),
+  "CONSOLIDADO",METRIC_KEYS);
  private static final List<String> EXITS=List.of("AGUARDANDO_ANALISE","APROVADA","REJEITADA","CANCELADA","EXPIRADA","EM_ANDAMENTO","RETORNO_CONFIRMADO","RETORNO_CONFIRMADO_COM_ATRASO");
- public Catalog catalog(){return new Catalog(1,List.of(
+ public Catalog catalog(){return new Catalog(VERSION,List.of(
   item("PRESENCA","Presença",List.of("PRESENTE","AUSENTE","AUSENCIA_JUSTIFICADA","PENDENTE","CHAMADA_ABERTA")),
   item("SAIDAS","Saídas curtas e longas",EXITS),
   item("LIMPEZA","Avaliações de limpeza",List.of("ABAIXO_LIMITE","DENTRO_LIMITE")),
@@ -28,7 +48,7 @@ public class ReportCatalog {
   item("ADVERTENCIAS","Advertências",List.of("VIGENTE","ANULADA")),
   item("TERMOS","Termos de compromisso",List.of("EMITIDO","ANULADO")),
   item("CONSOLIDADO","Consolidado administrativo",List.of())),366,10000,20,100,24);}
- private CatalogItem item(String code,String title,List<String> states){return new CatalogItem(code,title,states,COLUMNS);}
+ private CatalogItem item(String code,String title,List<String> states){return new CatalogItem(code,title,states,COLUMNS.get(code));}
  public CatalogItem item(String code){return catalog().items().stream().filter(i->i.code().equals(code)).findFirst().orElseThrow(()->ReportingApiException.invalid("Catálogo inválido."));}
  public List<Map<String,Object>> rows(String code,Filters filters){
   item(code);if(filters.status()!=null){var states=item(code).statuses();if(code.equals("CONSOLIDADO"))states=catalog().items().stream().flatMap(i->i.statuses().stream()).distinct().toList();if(!states.contains(filters.status()))throw ReportingApiException.invalid("Situação não pertence ao catálogo.");}
@@ -75,7 +95,8 @@ public class ReportCatalog {
     NULL::text AS category,'RECURRENCE'::text AS source_type FROM sager_commitment_term t
    JOIN sager_resident r ON r.id=t.resident_id
    """+location("t.resident_id","t.issued_at"));
-  String sql="SELECT * FROM ("+String.join(" UNION ALL ",projections)+") result WHERE date BETWEEN ? AND ? AND (?::uuid IS NULL OR accommodation_id=?) AND (?::uuid IS NULL OR room_id IN (SELECT id FROM sager_room WHERE unit_id=?)) AND (?::uuid IS NULL OR room_id=?) AND (?::uuid IS NULL OR resident_id=?) AND (?::text IS NULL OR status=?) ORDER BY date,type,id,resident_id NULLS LAST LIMIT 10001";
+  // Newest first; on the same day, by resident name. The stored order is the one the screen and files show.
+  String sql="SELECT * FROM ("+String.join(" UNION ALL ",projections)+") result WHERE date BETWEEN ? AND ? AND (?::uuid IS NULL OR accommodation_id=?) AND (?::uuid IS NULL OR room_id IN (SELECT id FROM sager_room WHERE unit_id=?)) AND (?::uuid IS NULL OR room_id=?) AND (?::uuid IS NULL OR resident_id=?) AND (?::text IS NULL OR status=?) ORDER BY date DESC,resident_name NULLS LAST,type,id,resident_id NULLS LAST LIMIT 10001";
   var result=jdbc.queryForList(sql,filters.from(),filters.to(),filters.accommodationId(),filters.accommodationId(),filters.unitId(),filters.unitId(),filters.roomId(),filters.roomId(),filters.residentId(),filters.residentId(),filters.status(),filters.status());
   if(result.size()>10000)throw new ReportingApiException(org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY,"report_limit_exceeded","A consulta ultrapassa 10.000 linhas. Reduza o período ou combine filtros.");
   return result.stream().map(r->{Map<String,Object> row=new LinkedHashMap<>();row.put("id",string(r.get("id")));row.put("date",r.get("date").toString());row.put("type",r.get("type"));row.put("status",r.get("status"));row.put("residentId",string(r.get("resident_id")));row.put("residentName",r.get("resident_name"));row.put("roomId",string(r.get("room_id")));row.put("roomCode",r.get("room_code"));row.put("accommodationId",string(r.get("accommodation_id")));row.put("score",r.get("score"));row.put("category",r.get("category"));row.put("sourceType",r.get("source_type"));return row;}).toList();
@@ -83,19 +104,28 @@ public class ReportCatalog {
  private String exit(String table,String source){return "SELECT e.id,(e.requested_departure_at AT TIME ZONE 'America/Sao_Paulo')::date AS date,'SAIDAS'::text AS type,e.status,e.resident_id,e.resident_name,l.room_id,l.room_code,l.accommodation_id,NULL::numeric AS score,NULL::text AS category,'"+source+"'::text AS source_type FROM "+table+" e "+location("e.resident_id","e.requested_departure_at");}
  private String location(String resident,String at){return " LEFT JOIN LATERAL (SELECT a.room_id,r.code AS room_code,r.accommodation_id FROM sager_room_allocation a JOIN sager_room r ON r.id=a.room_id WHERE a.resident_id="+resident+" AND a.started_at<="+at+" AND (a.ended_at IS NULL OR a.ended_at>"+at+") ORDER BY a.started_at DESC,a.id LIMIT 1) l ON true ";}
  private String string(Object value){return value==null?null:value.toString();}
- public Map<String,Object> summary(List<Map<String,Object>> rows){
+ /** Total and counts by status always; counts by type only when the report mixes subjects; then the report's own metrics. */
+ public Map<String,Object> summary(String code,List<Map<String,Object>> rows){
   Map<String,Long> type=new LinkedHashMap<>(),status=new LinkedHashMap<>();Map<String,BigDecimal> scores=new LinkedHashMap<>();
   for(var row:rows){type.merge(row.get("type").toString(),1L,Long::sum);status.merge(row.get("status").toString(),1L,Long::sum);if(row.get("score")!=null)scores.put(row.get("id").toString(),new BigDecimal(row.get("score").toString()));}
-  Map<String,Object> result=new LinkedHashMap<>();result.put("totalRows",rows.size());result.put("countsByType",type);result.put("countsByStatus",status);result.put("cleaningMean",mean(scores.values()));
-  result.put("unjustifiedAbsences",rows.stream().filter(r->"PRESENCA".equals(r.get("type"))&&"AUSENTE".equals(r.get("status"))).count());
-  result.put("confirmedLateReturns",rows.stream().filter(r->"SAIDAS".equals(r.get("type"))&&"RETORNO_CONFIRMADO_COM_ATRASO".equals(r.get("status"))).count());
-  result.put("activeWarnings",rows.stream().filter(r->"ADVERTENCIAS".equals(r.get("type"))&&"VIGENTE".equals(r.get("status"))).count());return result;
+  Map<String,Object> result=new LinkedHashMap<>();result.put("totalRows",rows.size());
+  if(code.equals("CONSOLIDADO"))result.put("countsByType",type);
+  result.put("countsByStatus",status);
+  for(String metric:METRICS.get(code))switch(metric){
+   case "cleaningMean"->result.put(metric,mean(scores.values()));
+   case "unjustifiedAbsences"->result.put(metric,count(rows,"PRESENCA","AUSENTE"));
+   case "confirmedLateReturns"->result.put(metric,count(rows,"SAIDAS","RETORNO_CONFIRMADO_COM_ATRASO"));
+   case "activeWarnings"->result.put(metric,count(rows,"ADVERTENCIAS","VIGENTE"));
+   default->throw new IllegalStateException(metric);
+  }
+  return result;
  }
- public List<Map<String,Object>> monthly(List<Map<String,Object>> rows,Filters filters){
+ private static long count(List<Map<String,Object>> rows,String type,String status){return rows.stream().filter(r->type.equals(r.get("type"))&&status.equals(r.get("status"))).count();}
+ public List<Map<String,Object>> monthly(String code,List<Map<String,Object>> rows,Filters filters){
   List<Map<String,Object>> result=new ArrayList<>();
   for(LocalDate month=filters.from().withDayOfMonth(1);!month.isAfter(filters.to());month=month.plusMonths(1)){
    String key=month.toString().substring(0,7);var selected=rows.stream().filter(r->r.get("date").toString().startsWith(key)).toList();
-   Map<String,Object> row=new LinkedHashMap<>();row.put("month",key);row.putAll(summary(selected));result.add(row);
+   Map<String,Object> row=new LinkedHashMap<>();row.put("month",key);row.putAll(summary(code,selected));result.add(row);
   }return result;
  }
  private BigDecimal mean(Collection<BigDecimal> scores){return scores.isEmpty()?null:scores.stream().reduce(BigDecimal.ZERO,BigDecimal::add).divide(BigDecimal.valueOf(scores.size()),2,RoundingMode.HALF_UP);}
