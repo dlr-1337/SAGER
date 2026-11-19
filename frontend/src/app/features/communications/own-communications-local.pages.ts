@@ -5,6 +5,8 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { autoRefresh } from '../../core/auto-refresh';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { cursorPages } from '../../core/list-page';
+import { PendingBadgesService } from '../../core/pending-badges.service';
+import { PendingBadgeComponent } from '../../shared/pending-badge.component';
 import { AutoRefreshStatusComponent } from '../../shared/auto-refresh-status.component';
 import { PaginationComponent } from '../../shared/pagination.component';
 import { StatusLegendComponent } from '../../shared/status-legend.component';
@@ -39,6 +41,7 @@ type OwnTab = 'avisos' | 'advertencias' | 'termos';
     CommunicationsStateComponent,
     PaginationComponent,
     StatusLegendComponent,
+    PendingBadgeComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -65,19 +68,19 @@ type OwnTab = 'avisos' | 'advertencias' | 'termos';
             [attr.aria-current]="tab() === 'avisos' ? 'page' : null"
             (click)="choose('avisos')"
           >
-            Avisos</button
+            Avisos<sager-pending-badge [count]="pending.count(['notices'])" /></button
           ><button
             type="button"
             [attr.aria-current]="tab() === 'advertencias' ? 'page' : null"
             (click)="choose('advertencias')"
           >
-            Advertências</button
+            Advertências<sager-pending-badge [count]="pending.count(['warnings'])" /></button
           ><button
             type="button"
             [attr.aria-current]="tab() === 'termos' ? 'page' : null"
             (click)="choose('termos')"
           >
-            Termos de compromisso
+            Termos de compromisso<sager-pending-badge [count]="pending.count(['terms'])" />
           </button>
         </nav>
         <!-- O estado fica abaixo das abas: acima, empurraria as abas ao carregar. -->
@@ -139,6 +142,8 @@ type OwnTab = 'avisos' | 'advertencias' | 'termos';
 })
 export class OwnCommunicationsLocalPage {
   readonly session = inject(DemoSessionService);
+  /** Itens sem ciência em cada aba (pending-badges). */
+  readonly pending = inject(PendingBadgesService);
   private readonly api = inject(CommunicationsLocalApiService);
   private readonly route = inject(ActivatedRoute);
   readonly tab = signal<OwnTab>(this.initialTab());

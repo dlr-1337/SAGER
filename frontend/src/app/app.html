@@ -93,13 +93,19 @@
         type="button"
         [attr.aria-expanded]="menuOpen()"
         aria-controls="app-navigation"
+        [attr.aria-describedby]="menuPending() > 0 ? 'menu-pending' : null"
         (click)="toggleMenu()"
       >
         <span class="material-symbols-rounded" aria-hidden="true">{{
           menuOpen() ? 'close' : 'menu'
         }}</span>
         <span>Menu</span>
+        <sager-pending-badge [count]="menuPending()" [announce]="false" />
       </button>
+      @if (menuPending() > 0) {
+        <!-- Oculto: só serve de descrição do botão, sem texto solto no cabeçalho. -->
+        <span id="menu-pending" hidden>{{ menuPendingLabel() }}</span>
+      }
     </header>
   }
 
@@ -158,6 +164,7 @@
             >
               <span class="material-symbols-rounded" aria-hidden="true">{{ item.icon }}</span>
               <span>{{ item.label }}</span>
+              <sager-pending-badge [count]="pending.forPath(item.path)" />
             </a>
           }
         </nav>

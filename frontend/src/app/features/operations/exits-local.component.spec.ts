@@ -6,6 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { FilterState } from '../../core/filter-state';
 import { LocalAuthService } from '../../core/local-auth.service';
+import {
+  PendingBadgesService,
+  type PendingCounts,
+  type PendingKey,
+} from '../../core/pending-badges.service';
 import { HousingMap } from '../management/housing.models';
 import { RoomApiService } from '../management/room-api.service';
 import { ExitsLocalComponent } from './exits-local.component';
@@ -558,5 +563,72 @@ describe('Critérios restaurados da lista de saídas', () => {
       expect(component.error()).toBe('');
       expect(fixture.nativeElement.textContent).toContain('Não foi possível atualizar.');
     });
+  });
+});
+
+describe('Contador nas abas de saídas', () => {
+  it('mostra em cada aba a sua parte da contagem de "Saídas e retornos"', async () => {
+    const counts = signal<PendingCounts>({ shortExits: 2, longExits: 1 });
+    const params = new BehaviorSubject(convertToParamMap({}));
+    TestBed.configureTestingModule({
+      imports: [ExitsLocalComponent],
+      providers: [
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: { queryParamMap: params.value },
+            queryParamMap: params.asObservable(),
+          },
+        },
+        {
+          provide: DemoSessionService,
+          useValue: {
+            active: signal(false),
+            hasRole: (...roles: string[]) => roles.includes('supervisor'),
+          },
+        },
+        {
+          provide: OperationsLocalApiService,
+          useValue: { exitsPage: vi.fn().mockResolvedValue({ items: [], total: 0 }) },
+        },
+        {
+          provide: LongExitApiService,
+          useValue: { page: vi.fn().mockResolvedValue({ items: [], total: 0 }) },
+        },
+        {
+          provide: RoomApiService,
+          useValue: { map: vi.fn().mockResolvedValue(structuredClone(housing)) },
+        },
+        {
+          provide: PendingBadgesService,
+          useValue: {
+            count: (keys: readonly PendingKey[]) =>
+              keys.reduce((total, key) => total + (counts()[key] ?? 0), 0),
+          },
+        },
+      ],
+    });
+    const fixture = TestBed.createComponent(ExitsLocalComponent);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    const tabs = [...element.querySelectorAll<HTMLAnchorElement>('.exit-modalities a')];
+    const badges = () =>
+      tabs.map((tab) => tab.querySelector('.pending-badge')?.textContent?.trim() ?? null);
+    expect(tabs.map((tab) => tab.firstChild?.textContent?.trim())).toEqual([
+      'Saídas curtas',
+      'Saídas longas',
+    ]);
+    expect(badges()).toEqual(['2', '1']);
+    expect(tabs.map((tab) => tab.querySelector('.sr-only')?.textContent)).toEqual([
+      ', 2 pendentes',
+      ', 1 pendente',
+    ]);
+
+    counts.set({ shortExits: 0, longExits: 1 });
+    fixture.detectChanges();
+    expect(badges()).toEqual([null, '1']);
+    fixture.destroy();
   });
 });

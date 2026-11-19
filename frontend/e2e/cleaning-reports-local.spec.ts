@@ -895,9 +895,11 @@ test('um clique gera PDF e Excel, a tela acompanha sozinha e o download sai com 
     timeout: 8000,
   });
   await expect(page.getByRole('status').filter({ hasText: 'Pronto para baixar.' })).toBeVisible();
-  const readyGets = state.gets.length;
+  // A contagem do menu (pending-badges) tem ritmo próprio, de 30 s: fica fora desta conta.
+  const reportGets = () => state.gets.filter((path) => !path.startsWith('/me/pendencias'));
+  const readyGets = reportGets().length;
   await page.waitForTimeout(3500);
-  expect(state.gets).toHaveLength(readyGets);
+  expect(reportGets()).toHaveLength(readyGets);
 
   for (const [name, file] of [
     ['Baixar PDF', 'relatorio-presenca-2026-09-01-a-2026-09-30.pdf'],

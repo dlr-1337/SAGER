@@ -54,6 +54,7 @@ As rotas ficam em `frontend/src/app/app.routes.ts`. Os testes unitários ficam a
 | `integrations` | Adaptador do gateway WhatsApp, webhook e tarefas de envio. |
 | `management` | Cadastros: alojamentos, alocações, cursos, responsáveis, residentes, quartos e supervisores. |
 | `operations` | Chamada noturna, saídas curtas e saídas longas. |
+| `pending` | Contagem do que espera o supervisor ou o residente, para os números do menu (`/me/pendencias`). |
 | `reports` | Catálogo, consultas congeladas e exportação assíncrona. |
 
 As migrações ficam em `backend/src/main/resources/db/migration/` e os testes em `backend/src/test/java/`.
@@ -160,6 +161,7 @@ Cada decisão traz o contexto, a escolha, o que foi descartado e a consequência
 - **Decisão:** listas e detalhes pedem os dados de novo a cada 15 segundos com a aba visível, e na hora ao voltar à aba, pelas rotas de leitura que já existem (`core/auto-refresh.ts`). A consulta espera com formulário alterado, diálogo aberto ou conflito à vista, e para depois de 30 minutos sem clique ou tecla ("Atualização pausada", com "Retomar"). As consultas automáticas levam `X-Sager-Auto-Refresh: 1` e não renovam a sessão. A demonstração não se atualiza sozinha.
 - **Alternativa rejeitada:** WebSocket ou SSE. Exigiria canal novo no backend, configuração no gateway e tratamento de sessão no canal.
 - **Consequência:** cada aba visível faz uma leitura a cada 15 s; 20 abas somam 80 leituras por minuto, além do pico de 50 transações por minuto da monografia (cap. 4). A carga ainda precisa ser medida na VPS (D24).
+- **Números do menu (change `pending-badges`, 19/11/2026):** o supervisor e o residente fazem também uma contagem leve (`GET /api/v1/me/pendencias`) a cada 30 s com a aba visível, a cada troca de tela e depois de cada gravação, com a mesma marca de consulta automática e a mesma pausa de 30 minutos (até a próxima troca de tela). São mais 2 leituras por minuto por aba visível; o gestor e a demonstração não fazem essa consulta.
 
 ## Comportamento e OpenSpec
 

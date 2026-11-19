@@ -383,6 +383,10 @@ class AuthFlowIntegrationTest {
                                 .header("Content-Type", "application/x-www-form-urlencoded")
                                 .build());
                 assertThat(login.statusCode()).isIn(401, 403);
+                HttpResponse<String> pending = request(client,
+                        HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + closedPort
+                                + "/api/v1/me/pendencias")).GET().build());
+                assertThat(pending.statusCode()).isIn(401, 403);
             }
         }
     }

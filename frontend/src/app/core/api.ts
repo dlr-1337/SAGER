@@ -27,6 +27,7 @@ let knownUser: () => string | null = () => null;
 const copies = new Map<string, { at: number; value: Promise<unknown> }>();
 let autoRefreshing = 0;
 let lastInput = -Infinity;
+const writeListeners = new Set<(url: string) => void>();
 // Captura, uma vez por aba: o clique ou a tecla chega aqui antes do tratador que consulta.
 if (typeof document !== 'undefined') {
   const input = () => (lastInput = Date.now());
@@ -38,6 +39,15 @@ if (typeof document !== 'undefined') {
 export function onUnauthorized(handler: () => void, user: () => string | null = () => null): void {
   unauthorized = handler;
   knownUser = user;
+}
+
+/**
+ * Chama `listener` depois de cada gravação aceita pelo servidor; os contadores do menu se refazem
+ * logo depois de uma ação (pending-badges, design D9). Devolve a função que desliga o aviso.
+ */
+export function afterWrite(listener: (url: string) => void): () => void {
+  writeListeners.add(listener);
+  return () => writeListeners.delete(listener);
 }
 
 /** Descarta o token CSRF e as cópias: depois de entrar, ao sair e quando a sessão termina. */
@@ -125,6 +135,7 @@ export async function api(url: string, init: ApiInit = {}): Promise<Response> {
   // Um 409 diz que a aba está desatualizada: o "Recarregar dados" seguinte precisa ir ao servidor.
   if (write && (response.ok || response.status === 409)) copies.clear();
   if (!response.ok) throw await error(response);
+  if (write) for (const listener of [...writeListeners]) listener(url);
   if (!automatic) touchAccount();
   return response;
 }

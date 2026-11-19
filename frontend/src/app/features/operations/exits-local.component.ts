@@ -31,6 +31,8 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { LocalAuthService } from '../../core/local-auth.service';
+import { PendingBadgesService } from '../../core/pending-badges.service';
+import { PendingBadgeComponent } from '../../shared/pending-badge.component';
 import { OperationsLocalApiService, operationsError } from './operations-local-api.service';
 import { ShortExit } from './operations-local.models';
 import { exitStatusLabels, formatOperationsTime, shortReturnText } from './operations-local.utils';
@@ -49,6 +51,7 @@ import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
     SearchableSelectDirective,
     ReactiveFormsModule,
     RouterLink,
+    PendingBadgeComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -82,14 +85,14 @@ import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
           routerLink="/saidas"
           [class.selected]="!longMode()"
           [attr.aria-current]="!longMode() ? 'page' : null"
-          >Saídas curtas</a
+          >Saídas curtas<sager-pending-badge [count]="pending.count(['shortExits'])" /></a
         ><a
           routerLink="/saidas"
           [queryParams]="{ tipo: 'longa' }"
           [class.selected]="longMode()"
           [attr.aria-current]="longMode() ? 'page' : null"
-          >Saídas longas</a
-        >
+          >Saídas longas<sager-pending-badge [count]="pending.count(['longExits'])"
+        /></a>
       </nav>
       @if (!session.hasRole('supervisor', 'residente')) {
         <section class="op-empty" role="alert">
@@ -252,6 +255,8 @@ import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
 })
 export class ExitsLocalComponent {
   readonly session = inject(DemoSessionService);
+  /** Pedidos à espera do supervisor em cada aba (pending-badges); o residente não tem número. */
+  readonly pending = inject(PendingBadgesService);
   private readonly auth = inject(LocalAuthService);
   /** O adulto só consulta: pedir, mudar e cancelar são do residente menor (RN02). */
   readonly adult = computed(() => this.auth.principal()?.maiorDeIdade === true);

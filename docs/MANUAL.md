@@ -24,6 +24,8 @@ Depois de 5 senhas erradas para o mesmo usuário, o login fica bloqueado por at�
 
 No celular, as telas ficam no botão **Menu**. Tudo também funciona só pelo teclado.
 
+Um número amarelo ao lado de um item do menu diz quantas coisas esperam você ali; sem número, não há nada à espera. No celular, o botão **Menu** mostra a soma. O número se atualiza a cada troca de tela, logo depois de você gravar algo e a cada 30 segundos, e não mantém a sessão aberta.
+
 Em cada lista, a busca fica à vista; os outros filtros ficam em **Mais filtros**, que abre fechado. A situação de cada registro aparece escrita e com uma cor: amarelo espera alguém agir, azul está em curso, verde deu certo ou está valendo, vermelho foi negado ou deu problema e cinza está encerrado. Abra **O que significa cada cor?** para ver os nomes de cada tela.
 
 ## Demonstração
@@ -55,10 +57,18 @@ O gestor não opera chamada noturna, saídas, disciplina nem avisos.
 6. **Conversas (opcional).** Quando o gateway de WhatsApp estiver ligado, troque mensagens com os responsáveis. A integração ainda não foi testada com um número real, e nenhuma mensagem aprova saída: a autorização continua sendo conferida e decidida no sistema. Arquivo do responsável que já está numa saída longa mostra o residente e a situação, com **Abrir saída**; arquivo livre mostra **Vincular a uma saída longa**. No computador, com uma conversa aberta, **Recolher conversas** esconde a lista e deixa a conversa com a largura toda; **Mostrar conversas** traz a lista de volta, e o navegador lembra a escolha.
 7. **Cadastros, ranking e relatórios.** Funcionam como para o gestor, exceto o cadastro de supervisores, que é só do gestor.
 
+**O que os números do menu contam:**
+- **Saídas e retornos:** pedidos que esperam sua análise dentro do prazo e saídas aprovadas cuja hora de sair chegou, sem a saída registrada. As abas **Saídas curtas** e **Saídas longas** mostram a parte de cada uma.
+- **Notificações de ocorrência:** as que esperam decisão, mesmo já abertas, e as convertidas cuja origem foi corrigida e precisa ser conferida.
+- **Chamada noturna:** a chamada aberta e ainda não fechada.
+- **Conversas:** conversas com mensagem do responsável que ninguém leu ainda. A leitura vale para todos os supervisores.
+
+Limpeza, advertências e avisos não têm número.
+
 ## Residente
 
 1. **Meu perfil.** Confira seu nome, sua matrícula e seu quarto. Se algum dado estiver errado, ou se o quarto não aparecer, procure a equipe da residência. Se a tela disser que sua conta não está ligada ao seu cadastro, peça ao suporte da instituição para ligar.
-2. **Minhas comunicações.** Leia avisos, advertências e termos de compromisso. O que está em vigor aparece como **Valendo**, na lista e no filtro. Confirme a ciência só depois de ler a versão apresentada. Ciência não é assinatura.
+2. **Minhas comunicações.** Leia avisos, advertências e termos de compromisso. O que está em vigor aparece como **Valendo**, na lista e no filtro. Confirme a ciência só depois de ler a versão apresentada. Ciência não é assinatura. O número no menu e em cada aba conta o que ainda está sem a sua ciência; abrir o item não tira o número, só a ciência tira.
 3. **Minha limpeza e Ranking.** Veja as avaliações do seu quarto e a posição geral. No ranking, seu quarto aparece uma vez, no topo, com a posição e a nota dos últimos 5 dias; dos outros quartos, você vê só a posição.
 4. **Minhas saídas** (só para menores de idade). Peça uma saída curta ou longa e acompanhe o pedido. Na curta, você diz só quando quer sair e por quê: ela dura até 3 horas a partir da hora em que o supervisor registra sua saída. Na saída longa, escolha o responsável que vai autorizar; o supervisor confere a autorização antes de aprovar. Quem registra a saída e a volta é o supervisor: depois da aprovação, apresente-se a ele para ele registrar a saída. O tempo fora só começa a contar nesse registro. O residente maior de idade não pede saídas e não vê esse item no menu.
 
