@@ -155,6 +155,18 @@ const summary = {
   confirmedLateReturns: 1,
   activeWarnings: 1,
 };
+const exitColumns: ReportCatalog['items'][number]['columns'] = [
+  { key: 'date', label: 'Data', type: 'DATE' },
+  { key: 'residentName', label: 'Residente', type: 'STRING' },
+  { key: 'roomCode', label: 'Quarto', type: 'STRING' },
+  { key: 'sourceType', label: 'Tipo de saída', type: 'STRING' },
+  { key: 'status', label: 'Situação', type: 'STRING' },
+];
+const exitSummary = {
+  totalRows: 21,
+  countsByStatus: { APROVADA: 20, RETORNO_CONFIRMADO_COM_ATRASO: 1 },
+  confirmedLateReturns: 1,
+};
 function snapshot(): ReportSnapshot {
   return {
     id: snapshotId,
@@ -497,6 +509,14 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
           ...snapshot(),
           ...(state.zeroRows
             ? { rowCount: 0, summary: { ...summary, totalRows: 0 }, monthly: [] }
+            : {}),
+          // Como o servidor: o relatório de saídas só traz as colunas e as métricas dele.
+          ...(body.catalogCode === 'SAIDAS'
+            ? {
+                columns: exitColumns,
+                summary: { ...exitSummary },
+                monthly: [{ month: '2026-09', ...exitSummary }],
+              }
             : {}),
           catalogCode: body.catalogCode,
           filters: {
@@ -1035,6 +1055,37 @@ test('"Ver na tela" mostra baixar no topo, páginas de registros e nada técnico
     /Identificador|Residente UUID|Catálogo|recorte|SHA-256|bytes/,
   );
   await expect(page.getByText(snapshotId)).toHaveCount(0);
+});
+test('relatório de saídas mostra só as colunas e as métricas do assunto', async ({ page }) => {
+  await mockApi(page);
+  await page.goto('/relatorios');
+  await page.getByRole('radio', { name: /Saídas e retornos/ }).check();
+  await generate(page);
+  await expect(page.getByText('Montando os arquivos', { exact: false })).toBeVisible();
+  await page.getByRole('link', { name: 'Ver na tela', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(snapshotId));
+  await expect(page.locator('dl dt').filter({ hasText: /^Voltaram atrasados$/ })).toBeVisible();
+  for (const text of [
+    'Nota média de limpeza',
+    'Faltas sem justificativa',
+    'Advertências ativas',
+    'Registros por tipo',
+  ])
+    await expect(page.getByText(text, { exact: true })).toHaveCount(0);
+  const table = page.getByRole('table', { name: 'Registros do relatório' });
+  await expect(table.getByRole('columnheader')).toHaveText([
+    'Data',
+    'Residente',
+    'Quarto',
+    'Tipo de saída',
+    'Situação',
+  ]);
+  // Antes, "Nota" e "Categoria" apareciam como "Não informado" em toda saída.
+  await expect(page.getByText('Não informado')).toHaveCount(0);
+  await expect(page.getByRole('figure')).toHaveCount(2);
+  await expect(
+    page.getByRole('table', { name: 'Números de cada mês' }).getByRole('columnheader'),
+  ).toHaveText(['Mês', 'Registros', 'Atrasos']);
 });
 test('consulta expirada e limite de registros orientam sem resultado truncado ou dados demo', async ({
   page,
