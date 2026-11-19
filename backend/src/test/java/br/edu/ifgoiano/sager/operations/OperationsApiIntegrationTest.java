@@ -463,18 +463,34 @@ class OperationsApiIntegrationTest {
     }
 
     @Test
-    void approvingARequestToLeaveNowRecordsTheDepartureInTheSupervisorsName() throws Exception {
+    void approvingARequestToLeaveNowOnlyApprovesAndTheSupervisorRecordsTheDepartureInPerson() throws Exception {
         try (HttpClient student = logged("student"); HttpClient supervisor = logged("supervisor")) {
             String id = createExit(student, "NOW", 0).path("id").asText();
             JsonNode approved = json.readTree(post(supervisor, EXITS + "/" + id + "/decisao",
                     Map.of("version", 0, "decision", "APPROVE")).body());
-            assertThat(approved.path("status").asText()).isEqualTo("EM_ANDAMENTO");
-            assertThat(approved.path("version").asLong()).isEqualTo(2);
-            assertThat(Instant.parse(approved.path("actualDepartureAt").asText())).isEqualTo(START)
-                    .isEqualTo(Instant.parse(approved.path("decidedAt").asText()));
-            assertThat(approved.path("capabilities").path("canDepart").asBoolean()).isFalse();
-            assertThat(approved.path("capabilities").path("canReturn").asBoolean()).isTrue();
-            JsonNode history = approved.path("history");
+            assertThat(approved.path("status").asText()).isEqualTo("APROVADA");
+            assertThat(approved.path("version").asLong()).isEqualTo(1);
+            assertThat(approved.path("actualDepartureAt").isNull()).isTrue();
+            // Antes da partida registrada, o prazo continua sendo a partida pedida mais 3 horas.
+            assertThat(Instant.parse(approved.path("expectedReturnAt").asText())).isEqualTo(START.plusSeconds(10800));
+            assertThat(approved.path("capabilities").path("canDepart").asBoolean()).isTrue();
+            assertThat(approved.path("capabilities").path("canReturn").asBoolean()).isFalse();
+            assertThat(approved.path("history")).extracting(event -> event.path("event").asText())
+                    .containsExactly("CREATE", "APPROVE");
+            UUID exitId = UUID.fromString(id);
+            String updates = "SELECT changed_fields::text FROM sager_audit_event"
+                    + " WHERE resource = 'SHORT_EXIT' AND resource_id = ? AND action = 'UPDATE' ORDER BY sequence";
+            assertThat(jdbc.queryForList(updates, String.class, exitId)).hasSize(1);
+            // O residente se apresenta 20 minutos depois: só então a saída começa e o prazo conta.
+            Instant inPerson = START.plusSeconds(1200);
+            clock.set(inPerson);
+            JsonNode departed = json.readTree(post(supervisor, EXITS + "/" + id + "/partida",
+                    Map.of("version", 1, "timeMode", "NOW")).body());
+            assertThat(departed.path("status").asText()).isEqualTo("EM_ANDAMENTO");
+            assertThat(departed.path("version").asLong()).isEqualTo(2);
+            assertThat(Instant.parse(departed.path("actualDepartureAt").asText())).isEqualTo(inPerson);
+            assertThat(Instant.parse(departed.path("expectedReturnAt").asText())).isEqualTo(inPerson.plusSeconds(10800));
+            JsonNode history = departed.path("history");
             assertThat(history).extracting(event -> event.path("event").asText())
                     .containsExactly("CREATE", "APPROVE", "DEPARTURE");
             UUID supervisorId = jdbc.queryForObject("SELECT id FROM sager_local_account WHERE email=?",
@@ -483,12 +499,26 @@ class OperationsApiIntegrationTest {
                 assertThat(history.get(index).path("actorProfile").asText()).isEqualTo("supervisor");
                 assertThat(history.get(index).path("actorId").asText()).isEqualTo(supervisorId.toString());
             }
-            assertThat(Instant.parse(history.get(2).path("effectiveAt").asText())).isEqualTo(START);
-            List<String> audits = jdbc.queryForList("SELECT changed_fields::text FROM sager_audit_event"
-                    + " WHERE resource = 'SHORT_EXIT' AND resource_id = ? AND action = 'UPDATE' ORDER BY sequence",
-                    String.class, UUID.fromString(id));
+            assertThat(Instant.parse(history.get(2).path("effectiveAt").asText())).isEqualTo(inPerson);
+            List<String> audits = jdbc.queryForList(updates, String.class, exitId);
             assertThat(audits).hasSize(2);
-            assertThat(audits.get(1)).contains("status", "actualDepartureAt");
+            assertThat(audits.get(1)).contains("status", "actualDepartureAt", "expectedReturnAt");
+        }
+    }
+
+    @Test
+    void approvedRequestToLeaveNowWithoutDepartureExpiresAtTheRequestedDeparturePlusThreeHours() throws Exception {
+        try (HttpClient student = logged("student"); HttpClient supervisor = logged("supervisor")) {
+            String id = createExit(student, "NOW", 0).path("id").asText();
+            approve(supervisor, id);
+            clock.set(START.plusSeconds(10800));
+            assertError(post(supervisor, EXITS + "/" + id + "/partida",
+                    Map.of("version", 1, "timeMode", "NOW")), 409, "deadline_passed");
+            expire();
+            JsonNode expired = read(supervisor, EXITS + "/" + id);
+            assertThat(expired.path("status").asText()).isEqualTo("EXPIRADA");
+            assertThat(expired.path("expiryReason").asText()).isEqualTo("APPROVED_WITHOUT_DEPARTURE");
+            assertThat(expired.path("actualDepartureAt").isNull()).isTrue();
         }
     }
 
@@ -519,21 +549,24 @@ class OperationsApiIntegrationTest {
     }
 
     @Test
-    void immediateApprovalIsRefusedWhileAnotherExitIsPhysicallyOpen() throws Exception {
+    void approvalWhileAnotherExitIsPhysicallyOpenIsAcceptedButTheDepartureWaitsForTheReturn() throws Exception {
         try (HttpClient student = logged("student"); HttpClient supervisor = logged("supervisor")) {
             String id = createExit(student, "NOW", 0).path("id").asText();
             // A late long exit still without return keeps the resident physically out.
             longExits.resident = resident;
             longExits.physical = true;
-            assertError(post(supervisor, EXITS + "/" + id + "/decisao",
-                    Map.of("version", 0, "decision", "APPROVE")), 409, "physical_exit_conflict");
+            JsonNode approved = json.readTree(post(supervisor, EXITS + "/" + id + "/decisao",
+                    Map.of("version", 0, "decision", "APPROVE")).body());
+            assertThat(approved.path("status").asText()).isEqualTo("APROVADA");
+            assertError(post(supervisor, EXITS + "/" + id + "/partida",
+                    Map.of("version", 1, "timeMode", "NOW")), 409, "physical_exit_conflict");
             JsonNode unchanged = read(supervisor, EXITS + "/" + id);
-            assertThat(unchanged.path("status").asText()).isEqualTo("AGUARDANDO_ANALISE");
-            assertThat(unchanged.path("version").asLong()).isZero();
-            assertThat(unchanged.path("history").size()).isEqualTo(1);
-            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_audit_event"
-                    + " WHERE resource = 'SHORT_EXIT' AND resource_id = ? AND action = 'UPDATE'",
-                    Integer.class, UUID.fromString(id))).isZero();
+            assertThat(unchanged.path("status").asText()).isEqualTo("APROVADA");
+            assertThat(unchanged.path("version").asLong()).isEqualTo(1);
+            assertThat(unchanged.path("history").size()).isEqualTo(2);
+            longExits.physical = false;
+            depart(supervisor, id);
+            assertThat(read(supervisor, EXITS + "/" + id).path("status").asText()).isEqualTo("EM_ANDAMENTO");
         }
     }
 
@@ -777,6 +810,7 @@ class OperationsApiIntegrationTest {
             assertThat(List.of(first.join(), second.join())).containsExactlyInAnyOrder(201, 409);
             String id = read(supervisor, EXITS).get(0).path("id").asText();
             approve(supervisor, id);
+            depart(supervisor, id);
             clock.set(START.plusSeconds(60));
             String staffToken = csrf(supervisor);
             String returning = "{\"version\":2,\"timeMode\":\"NOW\"}";
@@ -946,13 +980,20 @@ class OperationsApiIntegrationTest {
             assertThat(Instant.parse(retro.path("expectedReturnAt").asText())).isEqualTo(retroactive.plusSeconds(10800));
             assertThat(post(supervisor, EXITS + "/" + next + "/retorno",
                     Map.of("version", 2, "timeMode", "NOW")).statusCode()).isEqualTo(200);
-            // Aprovação 20 min depois do pedido para sair agora: o prazo conta da aprovação.
+            // Pedido para sair agora aprovado 20 min depois: o prazo só conta da saída registrada em pessoa.
             String now = createExit(student, "NOW", 0).path("id").asText();
-            clock.set(clock.instant().plusSeconds(1200));
+            Instant requested = clock.instant();
+            clock.set(requested.plusSeconds(1200));
             JsonNode approved = json.readTree(post(supervisor, EXITS + "/" + now + "/decisao",
                     Map.of("version", 0, "decision", "APPROVE")).body());
-            assertThat(approved.path("status").asText()).isEqualTo("EM_ANDAMENTO");
+            assertThat(approved.path("status").asText()).isEqualTo("APROVADA");
             assertThat(Instant.parse(approved.path("expectedReturnAt").asText()))
+                    .isEqualTo(requested.plusSeconds(10800));
+            clock.set(requested.plusSeconds(3000));
+            JsonNode inPerson = json.readTree(post(supervisor, EXITS + "/" + now + "/partida",
+                    Map.of("version", 1, "timeMode", "NOW")).body());
+            assertThat(inPerson.path("status").asText()).isEqualTo("EM_ANDAMENTO");
+            assertThat(Instant.parse(inPerson.path("expectedReturnAt").asText()))
                     .isEqualTo(clock.instant().plusSeconds(10800));
         }
     }
@@ -963,6 +1004,7 @@ class OperationsApiIntegrationTest {
         try (HttpClient student = logged("student"); HttpClient supervisor = logged("supervisor")) {
             String exit = createExit(student, "NOW", 0).path("id").asText();
             approve(supervisor, exit);
+            depart(supervisor, exit);
             clock.set(START);
             JsonNode opened = open(supervisor);
             assertThat(opened.path("records").get(0).path("authorizedExitId").asText()).isEqualTo(exit);
@@ -984,6 +1026,7 @@ class OperationsApiIntegrationTest {
         try (HttpClient student = logged("student"); HttpClient supervisor = logged("supervisor")) {
             String exit = createExit(student, "NOW", 0).path("id").asText();
             approve(supervisor, exit);
+            depart(supervisor, exit);
             clock.set(START);
             JsonNode opened = open(supervisor);
             assertThat(opened.path("records").get(0).path("mark").isNull()).isTrue();
@@ -1181,13 +1224,20 @@ class OperationsApiIntegrationTest {
                 .statusCode()).isEqualTo(200);
     }
 
-    /** Approves a request to leave now one hour before the call, which records the departure, and leaves the clock at START. */
+    /** Approves a request to leave now one hour before the call, records the departure in person and leaves the clock at START. */
     private String departedExit(HttpClient student, HttpClient supervisor) throws Exception {
         clock.set(START.minusSeconds(3600));
         String exit = createExit(student, "NOW", 0).path("id").asText();
         approve(supervisor, exit);
+        depart(supervisor, exit);
         clock.set(START);
         return exit;
+    }
+
+    /** The supervisor records the departure now, in a separate act after the approval (version 1). */
+    private void depart(HttpClient client, String id) throws Exception {
+        assertThat(post(client, EXITS + "/" + id + "/partida", Map.of("version", 1, "timeMode", "NOW"))
+                .statusCode()).isEqualTo(200);
     }
 
     private void expire() throws Exception {

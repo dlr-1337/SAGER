@@ -136,10 +136,11 @@ class DisciplineApiIntegrationTest {
             assertThat(jdbc.queryForObject("SELECT requires_review FROM sager_discipline_notification",Boolean.class)).isTrue();
         }
     }
-    /** Pedido para sair agora aprovado: a aprovação registra a partida e o prazo fica em 3 horas. */
+    /** Pedido para sair agora aprovado e saída registrada em pessoa no mesmo instante: o prazo fica em 3 horas. */
     private String departedShortExit(HttpClient sup,HttpClient student) throws Exception {
         String id=ok(student,"POST","/api/v1/saidas-curtas",Map.of("departureMode","NOW","reason","Compromisso sintético")).path("id").asText();
-        assertThat(ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/decisao",Map.of("version",0,"decision","APPROVE")).path("status").asText()).isEqualTo("EM_ANDAMENTO");
+        assertThat(ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/decisao",Map.of("version",0,"decision","APPROVE")).path("status").asText()).isEqualTo("APROVADA");
+        assertThat(ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/partida",Map.of("version",1,"timeMode","NOW")).path("status").asText()).isEqualTo("EM_ANDAMENTO");
         return id;
     }
     @Test void conversionIsIdempotentConcurrentAndOnlyOwnFormalContentIsPublished() throws Exception {
