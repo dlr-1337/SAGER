@@ -364,17 +364,7 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
       exit.decidedAt = state.now;
       exit.status = body.decision === 'APPROVE' ? 'APROVADA' : 'REJEITADA';
       history(exit, body.decision, body);
-      // Como o servidor: aprovar quando a partida pedida já chegou registra também a saída.
-      if (
-        body.decision === 'APPROVE' &&
-        Date.parse(state.now) >= Date.parse(exit.requestedDepartureAt)
-      ) {
-        exit.status = 'EM_ANDAMENTO';
-        exit.actualDepartureAt = state.now;
-        exit.departureRecordedAt = state.now;
-        exit.deadlineAt = null;
-        history(exit, 'DEPARTURE', {});
-      }
+      // Como o servidor: aprovar só decide; a saída é registrada à parte, em /partida.
     } else if (action === 'cancelamento') {
       exit.status = 'CANCELADA';
       exit.cancellationReason = body.comment;
@@ -435,6 +425,7 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
       exit.actualDepartureAt = body.timeMode === 'NOW' ? state.now : body.occurredAt;
       exit.departureRecordedAt = state.now;
       exit.status = 'EM_ANDAMENTO';
+      exit.deadlineAt = null;
       history(exit, 'DEPARTURE', body);
     } else if (action === 'retorno') {
       exit.actualReturnAt = body.timeMode === 'NOW' ? state.now : body.occurredAt;
@@ -680,7 +671,7 @@ test('documento lido não habilita aprovação; supervisor rejeita antes da conf
   });
 });
 
-test('aprovação usa revisão atual e já registra a saída; retorno retroativo preserva horário físico e de registro', async ({
+test('aprovação usa revisão atual e só aprova; a saída é registrada à parte e o retorno retroativo preserva horário físico e de registro', async ({
   page,
 }) => {
   const exit = exitFixture();
@@ -689,17 +680,29 @@ test('aprovação usa revisão atual e já registra a saída; retorno retroativo
   const state = await mockApi(page, { exits: [exit] });
   await page.goto(`/saidas/longas/${exitId}`);
   await page.getByRole('button', { name: 'Aprovar saída', exact: true }).click();
-  await page
-    .getByRole('dialog')
-    .getByRole('button', { name: 'Aprovar e registrar a saída agora' })
-    .click();
-  await expect(page.getByText('Aprovação e saída registradas.', { exact: true })).toBeVisible();
+  let dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText(
+    'Aprovar não registra a saída; ela é registrada quando o residente se apresentar.',
+  );
+  await dialog.getByRole('button', { name: 'Confirmar aprovação' }).click();
+  await expect(page.getByText('Aprovação registrada.', { exact: true })).toBeVisible();
+  await expect(page.locator('.op-exit-heading .status')).toHaveText('Aprovada');
+  await expect(page.getByRole('heading', { name: 'Saída', exact: true })).toBeFocused();
+  await expect(page.getByText('Registre a saída quando o residente se apresentar.')).toBeVisible();
+  await expect(page.locator('.op-exit-actions').getByRole('button')).toHaveText([
+    'Registrar saída',
+  ]);
+  expect(state.exits[0].actualDepartureAt).toBeNull();
+  // O residente se apresenta: só então o supervisor registra a saída.
+  await page.getByRole('button', { name: 'Registrar saída' }).click();
+  dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('Veja o residente pessoalmente antes de liberar a saída.');
+  await dialog.getByRole('button', { name: 'Confirmar saída' }).click();
   await expect(page.locator('.op-exit-heading .status')).toHaveText('Em andamento');
-  await expect(page.getByRole('button', { name: 'Registrar saída' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Volta' })).toBeFocused();
   state.now = '2026-09-30T23:30:00Z';
   await page.getByRole('button', { name: 'Registrar volta' }).click();
-  const dialog = page.getByRole('dialog');
+  dialog = page.getByRole('dialog');
   await expect(
     dialog.getByText('O retorno está após o horário previsto.', { exact: false }),
   ).toBeVisible();
@@ -718,7 +721,8 @@ test('aprovação usa revisão atual e já registra a saída; retorno retroativo
     decision: 'APPROVE',
     documentVersionId: documentId,
   });
-  expect(state.writes[1].body).toEqual({
+  expect(state.writes[1].body).toEqual({ version: 1, timeMode: 'NOW' });
+  expect(state.writes[2].body).toEqual({
     version: 2,
     timeMode: 'RETROACTIVE',
     occurredAt: '2026-09-30T23:00:00.000Z',
@@ -859,13 +863,15 @@ test('arquivo recebido não aprova; conferência registra quem e quando e libera
     `sager-saida-longa-${documentId}-autorizacao.png`,
   );
   await page.getByRole('button', { name: 'Aprovar saída', exact: true }).click();
-  await dialog.getByRole('button', { name: 'Aprovar e registrar a saída agora' }).click();
-  await expect(page.getByText('Aprovação e saída registradas.', { exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Confirmar aprovação' }).click();
+  await expect(page.getByText('Aprovação registrada.', { exact: true })).toBeVisible();
   expect(state.writes[1].body).toEqual({
     version: 1,
     decision: 'APPROVE',
     documentVersionId: documentId,
   });
+  expect(exit.status).toBe('APROVADA');
+  expect(exit.actualDepartureAt).toBeNull();
 });
 
 test('remetente divergente exige justificativa; recusa mantém o pedido aguardando autorização', async ({
