@@ -9,7 +9,11 @@ import {
   periodPreset,
   reportCell,
   reportFileName,
+  reportMetrics,
+  reportMonthlySeries,
+  summaryMetrics,
 } from './reports-local.utils';
+import { DEMO_COLUMNS, ReportsDemoApiService } from './reports-demo-api.service';
 import { ReportExport, ReportListItem, ReportRow } from './reports-local.models';
 import { ReportingApiError } from '../cleaning/reporting-local.transport';
 import { MonthlyIndicatorsComponent } from '../cleaning/monthly-indicators.component';
@@ -45,6 +49,39 @@ describe('Recortes e indicadores de relatórios', () => {
     expect(chart.maximum()).toBe(8);
     expect(chart.seriesList).toHaveLength(3);
     expect(chart.month('2026-09')).toBe('09/2026');
+  });
+  it('mostra no resumo só as métricas que o relatório traz', () => {
+    expect(
+      summaryMetrics({ totalRows: 2, countsByStatus: { APROVADA: 2 }, confirmedLateReturns: 1 }),
+    ).toEqual([{ key: 'confirmedLateReturns', label: 'Voltaram atrasados', value: '1' }]);
+    expect(
+      summaryMetrics({ totalRows: 1, countsByStatus: {}, cleaningMean: 8.5 }).map((m) => m.value),
+    ).toEqual(['8,50']);
+    expect(summaryMetrics({ totalRows: 1, countsByStatus: { EMITIDO: 1 } })).toEqual([]);
+    expect(reportMetrics.SAIDAS).toEqual(['confirmedLateReturns']);
+    expect(reportMetrics.CONSOLIDADO).toHaveLength(4);
+  });
+  it('mês a mês conta os registros e a métrica do relatório; o consolidado mantém as três listas', () => {
+    const exits = reportMonthlySeries('SAIDAS', {
+      totalRows: 3,
+      countsByStatus: {},
+      confirmedLateReturns: 1,
+    });
+    expect(exits.map((series) => series.key)).toEqual(['totalRows', 'confirmedLateReturns']);
+    expect(exits.map((series) => series.label)).not.toContain('Registros');
+    expect(
+      reportMonthlySeries('LIMPEZA', { totalRows: 1, countsByStatus: {}, cleaningMean: 8 }).map(
+        (series) => series.key,
+      ),
+    ).toEqual(['totalRows']);
+    expect(reportMonthlySeries('CONSOLIDADO', { totalRows: 0, countsByStatus: {} })).toHaveLength(
+      3,
+    );
+    const chart = new MonthlyIndicatorsComponent();
+    chart.seriesList = exits;
+    chart.items = [{ month: '2026-09', totalRows: 5, confirmedLateReturns: 1 }];
+    expect(chart.maximum()).toBe(5);
+    expect(chart.value(chart.items[0], 'activeWarnings')).toBe(0);
   });
   it('apresenta ausências de nota como ausência e usa os estados e origens reais', () => {
     const row = { status: 'EMITIDO', score: null, sourceType: 'CLEANING_ASSESSMENT' } as ReportRow;
@@ -207,5 +244,70 @@ describe('Consulta automática da lista', () => {
     await list.refresh();
     expect(list.slow().has('r1')).toBe(false);
     list.stop();
+  });
+});
+describe('Demonstração com as mesmas colunas, métricas e ordem', () => {
+  function demo() {
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: DemoSessionService,
+          useValue: { active: signal(true), scenario: signal('padrao') },
+        },
+      ],
+    });
+    return TestBed.inject(ReportsDemoApiService);
+  }
+  const september = { from: '2026-09-01', to: '2026-09-30' };
+  const labels = (columns: { label: string }[]) => columns.map((column) => column.label);
+  it('saídas sem nota de limpeza, com o tipo de saída e quem voltou atrasado', async () => {
+    const api = demo();
+    const catalog = await api.catalog();
+    expect(catalog.version).toBe(2);
+    expect(labels(catalog.items.find((item) => item.code === 'SAIDAS')!.columns)).toEqual([
+      'Data',
+      'Residente',
+      'Quarto',
+      'Tipo de saída',
+      'Situação',
+    ]);
+    const exits = await api.create({
+      catalogCode: 'SAIDAS',
+      filters: september,
+      idempotencyKey: 'k1',
+    });
+    expect(exits.summary.confirmedLateReturns).toBe(1);
+    for (const key of ['cleaningMean', 'unjustifiedAbsences', 'activeWarnings', 'countsByType'])
+      expect(exits.summary).not.toHaveProperty(key);
+    expect(exits.monthly[0]).not.toHaveProperty('cleaningMean');
+    const presence = await api.create({
+      catalogCode: 'PRESENCA',
+      filters: september,
+      idempotencyKey: 'k2',
+    });
+    expect(labels(presence.columns)).toEqual(['Data', 'Residente', 'Quarto', 'Situação']);
+    expect(presence.summary.unjustifiedAbsences).toBe(1);
+    expect(presence.summary).not.toHaveProperty('cleaningMean');
+  });
+  it('consolidado traz tudo, do registro mais recente para o mais antigo', async () => {
+    const api = demo();
+    const all = await api.create({
+      catalogCode: 'CONSOLIDADO',
+      filters: september,
+      idempotencyKey: 'k3',
+    });
+    expect(labels(all.columns)).toEqual(labels(DEMO_COLUMNS.CONSOLIDADO));
+    expect(all.columns).toHaveLength(8);
+    for (const key of [
+      'cleaningMean',
+      'unjustifiedAbsences',
+      'confirmedLateReturns',
+      'activeWarnings',
+      'countsByType',
+    ])
+      expect(all.summary).toHaveProperty(key);
+    const dates = (await api.rows(all.id)).items.map((row) => row.date);
+    expect(dates[0]).toBe('2026-09-24');
+    expect(dates).toEqual([...dates].sort().reverse());
   });
 });

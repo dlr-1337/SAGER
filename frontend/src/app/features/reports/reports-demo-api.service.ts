@@ -1,10 +1,12 @@
 import { Injectable, inject } from '@angular/core';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { ReportsLocalApiService } from './reports-local-api.service';
+import { reportMetrics } from './reports-local.utils';
 import {
   ReportCatalog,
   ReportCode,
   ReportColumn,
+  ReportColumnKey,
   ReportExport,
   ReportFilterOptions,
   ReportFormat,
@@ -87,20 +89,49 @@ const SAMPLE_ROWS: ReportRow[] = [
   }),
   row(9, '2026-09-17', 'TERMOS', 'EMITIDO', 'ana', 'RECURRENCE'),
   row(10, '2026-09-16', 'SAIDAS', 'APROVADA', 'ana', 'LONG_RETURN'),
+  row(11, '2026-09-19', 'SAIDAS', 'RETORNO_CONFIRMADO_COM_ATRASO', 'pedro', 'SHORT_RETURN'),
+  row(12, '2026-09-20', 'PRESENCA', 'AUSENTE', 'beatriz', 'NIGHT_CALL'),
 ];
-const COLUMNS: ReportColumn[] = [
-  { key: 'date', label: 'Data', type: 'DATE' },
-  { key: 'type', label: 'Tipo', type: 'STRING' },
-  { key: 'status', label: 'Situação', type: 'STRING' },
-  { key: 'residentName', label: 'Residente', type: 'STRING' },
-  { key: 'roomCode', label: 'Quarto', type: 'STRING' },
-  { key: 'score', label: 'Nota', type: 'DECIMAL' },
-  { key: 'category', label: 'Categoria', type: 'STRING' },
-  { key: 'sourceType', label: 'Origem', type: 'STRING' },
+const column = (
+  key: ReportColumnKey,
+  label: string,
+  type: ReportColumn['type'] = 'STRING',
+): ReportColumn => ({ key, label, type });
+const DATE = column('date', 'Data', 'DATE');
+const RESIDENT = column('residentName', 'Residente');
+const ROOM = column('roomCode', 'Quarto');
+const STATUS = column('status', 'Situação');
+const DISCIPLINE = [
+  DATE,
+  RESIDENT,
+  ROOM,
+  column('category', 'Categoria'),
+  column('sourceType', 'Origem'),
+  STATUS,
 ];
+/** Same columns as the server catalog (ReportCatalog): only what has meaning in each report. */
+export const DEMO_COLUMNS: Record<ReportCode, ReportColumn[]> = {
+  PRESENCA: [DATE, RESIDENT, ROOM, STATUS],
+  SAIDAS: [DATE, RESIDENT, ROOM, column('sourceType', 'Tipo de saída'), STATUS],
+  LIMPEZA: [DATE, ROOM, RESIDENT, column('score', 'Nota', 'DECIMAL'), STATUS],
+  OCORRENCIAS: DISCIPLINE,
+  NOTIFICACOES: DISCIPLINE,
+  ADVERTENCIAS: DISCIPLINE,
+  TERMOS: [DATE, RESIDENT, ROOM, STATUS],
+  CONSOLIDADO: [
+    DATE,
+    column('type', 'Tipo'),
+    RESIDENT,
+    ROOM,
+    column('score', 'Nota', 'DECIMAL'),
+    column('category', 'Categoria'),
+    column('sourceType', 'Origem'),
+    STATUS,
+  ],
+};
 const STATUSES: Record<ReportCode, string[]> = {
   PRESENCA: ['PRESENTE', 'AUSENTE', 'AUSENCIA_JUSTIFICADA', 'PENDENTE', 'CHAMADA_ABERTA'],
-  SAIDAS: ['AGUARDANDO_ANALISE', 'APROVADA', 'RETORNO_CONFIRMADO'],
+  SAIDAS: ['AGUARDANDO_ANALISE', 'APROVADA', 'RETORNO_CONFIRMADO', 'RETORNO_CONFIRMADO_COM_ATRASO'],
   LIMPEZA: ['ABAIXO_LIMITE', 'DENTRO_LIMITE'],
   OCORRENCIAS: ['VALIDA', 'INVALIDADA'],
   NOTIFICACOES: ['PENDENTE', 'EM_ANALISE', 'ARQUIVADA'],
@@ -108,24 +139,36 @@ const STATUSES: Record<ReportCode, string[]> = {
   TERMOS: ['EMITIDO', 'ANULADO'],
   CONSOLIDADO: [],
 };
-function summaryOf(rows: ReportRow[]): ReportSummary {
+/** Total and counts by status always; by type only in the consolidated report; then its metrics. */
+function summaryOf(code: ReportCode, rows: ReportRow[]): ReportSummary {
   const countBy = (key: 'type' | 'status') =>
     rows.reduce<Record<string, number>>(
       (counts, item) => ({ ...counts, [item[key]]: (counts[item[key]] ?? 0) + 1 }),
       {},
     );
+  const count = (type: ReportCode, status: string) =>
+    rows.filter((item) => item.type === type && item.status === status).length;
   const scores = rows.flatMap((item) => (item.score === null ? [] : [item.score]));
-  return {
-    totalRows: rows.length,
-    countsByType: countBy('type'),
-    countsByStatus: countBy('status'),
-    cleaningMean: scores.length ? scores.reduce((sum, n) => sum + n, 0) / scores.length : null,
-    unjustifiedAbsences: rows.filter((item) => item.status === 'AUSENTE').length,
-    confirmedLateReturns: rows.filter((item) => item.status === 'RETORNO_CONFIRMADO_COM_ATRASO')
-      .length,
-    activeWarnings: rows.filter((item) => item.status === 'VIGENTE').length,
-  };
+  const summary: ReportSummary = { totalRows: rows.length, countsByStatus: countBy('status') };
+  if (code === 'CONSOLIDADO') summary.countsByType = countBy('type');
+  for (const metric of reportMetrics[code]) {
+    if (metric === 'cleaningMean')
+      summary.cleaningMean = scores.length
+        ? scores.reduce((sum, n) => sum + n, 0) / scores.length
+        : null;
+    if (metric === 'unjustifiedAbsences')
+      summary.unjustifiedAbsences = count('PRESENCA', 'AUSENTE');
+    if (metric === 'confirmedLateReturns')
+      summary.confirmedLateReturns = count('SAIDAS', 'RETORNO_CONFIRMADO_COM_ATRASO');
+    if (metric === 'activeWarnings') summary.activeWarnings = count('ADVERTENCIAS', 'VIGENTE');
+  }
+  return summary;
 }
+/** Newest first; on the same day, by resident name, as the server query. */
+const newestFirst = (a: ReportRow, b: ReportRow) =>
+  b.date.localeCompare(a.date) ||
+  (a.residentName ?? '').localeCompare(b.residentName ?? '', 'pt-BR') ||
+  a.type.localeCompare(b.type);
 
 /** In-memory reports of the demonstration. It has no download method on purpose. */
 @Injectable({ providedIn: 'root' })
@@ -148,12 +191,12 @@ export class ReportsDemoApiService implements ReportsApi {
   async catalog(): Promise<ReportCatalog> {
     await this.scenario();
     return {
-      version: 1,
+      version: 2,
       items: (Object.keys(STATUSES) as ReportCode[]).map((code) => ({
         code,
         title: code,
         statuses: STATUSES[code],
-        columns: COLUMNS,
+        columns: DEMO_COLUMNS[code],
       })),
       maxPeriodDays: 366,
       maxRows: 10000,
@@ -248,13 +291,13 @@ export class ReportsDemoApiService implements ReportsApi {
               (!filters.roomId || item.roomId === filters.roomId) &&
               (!filters.residentId || item.residentId === filters.residentId) &&
               (!filters.status || item.status === filters.status),
-          ).sort((a, b) => a.date.localeCompare(b.date));
-    const months = [...new Set(rows.map((item) => item.date.slice(0, 7)))];
+          ).sort(newestFirst);
+    const months = [...new Set(rows.map((item) => item.date.slice(0, 7)))].sort();
     const asOf = new Date();
     const snapshot: ReportSnapshot = {
       id: crypto.randomUUID(),
       catalogCode,
-      catalogVersion: 1,
+      catalogVersion: 2,
       filters: {
         from: filters.from,
         to: filters.to,
@@ -264,12 +307,15 @@ export class ReportsDemoApiService implements ReportsApi {
         residentId: filters.residentId ?? null,
         status: filters.status ?? null,
       },
-      columns: COLUMNS,
+      columns: DEMO_COLUMNS[catalogCode],
       rowCount: rows.length,
-      summary: summaryOf(rows),
+      summary: summaryOf(catalogCode, rows),
       monthly: months.map((month) => ({
         month,
-        ...summaryOf(rows.filter((item) => item.date.startsWith(month))),
+        ...summaryOf(
+          catalogCode,
+          rows.filter((item) => item.date.startsWith(month)),
+        ),
       })),
       contentHash: '0'.repeat(64),
       asOf: asOf.toISOString(),
