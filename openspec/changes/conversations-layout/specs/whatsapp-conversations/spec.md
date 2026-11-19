@@ -2,13 +2,14 @@
 
 ### Requirement: Conversas na altura e na largura da tela
 
-No computador, a tela de Conversas SHALL ocupar a largura da área de trabalho e a altura visível abaixo do cabeçalho, com o nome do contato e o texto das mensagens em pelo menos 18 px. Com 600 px de altura ou mais, a janela MUST NOT rolar nem mover o menu lateral: só a lista e as mensagens rolam por dentro. No celular, a conversa aberta SHALL caber na altura visível, e a lista segue a rolagem da página.
+No computador, a tela de Conversas SHALL ocupar a largura da área de trabalho e a altura visível abaixo do cabeçalho, com o nome do contato e o texto das mensagens em pelo menos 18 px; a lista e as mensagens rolam por dentro. Com 600 px de altura ou mais, a página MUST NOT rolar além do rodapé, logo abaixo da tela, e o menu lateral MUST NOT se mover. No celular, a conversa aberta SHALL caber na altura visível, e a lista segue a rolagem da página.
 
 #### Scenario: Sem conversas no computador
 
 - **GIVEN** o supervisor em Conversas, sem nenhuma conversa, numa janela de 1280 por 720 px
-- **WHEN** ele rola a página para baixo
-- **THEN** a página e o menu lateral ficam parados
+- **WHEN** ele rola a página para baixo até o fim
+- **THEN** a página desce só até mostrar o rodapé, sem espaço vazio depois dele
+- **AND** o menu lateral fica parado
 
 #### Scenario: Fim da lista
 
@@ -26,7 +27,7 @@ No computador, a tela de Conversas SHALL ocupar a largura da área de trabalho e
 
 - **GIVEN** uma tela de 390 por 844 px
 - **WHEN** o supervisor abre uma conversa
-- **THEN** o campo de mensagem fica à vista e a página não rola
+- **THEN** o campo de mensagem fica à vista sem rolar, e a página só rola até o rodapé
 
 ### Requirement: Lista de conversas recolhível
 

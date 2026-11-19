@@ -2,21 +2,22 @@ Comandos: frontend em `frontend/` com `npx ng test --watch=false --include <spec
 
 ## 1. Altura da tela
 
-- [ ] 1.1 Em `features/communications/conversations-page.scss`:
-  - dar a `.work-area` a altura visível abaixo do cabeçalho quando a tela de Conversas está aberta, com mínimo de 500 px, e esconder o rodapé;
+- [x] 1.1 Em `features/communications/conversations-page.scss`:
+  - dar ao conteúdo (`.app-main`) a altura visível abaixo do cabeçalho quando a tela de Conversas está aberta, com mínimo de 500 px, e deixar o rodapé logo abaixo;
   - passar conteúdo, página e caixa da lista e da conversa a uma coluna flexível com `min-height: 0`;
-  - no celular, fazer o mesmo só com a conversa aberta, com mínimo de 420 px; só com a lista, manter a rolagem da página e o rodapé.
+  - no celular, fazer o mesmo só com a conversa aberta, com mínimo de 420 px; só com a lista, manter a rolagem da página.
 
   Verificar com o e2e `conversations-local.spec.ts`, em "tela na altura da janela":
-  - em 1280×720 e 1920×1080, a página não passa da altura da janela, com a lista de 12 conversas e com a conversa aberta;
-  - sem conversas, a área vazia também não rola a janela;
-  - em 390×844, a conversa aberta cabe na janela e o campo de mensagem fica à vista.
-- [ ] 1.2 Em `conversations-list.scss` e `conversation-thread.scss`, `overscroll-behavior: contain` na lista e nas mensagens. Verificar no mesmo e2e: depois de rolar com a roda do mouse até o fim da lista e das mensagens, e de volta ao começo, `scrollY` continua 0 e o menu lateral não se move. Conferir também, no navegador, a sobra de rolagem medida antes da mudança, para registrar a causa.
-- [ ] 1.3 Conferir que o cabeçalho e o menu fixos e as abas não mudaram com `SAGER_E2E_PORT=4336 CI=1 npx playwright test e2e/fixed-navigation.spec.ts e2e/tab-scroll.spec.ts --workers=1`.
+  - em 1280×720 e 1920×1080, com a lista de 12 conversas e com a conversa aberta, a página passa da janela só a altura do rodapé, e rolada até o fim termina no rodapé, com o menu lateral parado;
+  - sem conversas, a área vazia só rola até o rodapé;
+  - em 390×844, a conversa aberta cabe na janela, com o campo de mensagem à vista e só o rodapé abaixo; só com a lista, a página termina no rodapé.
+
+- [x] 1.2 Em `conversations-list.scss` e `conversation-thread.scss`, `overscroll-behavior: contain` na lista e nas mensagens, e `position: relative` nas mensagens, para os textos só para leitores de tela dos balões não esticarem a página. Verificar no mesmo e2e: depois de rolar com a roda do mouse até o fim da lista e das mensagens, e de volta ao começo, `scrollY` continua 0 e o menu lateral não se move; e em 390×844, com a conversa de exemplo que tem arquivo, a página passa da janela só a altura do rodapé.
+- [x] 1.3 Conferir que o cabeçalho e o menu fixos e as abas não mudaram com `SAGER_E2E_PORT=4336 CI=1 npx playwright test e2e/fixed-navigation.spec.ts e2e/tab-scroll.spec.ts --workers=1`.
 
 ## 2. Tamanho da lista e da conversa
 
-- [ ] 2.1 Em `conversations-page.scss`, `conversations-list.scss`, `conversation-thread.scss` e `conversation-composer.scss`:
+- [x] 2.1 Em `conversations-page.scss`, `conversations-list.scss`, `conversation-thread.scss` e `conversation-composer.scss`:
   - largura toda da área de trabalho, com a lista em 32%, entre 270 e 460 px;
   - nome do contato e texto das mensagens em 18 px, título da conversa em 22 px, avatar de 52 px, cards com 88 px e balões até 720 px;
   - no celular, texto das mensagens em 17 px e cards mais justos até 480 px.
@@ -25,7 +26,7 @@ Comandos: frontend em `frontend/` com `npx ng test --watch=false --include <spec
 
 ## 3. Recolher a lista
 
-- [ ] 3.1 Em `conversations-local.pages.ts`:
+- [x] 3.1 Em `conversations-local.pages.ts`:
   - botão "Recolher conversas" e "Mostrar conversas" no cabeçalho da conversa, com `aria-expanded` e `aria-controls="conv-list"`, só no computador;
   - lista escondida com a conversa aberta; sem conversa aberta, a lista volta;
   - escolha guardada em `localStorage`, com `try/catch`.
@@ -34,7 +35,8 @@ Comandos: frontend em `frontend/` com `npx ng test --watch=false --include <spec
   - recolhe e mostra, com `aria-expanded` e a escolha guardada e apagada;
   - escolha lembrada, e a lista de volta sem conversa aberta;
   - sem armazenamento, recolher funciona só na visita.
-- [ ] 3.2 Verificar com o e2e "recolher a lista dá a largura toda à conversa e o navegador lembra", em 1366×860: largura da conversa, foco no botão, axe, alvos de 44 px, recarga e volta à lista; e com "no celular, a conversa cabe na janela e não oferece recolher".
+
+- [x] 3.2 Verificar com o e2e "recolher a lista dá a largura toda à conversa e o navegador lembra", em 1366×860: largura da conversa, foco no botão, axe, alvos de 44 px, recarga e volta à lista; e com "no celular, a conversa cabe na janela e não oferece recolher".
 
 ## 4. Identificador na tela
 
@@ -43,4 +45,4 @@ Comandos: frontend em `frontend/` com `npx ng test --watch=false --include <spec
 ## 5. Documentação e verificação final
 
 - [x] 5.1 Em `docs/MANUAL.md`, no item de Conversas do supervisor, citar "Recolher conversas" e "Mostrar conversas". Verificar com `grep -n "Recolher conversas" docs/MANUAL.md`.
-- [ ] 5.2 Rodar `npx prettier --check` nos arquivos tocados, `npx ng build`, os e2e `conversations-local.spec.ts`, `fixed-navigation.spec.ts` e `tab-scroll.spec.ts`, e `npx -y @fission-ai/openspec@2.0.0 validate conversations-layout --strict`.
+- [x] 5.2 Rodar `npx prettier --check` nos arquivos tocados (menos `docs/MANUAL.md`, que já não passa na `main`), `npx ng build`, os e2e `conversations-local.spec.ts`, `fixed-navigation.spec.ts` e `tab-scroll.spec.ts`, e `npx -y @fission-ai/openspec@2.0.0 validate conversations-layout --strict`.

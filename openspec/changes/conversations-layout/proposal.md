@@ -7,7 +7,7 @@ Na reunião de 19/11/2026, na tela de Conversas do supervisor:
 - dá para rolar a página para baixo mesmo com a área vazia, e o menu lateral parece "vir junto";
 - alguém viu um "HTTP" que seria o identificador da conversa.
 
-A causa da rolagem está na altura da tela. Ela foi fixada em `calc(100dvh - 92px)`, quando o cabeçalho tinha 92 px. O PR #34 (`fixed-navigation`) fixou o cabeçalho em 100 px, e o rodapé (cerca de 58 px) ficou abaixo da tela. A janela rola essa sobra de cerca de 66 px em qualquer altura de computador. No celular, com a conversa aberta, a sobra é o rodapé de duas linhas, cerca de 86 px.
+A causa da rolagem está na altura da tela. Ela foi fixada em `calc(100dvh - 92px)`, quando o cabeçalho tinha 92 px. O PR #34 (`fixed-navigation`) fixou o cabeçalho em 100 px. A tela passa 8 px da janela, e o rodapé (cerca de 58 px) fica abaixo. Rolar sobre a lista ou as mensagens, ao chegar ao fim delas, passa a rolar a página, e a tela sobe sob o cabeçalho parado. Numa conversa com arquivo, o texto "Baixar", só para leitores de tela, escapa das mensagens e estica a página para baixo da conversa (cerca de 800 px no celular, medido no e2e).
 
 A tela também segue o limite de largura dos formulários (`--content-wide`, 1280 px). Num monitor de 1920 px, a lista fica com 350 px, os balões com até 560 px e sobram cerca de 400 px vazios.
 
@@ -21,11 +21,11 @@ Regras afetadas:
 ## What Changes
 
 - **Altura:**
-  - no computador, a tela de Conversas ocupa a altura visível abaixo do cabeçalho fixo, sem o rodapé;
-  - a janela e o menu lateral ficam parados, e só a lista e as mensagens rolam por dentro;
-  - chegar ao fim da lista ou das mensagens não passa a rolar a janela;
-  - no celular, a conversa aberta cabe na altura visível, sem o rodapé, e a lista segue a rolagem da página, como hoje;
-  - em janela baixa demais ou com zoom, a janela volta a rolar.
+  - no computador, a tela de Conversas ocupa a altura visível abaixo do cabeçalho fixo;
+  - o rodapé fica logo abaixo da tela, como num aplicativo de conversa: a página rola só até ele, nada além, e o menu lateral fica parado;
+  - a lista e as mensagens rolam por dentro, e chegar ao fim de uma delas não passa a rolar a página;
+  - no celular, a conversa aberta cabe na altura visível, com o rodapé logo abaixo, e a lista segue a rolagem da página, como hoje;
+  - em janela baixa demais ou com zoom, a página rola o que faltar.
 - **Tamanho:**
   - a tela usa a largura toda da área de trabalho;
   - a lista ocupa cerca de um terço, entre 270 e 460 px;
