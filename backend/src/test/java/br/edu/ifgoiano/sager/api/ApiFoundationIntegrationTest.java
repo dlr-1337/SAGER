@@ -343,6 +343,10 @@ class ApiFoundationIntegrationTest {
             assertThat(schemas.path("TermIssueRequest").path("properties").path("warningIds").path("minItems").asInt()).isEqualTo(2);
             assertThat(schemas.path("TermIssueRequest").path("properties").path("warningIds").path("maxItems").asInt()).isEqualTo(100);
             assertThat(schemas.path("NoticeCreateRequest").path("properties").path("residentIds").path("maxItems").asInt()).isEqualTo(2000);
+            JsonNode audience = schemas.path("NoticeCreateRequest").path("properties").path("audience");
+            assertThat(audience.path("properties").path("kind").path("enum").size()).isEqualTo(6);
+            assertThat(audience.path("additionalProperties").asBoolean(true)).isFalse();
+            assertThat(audience.path("properties").has("label")).isFalse();
             assertThat(schemas.path("TermIssueRequest").path("properties").path("confirmed").path("enum").get(0).asBoolean()).isTrue();
             assertThat(schemas.path("CommunicationAcknowledgeRequest").path("properties").path("version").path("type").asText()).isEqualTo("integer");
             assertThat(schemas.path("NoticeRevisionRequest").path("properties").has("residentIds")).isFalse();
