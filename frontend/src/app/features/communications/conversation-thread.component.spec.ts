@@ -86,6 +86,8 @@ async function setup(items = [message('1'), message('2')]) {
         useValue: {
           thread: null,
           connection: signal(null),
+          listCollapsed: signal(false),
+          toggleList: vi.fn(),
           refreshList: vi.fn(async () => undefined),
           markedRead: vi.fn(),
         },

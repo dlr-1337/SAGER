@@ -186,6 +186,25 @@ const initials = (conversation: Conversation): string =>
     .map((part) => part[0].toUpperCase())
     .join('');
 
+// Only a convenience of this browser: without storage (private window, blocked site data) the
+// choice lasts for this visit.
+const LIST_HIDDEN_KEY = 'sager.conversas.lista-recolhida';
+const storedListHidden = (): boolean => {
+  try {
+    return localStorage.getItem(LIST_HIDDEN_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+const storeListHidden = (hidden: boolean): void => {
+  try {
+    if (hidden) localStorage.setItem(LIST_HIDDEN_KEY, '1');
+    else localStorage.removeItem(LIST_HIDDEN_KEY);
+  } catch {
+    // Kept in memory only.
+  }
+};
+
 /**
  * The thread and the page share one draft guard: without discarding here, leaving the thread would
  * ask twice, once for the child route and once for the parent route.
@@ -256,8 +275,8 @@ export const conversationDraftGuard: CanDeactivateFn<unknown> = async () => {
           </div>
         }
         <sager-auto-refresh-status [refresh]="refresh" />
-        <div class="conv-shell">
-          <section class="conv-list" aria-labelledby="conv-list-title">
+        <div class="conv-shell" [class.conv-list-collapsed]="listCollapsed()">
+          <section id="conv-list" class="conv-list" aria-labelledby="conv-list-title">
             <div class="conv-list-head">
               <div class="conv-list-title">
                 <h2 id="conv-list-title" tabindex="-1">Conversas recentes</h2>
@@ -463,6 +482,9 @@ export class ConversationsPage {
     const reason = this.connection()?.unavailableReason;
     return reason ? unavailableTexts[reason] : '';
   });
+  private readonly listHidden = signal(storedListHidden());
+  /** Without an open conversation the list comes back: collapsed, the screen would be empty. */
+  readonly listCollapsed = computed(() => this.listHidden() && this.threadOpen());
   /** Set by the open thread so one timer serves both, at the shorter interval. */
   thread: { refresh(): Promise<void> } | null = null;
   readonly refresh = autoRefresh(() => this.tick(), {
@@ -540,6 +562,11 @@ export class ConversationsPage {
   threadClosed(): void {
     this.threadOpen.set(false);
     setTimeout(() => document.getElementById('conv-list-title')?.focus(), 0);
+  }
+  toggleList(): void {
+    const hidden = !this.listCollapsed();
+    this.listHidden.set(hidden);
+    storeListHidden(hidden);
   }
   toggleStart(): void {
     this.starting.update((value) => !value);
@@ -626,6 +653,18 @@ export class ConversationsPage {
           <span class="material-symbols-rounded" aria-hidden="true">arrow_back</span>
           Voltar à lista
         </a>
+        <button
+          class="conv-tool conv-collapse"
+          type="button"
+          aria-controls="conv-list"
+          [attr.aria-expanded]="!listCollapsed()"
+          (click)="toggleList()"
+        >
+          <span class="material-symbols-rounded" aria-hidden="true">{{
+            listCollapsed() ? 'arrow_forward' : 'arrow_back'
+          }}</span>
+          {{ listCollapsed() ? 'Mostrar conversas' : 'Recolher conversas' }}
+        </button>
         <div class="conv-thread-title">
           <h2 #title tabindex="-1">{{ name(current) }}</h2>
           <p>
@@ -1001,6 +1040,7 @@ export class ConversationThreadComponent implements OnDestroy {
     const reason = this.page.connection()?.unavailableReason;
     return reason ? unavailableTexts[reason] : '';
   });
+  readonly listCollapsed = computed(() => this.page.listCollapsed());
   readonly elapsedLabel = computed(
     () => `${Math.floor(this.elapsed() / 60)}:${String(this.elapsed() % 60).padStart(2, '0')}`,
   );
@@ -1057,6 +1097,9 @@ export class ConversationThreadComponent implements OnDestroy {
     this.resize?.disconnect();
     this.discardRecording();
     this.setPreview(null);
+  }
+  toggleList(): void {
+    this.page.toggleList();
   }
   sender(message: ConversationMessage, conversation: Conversation): string {
     if (message.direction === 'IN') return contactName(conversation);

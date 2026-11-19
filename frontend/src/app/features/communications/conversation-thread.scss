@@ -3,16 +3,21 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-1) var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) var(--space-5);
   border-bottom: 1px solid var(--line);
 }
+// Recolher a lista vale só ao lado dela: no celular, lista e conversa já alternam.
+.conv-collapse {
+  flex: none;
+}
 .conv-thread-title {
+  flex: 1 1 240px;
   min-width: 0;
 }
 .conv-thread-title h2 {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 1.375rem;
   overflow-wrap: anywhere;
 }
 .conv-thread-title p {
@@ -29,11 +34,16 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
   // Em telas baixas, a lista encolhe antes que o campo de texto fique cortado.
   min-height: 0;
-  padding: var(--space-4);
+  padding: var(--space-5) var(--space-6);
   overflow-y: auto;
+  // Prende aqui dentro os textos só para leitores de tela (.sr-only, posição absoluta) dos balões.
+  // Sem isso, os de balões fora da vista esticam a página para baixo da conversa.
+  position: relative;
+  // No começo ou no fim das mensagens, a roda do mouse não passa a rolar a janela.
+  overscroll-behavior: contain;
   background: var(--green-50);
 }
 // Dentro da barra de rolagem, o anel de foco não pode ficar para fora.
@@ -64,9 +74,9 @@
   align-self: flex-start;
   display: grid;
   gap: var(--space-1);
-  max-width: min(78%, 560px);
+  max-width: min(80%, 720px);
   min-width: 0;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border: 1px solid var(--line);
   border-radius: 14px 14px 14px 4px;
   background: #fff;
@@ -87,6 +97,8 @@
   font-weight: 700;
 }
 .conv-msg-body {
+  font-size: 1.125rem;
+  line-height: 1.5;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
@@ -150,14 +162,14 @@
 .conv-image img {
   display: block;
   max-width: 100%;
-  max-height: 280px;
+  max-height: 360px;
   min-height: 80px;
   border-radius: var(--radius-control);
   background: var(--neutral-bg);
 }
 .conv-msg audio {
   display: block;
-  width: min(300px, 100%);
+  width: min(360px, 100%);
   height: 44px;
 }
 // Link e ícone inline-block, como .op-row-link (D14): o sublinhado do hover não chega ao ícone.
@@ -216,10 +228,21 @@
   .conv-thread-head {
     padding: 0 var(--space-3) var(--space-2);
   }
+  // Mais forte que .conv-tool, que vem depois (composição).
+  .conv-thread-head .conv-collapse {
+    display: none;
+  }
+  .conv-thread-title h2 {
+    font-size: 1.2rem;
+  }
   .conv-log {
     padding: var(--space-3);
   }
   .conv-msg {
     max-width: 88%;
+    padding: var(--space-2) var(--space-3);
+  }
+  .conv-msg-body {
+    font-size: 1.0625rem;
   }
 }

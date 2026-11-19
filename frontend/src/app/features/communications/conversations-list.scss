@@ -10,7 +10,7 @@
   flex: none;
   display: grid;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-3) var(--space-2);
+  padding: var(--space-4) var(--space-4) var(--space-3);
   border-bottom: 1px solid var(--line);
 }
 .conv-list-title {
@@ -22,7 +22,7 @@
 }
 .conv-list-title h2 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.25rem;
 }
 .conv-new.btn {
   gap: 6px;
@@ -75,6 +75,8 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  // No fim da lista, a roda do mouse não passa a rolar a janela.
+  overscroll-behavior: contain;
 }
 .conv-rows ul {
   margin: 0;
@@ -83,9 +85,10 @@
 }
 .conv-row {
   display: flex;
+  align-items: center;
   gap: var(--space-3);
-  min-height: 72px;
-  padding: var(--space-3);
+  min-height: 88px;
+  padding: var(--space-4);
   border-bottom: 1px solid var(--line);
   border-left: 4px solid transparent;
   color: var(--ink);
@@ -108,11 +111,12 @@
   flex: none;
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   background: var(--green-100);
   color: var(--green-900);
+  font-size: 1.125rem;
   font-weight: 700;
 }
 .conv-row.active .conv-avatar {
@@ -121,7 +125,7 @@
 .conv-row-body {
   flex: 1;
   display: grid;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
 }
 .conv-row-top {
@@ -132,6 +136,7 @@
   min-width: 0;
 }
 .conv-row-top strong {
+  font-size: 1.125rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -154,11 +159,11 @@
   align-items: center;
   gap: 4px;
   min-width: 0;
-  font-size: 1rem;
+  font-size: 1.0625rem;
 }
 .conv-row-preview .material-symbols-rounded {
   flex: none;
-  font-size: 18px;
+  font-size: 20px;
 }
 .conv-row-text {
   flex: 1;
@@ -181,4 +186,17 @@
 .conv-more {
   width: calc(100% - 24px);
   margin: var(--space-3);
+}
+@media (max-width: 480px) {
+  .conv-list-head {
+    padding: var(--space-3) var(--space-3) var(--space-2);
+  }
+  .conv-row {
+    min-height: 80px;
+    padding: var(--space-3);
+  }
+  .conv-avatar {
+    width: 48px;
+    height: 48px;
+  }
 }
