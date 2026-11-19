@@ -365,10 +365,10 @@ describe('Detalhe e ranking da limpeza se atualizam sozinhos', () => {
     vi.useFakeTimers();
     get = vi.fn().mockResolvedValue(assessment('A-101'));
     ranking = vi.fn().mockResolvedValue({
-      period: 'MONTH',
-      from: '2026-09-01',
+      period: 'LAST_5_DAYS',
+      from: '2026-09-26',
       to: '2026-09-30',
-      items: [{ roomId: 'r1', roomCode: 'A-101', mean: 6, position: 1, assessmentCount: 1 }],
+      items: [{ roomId: 'r1', roomCode: 'A-101', mean: 6, position: 1, own: false }],
     });
     TestBed.configureTestingModule({
       providers: [
@@ -447,15 +447,149 @@ describe('Detalhe e ranking da limpeza se atualizam sozinhos', () => {
     await vi.advanceTimersByTimeAsync(0);
     fixture.detectChanges();
     ranking.mockResolvedValue({
-      period: 'MONTH',
-      from: '2026-09-01',
+      period: 'LAST_5_DAYS',
+      from: '2026-09-26',
       to: '2026-09-30',
-      items: [{ roomId: 'r1', roomCode: 'A-101', mean: 8.25, position: 1, assessmentCount: 2 }],
+      items: [{ roomId: 'r1', roomCode: 'A-101', mean: 8.25, position: 1, own: false }],
     });
     fixture.componentInstance.form.controls.period.setValue('WEEK');
     await vi.advanceTimersByTimeAsync(15_000);
     fixture.detectChanges();
-    expect(ranking).toHaveBeenLastCalledWith('MONTH', '2026-09-30', false);
+    expect(ranking).toHaveBeenLastCalledWith('LAST_5_DAYS', '2026-09-30', false);
     expect(fixture.nativeElement.textContent).toContain('8,25');
+  });
+});
+
+describe('Ranking dos últimos 5 dias', () => {
+  const rows = (resident: boolean) => [
+    {
+      roomId: resident ? null : 'r2',
+      roomCode: 'A-102',
+      mean: resident ? null : 9,
+      position: 1,
+      own: false,
+    },
+    { roomId: 'r1', roomCode: 'A-101', mean: 7, position: 2, own: resident },
+    ...Array.from({ length: 26 }, (_, i) => ({
+      roomId: resident ? null : 'x' + i,
+      roomCode: 'B-' + (200 + i),
+      mean: resident ? null : 5,
+      position: 3 + i,
+      own: false,
+    })),
+    { roomId: resident ? null : 'r9', roomCode: 'C-900', mean: null, position: null, own: false },
+  ];
+  const open = async (role: 'gestor' | 'residente', periodo: string | null = null) => {
+    const ranking = vi.fn().mockResolvedValue({
+      period: 'LAST_5_DAYS',
+      referenceDate: '2026-09-30',
+      from: '2026-09-26',
+      to: '2026-09-30',
+      items: rows(role === 'residente'),
+    });
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              data: {},
+              paramMap: { get: () => null },
+              queryParamMap: { get: (key: string) => (key === 'periodo' ? periodo : null) },
+            },
+          },
+        },
+        {
+          provide: DemoSessionService,
+          useValue: {
+            active: signal(false),
+            hasRole: (...roles: string[]) => roles.includes(role),
+          },
+        },
+        {
+          provide: CleaningLocalApiService,
+          useValue: {
+            ranking,
+            policy: vi.fn().mockResolvedValue({ currentDate: '2026-09-30' }),
+          },
+        },
+      ],
+    });
+    const fixture = TestBed.createComponent(RankingLocalPage);
+    await vi.advanceTimersByTimeAsync(0);
+    fixture.detectChanges();
+    return { fixture, ranking, element: fixture.nativeElement as HTMLElement };
+  };
+  const list = (element: HTMLElement) =>
+    Array.from(
+      element.querySelectorAll('[aria-label="Posições dos quartos"] article.cleaning-rank'),
+    ).map((row) => row.textContent ?? '');
+
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('abre nos últimos 5 dias, com a data como último dia', async () => {
+    const { ranking, element } = await open('gestor');
+    expect(ranking).toHaveBeenCalledWith('LAST_5_DAYS', '2026-09-30', false);
+    expect(element.querySelector('#ranking-period-title')?.textContent).toContain(
+      'Últimos 5 dias · 26/09/2026 a 30/09/2026',
+    );
+    expect(element.querySelector('input[type="date"]')?.closest('label')?.textContent).toContain(
+      'Último dia',
+    );
+    const options = Array.from(element.querySelectorAll('option')).map((option) => option.value);
+    expect(options).toEqual(['LAST_5_DAYS', 'WEEK', 'MONTH', 'SEMESTER']);
+  });
+
+  it('mantém semana, mês e semestre pelo endereço', async () => {
+    const { ranking, fixture, element } = await open('gestor', 'SEMESTER');
+    expect(ranking).toHaveBeenCalledWith('SEMESTER', '2026-09-30', false);
+    expect(element.querySelector('input[type="date"]')?.closest('label')?.textContent).toContain(
+      'Um dia do período',
+    );
+    expect(fixture.componentInstance.form.controls.period.value).toBe('SEMESTER');
+  });
+
+  it('a linha mostra só a posição e a nota', async () => {
+    const { element } = await open('gestor');
+    const shown = list(element);
+    expect(shown).toHaveLength(25);
+    expect(shown[0]).toContain('1º');
+    expect(shown[0]).toContain('Quarto A-102');
+    expect(shown[0]).toContain('9,00');
+    expect(shown.join(' ')).not.toMatch(/avalia/i);
+    expect(element.textContent).not.toContain('Seu quarto neste período');
+    expect(element.textContent).toContain('1–25 de 29');
+  });
+
+  it('quarto sem avaliação aparece sem posição e sem nota', async () => {
+    const { fixture, element } = await open('gestor');
+    fixture.componentInstance.rankingPage.set(1);
+    fixture.detectChanges();
+    const last = list(element).at(-1) ?? '';
+    expect(last).toContain('Sem posição');
+    expect(last).toContain('Sem nota');
+  });
+
+  it('o residente vê o próprio quarto uma vez, só no topo', async () => {
+    const { element } = await open('residente');
+    const own = element.querySelector('section.cleaning-own');
+    expect(own?.textContent).toContain('Seu quarto neste período');
+    expect(own?.querySelectorAll('article.cleaning-rank')).toHaveLength(1);
+    expect(own?.textContent).toContain('2º');
+    expect(own?.querySelector('.cleaning-score')?.textContent?.trim()).toBe('7,00');
+    expect(element.textContent).toContain('Outros quartos');
+    const shown = list(element);
+    expect(shown).toHaveLength(25);
+    expect(shown.some((row) => row.includes('A-101'))).toBe(false);
+    expect(shown[0]).toContain('1º');
+    expect(shown[1]).toContain('3º');
+    expect(
+      element.querySelectorAll('[aria-label="Posições dos quartos"] .cleaning-score'),
+    ).toHaveLength(0);
+    expect(element.textContent).toContain('1–25 de 28');
+    expect(element.textContent).not.toContain('Sua participação');
+    expect(element.textContent).not.toContain('Nota privada');
   });
 });

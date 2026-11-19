@@ -13,10 +13,15 @@ export const criterionLabels: Record<CleaningCriterion, string> = {
 };
 export const criteriaKeys = Object.keys(criterionLabels) as CleaningCriterion[];
 export const periodLabels: Record<RankingPeriod, string> = {
+  LAST_5_DAYS: 'Últimos 5 dias',
   WEEK: 'Semana',
   MONTH: 'Mês',
   SEMESTER: 'Semestre',
 };
+/** Os últimos 5 dias vêm primeiro: são o período padrão do ranking. */
+export const rankingPeriods = Object.keys(periodLabels) as RankingPeriod[];
+export const isRankingPeriod = (value: unknown): value is RankingPeriod =>
+  rankingPeriods.includes(value as RankingPeriod);
 export function validCriteria(value: unknown): value is CleaningCriteria {
   if (
     !value ||

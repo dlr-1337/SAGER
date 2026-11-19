@@ -34,7 +34,7 @@ Para conhecer as telas sem conta, use **Explorar com um perfil fictício** na te
 
 1. **Cadastros.** Comece pela estrutura: em **Cursos**, clique em **Cadastrar curso** (o formulário só abre pelo botão; no ensino médio a duração já fica em 3 anos, e no superior você informa de 1 a 6); em **Quartos** › **Gerenciar alojamentos**, os alojamentos (com a faixa etária, se houver) e as casas ou blocos; depois, os quartos. Só então cadastre os residentes, que exigem curso e ano de entrada, e os responsáveis. O cadastro de residente e de supervisor já cria a conta de acesso, com a senha escolhida por quem cadastra.
 2. **Alocação.** Abra o residente em **Residentes**, escolha o quarto em **Colocar no quarto** (ou em **Mudar para**, se ele já tem quarto) e confirme. **Tirar do quarto** encerra a alocação. O histórico guarda a ocupação anterior. O sistema recusa alocar em alojamento de outra faixa etária e alocar quem já concluiu o curso.
-3. **Limpeza e ranking.** Em **Limpeza** e **Ranking**, acompanhe as avaliações por período. Nota zero e falta de avaliação são coisas diferentes.
+3. **Limpeza e ranking.** Em **Limpeza**, acompanhe as avaliações. O **Ranking** abre nos últimos 5 dias, com a posição e a nota de cada quarto; em **Período**, você também escolhe semana, mês ou semestre. Nota zero e falta de avaliação são coisas diferentes: dia sem avaliação não entra na média.
 4. **Relatórios.** Em **Relatórios**, escolha o tipo, o período e os filtros e gere PDF ou planilha. O arquivo traz o recorte daquele momento e fica disponível por 24 horas; para ver mudanças posteriores, gere outro. Cada relatório mostra só as colunas e os totais do seu assunto (o de saídas não traz nota de limpeza, por exemplo); só **Tudo junto** reúne todos. Os registros vêm do mais recente para o mais antigo, e o PDF e a planilha saem em tabela, com uma linha por registro; na planilha, o cabeçalho tem filtro e a aba **Resumo** traz os totais e o código de conferência.
 
 O gestor não opera chamada noturna, saídas, disciplina nem avisos.
@@ -59,7 +59,7 @@ O gestor não opera chamada noturna, saídas, disciplina nem avisos.
 
 1. **Meu perfil.** Confira seu nome, sua matrícula e seu quarto. Se algum dado estiver errado, ou se o quarto não aparecer, procure a equipe da residência. Se a tela disser que sua conta não está ligada ao seu cadastro, peça ao suporte da instituição para ligar.
 2. **Minhas comunicações.** Leia avisos, advertências e termos de compromisso. O que está em vigor aparece como **Valendo**, na lista e no filtro. Confirme a ciência só depois de ler a versão apresentada. Ciência não é assinatura.
-3. **Minha limpeza e Ranking.** Veja as avaliações do seu quarto e a posição geral.
+3. **Minha limpeza e Ranking.** Veja as avaliações do seu quarto e a posição geral. No ranking, seu quarto aparece uma vez, no topo, com a posição e a nota dos últimos 5 dias; dos outros quartos, você vê só a posição.
 4. **Minhas saídas** (só para menores de idade). Peça uma saída curta ou longa e acompanhe o pedido. Na curta, você diz só quando quer sair e por quê: ela dura até 3 horas a partir da hora em que o supervisor registra sua saída. Na saída longa, escolha o responsável que vai autorizar; o supervisor confere a autorização antes de aprovar. Quem registra a saída e a volta é o supervisor: depois da aprovação, apresente-se a ele para ele registrar a saída. O tempo fora só começa a contar nesse registro. O residente maior de idade não pede saídas e não vê esse item no menu.
 
 ## Quando algo dá errado
@@ -86,7 +86,7 @@ O gestor não opera chamada noturna, saídas, disciplina nem avisos.
 | **Expirada** | Pedido de saída cujo prazo passou sem decisão ou sem partida. O sistema faz isso sozinho. |
 | **Faixa etária** | Indica se o alojamento recebe só menores ou só maiores de 18 anos. |
 | **Notificação de ocorrência** | Caso que o sistema separa para o supervisor analisar: falta sem justificativa, saída curta sem volta depois das 3 horas, volta atrasada ou limpeza abaixo de 6. Nunca vira advertência sozinha. |
-| **Ranking** | Classificação dos quartos pela média das avaliações de limpeza no período. |
+| **Ranking** | Classificação dos quartos pela média das notas de limpeza no período. Abre nos últimos 5 dias: o dia escolhido e os 4 dias antes dele. |
 | **Saída curta** | Saída de até 3 horas, contadas da hora em que o supervisor registra a saída. |
 | **Saída longa** | Saída com retorno previsto em mais de 3 horas. Exige a autorização do responsável. |
 | **Suporte da instituição** | Equipe de TI responsável pelo SAGER: cria as contas de gestor e troca a senha de servidores. |

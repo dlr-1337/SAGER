@@ -96,29 +96,59 @@ class CleaningReportsIntegrationTest {
  @Test void rankingsTieOneOneThreeAndDoNotRevealOthersScores()throws Exception{
   try(var sup=login("supervisor");var student=login("residente")){
    for(int i=0;i<3;i++)ok(sup,"POST","/api/v1/limpeza/avaliacoes",assessment(rooms.get(i),"NOW",null,new double[]{i<2?8:5,i<2?8:5,i<2?8:5,i<2?8:5}));
-   for(String period:List.of("WEEK","MONTH","SEMESTER")){
+   for(String period:List.of("LAST_5_DAYS","WEEK","MONTH","SEMESTER")){
     var rows=read(sup,"/api/v1/limpeza/ranking?period="+period+"&referenceDate=2026-09-30").path("items");
     assertThat(rank(rows,rooms.get(0)).path("position").asInt()).isEqualTo(1);assertThat(rank(rows,rooms.get(1)).path("position").asInt()).isEqualTo(1);assertThat(rank(rows,rooms.get(2)).path("position").asInt()).isEqualTo(3);assertThat(rank(rows,rooms.get(3)).path("position").isNull()).isTrue();assertThat(rank(rows,rooms.get(3)).path("mean").isNull()).isTrue();
    }
-   var own=read(student,"/api/v1/limpeza/ranking").path("items");for(var row:own)if(!row.path("own").asBoolean()){assertThat(row.path("roomId").isNull()).isTrue();assertThat(row.path("mean").isNull()).isTrue();assertThat(row.path("assessmentCount").isNull()).isTrue();}
+   var own=read(student,"/api/v1/limpeza/ranking").path("items");for(var row:own)if(!row.path("own").asBoolean()){assertThat(row.path("roomId").isNull()).isTrue();assertThat(row.path("mean").isNull()).isTrue();}
+   // The ranking shows only position and score: no row carries the number of assessments.
+   for(var rows:List.of(own,read(sup,"/api/v1/limpeza/ranking").path("items")))for(var row:rows)assertThat(row.has("assessmentCount")).isFalse();
    assertThat(get(HttpClient.newHttpClient(),"/api/v1/limpeza/ranking").statusCode()).isEqualTo(401);
    assertThat(count("sager_occurrence")).isZero(); // score5 belonged to an empty room.
   }
  }
- @Test void listFeedbackMatchesWeeklyRankingWhenAPageSharesWeeks()throws Exception{
+ @Test void fiveDayRankingIsDefaultAndAveragesOnlyEvaluatedDaysInsideTheWindow()throws Exception{
+  try(var sup=login("supervisor");var student=login("residente")){
+   // Today is 2026-09-30 in São Paulo; START minus n days falls on 2026-09-(30-n) at 22:30.
+   ok(sup,"POST","/api/v1/limpeza/avaliacoes",assessment(rooms.get(0),"NOW",null,new double[]{9,9,9,9}));
+   ok(sup,"POST","/api/v1/limpeza/avaliacoes",assessment(rooms.get(0),"RETROACTIVE",START.minus(Duration.ofDays(2)),new double[]{5,5,5,5}));
+   ok(sup,"POST","/api/v1/limpeza/avaliacoes",assessment(rooms.get(1),"RETROACTIVE",START.minus(Duration.ofDays(4)),new double[]{9,9,9,9}));
+   ok(sup,"POST","/api/v1/limpeza/avaliacoes",assessment(rooms.get(1),"RETROACTIVE",START.minus(Duration.ofDays(5)),new double[]{3,3,3,3}));
+   var current=read(sup,"/api/v1/limpeza/ranking");
+   assertThat(current.path("period").asText()).isEqualTo("LAST_5_DAYS");assertThat(current.path("referenceDate").asText()).isEqualTo("2026-09-30");
+   assertThat(current.path("from").asText()).isEqualTo("2026-09-26");assertThat(current.path("to").asText()).isEqualTo("2026-09-30");
+   // Room 0: 9 on 30/09 and 5 on 28/09, the three days without assessment do not count. Room 1: 25/09 is outside the window.
+   assertThat(rank(current.path("items"),rooms.get(0)).path("mean").decimalValue()).isEqualByComparingTo("7.00");assertThat(rank(current.path("items"),rooms.get(0)).path("position").asInt()).isEqualTo(2);
+   assertThat(rank(current.path("items"),rooms.get(1)).path("mean").decimalValue()).isEqualByComparingTo("9.00");assertThat(rank(current.path("items"),rooms.get(1)).path("position").asInt()).isEqualTo(1);
+   for(UUID empty:List.of(rooms.get(2),rooms.get(3))){assertThat(rank(current.path("items"),empty).path("mean").isNull()).isTrue();assertThat(rank(current.path("items"),empty).path("position").isNull()).isTrue();}
+   // One day earlier the window is 25/09 to 29/09: room 1 averages 3 and 9, room 0 has only 5.
+   var earlier=read(sup,"/api/v1/limpeza/ranking?period=LAST_5_DAYS&referenceDate=2026-09-29");
+   assertThat(earlier.path("from").asText()).isEqualTo("2026-09-25");assertThat(earlier.path("to").asText()).isEqualTo("2026-09-29");
+   assertThat(rank(earlier.path("items"),rooms.get(1)).path("mean").decimalValue()).isEqualByComparingTo("6.00");assertThat(rank(earlier.path("items"),rooms.get(1)).path("position").asInt()).isEqualTo(1);
+   assertThat(rank(earlier.path("items"),rooms.get(0)).path("mean").decimalValue()).isEqualByComparingTo("5.00");assertThat(rank(earlier.path("items"),rooms.get(0)).path("position").asInt()).isEqualTo(2);
+   var mine=read(student,"/api/v1/limpeza/ranking");assertThat(mine.path("period").asText()).isEqualTo("LAST_5_DAYS");
+   var ownRow=rank(mine.path("items"),rooms.get(0));assertThat(ownRow.path("own").asBoolean()).isTrue();assertThat(ownRow.path("mean").decimalValue()).isEqualByComparingTo("7.00");assertThat(ownRow.path("position").asInt()).isEqualTo(2);
+   assertThat(mine.path("items").size()).isEqualTo(current.path("items").size());for(var row:mine.path("items"))if(!row.path("own").asBoolean())assertThat(row.path("mean").isNull()).isTrue();
+   assertError(get(sup,"/api/v1/limpeza/ranking?period=DAY"),400,"invalid_input");
+  }
+ }
+ @Test void listFeedbackMatchesFiveDayRankingWhenAPageSharesWindows()throws Exception{
   try(var sup=login("supervisor");var student=login("residente")){
    for(int i=0;i<3;i++)ok(sup,"POST","/api/v1/limpeza/avaliacoes",assessment(rooms.get(i),"NOW",null,new double[]{i<2?8:5,i<2?8:5,i<2?8:5,i<2?8:5}));
    ok(sup,"POST","/api/v1/limpeza/avaliacoes",assessment(rooms.getFirst(),"RETROACTIVE",START.minus(Duration.ofDays(1)),new double[]{8,8,8,8}));
-   // The previous week has another ranking, so one page must not reuse a single week for every item.
+   // 24/09 is outside the 5-day window of 30/09, so one page must not reuse a single window for every item.
    ok(sup,"POST","/api/v1/limpeza/avaliacoes",assessment(rooms.get(2),"RETROACTIVE",START.minus(Duration.ofDays(6)),new double[]{3,3,3,3}));
    var managed=read(sup,"/api/v1/limpeza/avaliacoes").path("items");var own=read(student,"/api/v1/me/limpeza/avaliacoes").path("items");
    assertThat(managed.size()).isEqualTo(5);assertThat(own.size()).isEqualTo(2);
    for(var items:List.of(managed,own))for(var item:items){
-    var row=rank(read(sup,"/api/v1/limpeza/ranking?period=WEEK&referenceDate="+item.path("assessmentDate").asText()).path("items"),UUID.fromString(item.path("roomId").asText()));
+    LocalDate date=LocalDate.parse(item.path("assessmentDate").asText());var feedback=item.path("feedback");
+    assertThat(feedback.path("rankingReference").asText()).isEqualTo("LAST_5_DAYS");assertThat(feedback.path("from").asText()).isEqualTo(date.minusDays(4).toString());assertThat(feedback.path("to").asText()).isEqualTo(date.toString());
+    var row=rank(read(sup,"/api/v1/limpeza/ranking?period=LAST_5_DAYS&referenceDate="+date).path("items"),UUID.fromString(item.path("roomId").asText()));
     assertThat(item.path("feedback").path("periodMean").decimalValue()).isEqualByComparingTo(row.path("mean").decimalValue());
     assertThat(item.path("feedback").path("position").asInt()).isEqualTo(row.path("position").asInt());
    }
-   assertThat(rank(read(sup,"/api/v1/limpeza/ranking?period=WEEK&referenceDate=2026-09-30").path("items"),rooms.get(1)).path("position").asInt()).isEqualTo(1);
+   var today=read(sup,"/api/v1/limpeza/ranking?period=LAST_5_DAYS&referenceDate=2026-09-30").path("items");
+   assertThat(rank(today,rooms.get(1)).path("position").asInt()).isEqualTo(1);assertThat(rank(today,rooms.get(2)).path("mean").decimalValue()).isEqualByComparingTo("5.00");assertThat(rank(today,rooms.get(2)).path("position").asInt()).isEqualTo(3);
   }
  }
  @Test void validatesCriteriaDatesBodiesAndDistinctRolePermissions()throws Exception{

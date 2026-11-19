@@ -1302,8 +1302,9 @@ export class HomePage {
             @if (session.active()) {
               Os números da demonstração são sintéticos.
             } @else {
-              A nota de limpeza é a média dos quatro itens. Quartos com a mesma média ficam na mesma
-              posição. A tela e os arquivos mostram os mesmos dados.
+              A nota de limpeza é a média dos quatro itens. O ranking abre com a média das notas dos
+              últimos 5 dias, e dia sem avaliação não conta. Quartos com a mesma média ficam na
+              mesma posição. A tela e os arquivos mostram os mesmos dados.
             }
           </p>
         </details>

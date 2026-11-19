@@ -21,6 +21,8 @@ import tools.jackson.databind.*;
 public class CleaningService {
  public static final ZoneId ZONE=ZoneId.of("America/Sao_Paulo");
  public static final List<String> CRITERIA=List.of("PISO","SUPERFICIES","RESIDUOS","ORGANIZACAO");
+ /** Default ranking period and the one used by each assessment's feedback: the reference date and the 4 previous civil days. */
+ public static final String LAST_5_DAYS="LAST_5_DAYS";
  private final JdbcTemplate jdbc; private final ReportingActor actor; private final Clock clock;
  private final ObjectMapper json; private final DisciplineIdempotency keys; private final AuditService audit;
  private final List<OccurrenceEvidenceSink> sinks;
@@ -70,8 +72,8 @@ public class CleaningService {
  public Page<Assessment> list(UUID accommodation,UUID unit,UUID room,UUID resident,LocalDate from,LocalDate to,int size,Long cursor){
   actor.administrative();limit(size,cursor);checkRange(from,to);
   var rows=jdbc.queryForList("SELECT a.id,a.sequence FROM sager_cleaning_assessment a WHERE (?::uuid IS NULL OR a.accommodation_id=?) AND (?::uuid IS NULL OR a.room_id IN (SELECT id FROM sager_room WHERE unit_id=?)) AND (?::uuid IS NULL OR room_id=?) AND (?::uuid IS NULL OR EXISTS(SELECT 1 FROM sager_cleaning_participant p WHERE p.assessment_id=a.id AND p.resident_id=?)) AND (?::date IS NULL OR assessment_date>=?) AND (?::date IS NULL OR assessment_date<=?) AND (?::bigint IS NULL OR sequence<?) ORDER BY sequence DESC LIMIT ?",accommodation,accommodation,unit,unit,room,room,resident,resident,from,from,to,to,cursor,cursor,size+1);
-  boolean more=rows.size()>size;var selected=more?rows.subList(0,size):rows;Map<LocalDate,List<RankRow>> weeks=new HashMap<>();
-  return new Page<>(selected.stream().map(r->assessment((UUID)r.get("id"),false,weeks)).toList(),more?((Number)selected.getLast().get("sequence")).longValue():null);
+  boolean more=rows.size()>size;var selected=more?rows.subList(0,size):rows;Map<LocalDate,List<RankRow>> windows=new HashMap<>();
+  return new Page<>(selected.stream().map(r->assessment((UUID)r.get("id"),false,windows)).toList(),more?((Number)selected.getLast().get("sequence")).longValue():null);
  }
  @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
  public Assessment get(UUID id){actor.administrative();return assessment(id,true);}
@@ -79,22 +81,22 @@ public class CleaningService {
  public Page<OwnAssessment> ownList(LocalDate from,LocalDate to,int size,Long cursor){
   UUID resident=actor.resident().residentId();limit(size,cursor);checkRange(from,to);
   var rows=jdbc.queryForList("SELECT a.id,a.sequence FROM sager_cleaning_assessment a JOIN sager_cleaning_participant p ON p.assessment_id=a.id WHERE p.resident_id=? AND (?::date IS NULL OR assessment_date>=?) AND (?::date IS NULL OR assessment_date<=?) AND (?::bigint IS NULL OR sequence<?) ORDER BY sequence DESC LIMIT ?",resident,from,from,to,to,cursor,cursor,size+1);
-  boolean more=rows.size()>size;var selected=more?rows.subList(0,size):rows;Map<LocalDate,List<RankRow>> weeks=new HashMap<>();
-  return new Page<>(selected.stream().map(r->ownProjection(assessment((UUID)r.get("id"),false,weeks))).toList(),more?((Number)selected.getLast().get("sequence")).longValue():null);
+  boolean more=rows.size()>size;var selected=more?rows.subList(0,size):rows;Map<LocalDate,List<RankRow>> windows=new HashMap<>();
+  return new Page<>(selected.stream().map(r->ownProjection(assessment((UUID)r.get("id"),false,windows))).toList(),more?((Number)selected.getLast().get("sequence")).longValue():null);
  }
  @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
  public OwnAssessment own(UUID id){UUID resident=actor.resident().residentId();if(!Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM sager_cleaning_participant WHERE assessment_id=? AND resident_id=?)",Boolean.class,id,resident)))throw missing();return ownProjection(assessment(id,false));}
  private OwnAssessment ownProjection(Assessment a){return new OwnAssessment(a.id(),a.roomId(),a.roomCode(),a.evaluatedAt(),a.assessmentDate(),a.criteria(),a.score(),a.observation(),a.version(),a.feedback());}
  private Assessment assessment(UUID id,boolean history){return assessment(id,history,new HashMap<>());}
- // A list page shares weeks, so each week's ranking of every room is aggregated once per page.
- private Assessment assessment(UUID id,boolean history,Map<LocalDate,List<RankRow>> weeks){
+ // A list page shares 5-day windows, so each window's ranking of every room is aggregated once per page.
+ private Assessment assessment(UUID id,boolean history,Map<LocalDate,List<RankRow>> windows){
   var rows=jdbc.queryForList("SELECT * FROM sager_cleaning_assessment WHERE id=?",id);if(rows.isEmpty())throw missing();var r=rows.getFirst();
   var participants=jdbc.query("SELECT * FROM sager_cleaning_participant WHERE assessment_id=? ORDER BY resident_id",(rs,n)->new Participant(rs.getObject("allocation_id",UUID.class),rs.getObject("resident_id",UUID.class),rs.getString("resident_name")),id);
   var revisions=history?jdbc.query("SELECT * FROM sager_cleaning_revision WHERE assessment_id=? ORDER BY version",(rs,n)->new Revision(rs.getLong("version"),criteria(json.readTree(rs.getString("criteria"))),rs.getBigDecimal("score"),rs.getString("observation"),rs.getString("reason"),rs.getObject("recorded_at",OffsetDateTime.class),rs.getObject("recorded_by",UUID.class)),id):List.<Revision>of();
   UUID room=(UUID)r.get("room_id");LocalDate date=((java.sql.Date)r.get("assessment_date")).toLocalDate();BigDecimal score=(BigDecimal)r.get("score");long version=((Number)r.get("version")).longValue();
   BigDecimal previous=version==0?null:jdbc.queryForObject("SELECT score FROM sager_cleaning_revision WHERE assessment_id=? AND version=?",BigDecimal.class,id,version-1);
-  var period=period("WEEK",date);var ranked=weeks.computeIfAbsent(period[0],week->rankRows(period[0],period[1]));var rank=ranked.stream().filter(x->room.equals(x.roomId())).findFirst().orElseThrow();
-  Feedback feedback=new Feedback(previous,score,previous==null?null:score.subtract(previous).setScale(2),rank.mean(),rank.position(),"WEEK",period[0],period[1]);
+  var period=period(LAST_5_DAYS,date);var ranked=windows.computeIfAbsent(period[0],start->rankRows(period[0],period[1]));var rank=ranked.stream().filter(x->room.equals(x.roomId())).findFirst().orElseThrow();
+  Feedback feedback=new Feedback(previous,score,previous==null?null:score.subtract(previous).setScale(2),rank.mean(),rank.position(),LAST_5_DAYS,period[0],period[1]);
   return new Assessment(id,room,(String)r.get("room_code"),(UUID)r.get("accommodation_id"),time(r.get("evaluated_at")),date,(String)r.get("time_mode"),((Number)r.get("policy_version")).longValue(),criteria(json.readTree(r.get("criteria").toString())),score,(String)r.get("observation"),version,time(r.get("recorded_at")),(UUID)r.get("recorded_by"),participants,revisions,feedback);
  }
  @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
@@ -103,19 +105,20 @@ public class CleaningService {
   if(reference==null)reference=today();var range=period(period,reference);var rows=rankRows(range[0],range[1]);
   if(account.profile().equals("residente")){
    var ownRooms=new HashSet<>(jdbc.query("SELECT DISTINCT a.room_id FROM sager_cleaning_assessment a JOIN sager_cleaning_participant p ON p.assessment_id=a.id WHERE p.resident_id=? AND a.assessment_date BETWEEN ? AND ?",(rs,n)->rs.getObject(1,UUID.class),account.residentId(),range[0],range[1]));
-   rows=rows.stream().map(r->ownRooms.contains(r.roomId())?new RankRow(r.roomId(),r.roomCode(),r.mean(),r.position(),r.assessmentCount(),true):new RankRow(null,r.roomCode(),null,r.position(),null,false)).toList();
+   rows=rows.stream().map(r->ownRooms.contains(r.roomId())?new RankRow(r.roomId(),r.roomCode(),r.mean(),r.position(),true):new RankRow(null,r.roomCode(),null,r.position(),false)).toList();
   }
   return new Ranking(period,reference,range[0],range[1],rows);
  }
  private List<RankRow> rankRows(LocalDate from,LocalDate to){
-  var rooms=jdbc.queryForList("SELECT r.id,r.code,ROUND(AVG(a.score),2) AS mean,COUNT(a.id) AS count FROM sager_room r LEFT JOIN sager_cleaning_assessment a ON a.room_id=r.id AND a.assessment_date BETWEEN ? AND ? GROUP BY r.id,r.code ORDER BY mean DESC NULLS LAST,r.code,r.id",from,to);
+  // A room has one assessment per civil date (V18), so AVG is the mean of the daily scores and a day without one never counts as zero.
+  var rooms=jdbc.queryForList("SELECT r.id,r.code,ROUND(AVG(a.score),2) AS mean FROM sager_room r LEFT JOIN sager_cleaning_assessment a ON a.room_id=r.id AND a.assessment_date BETWEEN ? AND ? GROUP BY r.id,r.code ORDER BY mean DESC NULLS LAST,r.code,r.id",from,to);
   List<RankRow> result=new ArrayList<>();BigDecimal last=null;int seen=0,position=0;
-  for(var r:rooms){BigDecimal mean=(BigDecimal)r.get("mean");Integer current=null;if(mean!=null){seen++;if(last==null||mean.compareTo(last)!=0)position=seen;current=position;last=mean;}result.add(new RankRow((UUID)r.get("id"),(String)r.get("code"),mean,current,((Number)r.get("count")).intValue(),false));}
+  for(var r:rooms){BigDecimal mean=(BigDecimal)r.get("mean");Integer current=null;if(mean!=null){seen++;if(last==null||mean.compareTo(last)!=0)position=seen;current=position;last=mean;}result.add(new RankRow((UUID)r.get("id"),(String)r.get("code"),mean,current,false));}
   return result;
  }
  public static LocalDate[] period(String type,LocalDate reference){
   LocalDate start,end;
-  switch(type){case "WEEK"->{start=reference.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));end=start.plusDays(6);}case "MONTH"->{start=reference.withDayOfMonth(1);end=start.plusMonths(1).minusDays(1);}case "SEMESTER"->{start=LocalDate.of(reference.getYear(),reference.getMonthValue()<=6?1:7,1);end=start.plusMonths(6).minusDays(1);}default->throw invalid("period deve ser WEEK, MONTH ou SEMESTER.");}
+  switch(type){case LAST_5_DAYS->{start=reference.minusDays(4);end=reference;}case "WEEK"->{start=reference.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));end=start.plusDays(6);}case "MONTH"->{start=reference.withDayOfMonth(1);end=start.plusMonths(1).minusDays(1);}case "SEMESTER"->{start=LocalDate.of(reference.getYear(),reference.getMonthValue()<=6?1:7,1);end=start.plusMonths(6).minusDays(1);}default->throw invalid("period deve ser LAST_5_DAYS, WEEK, MONTH ou SEMESTER.");}
   return new LocalDate[]{start,end};
  }
  @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)

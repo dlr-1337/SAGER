@@ -4,31 +4,39 @@ import { DemoSessionService } from '../../core/demo-session.service';
 import { decimal } from '../cleaning/cleaning-local.utils';
 import { OperationsDemoService } from './operations-demo.service';
 
-type Period = 'Semanal' | 'Mensal' | 'Semestral';
+type Period = 'Últimos 5 dias' | 'Semanal' | 'Mensal' | 'Semestral';
 interface RankRow {
   room: string;
-  position: number;
+  position: number | null;
+  mean: number | null;
   own: boolean;
 }
 
+// Médias ilustrativas com duas casas: empate repete a posição e quarto sem avaliação fica sem nota.
 const EXAMPLE_RANKINGS: Record<Period, RankRow[]> = {
+  'Últimos 5 dias': [
+    { room: 'A-102', position: 1, mean: 8.5, own: true },
+    { room: 'B-203', position: 1, mean: 8.5, own: false },
+    { room: 'A-104', position: 3, mean: 7.25, own: false },
+    { room: 'B-201', position: null, mean: null, own: false },
+  ],
   Semanal: [
-    { room: 'B-203', position: 1, own: false },
-    { room: 'A-102', position: 2, own: true },
-    { room: 'A-104', position: 3, own: false },
-    { room: 'B-201', position: 4, own: false },
+    { room: 'B-203', position: 1, mean: 8.75, own: false },
+    { room: 'A-102', position: 2, mean: 8.25, own: true },
+    { room: 'A-104', position: 3, mean: 7.5, own: false },
+    { room: 'B-201', position: 4, mean: 6.75, own: false },
   ],
   Mensal: [
-    { room: 'A-104', position: 1, own: false },
-    { room: 'A-102', position: 2, own: true },
-    { room: 'B-203', position: 3, own: false },
-    { room: 'B-201', position: 4, own: false },
+    { room: 'A-104', position: 1, mean: 8.4, own: false },
+    { room: 'A-102', position: 2, mean: 8.1, own: true },
+    { room: 'B-203', position: 3, mean: 7.85, own: false },
+    { room: 'B-201', position: 4, mean: 6.9, own: false },
   ],
   Semestral: [
-    { room: 'B-203', position: 1, own: false },
-    { room: 'A-104', position: 2, own: false },
-    { room: 'A-102', position: 3, own: true },
-    { room: 'B-201', position: 4, own: false },
+    { room: 'B-203', position: 1, mean: 8.32, own: false },
+    { room: 'A-104', position: 2, mean: 8.05, own: false },
+    { room: 'A-102', position: 3, mean: 7.94, own: true },
+    { room: 'B-201', position: 4, mean: 7.1, own: false },
   ],
 };
 
@@ -54,14 +62,16 @@ const EXAMPLE_RANKINGS: Record<Period, RankRow[]> = {
         <div>
           <h2>Como o ranking é calculado</h2>
           <p>
-            Média dos quatro critérios, com duas casas; empates repetem a posição e quarto sem
-            avaliação não recebe zero. Posições e períodos são exemplos sintéticos.
+            Média dos quatro critérios, com duas casas. O ranking abre nos últimos 5 dias: a média
+            das notas de hoje e dos 4 dias anteriores, sem contar o dia sem avaliação. Semana, mês e
+            semestre continuam como opções. Empates repetem a posição e quarto sem avaliação não
+            recebe zero. Posições e notas são exemplos sintéticos.
           </p>
         </div>
       </section>
       <section class="panel op-panel" aria-labelledby="ranking-title">
         <div class="op-section-heading">
-          <h2 id="ranking-title">Classificação {{ period().toLocaleLowerCase('pt-BR') }}</h2>
+          <h2 id="ranking-title">{{ title() }}</h2>
           <p>Quartos demonstrativos</p>
         </div>
         <div class="op-periods" role="group" aria-label="Período do ranking">
@@ -79,17 +89,25 @@ const EXAMPLE_RANKINGS: Record<Period, RankRow[]> = {
         <ol class="op-ranking-list">
           @for (row of rows(); track row.room) {
             <li [class.own-room]="row.own && session.hasRole('residente')">
-              <strong>{{ row.position }}ª posição</strong><span>Quarto {{ row.room }}</span>
+              <strong>{{
+                row.position === null ? 'Sem posição' : row.position + 'ª posição'
+              }}</strong
+              ><span>Quarto {{ row.room }}</span>
               @if (row.own && session.hasRole('residente')) {
                 <span class="op-own-tag">Seu quarto</span>
+              }
+              @if (!session.hasRole('residente') || row.own) {
+                <span class="op-rank-score">{{
+                  row.mean === null ? 'Sem nota' : decimal(row.mean)
+                }}</span>
               }
             </li>
           }
         </ol>
         @if (session.hasRole('residente')) {
           <p class="op-help">
-            Você pode consultar as posições de todos os quartos. Detalhes de avaliação de outros
-            dormitórios não aparecem aqui.
+            Você pode consultar as posições de todos os quartos. A nota aparece só para o seu
+            quarto.
           </p>
         }
         @if (service.cleaningFeedback(); as feedback) {
@@ -109,7 +127,12 @@ export class RankingComponent {
   readonly session = inject(DemoSessionService);
   readonly service = inject(OperationsDemoService);
   readonly decimal = decimal;
-  readonly periods: Period[] = ['Semanal', 'Mensal', 'Semestral'];
-  readonly period = signal<Period>('Semanal');
+  readonly periods: Period[] = ['Últimos 5 dias', 'Semanal', 'Mensal', 'Semestral'];
+  readonly period = signal<Period>('Últimos 5 dias');
   readonly rows = computed(() => EXAMPLE_RANKINGS[this.period()]);
+  readonly title = computed(() =>
+    this.period() === 'Últimos 5 dias'
+      ? 'Classificação dos últimos 5 dias'
+      : 'Classificação ' + this.period().toLocaleLowerCase('pt-BR'),
+  );
 }

@@ -94,6 +94,14 @@ test('limpeza e ranking da demonstração descrevem a regra adotada com duas cas
   await expect(summary).toContainText('0,50 ponto(s)');
   await page.getByRole('link', { name: 'Consultar ranking demonstrativo' }).click();
   await expect(page.getByRole('heading', { name: 'Como o ranking é calculado' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Últimos 5 dias' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(
+    page.getByRole('heading', { name: 'Classificação dos últimos 5 dias' }),
+  ).toBeVisible();
+  await expect(page.locator('.op-rank-score').first()).toHaveText('8,50');
   await expect(page.getByText('Fórmula pendente da AE')).toHaveCount(0);
   await expect(page.getByText('nota ilustrativa 8,00')).toBeVisible();
 });
