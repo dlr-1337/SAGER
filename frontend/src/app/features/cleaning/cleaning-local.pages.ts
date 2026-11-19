@@ -473,12 +473,14 @@ export class CleaningListLocalPage {
               dela.
             </p>
           </details>
-          <div class="comm-actions">
-            @if (!own && session.hasRole('supervisor')) {
+          @if (!own && session.hasRole('supervisor')) {
+            <div class="decision-actions">
               <a class="btn-secondary" [routerLink]="['/limpeza', assessment.id, 'corrigir']"
                 >Corrigir com justificativa</a
               >
-            }
+            </div>
+          }
+          <div class="comm-links">
             <a
               routerLink="/ranking"
               [queryParams]="{

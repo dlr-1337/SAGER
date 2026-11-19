@@ -128,11 +128,11 @@ export interface LocalReviewResult {
         </label>
       }
       @if (data.requireConfirmation) {
-        <label class="op-check"
-          ><input type="checkbox" [formControl]="confirmation" />{{
+        <label class="confirm-check"
+          ><input type="checkbox" [formControl]="confirmation" /><span>{{
             data.confirmationLabel ??
               'Confirmo o registro fora do horário da chamada (22h às 23h30).'
-          }}</label
+          }}</span></label
         >
       }
       @if (error()) {
@@ -180,6 +180,7 @@ export interface LocalReviewResult {
         margin: 16px 0;
       }
       mat-dialog-actions {
+        flex-wrap: wrap;
         gap: 8px;
         padding: 16px 24px;
       }
@@ -187,9 +188,6 @@ export interface LocalReviewResult {
         .review-list div {
           grid-template-columns: 1fr;
           gap: 3px;
-        }
-        mat-dialog-actions {
-          flex-wrap: wrap;
         }
       }
     `,

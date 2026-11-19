@@ -105,7 +105,7 @@ export interface CommunicationReviewResult {
         <p class="field-hint">Descreva a decisão em 10 a 2.000 caracteres.</p>
       }
       @if (data.confirmation) {
-        <label class="comm-check"
+        <label class="confirm-check"
           ><input type="checkbox" [formControl]="confirmed" /><span>{{
             data.confirmation
           }}</span></label
