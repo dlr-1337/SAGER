@@ -2,19 +2,19 @@ Os caminhos são relativos à raiz do repositório. Comandos Maven rodam em `bac
 
 ## 1. Backend: a aprovação só decide
 
-- [ ] 1.1 Em `backend/src/main/java/br/edu/ifgoiano/sager/operations/shortexits/ShortExitService.java` e `backend/src/main/java/br/edu/ifgoiano/sager/operations/longexits/LongExitService.java`, `decide`: tirar `departNow`, a conferência de saída física aberta na aprovação e a segunda gravação `EM_ANDAMENTO` (design D1, D2). Verificar com os testes da 1.2 e da 1.3.
-- [ ] 1.2 Em `backend/src/test/java/br/edu/ifgoiano/sager/operations/OperationsApiIntegrationTest.java`:
+- [x] 1.1 Em `backend/src/main/java/br/edu/ifgoiano/sager/operations/shortexits/ShortExitService.java` e `backend/src/main/java/br/edu/ifgoiano/sager/operations/longexits/LongExitService.java`, `decide`: tirar `departNow`, a conferência de saída física aberta na aprovação e a segunda gravação `EM_ANDAMENTO` (design D1, D2). Verificar com os testes da 1.2 e da 1.3.
+- [x] 1.2 Em `backend/src/test/java/br/edu/ifgoiano/sager/operations/OperationsApiIntegrationTest.java`:
   - trocar o teste da aprovação que registrava a partida por um que aprova a saída `NOW` e recebe `APROVADA`, versão 1, sem partida, retorno previsto na partida pedida mais 3 h, `canDepart` verdadeiro, histórico `CREATE` e `APPROVE` e uma auditoria; 20 min depois, `POST .../partida` deixa `EM_ANDAMENTO` com a partida e o retorno contados desse registro e o evento `DEPARTURE` do supervisor;
   - trocar o teste do conflito físico na aprovação por um em que a aprovação passa e a partida responde 409 `physical_exit_conflict`, com a saída ainda `APROVADA`;
   - acrescentar: a saída `NOW` aprovada sem partida responde 409 `deadline_passed` na partida depois do prazo e expira com `APPROVED_WITHOUT_DEPARTURE`;
   - ajustar os testes que aprovavam e já contavam com a partida (`departedExit`, `concurrentOverlappingRequestsAndReturnsPersistOnlyOneChange`, `recordedDepartureFixesTheReturnThreeHoursLaterWithoutOverlapRefusal`, `authorizesThroughExactExpectedReturnButNotWhenAlreadyReturnedAtOpening` e `pendingAndPhysicallyLateExitsNeverJustifyNightAbsence`) para registrar a partida com `POST .../partida`.
   - Verificar com `.\mvnw.cmd -B -ntp -Dtest=OperationsApiIntegrationTest test`.
-- [ ] 1.3 Em `backend/src/test/java/br/edu/ifgoiano/sager/operations/longexits/LongExitApiIntegrationTest.java`:
+- [x] 1.3 Em `backend/src/test/java/br/edu/ifgoiano/sager/operations/longexits/LongExitApiIntegrationTest.java`:
   - aprovar a saída longa `NOW` com autorização conferida devolve `APROVADA`, sem partida e com `canDepart` verdadeiro; `POST .../partida` a deixa `EM_ANDAMENTO`, com `APPROVE` e `DEPARTURE` do mesmo supervisor no histórico;
   - aprovar com outra saída em andamento é aceito, e a partida responde 409 `physical_exit_conflict`;
   - os testes da chamada noturna (`residentOutOnLongExitIsJustifiedBySystemWhenTheNightCallOpens` e `longExitOfManyDaysJustifiesEveryNightCallUntilTheExpectedReturn`) registram a partida depois de aprovar.
   - Verificar com `.\mvnw.cmd -B -ntp -Dtest=LongExitApiIntegrationTest test`.
-- [ ] 1.4 Ajustar os outros testes que esperavam `EM_ANDAMENTO` na aprovação: `backend/src/test/java/br/edu/ifgoiano/sager/integrations/IntegrationFlowIntegrationTest.java` (aprovação da saída longa passa a `APROVADA`), `backend/src/test/java/br/edu/ifgoiano/sager/discipline/DisciplineApiIntegrationTest.java` (`departedShortExit` registra a partida) e `backend/src/test/java/br/edu/ifgoiano/sager/reports/CleaningReportsIntegrationTest.java` (a volta atrasada vem depois da partida registrada). Verificar com `.\mvnw.cmd -B -ntp -Dtest=IntegrationFlowIntegrationTest,DisciplineApiIntegrationTest,CleaningReportsIntegrationTest test`.
+- [x] 1.4 Ajustar os outros testes que esperavam `EM_ANDAMENTO` na aprovação: `backend/src/test/java/br/edu/ifgoiano/sager/integrations/IntegrationFlowIntegrationTest.java` (aprovação da saída longa passa a `APROVADA`), `backend/src/test/java/br/edu/ifgoiano/sager/discipline/DisciplineApiIntegrationTest.java` (`departedShortExit` registra a partida) e `backend/src/test/java/br/edu/ifgoiano/sager/reports/CleaningReportsIntegrationTest.java` (a volta atrasada vem depois da partida registrada). Verificar com `.\mvnw.cmd -B -ntp -Dtest=IntegrationFlowIntegrationTest,DisciplineApiIntegrationTest,CleaningReportsIntegrationTest test`.
 
 ## 2. Frontend: telas, textos, ajuda e demonstração
 

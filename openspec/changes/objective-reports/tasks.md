@@ -10,24 +10,24 @@ O modo demonstração (RF027) continua: não remover os ramos `session.active()`
 
 ## 1. Servidor
 
-- [ ] 1.1 Em `ReportCatalog`, dar a cada relatório a própria lista de colunas (D1), calcular o resumo e o mês a mês só com as métricas do relatório (D2), ordenar a consulta do mais recente para o mais antigo e pelo nome do residente (D3) e passar o catálogo à versão 2 (D4). Em `ReportService`, gravar a versão do catálogo. Verificar com `CleaningReportsIntegrationTest`:
+- [x] 1.1 Em `ReportCatalog`, dar a cada relatório a própria lista de colunas (D1), calcular o resumo e o mês a mês só com as métricas do relatório (D2), ordenar a consulta do mais recente para o mais antigo e pelo nome do residente (D3) e passar o catálogo à versão 2 (D4). Em `ReportService`, gravar a versão do catálogo. Verificar com `CleaningReportsIntegrationTest`:
   - o catálogo de saídas e o de presença trazem só as suas colunas, e o consolidado traz as oito;
   - o resumo das saídas não tem `cleaningMean` e o da presença tem `unjustifiedAbsences`;
   - as linhas vêm da data mais recente para a mais antiga;
   - o relatório novo guarda `catalogVersion` 2.
-- [ ] 1.2 Conferir que um relatório guardado na versão 1, com as oito colunas, o resumo completo e a ordem crescente, ainda exporta PDF e Excel e mantém o código de conferência. Verificar com o teste `snapshotStoredBeforeObjectiveColumnsStillExportsWithSameHash` de `CleaningReportsIntegrationTest`.
+- [x] 1.2 Conferir que um relatório guardado na versão 1, com as oito colunas, o resumo completo e a ordem crescente, ainda exporta PDF e Excel e mantém o código de conferência. Verificar com o teste `snapshotStoredBeforeObjectiveColumnsStillExportsWithSameHash` de `CleaningReportsIntegrationTest`.
 
 ## 2. PDF em tabela
 
-- [ ] 2.1 Em `PdfTextRenderer`, acrescentar o bloco de tabela, com cabeçalho repetido em cada página, largura pelo conteúdo e quebra de texto na célula, e a opção de página deitada, sem mudar os documentos atuais (D5). Verificar com `LongExitPdfGeneratorTest`:
+- [x] 2.1 Em `PdfTextRenderer`, acrescentar o bloco de tabela, com cabeçalho repetido em cada página, largura pelo conteúdo e quebra de texto na célula, e a opção de página deitada, sem mudar os documentos atuais (D5). Verificar com `LongExitPdfGeneratorTest`:
   - uma tabela de 300 linhas ocupa várias páginas deitadas e repete o cabeçalho em cada uma;
   - um texto longo numa célula quebra sem sair da página;
   - a autorização de saída longa continua em A4 em pé.
-- [ ] 2.2 Em `ReportExportWorker`, gerar o PDF em A4 deitado com "Resumo" (filtros, geração, total, métricas e contagem por situação), "Registros" em tabela e "Conferência" no fim. Verificar com `CleaningReportsIntegrationTest`: o PDF de limpeza traz o cabeçalho "Data Quarto Residente Nota Situação", a nota "8,00", as métricas e o código depois do último registro, sem UUID nem código interno.
+- [x] 2.2 Em `ReportExportWorker`, gerar o PDF em A4 deitado com "Resumo" (filtros, geração, total, métricas e contagem por situação), "Registros" em tabela e "Conferência" no fim. Verificar com `CleaningReportsIntegrationTest`: o PDF de limpeza traz o cabeçalho "Data Quarto Residente Nota Situação", a nota "8,00", as métricas e o código depois do último registro, sem UUID nem código interno.
 
 ## 3. Excel em tabela
 
-- [ ] 3.1 Em `ReportExportWorker`, dar filtro automático, fundo e borda ao cabeçalho da aba "Resultados", largura de coluna pelo conteúdo e renomear a aba "Consulta" para "Resumo", com as métricas do relatório antes do código de conferência (D6). Verificar com `CleaningReportsIntegrationTest`: o cabeçalho da limpeza é exatamente "Data, Quarto, Residente, Nota, Situação", o filtro cobre o cabeçalho e as linhas, a primeira linha é a data mais recente, a aba "Resumo" traz "Nota média de limpeza" e o código na última linha, e o texto `=SUM(1,1)` continua texto.
+- [x] 3.1 Em `ReportExportWorker`, dar filtro automático, fundo e borda ao cabeçalho da aba "Resultados", largura de coluna pelo conteúdo e renomear a aba "Consulta" para "Resumo", com as métricas do relatório antes do código de conferência (D6). Verificar com `CleaningReportsIntegrationTest`: o cabeçalho da limpeza é exatamente "Data, Quarto, Residente, Nota, Situação", o filtro cobre o cabeçalho e as linhas, a primeira linha é a data mais recente, a aba "Resumo" traz "Nota média de limpeza" e o código na última linha, e o texto `=SUM(1,1)` continua texto.
 
 ## 4. Tela e demonstração
 

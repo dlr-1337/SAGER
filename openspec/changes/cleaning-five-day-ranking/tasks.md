@@ -10,7 +10,7 @@ O modo demonstração (RF027) continua: não remover os ramos `session.active()`
 
 ## 1. Servidor
 
-- [ ] 1.1 Criar o período `LAST_5_DAYS` e torná-lo o padrão.
+- [x] 1.1 Criar o período `LAST_5_DAYS` e torná-lo o padrão.
   - Em `CleaningService.period`, aceitar `LAST_5_DAYS`: da referência menos 4 dias até a referência. A mensagem de período inválido cita os quatro valores.
   - Em `CleaningController`, usar `LAST_5_DAYS` quando `period` falta.
   - Atualizar a descrição do ranking em `ReportingOpenApiConfiguration`.
@@ -20,9 +20,9 @@ O modo demonstração (RF027) continua: não remover os ramos `session.active()`
     - nota de 9,00 em 30/09 e de 5,00 em 28/09 dão média 7,00;
     - nota de 25/09 fica fora da janela de 30/09;
     - `period=DAY` dá 400.
-- [ ] 1.2 Tirar `assessmentCount` de `RankRow` e da projeção do residente.
+- [x] 1.2 Tirar `assessmentCount` de `RankRow` e da projeção do residente.
   - Verificar em `CleaningReportsIntegrationTest` que nenhuma linha traz `assessmentCount`, para gestor ou residente.
-- [ ] 1.3 Passar a devolutiva da avaliação para os últimos 5 dias terminados na data da avaliação, com o mapa da lista guardado por início da janela.
+- [x] 1.3 Passar a devolutiva da avaliação para os últimos 5 dias terminados na data da avaliação, com o mapa da lista guardado por início da janela.
   - Verificar em `CleaningReportsIntegrationTest`, no teste da lista que reúne avaliações de janelas diferentes:
     - `rankingReference` vale `LAST_5_DAYS`, com `from` e `to` da janela;
     - média e posição são iguais às do ranking `LAST_5_DAYS` na data de cada avaliação, na lista da gestão e na do residente.

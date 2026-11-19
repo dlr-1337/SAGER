@@ -14,7 +14,7 @@ Comandos:
 
 ## 2. Grupo gravado no servidor
 
-- [ ] 2.1 Criar `V39__notice_audience_label.sql`: coluna `sager_notice.audience_label` (nula, até 500 caracteres) e o campo `audience` na auditoria de `NOTICE`. Em `CommunicationService.createNotice`, aceitar `audience` (D2), montar o grupo com os nomes cadastrados, gravá-lo e devolvê-lo em `audienceLabel`; em `AuditResource`, aceitar `audience`; na OpenAPI, descrever `audience`.
+- [x] 2.1 Criar `V39__notice_audience_label.sql`: coluna `sager_notice.audience_label` (nula, até 500 caracteres) e o campo `audience` na auditoria de `NOTICE`. Em `CommunicationService.createNotice`, aceitar `audience` (D2), montar o grupo com os nomes cadastrados, gravá-lo e devolvê-lo em `audienceLabel`; em `AuditResource`, aceitar `audience`; na OpenAPI, descrever `audience`.
 
   Verificar com `./mvnw -B -ntp -Dtest=DisciplineApiIntegrationTest,ApiFoundationIntegrationTest test`:
   - cada opção grava o grupo de D1, inclusive o quarto com unidade;
@@ -52,4 +52,4 @@ Comandos:
 ## 6. Verificação final
 
 - [x] 6.1 Rodar `npx prettier --check` nos arquivos tocados do frontend, `npx ng build` e `npx -y @fission-ai/openspec@2.0.0 validate notice-recipient-summary --strict`.
-- [ ] 6.2 Rodar os testes do backend da tarefa 2.1 com Docker.
+- [x] 6.2 Rodar os testes do backend da tarefa 2.1 com Docker.
