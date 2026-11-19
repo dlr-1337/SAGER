@@ -4,6 +4,7 @@ import { DemoSessionService } from '../../core/demo-session.service';
 import { validCivilDate } from '../communications/communications-local.utils';
 import { decimal } from '../cleaning/cleaning-local.utils';
 import { reportingError } from '../cleaning/reporting-local.transport';
+import { INDICATOR_SERIES, MonthlySeries } from '../cleaning/monthly-indicators.component';
 import {
   ReportCode,
   ReportColumnKey,
@@ -11,7 +12,9 @@ import {
   ReportFormat,
   ReportInput,
   ReportListItem,
+  ReportMetricKey,
   ReportRow,
+  ReportSummary,
 } from './reports-local.models';
 export const reportLabels = {
   PRESENCA: 'Presença na chamada',
@@ -33,6 +36,55 @@ export const reportDescriptions: Record<ReportCode, string> = {
   TERMOS: 'Termos emitidos ou anulados.',
   CONSOLIDADO: 'Todos os tipos em um só relatório.',
 };
+/**
+ * Metrics of each report besides the total and the counts by status. Same sets as the server
+ * catalog (ReportCatalog); the demonstration computes its summary from here.
+ */
+export const reportMetrics: Record<ReportCode, ReportMetricKey[]> = {
+  PRESENCA: ['unjustifiedAbsences'],
+  SAIDAS: ['confirmedLateReturns'],
+  LIMPEZA: ['cleaningMean'],
+  OCORRENCIAS: [],
+  NOTIFICACOES: [],
+  ADVERTENCIAS: ['activeWarnings'],
+  TERMOS: [],
+  CONSOLIDADO: ['cleaningMean', 'unjustifiedAbsences', 'confirmedLateReturns', 'activeWarnings'],
+};
+export const reportMetricLabels: Record<ReportMetricKey, string> = {
+  cleaningMean: 'Nota média de limpeza',
+  unjustifiedAbsences: 'Faltas sem justificativa',
+  confirmedLateReturns: 'Voltaram atrasados',
+  activeWarnings: 'Advertências ativas',
+};
+/** The metrics a stored summary carries, in the screen order: a report shows only its own. */
+export function summaryMetrics(
+  summary: ReportSummary,
+): { key: ReportMetricKey; label: string; value: string }[] {
+  return reportMetrics.CONSOLIDADO.filter((key) => summary[key] !== undefined).map((key) => ({
+    key,
+    label: reportMetricLabels[key],
+    value: key === 'cleaningMean' ? decimal(summary.cleaningMean) : String(summary[key]),
+  }));
+}
+const MONTHLY_COLUMNS = {
+  unjustifiedAbsences: 'Faltas',
+  confirmedLateReturns: 'Atrasos',
+  activeWarnings: 'Advertências',
+};
+export const REPORT_MONTHLY_HELP = 'Cada lista conta uma coisa em cada mês do período.';
+/**
+ * "Mês a mês" of a report: the records of each month and the report's own count. The cleaning
+ * mean stays in the summary, because it does not share the bar scale of the counts. The
+ * consolidated report keeps the three lists of the individual evolution.
+ */
+export function reportMonthlySeries(code: ReportCode, summary: ReportSummary): MonthlySeries[] {
+  if (code === 'CONSOLIDADO') return INDICATOR_SERIES;
+  const own = (['unjustifiedAbsences', 'confirmedLateReturns', 'activeWarnings'] as const)
+    .filter((key) => summary[key] !== undefined)
+    .map((key) => ({ key, label: reportMetricLabels[key], column: MONTHLY_COLUMNS[key] }));
+  // Not "Registros": that is already the heading of the records table on the same screen.
+  return [{ key: 'totalRows', label: 'Total de registros', column: 'Registros' }, ...own];
+}
 export type ReportPeriodPreset = 'este-mes' | 'mes-passado' | 'ultimos-7-dias';
 export function periodPreset(
   preset: ReportPeriodPreset,

@@ -68,7 +68,7 @@ describe('OperationsDemoService: critical operation rules', () => {
     expect(service.getExit('S-1048')?.status).toBe('Aprovada');
   });
 
-  it('approving a request to leave now records the departure; a scheduled one stays approved', () => {
+  it('approval never records the departure; the supervisor records it from the requested time', () => {
     const service = new OperationsDemoService();
     const input = { kind: 'Curta' as const, reason: 'Compromisso', notes: '' };
     const now = service.createExit({
@@ -77,22 +77,30 @@ describe('OperationsDemoService: critical operation rules', () => {
       expectedReturn: dateAt(2),
     });
     const later = service.createExit({ ...input, departure: dateAt(1), expectedReturn: dateAt(2) });
+    expect(service.recordDeparture(now.id)).toBe(false);
     expect(service.decideExit(now.id, 'approve')).toBe(true);
     expect(service.decideExit(later.id, 'approve')).toBe(true);
-    expect(service.getExit(now.id)?.status).toBe('Em andamento');
-    expect(
-      service
-        .getExit(now.id)
-        ?.timeline.slice(-2)
-        .map((event) => event.label),
-    ).toEqual(['Aprovada por supervisor', 'Saída registrada na aprovação']);
+    for (const id of [now.id, later.id]) {
+      expect(service.getExit(id)?.status).toBe('Aprovada');
+      expect(service.getExit(id)?.timeline.at(-1)?.label).toBe('Aprovada por supervisor');
+    }
+    // Agendada antes da hora: ainda não há saída para registrar.
+    expect(service.recordDeparture(later.id)).toBe(false);
     expect(service.getExit(later.id)?.status).toBe('Aprovada');
-    expect(service.getExit(later.id)?.timeline.at(-1)?.label).toBe('Aprovada por supervisor');
+    // Pedido para sair agora: o supervisor registra a saída ao ver o residente.
+    expect(service.recordDeparture(now.id)).toBe(true);
+    const departed = service.getExit(now.id)!;
+    expect(departed.status).toBe('Em andamento');
+    expect(departed.timeline.at(-1)?.label).toBe('Saída registrada pelo supervisor');
+    // As 3 horas da curta contam da saída registrada.
+    expect(Date.parse(departed.expectedReturn) - Date.now()).toBeGreaterThan(3 * 3_600_000 - 5000);
+    expect(service.recordDeparture(now.id)).toBe(false);
     const fixed = service.getExit('S-1047')!.timeline;
-    expect(fixed.at(-1)?.detail).toBe('Saída registrada na aprovação.');
+    expect(fixed.at(-1)?.label).toBe('Saída registrada pelo supervisor');
     expect(fixed.at(-2)?.label).toBe('Aprovada por supervisor');
-    // Partida registrada na aprovação: mesmo instante (offset() roda duas vezes, daí a folga).
-    expect(Date.parse(fixed.at(-1)!.at) - Date.parse(fixed.at(-2)!.at)).toBeLessThan(1000);
+    expect(fixed.map((event) => event.detail)).not.toContain('Saída registrada na aprovação.');
+    // A saída vem depois da aprovação, num ato separado.
+    expect(Date.parse(fixed.at(-1)!.at)).toBeGreaterThan(Date.parse(fixed.at(-2)!.at));
   });
 
   it('rejects a long exit before the confirmation only with 10 to 2,000 characters', () => {

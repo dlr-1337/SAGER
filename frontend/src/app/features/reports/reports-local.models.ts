@@ -1,4 +1,3 @@
-import { MonthlyIndicator } from '../cleaning/cleaning-local.models';
 import { HousingMap } from '../management/housing.models';
 import { ResidentRecord } from '../management/resident-api.service';
 export type ReportCode =
@@ -51,16 +50,25 @@ export interface ReportFilters {
   residentId: string | null;
   status: string | null;
 }
+export type ReportMetricKey =
+  'cleaningMean' | 'unjustifiedAbsences' | 'confirmedLateReturns' | 'activeWarnings';
+/**
+ * Each report carries only its own metrics (catalog version 2): presence the absences, exits the
+ * late returns, cleaning the mean and warnings the active ones. Only the consolidated report has
+ * countsByType. A version 1 report keeps every key it stored.
+ */
 export interface ReportSummary {
   totalRows: number;
-  countsByType: Record<string, number>;
   countsByStatus: Record<string, number>;
-  cleaningMean: number | null;
-  unjustifiedAbsences: number;
-  confirmedLateReturns: number;
-  activeWarnings: number;
+  countsByType?: Record<string, number>;
+  cleaningMean?: number | null;
+  unjustifiedAbsences?: number;
+  confirmedLateReturns?: number;
+  activeWarnings?: number;
 }
-export interface ReportMonthly extends MonthlyIndicator, ReportSummary {}
+export interface ReportMonthly extends ReportSummary {
+  month: string;
+}
 export interface ReportSnapshot {
   id: string;
   catalogCode: ReportCode;

@@ -247,19 +247,54 @@ export class NotificationsLocalPage {
           </div>
           <section class="panel op-panel">
             <h2>Decisão do supervisor</h2>
-            @if (notification.status === 'PENDENTE') {
-              <button
-                class="btn-secondary"
-                type="button"
-                [disabled]="busy() || conflict()"
-                (click)="view()"
-              >
-                Registrar visualização
-              </button>
-            }
-            @if (!terminal(notification)) {
-              <div class="comm-actions">
-                @if (notification.status === 'PENDENTE' || notification.status === 'VISUALIZADA') {
+            <!-- Um grupo só: a ação principal primeiro, as outras na ordem do fluxo. -->
+            @if (
+              !terminal(notification) ||
+              (notification.requiresReview &&
+                notification.valid &&
+                notification.status !== 'ARQUIVADA')
+            ) {
+              <div class="decision-actions">
+                @if (!terminal(notification)) {
+                  <button
+                    class="btn"
+                    type="button"
+                    [disabled]="
+                      busy() || conflict() || notification.requiresReview || !notification.valid
+                    "
+                    (click)="showWarning.set(!showWarning())"
+                  >
+                    {{ showWarning() ? 'Fechar advertência' : 'Criar advertência' }}
+                  </button>
+                }
+                @if (
+                  notification.requiresReview &&
+                  notification.valid &&
+                  notification.status !== 'ARQUIVADA'
+                ) {
+                  <button
+                    class="btn-secondary"
+                    type="button"
+                    [disabled]="busy() || conflict()"
+                    (click)="analyze(true)"
+                  >
+                    Confirmar registro atual
+                  </button>
+                }
+                @if (notification.status === 'PENDENTE') {
+                  <button
+                    class="btn-secondary"
+                    type="button"
+                    [disabled]="busy() || conflict()"
+                    (click)="view()"
+                  >
+                    Registrar visualização
+                  </button>
+                }
+                @if (
+                  !terminal(notification) &&
+                  (notification.status === 'PENDENTE' || notification.status === 'VISUALIZADA')
+                ) {
                   <button
                     class="btn-secondary"
                     type="button"
@@ -269,43 +304,17 @@ export class NotificationsLocalPage {
                     Iniciar análise
                   </button>
                 }
-                <button
-                  class="btn-secondary"
-                  type="button"
-                  [disabled]="busy() || conflict()"
-                  (click)="archive()"
-                >
-                  Arquivar com justificativa
-                </button>
+                @if (!terminal(notification)) {
+                  <button
+                    class="btn-secondary"
+                    type="button"
+                    [disabled]="busy() || conflict()"
+                    (click)="archive()"
+                  >
+                    Arquivar com justificativa
+                  </button>
+                }
               </div>
-            }
-            @if (
-              notification.requiresReview &&
-              notification.valid &&
-              notification.status !== 'ARQUIVADA'
-            ) {
-              <div class="comm-actions">
-                <button
-                  class="btn-secondary"
-                  type="button"
-                  [disabled]="busy() || conflict()"
-                  (click)="analyze(true)"
-                >
-                  Confirmar registro atual
-                </button>
-              </div>
-            }
-            @if (!terminal(notification)) {
-              <button
-                class="btn"
-                type="button"
-                [disabled]="
-                  busy() || conflict() || notification.requiresReview || !notification.valid
-                "
-                (click)="showWarning.set(!showWarning())"
-              >
-                {{ showWarning() ? 'Fechar advertência' : 'Criar advertência' }}
-              </button>
             }
             @if (showWarning() && !terminal(notification)) {
               <form

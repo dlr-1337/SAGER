@@ -110,7 +110,7 @@ class ApiFoundationIntegrationTest {
             for (String path : new String[] { "/api/v1/auth/me", "/api/v1/auth/login",
                     "/api/v1/auth/logout", "/api/v1/residentes", "/api/v1/supervisores",
                     "/api/v1/alojamentos", "/api/v1/quartos", "/api/v1/responsaveis",
-                    "/api/v1/alocacoes", "/api/v1/auditoria" }) {
+                    "/api/v1/alocacoes", "/api/v1/auditoria", "/api/v1/me/pendencias" }) {
                 assertThat(document.path("paths").has(path)).as(path).isTrue();
             }
             assertThat(document.path("components").path("securitySchemes")
@@ -343,6 +343,10 @@ class ApiFoundationIntegrationTest {
             assertThat(schemas.path("TermIssueRequest").path("properties").path("warningIds").path("minItems").asInt()).isEqualTo(2);
             assertThat(schemas.path("TermIssueRequest").path("properties").path("warningIds").path("maxItems").asInt()).isEqualTo(100);
             assertThat(schemas.path("NoticeCreateRequest").path("properties").path("residentIds").path("maxItems").asInt()).isEqualTo(2000);
+            JsonNode audience = schemas.path("NoticeCreateRequest").path("properties").path("audience");
+            assertThat(audience.path("properties").path("kind").path("enum").size()).isEqualTo(6);
+            assertThat(audience.path("additionalProperties").asBoolean(true)).isFalse();
+            assertThat(audience.path("properties").has("label")).isFalse();
             assertThat(schemas.path("TermIssueRequest").path("properties").path("confirmed").path("enum").get(0).asBoolean()).isTrue();
             assertThat(schemas.path("CommunicationAcknowledgeRequest").path("properties").path("version").path("type").asText()).isEqualTo("integer");
             assertThat(schemas.path("NoticeRevisionRequest").path("properties").has("residentIds")).isFalse();

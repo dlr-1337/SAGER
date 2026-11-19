@@ -1,23 +1,50 @@
 .conv-page-header .page-header {
   margin-bottom: var(--space-4);
 }
-// A tela cabe na altura visível abaixo do cabeçalho do sistema (92 px): lista e mensagens rolam por
-// dentro e o campo de texto fica sempre à vista, sem a página subir e descer ao conversar.
-.conv-page {
+// A tela de Conversas ocupa a altura visível abaixo do cabeçalho fixo (--masthead-h), e o rodapé
+// fica logo abaixo dela, como num aplicativo de conversa: rolar a página só o revela, e o menu
+// lateral fica parado. A lista e as mensagens rolam por dentro. A altura antiga contava 92 px de
+// cabeçalho (hoje 100 px), e a tela passava da janela. Com menos de 500 px úteis (janela baixa ou
+// zoom), a página rola o que faltar.
+.work-area:has(.conv-page) > .app-main {
+  flex: none;
   display: flex;
   flex-direction: column;
-  height: max(560px, calc(100dvh - 92px));
+  height: max(500px, calc(100dvh - var(--masthead-h)));
+}
+.app-main > sager-conversations {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+// Largura toda da área de trabalho, sem o limite das outras telas: no monitor grande, a lista e a
+// conversa crescem com a tela.
+.page.conv-page {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+  padding-block: var(--space-5);
 }
 .conv-shell {
   flex: 1 1 auto;
-  min-height: 0;
+  min-height: 280px;
   display: grid;
-  grid-template-columns: minmax(250px, 350px) minmax(0, 1fr);
+  grid-template-columns: clamp(270px, 32%, 460px) minmax(0, 1fr);
   border: 1px solid var(--line);
   border-radius: var(--radius-card);
   background: #fff;
   box-shadow: var(--shadow);
   overflow: hidden;
+}
+// Lista recolhida: a conversa aberta fica com a largura toda.
+.conv-list-collapsed {
+  grid-template-columns: minmax(0, 1fr);
+}
+.conv-list-collapsed .conv-list {
+  display: none;
 }
 
 // Conversa
@@ -48,7 +75,7 @@ sager-conversation-thread {
 .conv-pane-empty .material-symbols-rounded {
   margin-bottom: var(--space-2);
   color: var(--green-800);
-  font-size: 44px;
+  font-size: 48px;
 }
 .conv-pane-empty h2 {
   margin-bottom: var(--space-1);
@@ -56,14 +83,20 @@ sager-conversation-thread {
 }
 .conv-pane-empty p {
   margin: 0;
+  font-size: 1.0625rem;
 }
 @media (max-width: 800px) {
-  // Só a lista: ela segue a rolagem da página.
-  .conv-page {
+  // Só a lista: ela segue a rolagem da página, com o rodapé no fim.
+  .work-area:has(.conv-page:not(.conv-has-thread)) > .app-main {
+    flex: 1;
     display: block;
     height: auto;
   }
+  .page.conv-page {
+    display: block;
+  }
   .conv-shell {
+    min-height: 0;
     grid-template-columns: minmax(0, 1fr);
   }
   .conv-list {
@@ -91,16 +124,17 @@ sager-conversation-thread {
     clip-path: inset(50%);
     white-space: nowrap;
   }
-  // A conversa ocupa a altura visível, com o campo de texto sempre à vista.
-  .conv-has-thread {
+  // A conversa ocupa a altura visível, com o campo de texto sempre à vista e o rodapé logo abaixo.
+  .work-area:has(.conv-has-thread) > .app-main {
+    height: max(420px, calc(100dvh - var(--masthead-h)));
+  }
+  .page.conv-has-thread {
     display: flex;
     flex-direction: column;
-    height: calc(100dvh - 72px);
+    padding-block: var(--space-4) var(--space-3);
   }
   .conv-has-thread .conv-shell {
-    flex: 1 1 auto;
-    height: auto;
-    min-height: 420px;
+    min-height: 360px;
   }
   .conv-health {
     padding: 6px 10px;

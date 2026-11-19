@@ -1,6 +1,6 @@
 export type CleaningCriterion = 'PISO' | 'SUPERFICIES' | 'RESIDUOS' | 'ORGANIZACAO';
 export type CleaningCriteria = Record<CleaningCriterion, number>;
-export type RankingPeriod = 'WEEK' | 'MONTH' | 'SEMESTER';
+export type RankingPeriod = 'LAST_5_DAYS' | 'WEEK' | 'MONTH' | 'SEMESTER';
 export interface CleaningPolicy {
   version: number;
   weights: CleaningCriteria;
@@ -59,7 +59,6 @@ export interface CleaningRankRow {
   roomCode: string;
   mean: number | null;
   position: number | null;
-  assessmentCount: number | null;
   own: boolean;
 }
 export interface CleaningRanking {

@@ -50,7 +50,13 @@ import {
   OwnCleaningAssessment,
   RankingPeriod,
 } from './cleaning-local.models';
-import { criteriaKeys, criterionLabels, decimal, periodLabels } from './cleaning-local.utils';
+import {
+  criteriaKeys,
+  criterionLabels,
+  decimal,
+  isRankingPeriod,
+  periodLabels,
+} from './cleaning-local.utils';
 import { reportingError } from './reporting-local.transport';
 
 @Component({
@@ -467,12 +473,14 @@ export class CleaningListLocalPage {
               dela.
             </p>
           </details>
-          <div class="comm-actions">
-            @if (!own && session.hasRole('supervisor')) {
+          @if (!own && session.hasRole('supervisor')) {
+            <div class="decision-actions">
               <a class="btn-secondary" [routerLink]="['/limpeza', assessment.id, 'corrigir']"
                 >Corrigir com justificativa</a
               >
-            }
+            </div>
+          }
+          <div class="comm-links">
             <a
               routerLink="/ranking"
               [queryParams]="{
@@ -626,12 +634,13 @@ export class RankingPage {
           <form class="comm-form-grid" [formGroup]="form" (ngSubmit)="load()">
             <label class="field"
               >Período<select sagerSearchable formControlName="period">
+                <option value="LAST_5_DAYS">Últimos 5 dias</option>
                 <option value="WEEK">Semana</option>
                 <option value="MONTH">Mês</option>
                 <option value="SEMESTER">Semestre</option>
               </select></label
             ><label class="field"
-              >Um dia do período<input type="date" formControlName="referenceDate" /></label
+              >{{ dateLabel() }}<input type="date" formControlName="referenceDate" /></label
             ><button class="btn-secondary" type="submit">Ver período</button>
           </form>
           @if (filterError()) {
@@ -644,50 +653,50 @@ export class RankingPage {
             <details class="learn-more">
               <summary>Saiba mais</summary>
               <p class="comm-help">
+                Últimos 5 dias: média das notas do último dia escolhido e dos 4 dias antes dele.
+                Cada quarto tem uma nota por dia, e dia sem avaliação não entra na conta.
+              </p>
+              <p class="comm-help">
                 Quartos com a mesma média ficam na mesma posição. Quarto sem avaliação fica sem
                 posição.
               </p>
               @if (session.hasRole('residente')) {
                 <p class="comm-help">
-                  Dos outros quartos, você vê só o código e a posição. Você vê suas notas se estava
-                  no quarto em uma avaliação deste período.
+                  Dos outros quartos, você vê só o código e a posição. Você vê a nota do seu quarto
+                  se estava nele em uma avaliação deste período.
                 </p>
               }
             </details>
+            <!-- Só posição e nota; o residente não vê a nota dos outros quartos. -->
             <ng-template #rankRow let-row>
               <article class="cleaning-rank">
                 <strong>{{ row.position === null ? 'Sem posição' : row.position + 'º' }}</strong>
                 <div>
                   <strong>Quarto {{ row.roomCode }}</strong>
-                  @if (row.own) {
-                    <p>Sua participação registrada neste período</p>
-                  }
                 </div>
-                <div>
-                  @if (!session.hasRole('residente') || row.own) {
-                    <span class="cleaning-score">{{ decimal(row.mean) }}</span>
-                    <p>
-                      {{
-                        row.assessmentCount === 0
-                          ? 'Sem avaliações no período'
-                          : row.assessmentCount === 1
-                            ? '1 avaliação'
-                            : row.assessmentCount + ' avaliações'
-                      }}
-                    </p>
-                  } @else {
-                    <span>Nota privada do quarto</span>
-                  }
-                </div>
+                @if (!session.hasRole('residente') || row.own) {
+                  <div>
+                    <span class="cleaning-score">{{
+                      row.mean === null ? 'Sem nota' : decimal(row.mean)
+                    }}</span>
+                  </div>
+                }
               </article>
             </ng-template>
             @if (ownRows().length) {
               <section class="cleaning-own" aria-labelledby="ranking-own-title">
-                <h4 id="ranking-own-title">Seu quarto neste período</h4>
+                <h4 id="ranking-own-title">
+                  {{
+                    ownRows().length === 1
+                      ? 'Seu quarto neste período'
+                      : 'Seus quartos neste período'
+                  }}
+                </h4>
                 @for (row of ownRows(); track row.roomCode) {
                   <ng-container *ngTemplateOutlet="rankRow; context: { $implicit: row }" />
                 }
               </section>
+              <h4 class="cleaning-others-title">Outros quartos</h4>
             }
             <div aria-label="Posições dos quartos">
               @for (row of pageRows(); track row.roomCode) {
@@ -698,7 +707,7 @@ export class RankingPage {
             </div>
             <sager-pagination
               [page]="rankingPage()"
-              [total]="result.items.length"
+              [total]="listRows().length"
               anchor="ranking-period-title"
               (pageChange)="rankingPage.set($event)"
             />
@@ -724,14 +733,26 @@ export class RankingLocalPage {
       nonNullable: true,
     }),
   });
+  private readonly chosenPeriod = toSignal(this.form.controls.period.valueChanges, {
+    initialValue: this.form.controls.period.value,
+  });
+  /** Nos últimos 5 dias, a data escolhida é o fim da janela. */
+  readonly dateLabel = computed(() =>
+    this.chosenPeriod() === 'LAST_5_DAYS' ? 'Último dia' : 'Um dia do período',
+  );
   readonly ranking = signal<CleaningRanking | null>(null);
   readonly rankingPage = signal(0);
-  readonly pageRows = computed(() =>
-    (this.ranking()?.items ?? []).slice(this.rankingPage() * 25, (this.rankingPage() + 1) * 25),
-  );
-  // O residente vê a linha do próprio quarto no topo, em qualquer página.
+  // O residente vê a linha do próprio quarto só no topo, em qualquer página.
   readonly ownRows = computed(() =>
     this.session.hasRole('residente') ? (this.ranking()?.items ?? []).filter((row) => row.own) : [],
+  );
+  /** A lista paginada não repete o quarto que já aparece no topo. */
+  readonly listRows = computed(() => {
+    const items = this.ranking()?.items ?? [];
+    return this.ownRows().length ? items.filter((row) => !row.own) : items;
+  });
+  readonly pageRows = computed(() =>
+    this.listRows().slice(this.rankingPage() * 25, (this.rankingPage() + 1) * 25),
   );
   readonly policy = signal<CleaningPolicy | null>(null);
   readonly loading = signal(false);
@@ -749,7 +770,7 @@ export class RankingLocalPage {
   }
   private initialPeriod(): RankingPeriod {
     const period = this.route.snapshot.queryParamMap.get('periodo');
-    return period === 'WEEK' || period === 'SEMESTER' ? period : 'MONTH';
+    return isRankingPeriod(period) ? period : 'LAST_5_DAYS';
   }
   allowed(): boolean {
     return !this.session.active() && this.session.hasRole('gestor', 'supervisor', 'residente');
@@ -800,7 +821,7 @@ export class RankingLocalPage {
     );
     if (current !== this.sequence) return;
     this.ranking.set(ranking);
-    const last = Math.max(0, Math.ceil(ranking.items.length / 25) - 1);
+    const last = Math.max(0, Math.ceil(this.listRows().length / 25) - 1);
     this.rankingPage.update((page) => Math.min(page, last));
   }
 }

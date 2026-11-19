@@ -7,7 +7,7 @@ Fazer a chamada noturna bater com as saídas: quem está fora com saída válida
 
 ### Requirement: Justificativa automática na abertura
 
-Ao abrir a chamada, o sistema SHALL marcar como ausência justificada o residente com exatamente uma saída aprovada, com partida física registrada, sem retorno e com retorno previsto não vencido no instante da abertura, vinculando a saída. Isso SHALL valer em cada chamada aberta enquanto a saída está em andamento, também quando a partida foi registrada na aprovação (RN10).
+Ao abrir a chamada, o sistema SHALL marcar como ausência justificada o residente com exatamente uma saída aprovada, com partida física registrada pelo supervisor, sem retorno e com retorno previsto não vencido no instante da abertura, vinculando a saída. Isso SHALL valer em cada chamada aberta enquanto a saída está em andamento. A aprovação sozinha, sem partida registrada, MUST NOT justificar a ausência (RN06, RN10).
 
 #### Scenario: Residente fora com saída válida
 
@@ -35,7 +35,7 @@ Ao abrir a chamada, o sistema SHALL marcar como ausência justificada o resident
 
 #### Scenario: Saída longa de vários dias
 
-- **GIVEN** uma saída longa de 20 dias cuja partida foi registrada na aprovação, sem retorno confirmado
+- **GIVEN** uma saída longa de 20 dias cuja partida o supervisor registrou, sem retorno confirmado
 - **WHEN** o supervisor abre a chamada em cada uma das 20 noites, antes do retorno previsto
 - **THEN** o residente aparece como ausência justificada em todas elas
 - **AND** o fechamento dessas chamadas não gera ocorrência nem notificação de ausência para ele

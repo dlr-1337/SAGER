@@ -107,6 +107,32 @@ export SAGER_CHECKOUT=/data/coolify/applications/rhamqqvry6aidhlfkqnzysk8
 docker compose --project-name sager-homologacao   --project-directory "$SAGER_CHECKOUT" --env-file "$SAGER_CHECKOUT/.env"   -f "$SAGER_CHECKOUT/compose.coolify.yml" ps
 ```
 
+## Ver o banco
+
+Para mostrar como os dados ficam salvos, abra no terminal do servidor uma sessão
+do `psql` somente leitura. O banco não publica porta (o smoke recusa porta
+publicada), então o acesso é só pelo servidor:
+
+```bash
+docker compose --project-name sager-homologacao \
+  --project-directory "$SAGER_CHECKOUT" --env-file "$SAGER_CHECKOUT/.env" \
+  -f "$SAGER_CHECKOUT/compose.coolify.yml" exec database \
+  sh -c 'PGPASSWORD="$(cat /run/secrets/db_owner_password)" PGOPTIONS="-c default_transaction_read_only=on" exec psql -U sager_owner -d sager'
+```
+
+- A senha sai do segredo do contêiner e não aparece na tela nem no histórico.
+- `default_transaction_read_only=on` faz o banco recusar `INSERT`, `UPDATE` e
+  `DELETE` nessa sessão, para evitar mudança por engano. Não é barreira de
+  segurança: quem tem o terminal do servidor pode desligar.
+- Comandos úteis:
+  - `\dt` lista as tabelas e `\d sager_short_exit` mostra as colunas de uma;
+  - `SELECT count(*) FROM sager_resident;` conta os residentes;
+  - `SELECT status, count(*) FROM sager_short_exit GROUP BY status;` resume as
+    saídas curtas;
+  - `\q` sai.
+- Não copie dados de residentes para fora do servidor. Hoje os dados são
+  fictícios, mas o mesmo cuidado vale quando houver dados reais.
+
 ## Conta inicial
 
 Depois de verificar migrações e HTTPS, abrir o terminal do servidor e executar

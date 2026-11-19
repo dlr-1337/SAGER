@@ -136,10 +136,11 @@ class DisciplineApiIntegrationTest {
             assertThat(jdbc.queryForObject("SELECT requires_review FROM sager_discipline_notification",Boolean.class)).isTrue();
         }
     }
-    /** Pedido para sair agora aprovado: a aprovação registra a partida e o prazo fica em 3 horas. */
+    /** Pedido para sair agora aprovado e saída registrada em pessoa no mesmo instante: o prazo fica em 3 horas. */
     private String departedShortExit(HttpClient sup,HttpClient student) throws Exception {
         String id=ok(student,"POST","/api/v1/saidas-curtas",Map.of("departureMode","NOW","reason","Compromisso sintético")).path("id").asText();
-        assertThat(ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/decisao",Map.of("version",0,"decision","APPROVE")).path("status").asText()).isEqualTo("EM_ANDAMENTO");
+        assertThat(ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/decisao",Map.of("version",0,"decision","APPROVE")).path("status").asText()).isEqualTo("APROVADA");
+        assertThat(ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/partida",Map.of("version",1,"timeMode","NOW")).path("status").asText()).isEqualTo("EM_ANDAMENTO");
         return id;
     }
     @Test void conversionIsIdempotentConcurrentAndOnlyOwnFormalContentIsPublished() throws Exception {
@@ -200,6 +201,45 @@ class DisciplineApiIntegrationTest {
             ok(sup,"POST","/api/v1/avisos/"+notice+"/retirar",Map.of("version",2,"reason","Retirada após revisão institucional sintética."));
             assertError(write(student,"POST","/api/v1/me/comunicacoes/"+current+"/ciencia",Map.of("version",2)),409,"content_not_current");
             assertThat(count("sager_communication")).isEqualTo(2);
+        }
+    }
+    @Test void noticeStoresTheAudienceLabelBuiltByTheServerAndNeverTakesClientText() throws Exception {
+        UUID unit=UUID.randomUUID(),unitRoom=UUID.randomUUID();String roomCode=jdbc.queryForObject("SELECT code FROM sager_room WHERE id=?",String.class,room);
+        jdbc.update("INSERT INTO sager_accommodation_unit(id,accommodation_id,code,name) VALUES (?,?,?,'Casa Sintética')",unit,accommodation,"U-"+unit.toString().substring(0,8));
+        String unitRoomCode="Q-"+unitRoom.toString().substring(0,8);
+        jdbc.update("INSERT INTO sager_room(id,code,number,accommodation_id,unit_id,capacity,situation) VALUES (?,?,'02',?,?,4,'Disponível')",unitRoom,unitRoomCode,accommodation,unit);
+        try(var sup=login("supervisor")) {
+            Map<Object,String> expected=new LinkedHashMap<>();
+            expected.put(Map.of("kind","TODOS"),"Todos os moradores");
+            expected.put(Map.of("kind","ALOJAMENTO","accommodationId",accommodation),"Unidade Sintética");
+            expected.put(Map.of("kind","QUARTO","roomId",room),"Quarto "+roomCode+", Unidade Sintética");
+            expected.put(Map.of("kind","QUARTO","roomId",unitRoom),"Quarto "+unitRoomCode+", Casa Sintética, Unidade Sintética");
+            expected.put(Map.of("kind","MAIORES"),"Só maiores de 18");
+            expected.put(Map.of("kind","MENORES"),"Só menores de 18");
+            expected.put(Map.of("kind","ESCOLHER"),"Escolhidos um a um");
+            Map<String,UUID> created=new HashMap<>();
+            for(var entry:expected.entrySet()) {
+                var draft=ok(sup,"POST","/api/v1/avisos",Map.of("title","Aviso por grupo","body","Orientação sintética por grupo.","residentIds",List.of(resident),"audience",entry.getKey(),"idempotencyKey",UUID.randomUUID()));
+                assertThat(draft.path("audienceLabel").asText()).isEqualTo(entry.getValue());
+                UUID id=UUID.fromString(draft.path("id").asText());created.put(entry.getValue(),id);
+                assertThat(jdbc.queryForObject("SELECT 'audience'=ANY(changed_fields) FROM sager_audit_event WHERE resource='NOTICE' AND resource_id=? AND action='CREATE'",Boolean.class,id)).isTrue();
+            }
+            String notice=read(sup,"/api/v1/avisos?limit=1").path("items").get(0).path("id").asText();
+            ok(sup,"POST","/api/v1/avisos/"+notice+"/publicar",Map.of("version",0,"idempotencyKey",UUID.randomUUID()));
+            ok(sup,"POST","/api/v1/avisos/"+notice+"/revisar",Map.of("version",1,"title","Aviso por grupo revisado","body","Orientação sintética revisada.","idempotencyKey",UUID.randomUUID()));
+            assertThat(read(sup,"/api/v1/avisos/"+notice).path("audienceLabel").asText()).isEqualTo("Escolhidos um a um");
+            jdbc.update("UPDATE sager_accommodation SET name='Unidade Renomeada' WHERE id=?",accommodation);
+            assertThat(read(sup,"/api/v1/avisos/"+created.get("Unidade Sintética")).path("audienceLabel").asText()).isEqualTo("Unidade Sintética");
+            jdbc.update("UPDATE sager_accommodation SET name='Unidade Sintética' WHERE id=?",accommodation);
+            var legacy=ok(sup,"POST","/api/v1/avisos",Map.of("title","Aviso sem grupo","body","Orientação sintética sem grupo.","residentIds",List.of(resident),"idempotencyKey",UUID.randomUUID()));
+            assertThat(legacy.path("audienceLabel").isNull()).isTrue();
+            int before=count("sager_notice");
+            for(Object audience:List.of("Todos os moradores",Map.of("kind","TODOS","label","Texto do cliente"),Map.of("kind","OUTRO"),
+                    Map.of("kind","ALOJAMENTO"),Map.of("kind","ALOJAMENTO","accommodationId",UUID.randomUUID()),
+                    Map.of("kind","ALOJAMENTO","accommodationId",accommodation,"roomId",room),Map.of("kind","QUARTO","roomId",UUID.randomUUID()),
+                    Map.of("kind","QUARTO","accommodationId",accommodation),Map.of("kind","TODOS","accommodationId",accommodation)))
+                assertError(write(sup,"POST","/api/v1/avisos",Map.of("title","Aviso recusado","body","Orientação sintética recusada.","residentIds",List.of(resident),"audience",audience,"idempotencyKey",UUID.randomUUID())),400,"invalid_input");
+            assertThat(count("sager_notice")).isEqualTo(before);
         }
     }
     @Test void noticeAcceptsUpTo2000RecipientsWhileTheTermKeeps100Warnings() throws Exception {

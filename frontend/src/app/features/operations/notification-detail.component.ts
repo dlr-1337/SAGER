@@ -97,17 +97,17 @@ import { NotificationDetailLocalPage } from '../communications/notifications-loc
             <section class="panel op-panel" aria-labelledby="notification-decision-title">
               <h2 id="notification-decision-title">Decisão do supervisor</h2>
               <p>Confira a evidência e registre uma decisão. Arquivar preserva o histórico.</p>
-              <div class="op-actions">
-                <button class="btn op-secondary" type="button" (click)="analyze()">
-                  Manter em análise</button
-                ><button class="btn op-secondary" type="button" (click)="archive()">
-                  Arquivar com justificativa</button
-                ><button
+              <div class="decision-actions">
+                <button
                   class="btn op-primary"
                   type="button"
                   (click)="showWarning.set(!showWarning())"
                 >
-                  {{ showWarning() ? 'Fechar registro' : 'Registrar advertência manual' }}
+                  {{ showWarning() ? 'Fechar registro' : 'Registrar advertência manual' }}</button
+                ><button class="btn op-secondary" type="button" (click)="analyze()">
+                  Manter em análise</button
+                ><button class="btn op-secondary" type="button" (click)="archive()">
+                  Arquivar com justificativa
                 </button>
               </div>
               @if (showWarning()) {

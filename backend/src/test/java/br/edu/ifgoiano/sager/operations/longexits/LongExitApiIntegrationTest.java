@@ -489,8 +489,8 @@ class LongExitApiIntegrationTest {
                 HttpClient supervisor = login("supervisor")) {
             JsonNode confirmed = confirmed(student, supervisor, plan(4 * 3600));
             String id = confirmed.path("id").asText();
-            // Approving a request to leave now records the departure in the same act.
-            readResponse(approve(supervisor, confirmed), 200);
+            // A aprovação só decide; o supervisor registra a saída quando o residente se apresenta.
+            depart(supervisor, readResponse(approve(supervisor, confirmed), 200));
             clock.value = START;
             JsonNode mark = openCall(supervisor).path("records").get(0);
             assertThat(mark.path("mark").asText()).isEqualTo("AUSENCIA_JUSTIFICADA");
@@ -501,24 +501,34 @@ class LongExitApiIntegrationTest {
     }
 
     @Test
-    void approvingALongRequestToLeaveNowRecordsTheDepartureInTheSupervisorsName() throws Exception {
+    void approvingALongRequestToLeaveNowOnlyApprovesAndTheSupervisorRecordsTheDepartureInPerson()
+            throws Exception {
         try (HttpClient student = login("residente");
                 HttpClient supervisor = login("supervisor")) {
             JsonNode confirmed = confirmed(student, supervisor, plan(4 * 3600));
             JsonNode approved = readResponse(approve(supervisor, confirmed), 200);
-            assertThat(approved.path("status").asText()).isEqualTo("EM_ANDAMENTO");
+            assertThat(approved.path("status").asText()).isEqualTo("APROVADA");
             assertThat(approved.path("version").asLong())
-                    .isEqualTo(confirmed.path("version").asLong() + 2);
-            assertThat(Instant.parse(approved.path("actualDepartureAt").asText()))
-                    .isEqualTo(START)
-                    .isEqualTo(Instant.parse(approved.path("decidedAt").asText()));
-            assertThat(approved.path("capabilities").path("canDepart").asBoolean()).isFalse();
-            JsonNode history = approved.path("history");
+                    .isEqualTo(confirmed.path("version").asLong() + 1);
+            assertThat(approved.path("actualDepartureAt").isNull()).isTrue();
+            assertThat(approved.path("capabilities").path("canDepart").asBoolean()).isTrue();
+            assertThat(approved.path("history").get(approved.path("history").size() - 1)
+                            .path("event").asText())
+                    .isEqualTo("APPROVE");
+            // O residente se apresenta 15 minutos depois: só então a saída começa.
+            Instant inPerson = START.plusSeconds(900);
+            clock.value = inPerson;
+            JsonNode departed = depart(supervisor, approved);
+            assertThat(departed.path("status").asText()).isEqualTo("EM_ANDAMENTO");
+            assertThat(departed.path("version").asLong())
+                    .isEqualTo(approved.path("version").asLong() + 1);
+            assertThat(Instant.parse(departed.path("actualDepartureAt").asText())).isEqualTo(inPerson);
+            JsonNode history = departed.path("history");
             JsonNode decision = history.get(history.size() - 2);
             JsonNode departure = history.get(history.size() - 1);
             assertThat(decision.path("event").asText()).isEqualTo("APPROVE");
             assertThat(departure.path("event").asText()).isEqualTo("DEPARTURE");
-            assertThat(Instant.parse(departure.path("effectiveAt").asText())).isEqualTo(START);
+            assertThat(Instant.parse(departure.path("effectiveAt").asText())).isEqualTo(inPerson);
             for (JsonNode event : List.of(decision, departure))
                 assertThat(event.path("actorProfile").asText()).isEqualTo("supervisor");
             assertThat(decision.path("actorId").asText())
@@ -528,29 +538,43 @@ class LongExitApiIntegrationTest {
     }
 
     @Test
-    void immediateLongApprovalIsRefusedWhileAnotherExitIsPhysicallyOpen() throws Exception {
+    void longApprovalWhileAnotherExitIsPhysicallyOpenIsAcceptedButTheDepartureWaits()
+            throws Exception {
         try (HttpClient student = login("residente");
                 HttpClient supervisor = login("supervisor")) {
             Map<String, Object> shortPlan = plan(3600);
             shortPlan.remove("guardianId");
             shortPlan.remove("expectedReturnAt");
             String shortId = created(post(student, "/api/v1/saidas-curtas", shortPlan)).path("id").asText();
+            readResponse(
+                    post(
+                            supervisor,
+                            "/api/v1/saidas-curtas/" + shortId + "/decisao",
+                            Map.of("version", 0, "decision", "APPROVE")),
+                    200);
             JsonNode out =
                     readResponse(
                             post(
                                     supervisor,
-                                    "/api/v1/saidas-curtas/" + shortId + "/decisao",
-                                    Map.of("version", 0, "decision", "APPROVE")),
+                                    "/api/v1/saidas-curtas/" + shortId + "/partida",
+                                    Map.of("version", 1, "timeMode", "NOW")),
                             200);
             assertThat(out.path("status").asText()).isEqualTo("EM_ANDAMENTO");
             // The short exit is late (3 hours after the recorded departure) and still without a confirmed return.
             clock.value = START.plusSeconds(3 * 3600 + 600);
             JsonNode confirmed = confirmed(student, supervisor, plan(4 * 3600));
-            error(approve(supervisor, confirmed), 409, "physical_exit_conflict");
-            JsonNode unchanged = read(supervisor, ROOT + "/" + confirmed.path("id").asText());
-            assertThat(unchanged.path("status").asText()).isEqualTo("AGUARDANDO_ANALISE");
-            assertThat(unchanged.path("version").asLong()).isEqualTo(confirmed.path("version").asLong());
-            assertThat(unchanged.path("history").size()).isEqualTo(confirmed.path("history").size());
+            JsonNode approved = readResponse(approve(supervisor, confirmed), 200);
+            assertThat(approved.path("status").asText()).isEqualTo("APROVADA");
+            error(
+                    post(
+                            supervisor,
+                            ROOT + "/" + approved.path("id").asText() + "/partida",
+                            Map.of("version", approved.path("version").asLong(), "timeMode", "NOW")),
+                    409,
+                    "physical_exit_conflict");
+            JsonNode unchanged = read(supervisor, ROOT + "/" + approved.path("id").asText());
+            assertThat(unchanged.path("status").asText()).isEqualTo("APROVADA");
+            assertThat(unchanged.path("version").asLong()).isEqualTo(approved.path("version").asLong());
         }
     }
 
@@ -575,7 +599,7 @@ class LongExitApiIntegrationTest {
                 HttpClient supervisor = login("supervisor")) {
             JsonNode confirmed = confirmed(student, supervisor, plan(20 * 86400));
             String id = confirmed.path("id").asText();
-            readResponse(approve(supervisor, confirmed), 200);
+            depart(supervisor, readResponse(approve(supervisor, confirmed), 200));
             for (int day : new int[] {0, 10, 19}) {
                 clock.value = START.plusSeconds(day * 86400L);
                 JsonNode call = openCall(supervisor);
@@ -639,6 +663,16 @@ class LongExitApiIntegrationTest {
                         "APPROVE",
                         "documentVersionId",
                         confirmed.path("currentDocument").path("documentVersionId").asText()));
+    }
+
+    /** O supervisor registra a saída agora, num ato separado da aprovação. */
+    JsonNode depart(HttpClient supervisor, JsonNode approved) throws Exception {
+        return readResponse(
+                post(
+                        supervisor,
+                        ROOT + "/" + approved.path("id").asText() + "/partida",
+                        Map.of("version", approved.path("version").asLong(), "timeMode", "NOW")),
+                200);
     }
 
     JsonNode openCall(HttpClient supervisor) throws Exception {

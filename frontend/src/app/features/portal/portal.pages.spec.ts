@@ -295,7 +295,7 @@ describe('HelpPage', () => {
     expect(start).toBeGreaterThan(-1);
     expect(questions[start + 1]).toBe('Quem confirma o retorno de uma saída curta?');
     expect(page.textContent).toContain(
-      'No pedido para sair agora, a aprovação do supervisor já registra a saída. No pedido agendado, o supervisor registra a saída a partir do horário marcado.',
+      'A saída começa quando o supervisor vê o residente e registra a saída, a partir do horário pedido. A aprovação não registra a saída.',
     );
     expect(page.textContent).not.toContain(whatsappQuestion);
   });
@@ -323,6 +323,8 @@ describe('HelpPage', () => {
       'Registrar volta',
     ])
       expect(longExit).toContain(name);
+    expect(longExit).toContain('Aprovar não registra a saída.');
+    expect(longExit).not.toContain('já registra a saída');
     expect(page.textContent).toContain(whatsappQuestion);
     expect(page.textContent).toContain(
       'Ele já está numa saída longa; Abrir saída mostra a situação.',

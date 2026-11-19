@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import { of } from 'rxjs';
+import { from, of } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { ERROR_CONFLICT } from '../../core/error-messages';
@@ -64,6 +64,12 @@ const scheduled = (canDepart: boolean) =>
       decidedAt: now,
     },
     { canCancel: true, canDepart },
+  );
+/** Pedido para sair agora aprovado: a hora pedida já chegou e a saída ainda não foi registrada. */
+const approvedNow = () =>
+  exit(
+    { status: 'APROVADA', decision: 'APPROVE', decidedAt: now, version: 2 },
+    { canCancel: true, canDepart: true },
   );
 const leaving = () =>
   exit(
@@ -142,7 +148,7 @@ describe('Detalhe da saída curta em passos', () => {
   it('aguardando análise: "Aprovar" principal e "Rejeitar" em vermelho, com o prazo à vista', async () => {
     const fixture = await create();
     expect(fixture.nativeElement.querySelector('#exit-step').textContent.trim()).toBe('Decisão');
-    expect(text(fixture)).toContain('Passo 1 de 2');
+    expect(text(fixture)).toContain('Passo 1 de 3');
     expect(actions(fixture)).toEqual(['Aprovar', 'Rejeitar']);
     expect(button(fixture, 'Aprovar')?.classList).toContain('op-primary');
     expect(button(fixture, 'Rejeitar')?.classList).toContain('btn-danger');
@@ -201,24 +207,46 @@ describe('Detalhe da saída curta em passos', () => {
   it('o residente vê a hora marcada e as suas ações de sempre', async () => {
     role = 'residente';
     api['exit'].mockResolvedValue(
-      exit({ status: 'APROVADA', departureMode: 'SCHEDULED' }, { canEdit: true, canCancel: true }),
+      exit(
+        {
+          status: 'APROVADA',
+          departureMode: 'SCHEDULED',
+          requestedDepartureAt: '2026-10-02T17:00:00Z',
+        },
+        { canEdit: true, canCancel: true },
+      ),
     );
     const fixture = await create();
     expect(actions(fixture)).toEqual(['Mudar pedido', 'Cancelar pedido']);
-    expect(text(fixture)).toContain('Saída marcada para');
+    expect(text(fixture)).toContain('Saída marcada para 02/10/2026, 14:00.');
   });
 
-  it('aprovar o pedido para sair agora avisa que a saída também é registrada', async () => {
-    api['decideExit'].mockResolvedValue(leaving());
+  it('o residente com a saída aprovada e a hora chegada procura o supervisor', async () => {
+    role = 'residente';
+    api['exit'].mockResolvedValue(approvedNow());
+    const fixture = await create();
+    expect(text(fixture)).toContain('Apresente-se ao supervisor para ele registrar a saída.');
+    expect(text(fixture)).not.toContain('Saída marcada para');
+  });
+
+  it('aprovar o pedido para sair agora só aprova; a saída fica para quando o residente se apresentar', async () => {
+    api['decideExit'].mockResolvedValue(approvedNow());
     const fixture = await create();
     button(fixture, 'Aprovar')!.click();
     await fixture.whenStable();
     const data: LocalReviewData = reviewData();
-    expect(data.title).toBe('A saída será aprovada e registrada agora.');
-    expect(data.action).toBe('Aprovar e registrar a saída agora');
+    expect(data.title).toBe('A saída será aprovada.');
+    expect(data.action).toBe('Confirmar aprovação');
+    expect(data.note).toBe(
+      'Aprovar não registra a saída; ela é registrada quando o residente se apresentar.',
+    );
     expect(api['decideExit']).toHaveBeenCalledWith(expect.anything(), 'APPROVE', '');
-    expect(text(fixture)).toContain('Aprovação e saída registradas.');
-    expect(actions(fixture)).toEqual(['Registrar volta']);
+    expect(text(fixture)).toContain('Aprovação registrada.');
+    expect(fixture.nativeElement.querySelector('#exit-step').textContent.trim()).toBe('Saída');
+    expect(text(fixture)).toContain('Passo 2 de 3');
+    expect(text(fixture)).toContain('Registre a saída quando o residente se apresentar.');
+    expect(text(fixture)).not.toContain('Saída marcada para');
+    expect(actions(fixture)).toEqual(['Registrar saída']);
   });
 
   it('aprovar o pedido agendado só registra a aprovação', async () => {
@@ -239,15 +267,26 @@ describe('Detalhe da saída curta em passos', () => {
     expect(text(fixture)).toContain('Aprovação registrada.');
   });
 
-  it('o conflito físico explica o que fazer e não trava as ações', async () => {
-    api['decideExit'].mockRejectedValue(new OperationsApiError(409, 'physical_exit_conflict'));
+  it('o conflito físico ao registrar a saída explica o que fazer e não trava as ações', async () => {
+    api['exit'].mockResolvedValue(approvedNow());
+    api['physicalExit'].mockRejectedValue(new OperationsApiError(409, 'physical_exit_conflict'));
+    dialogResult = { reason: '', confirmed: false, physical: { version: 2, timeMode: 'NOW' } };
+    // Como o diálogo real, a escolha chega depois do clique, fora da mesma tarefa.
+    open = vi.fn(() => ({ afterClosed: () => from(Promise.resolve(dialogResult)) }));
     const fixture = await create();
-    button(fixture, 'Aprovar')!.click();
+    button(fixture, 'Registrar saída')!.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
     await fixture.whenStable();
+    expect(reviewData().title).toBe('A saída será registrada.');
+    expect(reviewData().warning).toBe('Veja o residente pessoalmente antes de liberar a saída.');
+    expect(api['physicalExit']).toHaveBeenCalledWith('saida-sintetica', 'partida', {
+      version: 2,
+      timeMode: 'NOW',
+    });
     expect(text(fixture)).toContain(
       'O residente ainda está fora com outra saída. Confirme a volta dela primeiro.',
     );
-    expect(button(fixture, 'Aprovar')?.disabled).toBe(false);
+    expect(button(fixture, 'Registrar saída')?.disabled).toBe(false);
     expect(button(fixture, 'Recarregar dados')).toBeUndefined();
   });
 
@@ -328,16 +367,16 @@ describe('Detalhe da saída curta em passos', () => {
     });
 
     it('a mensagem de sucesso continua depois da atualização', async () => {
-      api['decideExit'].mockResolvedValue(leaving());
+      api['decideExit'].mockResolvedValue(approvedNow());
       const fixture = await start();
       button(fixture, 'Aprovar')!.click();
       await settle(fixture);
-      expect(text(fixture)).toContain('Aprovação e saída registradas.');
-      api['exit'].mockResolvedValue(leaving());
+      expect(text(fixture)).toContain('Aprovação registrada.');
+      api['exit'].mockResolvedValue(approvedNow());
       const calls = api['exit'].mock.calls.length;
       await settle(fixture, 15_000);
       expect(api['exit'].mock.calls.length).toBe(calls + 1);
-      expect(text(fixture)).toContain('Aprovação e saída registradas.');
+      expect(text(fixture)).toContain('Aprovação registrada.');
     });
 
     it('com conflito, só "Recarregar dados" atualiza', async () => {

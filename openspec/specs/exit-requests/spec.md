@@ -95,7 +95,7 @@ O residente menor de idade SHALL editar ou cancelar o próprio pedido enquanto e
 
 ### Requirement: Decisão do supervisor
 
-Somente o supervisor SHALL aprovar ou rejeitar um pedido aguardando análise, registrando data, hora e autor da decisão. A rejeição MUST trazer motivo de 10 a 2.000 caracteres, ou o servidor recusa com 400 sem decidir. Aprovar um pedido cuja partida pedida já chegou SHALL também registrar a partida, como define "Partida física" (RF008, RN05, UC07).
+Somente o supervisor SHALL aprovar ou rejeitar um pedido aguardando análise, registrando data, hora e autor da decisão. A rejeição MUST trazer motivo de 10 a 2.000 caracteres, ou o servidor recusa com 400 sem decidir. A aprovação MUST NOT registrar a partida, mesmo quando a partida pedida já chegou: a saída fica aprovada até o supervisor registrar a partida, como define "Partida física" (RF008, RN05, RN06, UC07).
 
 #### Scenario: Rejeição com motivo curto
 
@@ -112,13 +112,13 @@ Somente o supervisor SHALL aprovar ou rejeitar um pedido aguardando análise, re
 
 - **GIVEN** uma saída curta aguardando análise com partida imediata
 - **WHEN** o supervisor abre o diálogo de aprovação
-- **THEN** o diálogo diz "Aprovar e registrar a saída agora"
-- **AND** ao confirmar, a saída passa a em andamento, com a partida no instante da aprovação
-- **AND** o histórico mostra a decisão e a partida, as duas com o supervisor como autor
+- **THEN** o diálogo diz que aprovar não registra a saída e que ela é registrada quando o residente se apresentar
+- **AND** ao confirmar, a saída passa a aprovada, sem partida registrada, e o histórico mostra só a decisão
+- **AND** o detalhe oferece "Registrar saída" ao supervisor
 
 ### Requirement: Partida física
 
-Somente o supervisor SHALL registrar a partida de uma saída aprovada, não antes da partida pedida nem da aprovação e antes do retorno previsto, e a saída passa a em andamento. Aprovar um pedido cuja partida pedida já chegou SHALL registrar a partida no mesmo ato, no instante da aprovação e em nome do supervisor que aprovou. Outra saída em andamento do mesmo residente MUST impedir a partida, e essa aprovação, com 409 `physical_exit_conflict` (RN06, RN07, RF014, UC17).
+Somente o supervisor SHALL registrar a partida de uma saída aprovada, num ato próprio, ao ver o residente sair, não antes da partida pedida nem da aprovação e antes do retorno previsto, e a saída passa a em andamento. Outra saída em andamento do mesmo residente MUST impedir a partida com 409 `physical_exit_conflict`, mas MUST NOT impedir a aprovação (RN06, RN07, RF014, UC17).
 
 #### Scenario: Partida registrada
 
@@ -136,15 +136,15 @@ Somente o supervisor SHALL registrar a partida de uma saída aprovada, não ante
 
 - **GIVEN** uma saída longa aguardando análise, com partida imediata e autorização conferida na revisão atual
 - **WHEN** o supervisor a aprova
-- **THEN** a saída passa a em andamento, com a partida no instante da aprovação
-- **AND** o histórico mostra a decisão e a partida, as duas com o supervisor como autor
+- **THEN** a saída passa a aprovada, sem partida registrada
+- **AND** só o registro de saída feito depois pelo supervisor a deixa em andamento, com a partida no instante desse registro e em nome dele
 
 #### Scenario: Aprovação imediata com outra saída em andamento
 
 - **GIVEN** um residente com uma saída longa em andamento
-- **WHEN** o supervisor tenta aprovar uma saída curta dele com partida imediata
-- **THEN** o servidor responde 409 `physical_exit_conflict` e a saída curta continua aguardando análise
-- **AND** a tela diz para confirmar a volta da outra saída primeiro
+- **WHEN** o supervisor aprova uma saída curta dele com partida imediata
+- **THEN** a saída curta passa a aprovada
+- **AND** o registro da saída dela responde 409 `physical_exit_conflict` até a volta da outra, e a tela diz para confirmar a volta da outra saída primeiro
 
 #### Scenario: Saída agendada antes da hora
 
@@ -215,7 +215,7 @@ Cada pedido, edição, decisão, cancelamento, partida, retorno e expiração SH
 
 ### Requirement: Prazo da saída curta a partir da partida registrada
 
-Ao registrar a partida de uma saída curta, pelo registro de saída, com horário retroativo ou na aprovação que registra a partida, o servidor SHALL fixar o retorno previsto em 3 horas depois do horário da partida registrada e guardar a mudança no histórico. Antes da partida, o retorno previsto SHALL ser a partida pedida mais 3 horas e vale como prazo do pedido (RN01, RN06, RN08).
+Ao registrar a partida de uma saída curta, agora ou com horário retroativo, o servidor SHALL fixar o retorno previsto em 3 horas depois do horário da partida registrada e guardar a mudança no histórico. Antes da partida, o retorno previsto SHALL ser a partida pedida mais 3 horas e vale como prazo do pedido; a aprovação MUST NOT mudar esse prazo (RN01, RN06, RN08).
 
 #### Scenario: Partida registrada depois da pedida
 
@@ -226,8 +226,9 @@ Ao registrar a partida de uma saída curta, pelo registro de saída, com horári
 #### Scenario: Aprovação de quem sai agora
 
 - **GIVEN** uma saída curta pedida às 14h com partida imediata
-- **WHEN** o supervisor a aprova às 14h20
-- **THEN** a saída passa a em andamento com partida às 14h20 e retorno previsto às 17h20
+- **WHEN** o supervisor a aprova às 14h20 e registra a saída às 14h50, quando o residente se apresenta
+- **THEN** depois da aprovação, a saída continua com retorno previsto às 17h
+- **AND** depois do registro, a saída fica em andamento com partida às 14h50 e retorno previsto às 17h50
 
 #### Scenario: Partida retroativa
 

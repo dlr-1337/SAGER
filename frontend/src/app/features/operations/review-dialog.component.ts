@@ -97,7 +97,11 @@ function localDateTime(date: Date): string {
   `,
   styles: [
     `
+      // Coluna, como o diálogo global: só o conteúdo rola quando falta altura.
       .review-dialog {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
         max-width: 580px;
         min-width: min(520px, calc(100vw - 48px));
         color: var(--ink);

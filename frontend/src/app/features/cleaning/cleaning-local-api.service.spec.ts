@@ -72,7 +72,6 @@ describe('Projeções e gravação de limpeza', () => {
       roomCode: 'T-02',
       mean: null,
       position: 1,
-      assessmentCount: null,
       own: false,
     };
     const value = {
@@ -90,6 +89,34 @@ describe('Projeções e gravação de limpeza', () => {
     const api = TestBed.inject(CleaningLocalApiService);
     expect((await api.ranking('MONTH', '2026-09-30', true)).items[0].mean).toBeNull();
     await expect(api.ranking('MONTH', '2026-09-30', true)).rejects.toThrow('privada');
+  });
+  it('aceita os últimos 5 dias no ranking e na devolutiva e recusa período desconhecido', async () => {
+    const value = {
+      period: 'LAST_5_DAYS',
+      referenceDate: '2026-09-30',
+      from: '2026-09-26',
+      to: '2026-09-30',
+      items: [{ roomId: id, roomCode: 'T-01', mean: 7, position: 1, own: false }],
+    };
+    const fiveDays = {
+      ...own,
+      feedback: { ...own.feedback, rankingReference: 'LAST_5_DAYS', from: '2026-09-26' },
+    };
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(json(value))
+      .mockResolvedValueOnce(json(fiveDays))
+      .mockResolvedValueOnce(json({ ...value, period: 'DAY' }));
+    vi.stubGlobal('fetch', fetch);
+    const api = TestBed.inject(CleaningLocalApiService);
+    expect((await api.ranking('LAST_5_DAYS', '2026-09-30')).period).toBe('LAST_5_DAYS');
+    expect(new URL(String(fetch.mock.calls[0][0]), 'http://local').searchParams.get('period')).toBe(
+      'LAST_5_DAYS',
+    );
+    expect((await api.own(id)).feedback.rankingReference).toBe('LAST_5_DAYS');
+    await expect(api.ranking('MONTH', '2026-09-30')).rejects.toThrow('inválidos');
+    await expect(api.ranking('DAY' as never, '2026-09-30')).rejects.toThrow('inválido');
+    expect(fetch).toHaveBeenCalledTimes(3);
   });
   it('envia chave de intenção no registro e versão exata na correção, com CSRF canônico', async () => {
     const fetch = vi

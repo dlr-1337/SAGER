@@ -30,10 +30,10 @@ public class ReportService {
   LocalDate from=date(node,"from"),to=date(node,"to");if(from.isAfter(to)||ChronoUnit.DAYS.between(from,to)>365)throw invalid("Informe período entre 1 e 366 dias.");
   Filters filters=new Filters(from,to,optionalUuid(node,"accommodationId"),optionalUuid(node,"roomId"),optionalUuid(node,"residentId"),node.hasNonNull("status")?text(node,"status",1,40):null,optionalUuid(node,"unitId"));
   UUID key=uuid(body,"idempotencyKey");UUID replay=keys.replay(account.id(),"REPORT_SNAPSHOT_CREATE",key,body);if(replay!=null)return snapshot(replay,account.id());
-  List<Map<String,Object>> rows=catalog.rows(code,filters);var summary=catalog.summary(rows);var monthly=catalog.monthly(rows,filters);
-  String hash=contentHash(json.valueToTree(Map.of("catalogVersion",1,"catalogCode",code,"filters",filters,"columns",item.columns(),"rows",rows,"summary",summary,"monthly",monthly)));
+  List<Map<String,Object>> rows=catalog.rows(code,filters);var summary=catalog.summary(code,rows);var monthly=catalog.monthly(code,rows,filters);
+  String hash=contentHash(json.valueToTree(Map.of("catalogVersion",ReportCatalog.VERSION,"catalogCode",code,"filters",filters,"columns",item.columns(),"rows",rows,"summary",summary,"monthly",monthly)));
   UUID id=UUID.randomUUID();OffsetDateTime at=now();
-  jdbc.update("INSERT INTO sager_report_snapshot(id,owner_id,catalog_code,catalog_version,filters,columns,rows,summary,monthly,row_count,content_hash,as_of,expires_at) VALUES (?,?,?,1,?::jsonb,?::jsonb,?::jsonb,?::jsonb,?::jsonb,?,?,?,?)",id,account.id(),code,json.writeValueAsString(filters),json.writeValueAsString(item.columns()),json.writeValueAsString(rows),json.writeValueAsString(summary),json.writeValueAsString(monthly),rows.size(),hash,at,at.plusHours(24));
+  jdbc.update("INSERT INTO sager_report_snapshot(id,owner_id,catalog_code,catalog_version,filters,columns,rows,summary,monthly,row_count,content_hash,as_of,expires_at) VALUES (?,?,?,?,?::jsonb,?::jsonb,?::jsonb,?::jsonb,?::jsonb,?,?,?,?)",id,account.id(),code,ReportCatalog.VERSION,json.writeValueAsString(filters),json.writeValueAsString(item.columns()),json.writeValueAsString(rows),json.writeValueAsString(summary),json.writeValueAsString(monthly),rows.size(),hash,at,at.plusHours(24));
   audit.record(AuditResource.REPORT_SNAPSHOT,id,AuditAction.CREATE,0,Set.of("catalogCode","filters","rowCount","expiresAt"));keys.remember(account.id(),"REPORT_SNAPSHOT_CREATE",key,body,id,at);return snapshot(id,account.id());
  }
  /** Reports without records have no file to offer, so they stay out of the list. Rows are never read here. */

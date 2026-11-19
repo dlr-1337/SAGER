@@ -222,6 +222,10 @@ app-root {
   color: var(--green-900);
   font-size: 24px;
 }
+/* Contador de pendências (pending-badges) encostado à direita do item. */
+.sidebar nav a sager-pending-badge {
+  margin-left: auto;
+}
 .sidebar nav a:hover {
   background: var(--green-50);
   color: var(--green-950);

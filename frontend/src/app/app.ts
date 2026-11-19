@@ -26,6 +26,8 @@ import { filter } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DemoSessionService, type DemoScenario, type Role } from './core/demo-session.service';
 import { LocalAuthService } from './core/local-auth.service';
+import { PendingBadgesService, pendingLabel } from './core/pending-badges.service';
+import { PendingBadgeComponent } from './shared/pending-badge.component';
 
 interface NavItem {
   label: string;
@@ -115,7 +117,7 @@ const navByRole: Record<Role, NavItem[]> = {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, CdkTrapFocus],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, CdkTrapFocus, PendingBadgeComponent],
   templateUrl: './app.html',
 })
 export class App implements OnDestroy {
@@ -127,6 +129,7 @@ export class App implements OnDestroy {
   private readonly router = inject(Router);
   private readonly document = inject(DOCUMENT);
   private readonly breakpointObserver = inject(BreakpointObserver);
+  readonly pending = inject(PendingBadgesService);
   readonly publicPage = signal(false);
   readonly exitError = signal('');
   readonly isMobile = signal(false);
@@ -171,6 +174,11 @@ export class App implements OnDestroy {
       localItems[localItems.length - 1],
     ]);
   });
+  /** Soma dos contadores do menu, mostrada no botão "Menu" do celular (pending-badges). */
+  readonly menuPending = computed(() =>
+    this.navItems().reduce((total, item) => total + this.pending.forPath(item.path), 0),
+  );
+  readonly menuPendingLabel = computed(() => `${pendingLabel(this.menuPending())} no menu`);
   readonly userName = computed(() =>
     this.session.active() ? '' : (this.auth.principal()?.nome ?? ''),
   );
@@ -207,6 +215,7 @@ export class App implements OnDestroy {
       )
       .subscribe(() => {
         this.updatePageVisibility();
+        this.pending.refresh();
         if (this.menuOpen()) this.closeMenu(false);
         const path = this.router.url.split('?')[0];
         // Voltar e avançar ficam com a restauração do navegador. Instantâneo porque o html é smooth.
@@ -219,6 +228,7 @@ export class App implements OnDestroy {
         }
       });
     queueMicrotask(() => this.updatePageVisibility());
+    this.pending.start();
   }
 
   ngOnDestroy(): void {

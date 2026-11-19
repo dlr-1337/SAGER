@@ -1177,12 +1177,12 @@ export class HomePage {
                   arquivo. Recebeu por outro meio? Use Anexar arquivo.
                 </li>
                 <li>
-                  <strong>Decisão.</strong> Clique em Aprovar saída ou em Rejeitar. No pedido para
-                  sair agora, aprovar já registra a saída.
+                  <strong>Decisão.</strong> Clique em Aprovar saída ou em Rejeitar. Aprovar não
+                  registra a saída.
                 </li>
                 <li>
-                  <strong>Saída.</strong> Só na saída agendada: quando chegar a hora marcada, clique
-                  em Registrar saída.
+                  <strong>Saída.</strong> A partir do horário pedido, quando o residente se
+                  apresentar, clique em Registrar saída.
                 </li>
                 <li>
                   <strong>Volta.</strong> Quando o residente chegar, clique em Registrar volta.
@@ -1256,8 +1256,8 @@ export class HomePage {
         <details>
           <summary>Quando a saída começa?</summary>
           <p>
-            No pedido para sair agora, a aprovação do supervisor já registra a saída. No pedido
-            agendado, o supervisor registra a saída a partir do horário marcado.
+            A saída começa quando o supervisor vê o residente e registra a saída, a partir do
+            horário pedido. A aprovação não registra a saída.
           </p>
         </details>
         <details>
@@ -1302,8 +1302,9 @@ export class HomePage {
             @if (session.active()) {
               Os números da demonstração são sintéticos.
             } @else {
-              A nota de limpeza é a média dos quatro itens. Quartos com a mesma média ficam na mesma
-              posição. A tela e os arquivos mostram os mesmos dados.
+              A nota de limpeza é a média dos quatro itens. O ranking abre com a média das notas dos
+              últimos 5 dias, e dia sem avaliação não conta. Quartos com a mesma média ficam na
+              mesma posição. A tela e os arquivos mostram os mesmos dados.
             }
           </p>
         </details>

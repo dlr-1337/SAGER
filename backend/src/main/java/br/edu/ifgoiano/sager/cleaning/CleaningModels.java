@@ -10,7 +10,7 @@ public final class CleaningModels {
  public record Feedback(BigDecimal previousScore,BigDecimal newScore,BigDecimal delta,BigDecimal periodMean,Integer position,String rankingReference,LocalDate from,LocalDate to){}
  public record Assessment(UUID id,UUID roomId,String roomCode,UUID accommodationId,OffsetDateTime evaluatedAt,LocalDate assessmentDate,String timeMode,long policyVersion,Map<String,BigDecimal> criteria,BigDecimal score,String observation,long version,OffsetDateTime recordedAt,UUID recordedBy,List<Participant> participants,List<Revision> revisions,Feedback feedback){}
  public record OwnAssessment(UUID id,UUID roomId,String roomCode,OffsetDateTime evaluatedAt,LocalDate assessmentDate,Map<String,BigDecimal> criteria,BigDecimal score,String observation,long version,Feedback feedback){}
- public record RankRow(UUID roomId,String roomCode,BigDecimal mean,Integer position,Integer assessmentCount,boolean own){}
+ public record RankRow(UUID roomId,String roomCode,BigDecimal mean,Integer position,boolean own){}
  public record Ranking(String period,LocalDate referenceDate,LocalDate from,LocalDate to,List<RankRow> items){}
  public record Indicator(String month,long unjustifiedAbsences,long confirmedLateReturns,long activeWarnings){}
 }

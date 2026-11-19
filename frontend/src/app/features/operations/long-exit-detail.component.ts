@@ -37,10 +37,12 @@ import {
   operationsError,
 } from './operations-local-api.service';
 import {
-  approvalMessage,
+  approvalNote,
+  departureStepText,
   exitEventLabels,
   formatOperationsTime,
   leavesNow,
+  residentDepartureText,
 } from './operations-local.utils';
 import {
   LocalOperationsReviewDialogComponent,
@@ -212,7 +214,7 @@ type LongExitStep = 'Autorização do responsável' | 'Decisão' | 'Saída' | 'V
             <section class="panel op-panel op-exit-actions" aria-labelledby="exit-step">
               @if (step(); as current) {
                 <p class="step-count">
-                  Passo {{ steps().indexOf(current) + 1 }} de {{ steps().length }}
+                  Passo {{ steps.indexOf(current) + 1 }} de {{ steps.length }}
                 </p>
               }
               <h2 id="exit-step" tabindex="-1">{{ step() ?? 'Próximo passo' }}</h2>
@@ -332,7 +334,11 @@ type LongExitStep = 'Autorização do responsável' | 'Decisão' | 'Saída' | 'V
                   }
                 }
                 @case ('Saída') {
-                  <p>Saída marcada para {{ formatTime(exit.requestedDepartureAt) }}.</p>
+                  @if (leavesNow(exit)) {
+                    <p>{{ departureStepText }}</p>
+                  } @else {
+                    <p>Saída marcada para {{ formatTime(exit.requestedDepartureAt) }}.</p>
+                  }
                   @if (exit.capabilities.canDepart) {
                     <button
                       class="btn op-primary"
@@ -368,7 +374,11 @@ type LongExitStep = 'Autorização do responsável' | 'Decisão' | 'Saída' | 'V
               <section class="panel op-panel op-exit-actions" aria-labelledby="exit-step">
                 <h2 id="exit-step" tabindex="-1">O que você pode fazer</h2>
                 @if (exit.status === 'APROVADA') {
-                  <p>Saída marcada para {{ formatTime(exit.requestedDepartureAt) }}.</p>
+                  @if (leavesNow(exit)) {
+                    <p>{{ residentDepartureText }}</p>
+                  } @else {
+                    <p>Saída marcada para {{ formatTime(exit.requestedDepartureAt) }}.</p>
+                  }
                 }
                 @if (exit.capabilities.canEdit && !adult()) {
                   <a
@@ -867,14 +877,11 @@ export class LongExitDetailComponent {
     if (exit?.status === 'APROVADA') return 'Saída';
     return exit?.status === 'EM_ANDAMENTO' ? 'Volta' : null;
   });
-  readonly steps = computed<LongExitStep[]>(() => [
-    'Autorização do responsável',
-    'Decisão',
-    ...(this.item()?.departureMode === 'SCHEDULED' || this.item()?.status === 'APROVADA'
-      ? (['Saída'] as const)
-      : []),
-    'Volta',
-  ]);
+  /** O passo "Saída" vale para toda saída aprovada (exit-departure-in-person, D3). */
+  readonly steps: LongExitStep[] = ['Autorização do responsável', 'Decisão', 'Saída', 'Volta'];
+  readonly leavesNow = leavesNow;
+  readonly departureStepText = departureStepText;
+  readonly residentDepartureText = residentDepartureText;
   readonly candidates = computed(() => {
     const exit = this.item();
     return exit ? exit.authorizationFiles.filter((file) => this.canDecideFile(exit, file)) : [];
@@ -1106,23 +1113,16 @@ export class LongExitDetailComponent {
     const approve = decision === 'APPROVE';
     this.review(
       {
-        title: approve
-          ? leavesNow(exit)
-            ? 'A saída longa será aprovada e registrada agora.'
-            : 'A saída longa será aprovada.'
-          : 'O pedido será rejeitado.',
-        action: approve
-          ? leavesNow(exit)
-            ? 'Aprovar e registrar a saída agora'
-            : 'Confirmar aprovação'
-          : 'Confirmar rejeição',
+        title: approve ? 'A saída longa será aprovada.' : 'O pedido será rejeitado.',
+        action: approve ? 'Confirmar aprovação' : 'Confirmar rejeição',
+        note: approve ? approvalNote : undefined,
         lines: this.summary(exit),
         requireReason: !approve,
         comment: approve,
         danger: !approve,
       },
       (result) => this.api.decide(exit, decision, result.reason),
-      approve ? approvalMessage : 'Rejeição registrada.',
+      approve ? 'Aprovação registrada.' : 'Rejeição registrada.',
     );
   }
   cancel(): void {

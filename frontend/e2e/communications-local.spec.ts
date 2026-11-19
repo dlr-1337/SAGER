@@ -9,6 +9,7 @@ import type {
   PublishedNotice,
   RecurrenceCandidate,
 } from '../src/app/features/communications/communications-local.models';
+import { capture, expectFits, openCollapsed, phoneSizes } from './mobile-fit';
 import { openMoreFilters } from './more-filters';
 import { expectShortGuidance } from './short-text';
 
@@ -403,6 +404,7 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
         title: body.title,
         body: body.body,
         residentIds: body.residentIds,
+        audienceLabel: audienceLabel(body.audience),
         status: 'RASCUNHO',
         version: 0,
         publishedAt: null,
@@ -431,6 +433,23 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
   });
   return state;
 }
+/** O grupo que o servidor monta da opção de "Quem recebe?" (o cliente nunca manda o texto). */
+function audienceLabel(audience?: { kind: string; accommodationId?: string; roomId?: string }) {
+  if (!audience) return null;
+  if (audience.kind === 'ALOJAMENTO')
+    return [north, south].find((item) => item.id === audience.accommodationId)!.name;
+  if (audience.kind === 'QUARTO') {
+    const place = rooms.find((item) => item.id === audience.roomId)!;
+    const building = [north, south].find((item) => item.id === place.accommodationId)!;
+    return `Quarto ${place.code}, ${building.name}`;
+  }
+  return {
+    TODOS: 'Todos os moradores',
+    MAIORES: 'Só maiores de 18',
+    MENORES: 'Só menores de 18',
+    ESCOLHER: 'Escolhidos um a um',
+  }[audience.kind]!;
+}
 async function fillWarning(page: Page): Promise<void> {
   await page.getByLabel('Gravidade decidida pelo supervisor').selectOption('GRAVE');
   await page
@@ -442,6 +461,15 @@ async function fillWarning(page: Page): Promise<void> {
 }
 async function confirm(page: Page, name: string): Promise<void> {
   await page.getByRole('dialog').getByRole('button', { name, exact: true }).click();
+}
+/** "Quem vai receber" no diálogo do aviso: só grupo e quantidade (notice-recipient-summary). */
+async function expectRecipients(page: Page, summary: string): Promise<void> {
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.locator('dt:has-text("Quem vai receber") + dd')).toHaveText(summary);
+  for (const person of people) {
+    await expect(dialog).not.toContainText(person.name);
+    await expect(dialog).not.toContainText(person.enrollment);
+  }
 }
 test.use({ timezoneId: 'Pacific/Auckland' });
 
@@ -724,22 +752,35 @@ const audiences = [
   {
     option: 'Todos os moradores',
     review: 'Todos os moradores · 4 residentes',
+    sent: { kind: 'TODOS' },
     ids: [41, 42, 43, 45],
   },
   {
     option: 'Um alojamento',
     place: { Alojamento: north.id },
-    review: 'Um alojamento: Alojamento Norte · 2 residentes',
+    review: 'Alojamento Norte · 2 residentes',
+    sent: { kind: 'ALOJAMENTO', accommodationId: north.id },
     ids: [41, 43],
   },
   {
     option: 'Um quarto',
     place: { Alojamento: south.id, Quarto: rooms[2].id },
-    review: 'Um quarto: S-201 · 2 residentes',
+    review: 'Quarto S-201, Alojamento Sul · 2 residentes',
+    sent: { kind: 'QUARTO', roomId: rooms[2].id },
     ids: [42, 45],
   },
-  { option: 'Só maiores de 18', review: 'Só maiores de 18 · 2 residentes', ids: [42, 43] },
-  { option: 'Só menores de 18', review: 'Só menores de 18 · 1 residente', ids: [41] },
+  {
+    option: 'Só maiores de 18',
+    review: 'Só maiores de 18 · 2 residentes',
+    sent: { kind: 'MAIORES' },
+    ids: [42, 43],
+  },
+  {
+    option: 'Só menores de 18',
+    review: 'Só menores de 18 · 1 residente',
+    sent: { kind: 'MENORES' },
+    ids: [41],
+  },
 ];
 for (const audience of audiences) {
   test(`"${audience.option}" conta quem recebe e grava só esses residentes`, async ({ page }) => {
@@ -756,16 +797,21 @@ for (const audience of audiences) {
     );
     await expect(page.locator('details.more-details')).not.toHaveAttribute('open');
     await page.getByRole('button', { name: 'Salvar rascunho', exact: true }).click();
-    await expect(page.getByRole('dialog')).toContainText(audience.review);
+    await expectRecipients(page, audience.review);
     await confirm(page, 'Salvar rascunho');
     await expect(page).toHaveURL('/comunicacoes/avisos/' + noticeId);
     expect(Object.keys(state.writes[0].body).sort()).toEqual([
+      'audience',
       'body',
       'idempotencyKey',
       'residentIds',
       'title',
     ]);
+    expect(state.writes[0].body.audience).toEqual(audience.sent);
     expect([...state.writes[0].body.residentIds].sort()).toEqual(audience.ids.map(uuid));
+    // "Revisar publicação" mostra o grupo gravado no rascunho, sem nomes.
+    await page.getByRole('button', { name: 'Revisar publicação' }).click();
+    await expectRecipients(page, audience.review);
   });
 }
 
@@ -785,7 +831,7 @@ test('desmarcar em "Ver quem vai receber" tira o residente da contagem e do envi
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.getByRole('button', { name: 'Salvar rascunho', exact: true }).click();
-  await expect(page.getByRole('dialog')).toContainText('Todos os moradores · 3 residentes');
+  await expectRecipients(page, 'Todos os moradores · 3 residentes');
   await confirm(page, 'Salvar rascunho');
   await expect(page).toHaveURL('/comunicacoes/avisos/' + noticeId);
   expect([...state.writes[0].body.residentIds].sort()).toEqual([41, 43, 45].map(uuid));
@@ -800,7 +846,7 @@ test('"Escolher pessoas" grava quem foi marcado, mesmo sem quarto', async ({ pag
   await page.getByRole('checkbox', { name: /Estudante Sem Quarto/ }).check();
   await expect(page.getByText('1 residente vai receber', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Salvar rascunho', exact: true }).click();
-  await expect(page.getByRole('dialog')).toContainText('Escolhidos um a um · 1 residente');
+  await expectRecipients(page, 'Escolhidos um a um · 1 residente');
   await confirm(page, 'Salvar rascunho');
   await expect(page).toHaveURL('/comunicacoes/avisos/' + noticeId);
   expect(state.writes[0].body.residentIds).toEqual([uuid(44)]);
@@ -850,8 +896,12 @@ test('supervisor publica aviso por UUID, revisa preservando destinatários e ret
   await confirm(page, 'Salvar rascunho');
   await expect(page).toHaveURL('/comunicacoes/avisos/' + noticeId);
   expect(state.writes[0].body.residentIds).toEqual([residentId]);
+  // Os nomes ficam na página do aviso, em "Quem recebe"; os diálogos mostram só a quantidade.
+  await expect(page.locator('h3:has-text("Quem recebe") + ul')).toHaveText(
+    'Estudante Sintético · TESTE-001',
+  );
   await page.getByRole('button', { name: 'Revisar publicação' }).click();
-  await expect(page.getByRole('dialog')).toBeVisible();
+  await expectRecipients(page, 'Escolhidos um a um · 1 residente');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Revisar publicação' })).toBeFocused();
@@ -865,11 +915,13 @@ test('supervisor publica aviso por UUID, revisa preservando destinatários e ret
     .getByLabel('Mensagem', { exact: true })
     .fill('A reunião foi transferida para as 19 horas no mesmo auditório.');
   await page.getByRole('button', { name: 'Publicar correção' }).click();
+  await expectRecipients(page, 'Escolhidos um a um · 1 residente');
   await confirm(page, 'Publicar correção');
   await expect(page.getByText('Correção publicada.')).toBeVisible();
   expect(state.writes[2].body).toMatchObject({ version: 1, title: 'Reunião geral de residentes' });
   expect(state.writes[2].body).not.toHaveProperty('residentIds');
   await page.getByRole('button', { name: 'Retirar com justificativa' }).click();
+  await expectRecipients(page, 'Escolhidos um a um · 1 residente');
   await page
     .getByRole('dialog')
     .getByLabel('Justificativa', { exact: true })
@@ -880,6 +932,30 @@ test('supervisor publica aviso por UUID, revisa preservando destinatários e ret
   ).toBeVisible();
   await page.reload();
   await expect(page.locator('.op-heading .status')).toHaveText('Retirado');
+});
+
+test('aviso antigo, sem grupo gravado, mostra a lista salva e a quantidade em "Revisar publicação"', async ({
+  page,
+}) => {
+  const legacy: PublishedNotice = {
+    id: noticeId,
+    title: 'Aviso antigo sintético',
+    body: 'Mensagem sintética salva antes do grupo.',
+    residentIds: [residentId, otherResident.id],
+    status: 'RASCUNHO',
+    version: 0,
+    publishedAt: null,
+    communicationId: null,
+    withdrawalReason: null,
+  };
+  await mockApi(page, { notices: [legacy] });
+  await page.goto('/comunicacoes/avisos/' + noticeId);
+  await expect(page.locator('h3:has-text("Quem recebe") + ul li')).toHaveText([
+    'Estudante Sintético · TESTE-001',
+    'Outro Estudante · TESTE-002',
+  ]);
+  await page.getByRole('button', { name: 'Revisar publicação' }).click();
+  await expectRecipients(page, 'Lista salva no rascunho · 2 residentes');
 });
 
 test('residente consulta dados próprios e registra leitura e ciência separadas na versão exata', async ({
@@ -1237,4 +1313,104 @@ test('320 px e teclado acessíveis; permissões e demonstração mantêm seus es
     page.getByText('Os registros abaixo são fictícios.', { exact: false }),
   ).toBeVisible();
   expect(state.writes).toHaveLength(0);
+});
+
+for (const size of phoneSizes) {
+  test(`no celular (${size.width} px), decisões em coluna e nada vaza das comunicações`, async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    const state = await mockApi(page);
+    await page.setViewportSize(size);
+    await page.goto('/notificacoes/' + notificationId);
+    const decision = page
+      .locator('section')
+      .filter({ has: page.getByRole('heading', { name: 'Decisão do supervisor' }) });
+    await decision.scrollIntoViewIfNeeded();
+    await capture(page, 'notificacao-decisao');
+    await expectFits(page, 'notificação');
+    // Principal primeiro e destacada; todas com a mesma altura e a largura do painel.
+    const buttons = decision.locator('.decision-actions > :is(.btn, .btn-secondary, .btn-danger)');
+    await expect(buttons).toHaveText([
+      'Criar advertência',
+      'Registrar visualização',
+      'Iniciar análise',
+      'Arquivar com justificativa',
+    ]);
+    await expect(buttons.first()).toHaveClass(/(^|\s)btn(\s|$)/);
+    const boxes = await Promise.all((await buttons.all()).map((button) => button.boundingBox()));
+    const actions = (await decision.locator('.decision-actions').boundingBox())!;
+    for (const box of boxes) {
+      expect(Math.round(box!.width)).toBe(Math.round(actions.width));
+      expect(Math.round(box!.height)).toBe(Math.round(boxes[0]!.height));
+    }
+    await decision.getByRole('button', { name: 'Criar advertência' }).click();
+    await expectFits(page, 'notificação com advertência aberta');
+    await decision.getByRole('button', { name: 'Arquivar com justificativa' }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expectFits(page, 'diálogo de arquivar');
+    await page.keyboard.press('Escape');
+    for (const path of [
+      '/notificacoes',
+      '/advertencias',
+      '/advertencias/nova',
+      '/advertencias/' + uuid(911),
+      `/residentes/${residentId}/reincidencias`,
+      '/comunicacoes/avisos',
+      '/comunicacoes/avisos/novo',
+    ]) {
+      await page.goto(path);
+      await expect(page.locator('main h1').first(), path).toBeVisible();
+      await openCollapsed(page);
+      await expectFits(page, path);
+    }
+    await page.getByLabel('Título', { exact: true }).fill('Reunião geral de residentes');
+    await page
+      .getByLabel('Mensagem', { exact: true })
+      .fill('Compareçam ao auditório às 18 horas para a reunião geral.');
+    await page.getByRole('radio', { name: 'Escolher pessoas', exact: true }).check();
+    await page.getByRole('checkbox', { name: /Estudante Sintético/ }).check();
+    await expectFits(page, 'aviso com pessoas escolhidas');
+    await page.getByRole('button', { name: 'Salvar rascunho' }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expectFits(page, 'diálogo de salvar aviso');
+    await page.keyboard.press('Escape');
+    state.role = 'residente';
+    for (const path of ['/avisos', '/avisos?tipo=advertencias', '/minhas-comunicacoes/' + ownId]) {
+      await page.goto(path);
+      await expect(page.locator('main h1').first(), path).toBeVisible();
+      await openCollapsed(page);
+      await expectFits(page, path);
+    }
+  });
+}
+
+test('no computador, as decisões da notificação ficam juntas, iguais e alinhadas', async ({
+  page,
+}) => {
+  await mockApi(page);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/notificacoes/' + notificationId);
+  const group = page
+    .locator('section')
+    .filter({ has: page.getByRole('heading', { name: 'Decisão do supervisor' }) })
+    .locator('.decision-actions');
+  const buttons = group.locator(':scope > :is(.btn, .btn-secondary, .btn-danger)');
+  await expect(buttons).toHaveText([
+    'Criar advertência',
+    'Registrar visualização',
+    'Iniciar análise',
+    'Arquivar com justificativa',
+  ]);
+  await expect(buttons.first()).toHaveClass(/(^|\s)btn(\s|$)/);
+  // A decisão fica na coluna lateral: grade alinhada à esquerda, botões do mesmo tamanho.
+  const boxes = await Promise.all((await buttons.all()).map((button) => button.boundingBox()));
+  const first = boxes[0]!;
+  const panel = (await group.boundingBox())!;
+  expect(Math.round(first.x)).toBe(Math.round(panel.x));
+  for (const box of boxes) {
+    expect(Math.round(box!.width)).toBe(Math.round(first.width));
+    expect(Math.round(box!.height)).toBe(Math.round(first.height));
+    expect(box!.x + box!.width).toBeLessThanOrEqual(panel.x + panel.width + 1);
+  }
 });

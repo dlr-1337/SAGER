@@ -62,6 +62,20 @@ describe('Revisão das operações locais', () => {
     ]);
     expect(element.textContent).not.toContain('Confira os dados antes de confirmar');
   });
+  it('aprovar mostra a nota de que a saída é registrada depois, sem tom de alerta', async () => {
+    const element = await render({
+      title: 'A saída será aprovada.',
+      action: 'Confirmar aprovação',
+      note: 'Aprovar não registra a saída; ela é registrada quando o residente se apresentar.',
+      comment: true,
+    });
+    const note = element.querySelector('p.op-help');
+    expect(note?.textContent?.trim()).toBe(
+      'Aprovar não registra a saída; ela é registrada quando o residente se apresentar.',
+    );
+    expect(note?.getAttribute('role')).toBeNull();
+    expect(element.querySelector('[role=alert]')).toBeNull();
+  });
   it('conferir autorização mantém "Cancelar" e o botão principal', async () => {
     const element = await render({ action: 'Confirmar conferência' });
     expect(buttons(element)).toEqual([

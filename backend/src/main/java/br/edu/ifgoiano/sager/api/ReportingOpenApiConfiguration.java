@@ -65,6 +65,8 @@ public class ReportingOpenApiConfiguration {
                             ? "Gestor/supervisor criam consulta privada do autor: período inclusivo de até 366 dias, "
                                     + "até 10.000 linhas, excesso recusado. Snapshot imutável por 24 horas; prévia "
                                     + "padrão 20/máximo 100 e exportação integral usam os mesmos dados. "
+                                    + "Catálogo versão 2: cada relatório traz só as suas colunas e as métricas do seu "
+                                    + "resumo, com os registros do mais recente ao mais antigo. "
                                     + "Download exige autor/permissão atuais e integridade. Expiração remove apenas "
                                     + "artefatos transitórios; documentos permanentes e auditoria são preservados. "
                                     + "Exportação deduplicada por snapshot/formato; nova solicitação recoloca na fila só a que falhou. "
@@ -74,7 +76,8 @@ public class ReportingOpenApiConfiguration {
                                     + "não futuro e registrationReason de pelo menos 10 caracteres. Uma avaliação por "
                                     + "quarto/data America/Sao_Paulo, participantes históricos capturados. Quatro critérios "
                                     + "com peso igual; média HALF_UP com duas casas. Correção preserva quarto/data e "
-                                    + "histórico. Ranking WEEK/MONTH/SEMESTER tem empates 1,1,3 e ausências null. "
+                                    + "histórico. Ranking LAST_5_DAYS (padrão: data de referência e 4 dias anteriores)/WEEK/MONTH/SEMESTER "
+                                    + "tem empates 1,1,3, ausências null e linhas sem contagem de avaliações. "
                                     + "Residente consulta somente avaliações próprias e código/posição dos outros quartos.";
                     operation.setDescription(description);
                     for (String status : List.of("409", "410", "503")) {

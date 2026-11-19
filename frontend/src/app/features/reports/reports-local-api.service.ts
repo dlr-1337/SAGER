@@ -56,14 +56,18 @@ const columns = (value: unknown): value is ReportColumn[] =>
   new Set(value.map((item) => item.key)).size === value.length;
 const code = (value: unknown) => typeof value === 'string' && Object.hasOwn(reportLabels, value);
 const counts = (value: unknown) => record(value) && Object.values(value).every(integer);
+const optional = (value: unknown, guard: (value: unknown) => boolean) =>
+  value === undefined || guard(value);
+// The metrics are optional: each report carries only its own (catalog version 2).
 const summary: Guard<ReportSummary> = (value): value is ReportSummary =>
   record(value) &&
-  ['totalRows', 'unjustifiedAbsences', 'confirmedLateReturns', 'activeWarnings'].every((key) =>
-    integer(value[key]),
-  ) &&
-  counts(value['countsByType']) &&
+  integer(value['totalRows']) &&
   counts(value['countsByStatus']) &&
-  nullableNumber(value['cleaningMean']);
+  optional(value['countsByType'], counts) &&
+  optional(value['cleaningMean'], nullableNumber) &&
+  ['unjustifiedAbsences', 'confirmedLateReturns', 'activeWarnings'].every((key) =>
+    optional(value[key], integer),
+  );
 const monthly: Guard<ReportMonthly> = (value): value is ReportMonthly =>
   summary(value) &&
   record(value) &&

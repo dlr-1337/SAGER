@@ -171,7 +171,8 @@ const notice: Guard<PublishedNotice> = (value): value is PublishedNotice =>
   numbered(value['version']) &&
   nullableTime(value['publishedAt']) &&
   nullableUuid(value['communicationId']) &&
-  nullableString(value['withdrawalReason']);
+  nullableString(value['withdrawalReason']) &&
+  (value['audienceLabel'] === undefined || nullableString(value['audienceLabel']));
 const own: Guard<OwnCommunication> = (value): value is OwnCommunication =>
   record(value) &&
   ids(value, ['id', 'sourceId']) &&

@@ -18,7 +18,7 @@ A página de ajuda SHALL abrir sem login e ter link na página de acesso. As per
 #### Scenario: Quando a saída começa
 
 - **WHEN** um visitante abre a pergunta "Quando a saída começa?"
-- **THEN** ele lê que, no pedido para sair agora, a aprovação do supervisor já registra a saída e que, no pedido agendado, o supervisor registra a saída a partir do horário marcado
+- **THEN** ele lê que a saída começa quando o supervisor vê o residente e registra a saída, a partir do horário pedido, e que a aprovação não registra a saída
 
 ### Requirement: Guias do perfil em uso
 

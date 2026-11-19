@@ -100,6 +100,8 @@ public class SecurityConfiguration {
                                 "/api/v1/avisos", "/api/v1/avisos/**", "/api/v1/termos", "/api/v1/termos/**",
                                 "/api/v1/residentes/*/reincidencias", "/api/v1/residentes/*/termos")
                         .hasRole("SUPERVISOR")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/me/pendencias")
+                        .hasAnyRole("SUPERVISOR", "RESIDENTE")
                         .requestMatchers("/api/v1/me/avisos", "/api/v1/me/advertencias", "/api/v1/me/termos",
                                 "/api/v1/me/termos/**",
                                 "/api/v1/me/comunicacoes", "/api/v1/me/comunicacoes/**")

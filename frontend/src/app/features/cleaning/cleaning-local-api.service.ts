@@ -12,7 +12,7 @@ import {
   OwnCleaningAssessment,
   RankingPeriod,
 } from './cleaning-local.models';
-import { validCriteria } from './cleaning-local.utils';
+import { isRankingPeriod, validCriteria } from './cleaning-local.utils';
 import {
   Guard,
   ReportingTransport,
@@ -29,7 +29,7 @@ import {
   record,
   uuid,
 } from './reporting-local.transport';
-const period = (value: unknown) => ['WEEK', 'MONTH', 'SEMESTER'].includes(String(value));
+const period = isRankingPeriod;
 const score = (value: unknown) => numeric(value) && value >= 0 && value <= 10;
 const weights = (value: unknown) =>
   record(value) &&
@@ -109,7 +109,6 @@ const ranking: Guard<CleaningRanking> = (value): value is CleaningRanking =>
       typeof item['roomCode'] === 'string' &&
       (item['mean'] === null || score(item['mean'])) &&
       nullableInteger(item['position']) &&
-      nullableInteger(item['assessmentCount']) &&
       typeof item['own'] === 'boolean',
   );
 const indicators: Guard<MonthlyIndicator[]> = (value): value is MonthlyIndicator[] =>
@@ -168,21 +167,18 @@ export class CleaningLocalApiService {
     return this.transport.post(`/limpeza/avaliacoes/${identifier(id)}/corrigir`, input, assessment);
   }
   async ranking(
-    period: RankingPeriod,
+    requested: RankingPeriod,
     referenceDate = '',
     resident = false,
   ): Promise<CleaningRanking> {
+    if (!period(requested)) throw new Error('Período do ranking inválido.');
     const value = await this.transport.get(
-      '/limpeza/ranking' + query({ period, referenceDate }),
+      '/limpeza/ranking' + query({ period: requested, referenceDate }),
       ranking,
     );
     if (
       resident &&
-      value.items.some(
-        (item) =>
-          !item.own &&
-          (item.roomId !== null || item.mean !== null || item.assessmentCount !== null),
-      )
+      value.items.some((item) => !item.own && (item.roomId !== null || item.mean !== null))
     )
       throw new Error('O servidor não confirmou a projeção privada do ranking.');
     return value;

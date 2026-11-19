@@ -475,6 +475,18 @@ export class WarningFormLocalPage {
           </div>
           <section class="panel op-panel">
             <h2>Ações do supervisor</h2>
+            @if (warning.status === 'VIGENTE') {
+              <div class="decision-actions">
+                <button
+                  class="btn-secondary"
+                  type="button"
+                  [disabled]="busy() || conflict()"
+                  (click)="annul()"
+                >
+                  Anular com justificativa
+                </button>
+              </div>
+            }
             <div class="comm-links">
               <a [routerLink]="['/residentes', warning.residentId, 'reincidencias']"
                 >Revisar possível reincidência</a
@@ -485,16 +497,6 @@ export class WarningFormLocalPage {
                 >
               }
             </div>
-            @if (warning.status === 'VIGENTE') {
-              <button
-                class="btn-secondary"
-                type="button"
-                [disabled]="busy() || conflict()"
-                (click)="annul()"
-              >
-                Anular com justificativa
-              </button>
-            }
             @if (error()) {
               <p class="comm-error" role="alert">{{ error() }}</p>
             }

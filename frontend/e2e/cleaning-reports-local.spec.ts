@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, Page, test } from '@playwright/test';
+import { capture, expectFits, openCollapsed, phoneSizes } from './mobile-fit';
 import { openMoreFilters } from './more-filters';
 import { expectShortGuidance } from './short-text';
 import type {
@@ -82,8 +83,8 @@ function assessment(): CleaningAssessment {
       delta: null,
       periodMean: 6,
       position: 1,
-      rankingReference: 'MONTH',
-      from: '2026-09-01',
+      rankingReference: 'LAST_5_DAYS',
+      from: '2026-09-26',
       to: '2026-09-30',
     },
   };
@@ -154,6 +155,18 @@ const summary = {
   unjustifiedAbsences: 19,
   confirmedLateReturns: 1,
   activeWarnings: 1,
+};
+const exitColumns: ReportCatalog['items'][number]['columns'] = [
+  { key: 'date', label: 'Data', type: 'DATE' },
+  { key: 'residentName', label: 'Residente', type: 'STRING' },
+  { key: 'roomCode', label: 'Quarto', type: 'STRING' },
+  { key: 'sourceType', label: 'Tipo de saída', type: 'STRING' },
+  { key: 'status', label: 'Situação', type: 'STRING' },
+];
+const exitSummary = {
+  totalRows: 21,
+  countsByStatus: { APROVADA: 20, RETORNO_CONFIRMADO_COM_ATRASO: 1 },
+  confirmedLateReturns: 1,
 };
 function snapshot(): ReportSnapshot {
   return {
@@ -312,7 +325,6 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
             roomCode: room.code,
             mean: 6,
             position: 1,
-            assessmentCount: 1,
             own: state.role === 'residente',
           },
           {
@@ -320,7 +332,6 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
             roomCode: 'T-102',
             mean: state.role === 'residente' && !state.leakRanking ? null : 6,
             position: 1,
-            assessmentCount: state.role === 'residente' ? null : 1,
             own: false,
           },
           {
@@ -328,7 +339,6 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
             roomCode: 'T-103',
             mean: state.role === 'residente' ? null : 4,
             position: 3,
-            assessmentCount: state.role === 'residente' ? null : 1,
             own: false,
           },
           {
@@ -336,7 +346,6 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
             roomCode: 'T-104',
             mean: null,
             position: null,
-            assessmentCount: state.role === 'residente' ? null : 0,
             own: false,
           },
         ];
@@ -348,15 +357,15 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
               roomCode: `T-${200 + i}`,
               mean: resident ? null : 5,
               position: 4 + i,
-              assessmentCount: resident ? null : 1,
               own: false,
             })),
             { ...items.shift()!, position: 4 + state.rankingRooms },
           );
+        const fiveDays = url.searchParams.get('period') === 'LAST_5_DAYS';
         return ok({
           period: url.searchParams.get('period'),
           referenceDate: url.searchParams.get('referenceDate'),
-          from: '2026-09-01',
+          from: fiveDays ? '2026-09-26' : '2026-09-01',
           to: '2026-09-30',
           items,
         });
@@ -497,6 +506,14 @@ async function mockApi(page: Page, options: Partial<State> = {}): Promise<State>
           ...snapshot(),
           ...(state.zeroRows
             ? { rowCount: 0, summary: { ...summary, totalRows: 0 }, monthly: [] }
+            : {}),
+          // Como o servidor: o relatório de saídas só traz as colunas e as métricas dele.
+          ...(body.catalogCode === 'SAIDAS'
+            ? {
+                columns: exitColumns,
+                summary: { ...exitSummary },
+                monthly: [{ month: '2026-09', ...exitSummary }],
+              }
             : {}),
           catalogCode: body.catalogCode,
           filters: {
@@ -762,7 +779,14 @@ test('residente consulta avaliações pela participação histórica e ranking o
   await expect(page.getByRole('link', { name: 'Corrigir com justificativa' })).toHaveCount(0);
   await page.goto('/ranking');
   await expect(page.getByRole('heading', { name: 'Ranking de limpeza' })).toBeVisible();
-  await expect(page.getByText('Nota privada do quarto')).toHaveCount(3);
+  const own = page.getByRole('region', { name: 'Seu quarto neste período' });
+  await expect(own.locator('.cleaning-score')).toHaveText('6,00');
+  await expect(
+    page.getByLabel('Posições dos quartos').locator('article.cleaning-rank'),
+  ).toHaveCount(3);
+  await expect(page.getByLabel('Posições dos quartos').locator('.cleaning-score')).toHaveCount(0);
+  await expect(page.getByText('Nota privada do quarto')).toHaveCount(0);
+  await expect(page.getByText('Sua participação registrada neste período')).toHaveCount(0);
   expect(state.writes).toHaveLength(0);
   state.leakRanking = true;
   await page.getByRole('button', { name: 'Ver período', exact: true }).click();
@@ -774,10 +798,19 @@ test('ranking usa posições e nulos do servidor, empates 1 1 3 e período expl�
 }) => {
   const state = await mockApi(page, { role: 'gestor' });
   await page.goto('/ranking');
+  await expect(
+    page.getByRole('heading', { name: 'Últimos 5 dias · 26/09/2026 a 30/09/2026' }),
+  ).toBeVisible();
+  expect(state.gets.some((path) => path.includes('period=LAST_5_DAYS'))).toBe(true);
+  await expect(page.getByRole('combobox', { name: 'Período', exact: true })).toHaveValue(
+    'LAST_5_DAYS',
+  );
+  await expect(page.getByLabel('Último dia', { exact: true })).toHaveValue('2026-09-30');
   await expect(page.getByText('1º', { exact: true })).toHaveCount(2);
   await expect(page.getByText('3º', { exact: true })).toHaveCount(1);
   await expect(page.getByText('Sem posição', { exact: true })).toHaveCount(1);
-  await expect(page.getByText('Sem avaliações no período', { exact: true })).toBeVisible();
+  await expect(page.getByText('Sem nota', { exact: true })).toBeVisible();
+  await expect(page.locator('article.cleaning-rank').filter({ hasText: /avalia/i })).toHaveCount(0);
   await page.getByRole('combobox', { name: 'Período', exact: true }).selectOption('SEMESTER');
   await page.getByRole('button', { name: 'Ver período', exact: true }).click();
   await expect(
@@ -792,7 +825,7 @@ test('ranking usa posições e nulos do servidor, empates 1 1 3 e período expl�
   await expect(page.getByText('Fórmula pendente da AE')).toHaveCount(0);
   await expect(page.getByText('db-password-secret')).toHaveCount(0);
 });
-test('ranking mostra 25 quartos por página e repete o quarto do residente no topo', async ({
+test('ranking mostra 25 quartos por página e o quarto do residente só no topo', async ({
   page,
 }) => {
   const state = await mockApi(page, { role: 'gestor', rankingRooms: 26 });
@@ -805,7 +838,9 @@ test('ranking mostra 25 quartos por página e repete o quarto do residente no to
   await expect(page.getByText('26–30 de 30', { exact: true })).toBeVisible();
   await expect(ranks).toHaveCount(5);
   await expect(ranks.last()).toContainText('Quarto T-101');
-  await expect(page.getByRole('heading', { name: 'Mês · 01/09/2026 a 30/09/2026' })).toBeFocused();
+  await expect(
+    page.getByRole('heading', { name: 'Últimos 5 dias · 26/09/2026 a 30/09/2026' }),
+  ).toBeFocused();
   state.role = 'residente';
   await page.goto('/ranking');
   const own = page.getByRole('region', { name: 'Seu quarto neste período' });
@@ -813,8 +848,13 @@ test('ranking mostra 25 quartos por página e repete o quarto do residente no to
   await expect(own).toContainText('Quarto T-101');
   await expect(own).toContainText('30º');
   await expect(own.locator('.cleaning-score')).toHaveText('6,00');
+  await expect(page.getByRole('heading', { name: 'Outros quartos' })).toBeVisible();
   await expect(ranks.first()).toContainText('Quarto T-102');
-  await expect(page.getByText('1–25 de 30', { exact: true })).toBeVisible();
+  await expect(page.getByText('1–25 de 29', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Próxima', exact: true }).click();
+  await expect(page.getByText('26–29 de 29', { exact: true })).toBeVisible();
+  await expect(ranks).toHaveCount(4);
+  await expect(ranks.filter({ hasText: 'Quarto T-101' })).toHaveCount(0);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });
 const ready = (state: State) => {
@@ -856,9 +896,11 @@ test('um clique gera PDF e Excel, a tela acompanha sozinha e o download sai com 
     timeout: 8000,
   });
   await expect(page.getByRole('status').filter({ hasText: 'Pronto para baixar.' })).toBeVisible();
-  const readyGets = state.gets.length;
+  // A contagem do menu (pending-badges) tem ritmo próprio, de 30 s: fica fora desta conta.
+  const reportGets = () => state.gets.filter((path) => !path.startsWith('/me/pendencias'));
+  const readyGets = reportGets().length;
   await page.waitForTimeout(3500);
-  expect(state.gets).toHaveLength(readyGets);
+  expect(reportGets()).toHaveLength(readyGets);
 
   for (const [name, file] of [
     ['Baixar PDF', 'relatorio-presenca-2026-09-01-a-2026-09-30.pdf'],
@@ -1036,6 +1078,37 @@ test('"Ver na tela" mostra baixar no topo, páginas de registros e nada técnico
   );
   await expect(page.getByText(snapshotId)).toHaveCount(0);
 });
+test('relatório de saídas mostra só as colunas e as métricas do assunto', async ({ page }) => {
+  await mockApi(page);
+  await page.goto('/relatorios');
+  await page.getByRole('radio', { name: /Saídas e retornos/ }).check();
+  await generate(page);
+  await expect(page.getByText('Montando os arquivos', { exact: false })).toBeVisible();
+  await page.getByRole('link', { name: 'Ver na tela', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(snapshotId));
+  await expect(page.locator('dl dt').filter({ hasText: /^Voltaram atrasados$/ })).toBeVisible();
+  for (const text of [
+    'Nota média de limpeza',
+    'Faltas sem justificativa',
+    'Advertências ativas',
+    'Registros por tipo',
+  ])
+    await expect(page.getByText(text, { exact: true })).toHaveCount(0);
+  const table = page.getByRole('table', { name: 'Registros do relatório' });
+  await expect(table.getByRole('columnheader')).toHaveText([
+    'Data',
+    'Residente',
+    'Quarto',
+    'Tipo de saída',
+    'Situação',
+  ]);
+  // Antes, "Nota" e "Categoria" apareciam como "Não informado" em toda saída.
+  await expect(page.getByText('Não informado')).toHaveCount(0);
+  await expect(page.getByRole('figure')).toHaveCount(2);
+  await expect(
+    page.getByRole('table', { name: 'Números de cada mês' }).getByRole('columnheader'),
+  ).toHaveText(['Mês', 'Registros', 'Atrasos']);
+});
 test('consulta expirada e limite de registros orientam sem resultado truncado ou dados demo', async ({
   page,
 }) => {
@@ -1123,3 +1196,60 @@ test('320px sem overflow e axe, teclado em revisão, papéis protegidos e demons
   await page.getByRole('button', { name: 'Baixar PDF', exact: true }).click();
   await expect(page.getByText('Na demonstração nenhum arquivo é baixado.')).toBeVisible();
 });
+
+for (const size of phoneSizes) {
+  test(`no celular (${size.width} px), filtros de data, avaliações e relatórios cabem no card`, async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    const state = await mockApi(page);
+    await page.setViewportSize(size);
+    await page.goto('/relatorios');
+    await page.getByRole('radio', { name: 'Escolher datas', exact: true }).check();
+    await expect(page.getByLabel('Data inicial', { exact: true })).toBeVisible();
+    await openCollapsed(page);
+    await page.getByLabel('Data inicial', { exact: true }).scrollIntoViewIfNeeded();
+    await capture(page, 'relatorio-datas');
+    await expectFits(page, 'relatório com datas');
+    await page.goto('/limpeza');
+    await openMoreFilters(page);
+    await expect(page.getByLabel('Data inicial', { exact: true })).toBeVisible();
+    await expectFits(page, 'filtros da limpeza');
+    await page.goto('/limpeza/' + assessmentId);
+    await expect(page.locator('main h1')).toBeVisible();
+    await openCollapsed(page);
+    await expectFits(page, 'detalhe da avaliação');
+    // Ação do supervisor na avaliação no mesmo padrão das outras decisões.
+    const correct = page.getByRole('link', { name: 'Corrigir com justificativa' });
+    const actions = page.locator('.decision-actions').filter({ has: correct });
+    expect(Math.round((await correct.boundingBox())!.width)).toBe(
+      Math.round((await actions.boundingBox())!.width),
+    );
+    await page.goto('/limpeza/nova');
+    await page.getByRole('combobox', { name: 'Quarto', exact: true }).selectOption(roomId);
+    await page.getByText('Foi em outro dia?', { exact: true }).click();
+    await expectFits(page, 'avaliação: passo 1');
+    await page.getByText('Foi em outro dia?', { exact: true }).click();
+    await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+    await grades(page);
+    await expectFits(page, 'avaliação: passo 2');
+    await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Conferir e salvar' })).toBeFocused();
+    await expectFits(page, 'avaliação: passo 3');
+    for (const path of [
+      '/limpeza/' + assessmentId + '/corrigir',
+      '/ranking',
+      '/relatorios/individual/' + residentId,
+      '/relatorios/consultas/' + snapshotId,
+    ]) {
+      await page.goto(path);
+      await expect(page.locator('main h1').first(), path).toBeVisible();
+      await openCollapsed(page);
+      await expectFits(page, path);
+    }
+    state.role = 'residente';
+    await page.goto('/minha-limpeza');
+    await expect(page.getByLabel('Data inicial', { exact: true })).toBeVisible();
+    await expectFits(page, 'minhas avaliações');
+  });
+}

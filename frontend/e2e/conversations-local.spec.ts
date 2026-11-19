@@ -1051,3 +1051,181 @@ test.describe('rolagem da conversa', () => {
     });
   }
 });
+
+// A tela cabe na altura visível e o rodapé fica logo abaixo dela: a página só rola o rodapé, nada
+// além, e a roda do mouse sobre a lista e as mensagens não arrasta a página nem o menu lateral.
+const pageScroll = (page: Page) =>
+  page.evaluate(() => ({
+    y: window.scrollY,
+    extra: document.documentElement.scrollHeight - window.innerHeight,
+    footer: document.querySelector('.app-footer')!.getBoundingClientRect().height,
+  }));
+async function expectOnlyFooterBelow(page: Page) {
+  const { extra, footer } = await pageScroll(page);
+  expect(footer).toBeGreaterThan(40);
+  expect(Math.abs(extra - footer)).toBeLessThanOrEqual(1);
+}
+/** O menu lateral fica onde estava. A rolagem da janela é em pixels inteiros e o rodapé não, e o
+ * menu parado pode andar uma fração de pixel no fim da página. */
+async function expectMenuAt(page: Page, menuTop: number) {
+  const menu = page.getByRole('complementary', { name: 'Navegação principal' });
+  expect(Math.abs((await menu.boundingBox())!.y - menuTop)).toBeLessThan(1);
+}
+/** Rolada até o fim, a página termina no rodapé, sem espaço vazio depois dele, e o menu não sai. */
+async function expectEndsAtFooter(page: Page, menuTop?: number) {
+  await page.evaluate(() => window.scrollTo({ top: 1e6, behavior: 'instant' }));
+  await expect(page.locator('.app-footer')).toBeInViewport({ ratio: 1 });
+  const bottom = await page
+    .locator('.app-footer')
+    .evaluate((footer) => window.innerHeight - footer.getBoundingClientRect().bottom);
+  expect(Math.abs(bottom)).toBeLessThanOrEqual(1);
+  if (menuTop !== undefined) await expectMenuAt(page, menuTop);
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+}
+async function wheelOver(page: Page, selector: string, deltaY: number) {
+  const box = (await page.locator(selector).boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  for (let turn = 0; turn < 6; turn++) await page.mouse.wheel(0, deltaY);
+}
+const manyConversations = () => [
+  linkedConversation(),
+  ...Array.from({ length: 11 }, (_, index) => ({
+    ...unlinkedConversation(),
+    id: uuid(600 + index),
+  })),
+];
+
+test.describe('tela na altura da janela', () => {
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 1920, height: 1080 },
+  ]) {
+    test(`em ${viewport.width}×${viewport.height} a página só rola o rodapé e o menu fica parado`, async ({
+      page,
+    }, info) => {
+      await page.setViewportSize(viewport);
+      const state = await mockApi(page);
+      state.conversations = manyConversations();
+      await page.goto('/conversas');
+      await expect(page.locator('.conv-row')).toHaveCount(12);
+      const menu = page.getByRole('complementary', { name: 'Navegação principal' });
+      const menuTop = (await menu.boundingBox())!.y;
+      await expectOnlyFooterBelow(page);
+      await expect(page.locator('.conv-shell')).toBeInViewport({ ratio: 1 });
+      await wheelOver(page, '.conv-rows', 600);
+      expect((await pageScroll(page)).y).toBe(0);
+      await capture(page, info, `lista-${viewport.width}`);
+      await expectEndsAtFooter(page, menuTop);
+
+      await page.locator('.conv-row').first().click();
+      const log = page.getByRole('log');
+      await expect(log).toContainText('Bom dia');
+      await expectOnlyFooterBelow(page);
+      await wheelOver(page, '.conv-log', 600);
+      await log.evaluate((element) => (element.scrollTop = 0));
+      await wheelOver(page, '.conv-log', -600);
+      expect((await pageScroll(page)).y).toBe(0);
+      await expectMenuAt(page, menuTop);
+      await expect(page.locator('.conv-composer')).toBeInViewport({ ratio: 1 });
+      await capture(page, info, `conversa-${viewport.width}`);
+      await expectEndsAtFooter(page, menuTop);
+    });
+  }
+
+  test('sem conversas, a área vazia só rola até o rodapé', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    const state = await mockApi(page);
+    state.conversations = [];
+    await page.goto('/conversas');
+    await expect(page.getByText('Nenhuma conversa ainda.')).toBeVisible();
+    const menu = page.getByRole('complementary', { name: 'Navegação principal' });
+    const menuTop = (await menu.boundingBox())!.y;
+    await expectOnlyFooterBelow(page);
+    await wheelOver(page, '.conv-pane', 600);
+    const { y, footer } = await pageScroll(page);
+    expect(y).toBeLessThanOrEqual(footer + 1);
+    await expect(page.locator('.app-footer')).toBeInViewport({ ratio: 1 });
+    await expectMenuAt(page, menuTop);
+  });
+
+  test('no monitor grande, lista e conversa usam a largura e letras maiores', async ({ page }) => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await mockApi(page);
+    await page.goto(`/conversas/${linkedId}`);
+    await expect(page.getByRole('log')).toContainText('Bom dia');
+    const area = (await page.locator('.app-main').boundingBox())!;
+    expect((await page.locator('.conv-shell').boundingBox())!.width).toBeGreaterThan(
+      area.width - 100,
+    );
+    expect((await page.locator('.conv-list').boundingBox())!.width).toBeGreaterThanOrEqual(400);
+    const size = (selector: string) =>
+      page
+        .locator(selector)
+        .first()
+        .evaluate((element) => parseFloat(getComputedStyle(element).fontSize));
+    expect(await size('.conv-row-top strong')).toBeGreaterThanOrEqual(18);
+    expect(await size('.conv-msg-body')).toBeGreaterThanOrEqual(18);
+    expect(await size('.conv-thread-title h2')).toBeGreaterThanOrEqual(20);
+  });
+
+  test('recolher a lista dá a largura toda à conversa e o navegador lembra', async ({
+    page,
+  }, info) => {
+    await page.setViewportSize({ width: 1366, height: 860 });
+    await mockApi(page);
+    await page.goto(`/conversas/${linkedId}`);
+    await expect(page.getByRole('log')).toContainText('Bom dia');
+    const collapse = page.getByRole('button', { name: 'Recolher conversas' });
+    await expect(collapse).toHaveAttribute('aria-expanded', 'true');
+    await expect(collapse).toHaveAttribute('aria-controls', 'conv-list');
+    await collapse.click();
+    const show = page.getByRole('button', { name: 'Mostrar conversas' });
+    await expect(show).toHaveAttribute('aria-expanded', 'false');
+    await expect(show).toBeFocused();
+    await expect(page.locator('.conv-list')).toBeHidden();
+    const shell = (await page.locator('.conv-shell').boundingBox())!;
+    expect((await page.locator('.conv-pane').boundingBox())!.width).toBeGreaterThan(
+      shell.width - 4,
+    );
+    await capture(page, info, 'lista-recolhida');
+    await axe(page);
+    await expectTargets(page, '.conv-pane');
+
+    await page.reload();
+    await expect(page.getByRole('log')).toContainText('Bom dia');
+    await expect(page.locator('.conv-list')).toBeHidden();
+
+    // Sem conversa aberta, a lista volta; a escolha vale de novo na próxima conversa.
+    await page
+      .getByRole('complementary', { name: 'Navegação principal' })
+      .getByRole('link', { name: 'Conversas', exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/conversas$/);
+    await expect(page.locator('.conv-row').first()).toBeVisible();
+    await page.locator('.conv-row').first().click();
+    await expect(page.locator('.conv-list')).toBeHidden();
+    await page.getByRole('button', { name: 'Mostrar conversas' }).click();
+    await expect(page.locator('.conv-row').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Recolher conversas' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+  });
+
+  test('no celular, a conversa cabe na janela e não oferece recolher', async ({ page }, info) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockApi(page);
+    await page.goto('/conversas');
+    await expect(page.locator('.conv-row')).toHaveCount(2);
+    await capture(page, info, 'lista-390');
+    await expectEndsAtFooter(page);
+    await page.locator('.conv-row').first().click();
+    await expect(page.getByRole('log')).toContainText('Bom dia');
+    await expectOnlyFooterBelow(page);
+    await expect(page.locator('.conv-composer')).toBeInViewport({ ratio: 1 });
+    await expect(page.locator('.conv-collapse')).toBeHidden();
+    await expectNoHorizontalOverflow(page);
+    await capture(page, info, 'conversa-390');
+    await expectEndsAtFooter(page);
+  });
+});

@@ -16,6 +16,8 @@ export interface LocalReviewData {
   action: string;
   lines: { label: string; value: string }[];
   warning?: string;
+  /** Orientação curta sobre o efeito da ação, sem tom de alerta. */
+  note?: string;
   /** Rejeitar, recusar e cancelar: o botão de confirmar fica vermelho. */
   danger?: boolean;
   requireConfirmation?: boolean;
@@ -50,6 +52,9 @@ export interface LocalReviewResult {
     <mat-dialog-content>
       @if (data.warning) {
         <p class="op-warning" role="alert">{{ data.warning }}</p>
+      }
+      @if (data.note) {
+        <p class="op-help">{{ data.note }}</p>
       }
       <dl class="review-list">
         @for (line of data.lines; track line.label) {
@@ -123,11 +128,11 @@ export interface LocalReviewResult {
         </label>
       }
       @if (data.requireConfirmation) {
-        <label class="op-check"
-          ><input type="checkbox" [formControl]="confirmation" />{{
+        <label class="confirm-check"
+          ><input type="checkbox" [formControl]="confirmation" /><span>{{
             data.confirmationLabel ??
               'Confirmo o registro fora do horário da chamada (22h às 23h30).'
-          }}</label
+          }}</span></label
         >
       }
       @if (error()) {
@@ -175,6 +180,7 @@ export interface LocalReviewResult {
         margin: 16px 0;
       }
       mat-dialog-actions {
+        flex-wrap: wrap;
         gap: 8px;
         padding: 16px 24px;
       }
@@ -182,9 +188,6 @@ export interface LocalReviewResult {
         .review-list div {
           grid-template-columns: 1fr;
           gap: 3px;
-        }
-        mat-dialog-actions {
-          flex-wrap: wrap;
         }
       }
     `,

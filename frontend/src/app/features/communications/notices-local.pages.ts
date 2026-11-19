@@ -22,7 +22,7 @@ import {
   CommunicationsLocalApiService,
   communicationsError,
 } from './communications-local-api.service';
-import { NoticeInput, PublishedNotice } from './communications-local.models';
+import { NoticeAudienceInput, NoticeInput, PublishedNotice } from './communications-local.models';
 import {
   CommunicationReviewData,
   CommunicationReviewDialogComponent,
@@ -98,6 +98,27 @@ export function audienceQuery(
   return null;
 }
 const residentsCount = (count: number) => (count === 1 ? '1 residente' : `${count} residentes`);
+/**
+ * "Quem vai receber" dos diálogos do aviso: só o grupo e a quantidade (notice-recipient-summary).
+ * Os nomes ficam na página do aviso salvo, em "Quem recebe".
+ */
+export const recipientsSummary = (group: string, count: number) =>
+  `${group} · ${residentsCount(count)}`;
+/** Aviso salvo antes de o grupo ser gravado: só a lista, sem a opção que a montou. */
+export const savedListGroup = 'Lista salva no rascunho';
+/** A opção enviada ao servidor, que monta e grava o grupo; o texto da tela nunca vai na API. */
+export function audienceInput(
+  audience: NoticeAudience | '',
+  place: { accommodationId?: string; roomId?: string } = {},
+): NoticeAudienceInput | undefined {
+  if (audience === 'ALOJAMENTO')
+    return place.accommodationId
+      ? { kind: audience, accommodationId: place.accommodationId }
+      : undefined;
+  if (audience === 'QUARTO')
+    return place.roomId ? { kind: audience, roomId: place.roomId } : undefined;
+  return audience ? { kind: audience } : undefined;
+}
 
 @Component({
   standalone: true,
@@ -492,7 +513,14 @@ export class NoticeFormLocalPage {
     )
       return;
     this.form.markAllAsTouched();
-    const input = { ...noticeContent(this.form), residentIds: [...this.selected()].sort() };
+    const input: NoticeInput = {
+      ...noticeContent(this.form),
+      residentIds: [...this.selected()].sort(),
+      audience: audienceInput(this.chosen(), {
+        accommodationId: this.accommodationId.value,
+        roomId: this.roomId.value,
+      }),
+    };
     if (
       this.form.invalid ||
       noticeInvalid(input) ||
@@ -505,9 +533,6 @@ export class NoticeFormLocalPage {
       return;
     }
     this.error.set('');
-    const names = [...this.known().values()]
-      .filter((item) => input.residentIds.includes(item.id))
-      .map((item) => `${item.name} · ${item.enrollment}`);
     this.dialogs
       .open<CommunicationReviewDialogComponent, CommunicationReviewData, CommunicationReviewResult>(
         CommunicationReviewDialogComponent,
@@ -520,10 +545,7 @@ export class NoticeFormLocalPage {
               { label: 'Mensagem', value: input.body },
               {
                 label: 'Quem vai receber',
-                value: [
-                  `${this.criterion()} · ${residentsCount(input.residentIds.length)}`,
-                  ...names,
-                ].join('\n'),
+                value: recipientsSummary(this.criterion(), input.residentIds.length),
               },
             ],
           },
@@ -538,15 +560,23 @@ export class NoticeFormLocalPage {
         if (result) void this.save(input);
       });
   }
-  /** A opção como aparece na revisão (design D8): o nome da opção e, se houver, o lugar. */
+  /**
+   * O grupo da confirmação (notice-recipient-summary, D1): o nome do alojamento, o quarto com o
+   * alojamento ou o nome da opção. É a mesma regra com que o servidor monta o grupo gravado.
+   */
   private criterion(): string {
     const audience = this.chosen();
     const map = this.housing();
-    if (audience === 'ALOJAMENTO')
-      return `${audienceLabels.ALOJAMENTO}: ${map.accommodations.find((item) => item.id === this.accommodationId.value)?.name ?? ''}`;
+    const accommodation = (id: string) =>
+      map.accommodations.find((item) => item.id === id)?.name ?? '';
+    if (audience === 'ALOJAMENTO') return accommodation(this.accommodationId.value);
     if (audience === 'QUARTO') {
       const room = map.rooms.find((item) => item.id === this.roomId.value);
-      return `${audienceLabels.QUARTO}: ${room ? this.roomLabel(room) : ''}`;
+      if (!room) return audienceLabels.QUARTO;
+      const unit = map.units.find((item) => item.id === room.unitId)?.name;
+      return [`Quarto ${room.code}`, unit, accommodation(room.accommodationId)]
+        .filter(Boolean)
+        .join(', ');
     }
     return audience === 'ESCOLHER'
       ? 'Escolhidos um a um'
@@ -635,35 +665,36 @@ export class NoticeFormLocalPage {
               </div>
             </dl>
           }
-          <div class="comm-actions">
-            @if (notice.status === 'RASCUNHO') {
-              <button
-                class="btn"
-                type="button"
-                [disabled]="busy() || conflict()"
-                (click)="publish()"
-              >
-                Revisar publicação
-              </button>
-            }
-            @if (notice.status === 'PUBLICADO') {
-              <button
-                class="btn-secondary"
-                type="button"
-                [disabled]="busy() || conflict()"
-                (click)="edit.set(!edit())"
-              >
-                {{ edit() ? 'Fechar correção' : 'Corrigir aviso' }}</button
-              ><button
-                class="btn-secondary"
-                type="button"
-                [disabled]="busy() || conflict()"
-                (click)="withdraw()"
-              >
-                Retirar com justificativa
-              </button>
-            }
-          </div>
+          @if (notice.status === 'RASCUNHO' || notice.status === 'PUBLICADO') {
+            <div class="decision-actions">
+              @if (notice.status === 'RASCUNHO') {
+                <button
+                  class="btn"
+                  type="button"
+                  [disabled]="busy() || conflict()"
+                  (click)="publish()"
+                >
+                  Revisar publicação
+                </button>
+              } @else {
+                <button
+                  class="btn-secondary"
+                  type="button"
+                  [disabled]="busy() || conflict()"
+                  (click)="edit.set(!edit())"
+                >
+                  {{ edit() ? 'Fechar correção' : 'Corrigir aviso' }}</button
+                ><button
+                  class="btn-secondary"
+                  type="button"
+                  [disabled]="busy() || conflict()"
+                  (click)="withdraw()"
+                >
+                  Retirar com justificativa
+                </button>
+              }
+            </div>
+          }
           @if (edit() && notice.status === 'PUBLICADO') {
             <form
               sagerUnsaved
@@ -848,7 +879,7 @@ export class NoticeDetailLocalPage {
       { label: 'Mensagem', value: item.body },
       {
         label: 'Quem vai receber',
-        value: item.residentIds.map((id) => this.residentLabel(id)).join('\n'),
+        value: recipientsSummary(item.audienceLabel || savedListGroup, item.residentIds.length),
       },
     ];
   }

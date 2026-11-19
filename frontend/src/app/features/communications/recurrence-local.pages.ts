@@ -435,10 +435,8 @@ export class RecurrenceLocalPage {
               </div>
             </dl>
           }
-          <div class="comm-actions">
-            <a [routerLink]="['/residentes', term.residentId, 'reincidencias']"
-              >Ver advertências do residente</a
-            ><button
+          <div class="decision-actions">
+            <button
               class="btn-secondary"
               type="button"
               [disabled]="downloading() || term.document.state !== 'STORED'"
@@ -456,6 +454,11 @@ export class RecurrenceLocalPage {
                 Anular termo com justificativa
               </button>
             }
+          </div>
+          <div class="comm-links">
+            <a [routerLink]="['/residentes', term.residentId, 'reincidencias']"
+              >Ver advertências do residente</a
+            >
           </div>
           <p class="comm-help">
             PDF privado · {{ term.document.size.toLocaleString('pt-BR') }} bytes · documento

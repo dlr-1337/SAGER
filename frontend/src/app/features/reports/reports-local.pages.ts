@@ -25,8 +25,10 @@ import {
   formatCivilDate,
   formatCommunicationTime,
 } from '../communications/communications-local.utils';
-import { decimal } from '../cleaning/cleaning-local.utils';
-import { MonthlyIndicatorsComponent } from '../cleaning/monthly-indicators.component';
+import {
+  INDICATOR_HELP,
+  MonthlyIndicatorsComponent,
+} from '../cleaning/monthly-indicators.component';
 import { ReportingApiError, reportingError } from '../cleaning/reporting-local.transport';
 import {
   AccommodationUnit,
@@ -49,6 +51,7 @@ import {
   ReportSnapshot,
 } from './reports-local.models';
 import {
+  REPORT_MONTHLY_HELP,
   ReportDownloads,
   ReportListPolling,
   ReportPeriodPreset,
@@ -60,7 +63,9 @@ import {
   reportFileName,
   reportInProgress,
   reportLabels,
+  reportMonthlySeries,
   reportStatusLabels,
+  summaryMetrics,
 } from './reports-local.utils';
 
 const FORMATS: ReportFormat[] = ['PDF', 'XLSX'];
@@ -692,37 +697,29 @@ export class ReportsLocalPage implements OnDestroy {
               <dd>{{ statusLabels[result.filters.status] || result.filters.status }}</dd>
             </div>
           }
-          <div>
-            <dt>Nota média de limpeza</dt>
-            <dd>{{ decimal(result.summary.cleaningMean) }}</dd>
-          </div>
-          <div>
-            <dt>Faltas sem justificativa</dt>
-            <dd>{{ result.summary.unjustifiedAbsences }}</dd>
-          </div>
-          <div>
-            <dt>Voltaram atrasados</dt>
-            <dd>{{ result.summary.confirmedLateReturns }}</dd>
-          </div>
-          <div>
-            <dt>Advertências ativas</dt>
-            <dd>{{ result.summary.activeWarnings }}</dd>
-          </div>
-        </dl>
-        <h3>Registros por tipo</h3>
-        <dl class="comm-definition">
-          @for (count of counts(result.summary.countsByType); track count.key) {
+          @for (metric of metrics(); track metric.key) {
             <div>
-              <dt>{{ labels[count.key] || count.key }}</dt>
-              <dd>{{ count.value }}</dd>
-            </div>
-          } @empty {
-            <div>
-              <dt>Sem registros</dt>
-              <dd>0</dd>
+              <dt>{{ metric.label }}</dt>
+              <dd>{{ metric.value }}</dd>
             </div>
           }
         </dl>
+        @if (result.summary.countsByType; as byType) {
+          <h3>Registros por tipo</h3>
+          <dl class="comm-definition">
+            @for (count of counts(byType); track count.key) {
+              <div>
+                <dt>{{ labels[count.key] || count.key }}</dt>
+                <dd>{{ count.value }}</dd>
+              </div>
+            } @empty {
+              <div>
+                <dt>Sem registros</dt>
+                <dd>0</dd>
+              </div>
+            }
+          </dl>
+        }
         <h3>Registros por situação</h3>
         <dl class="comm-definition">
           @for (count of counts(result.summary.countsByStatus); track count.key) {
@@ -764,7 +761,11 @@ export class ReportsLocalPage implements OnDestroy {
             @for (row of rows(); track $index) {
               <details>
                 <summary>
-                  <strong>{{ labels[row.type] || row.type }} · {{ civil(row.date) }}</strong
+                  <strong>
+                    @if (result.catalogCode === 'CONSOLIDADO') {
+                      {{ labels[row.type] || row.type }} ·
+                    }
+                    {{ civil(row.date) }}</strong
                   ><span>{{ row.residentName || row.roomCode || 'Registro' }}</span
                   ><span>{{ statusLabels[row.status] || row.status }}</span>
                 </summary>
@@ -795,7 +796,11 @@ export class ReportsLocalPage implements OnDestroy {
       </section>
       <section class="panel op-panel op-section">
         <h2>Mês a mês</h2>
-        <sager-monthly-indicators [items]="result.monthly" />
+        <sager-monthly-indicators
+          [items]="result.monthly"
+          [seriesList]="monthlySeries()"
+          [help]="monthlyHelp()"
+        />
       </section>
     }
   </main>`,
@@ -819,8 +824,19 @@ export class ReportSnapshotLocalPage implements OnDestroy {
   readonly statusLabels = reportStatusLabels;
   readonly civil = formatCivilDate;
   readonly formatTime = formatCommunicationTime;
-  readonly decimal = decimal;
   readonly cell = reportCell;
+  // Only what the report carries: its own metrics and, in "Mês a mês", its own counts.
+  readonly metrics = computed(() => {
+    const summary = this.snapshot()?.summary;
+    return summary ? summaryMetrics(summary) : [];
+  });
+  readonly monthlySeries = computed(() => {
+    const result = this.snapshot();
+    return result?.summary ? reportMonthlySeries(result.catalogCode, result.summary) : [];
+  });
+  readonly monthlyHelp = computed(() =>
+    this.snapshot()?.catalogCode === 'CONSOLIDADO' ? INDICATOR_HELP : REPORT_MONTHLY_HELP,
+  );
   private generation = 0;
   constructor() {
     void this.load();

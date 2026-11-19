@@ -48,19 +48,20 @@ public class CommunicationService {
         var rows=jdbc.queryForList("SELECT n.*,c.id AS communication_id FROM sager_notice n LEFT JOIN LATERAL (SELECT id FROM sager_communication WHERE source_id=n.id AND kind='AVISO' ORDER BY content_version DESC LIMIT 1) c ON true WHERE n.id=?",id);
         if(rows.isEmpty()) throw missing();var row=rows.getFirst();
         List<UUID> residents=jdbc.query("SELECT resident_id FROM sager_notice_draft_recipient WHERE notice_id=? ORDER BY resident_id",(rs,n)->rs.getObject(1,UUID.class),id);
-        return new Notice(id,(String)row.get("title"),(String)row.get("body"),residents,(String)row.get("status"),number(row,"version"),time(row.get("published_at")),(UUID)row.get("communication_id"),(String)row.get("withdrawal_reason"));
+        return new Notice(id,(String)row.get("title"),(String)row.get("body"),residents,(String)row.get("audience_label"),(String)row.get("status"),number(row,"version"),time(row.get("published_at")),(UUID)row.get("communication_id"),(String)row.get("withdrawal_reason"));
     }
     @Transactional
     public Notice createNotice(JsonNode body) {
-        fields(body,"title","body","residentIds","idempotencyKey");
+        fields(body,"title","body","residentIds","audience","idempotencyKey");
         var account=actor.supervisor();String title=text(body,"title",3,200),content=text(body,"body",3,4000);
         var residents=ids(body,"residentIds",1,2000);UUID key=uuid(body,"idempotencyKey");
         UUID replay=keys.replay(account.id(),"NOTICE_CREATE",key,body);if(replay!=null) return notice(replay);
         residents.forEach(this::requireResident);
+        String audience=audienceLabel(body.get("audience"));
         UUID id=UUID.randomUUID();
-        jdbc.update("INSERT INTO sager_notice(id,title,body,created_at,created_by) VALUES (?,?,?,?,?)",id,title,content,now(),account.id());
+        jdbc.update("INSERT INTO sager_notice(id,title,body,audience_label,created_at,created_by) VALUES (?,?,?,?,?,?)",id,title,content,audience,now(),account.id());
         residents.forEach(resident->jdbc.update("INSERT INTO sager_notice_draft_recipient(notice_id,resident_id) VALUES (?,?)",id,resident));
-        audit.record(AuditResource.NOTICE,id,AuditAction.CREATE,0,Set.of("title","body","residentIds"));
+        audit.record(AuditResource.NOTICE,id,AuditAction.CREATE,0,audience==null?Set.of("title","body","residentIds"):Set.of("title","body","residentIds","audience"));
         keys.remember(account.id(),"NOTICE_CREATE",key,body,id,now());return notice(id);
     }
     @Transactional
@@ -148,6 +149,39 @@ public class CommunicationService {
         else jdbc.update("UPDATE sager_communication_recipient SET acknowledged_at=COALESCE(acknowledged_at,?),acknowledged_by=COALESCE(acknowledged_by,?) WHERE communication_id=? AND resident_id=?",now(),account.id(),id,account.residentId());
         audit.record(AuditResource.COMMUNICATION,id,readOnly?AuditAction.READ:AuditAction.UPDATE,expected,Set.of(readOnly?"readAt":"acknowledgedAt","residentId"));
         return communication(id,account.residentId());
+    }
+    /**
+     * Grupo de "Quem recebe?" do rascunho (notice-recipient-summary): o servidor monta o texto a partir
+     * da opção e do lugar escolhidos e nunca aceita texto do cliente. Sem opção, o aviso fica sem grupo.
+     */
+    private String audienceLabel(JsonNode audience) {
+        if(audience==null || audience.isNull()) return null;
+        String kind=option(audience,"kind",Set.of("TODOS","ALOJAMENTO","QUARTO","MAIORES","MENORES","ESCOLHER"));
+        switch(kind) {
+            case "ALOJAMENTO" -> {
+                fields(audience,"kind","accommodationId");
+                var names=jdbc.queryForList("SELECT name FROM sager_accommodation WHERE id=?",String.class,uuid(audience,"accommodationId"));
+                if(names.isEmpty()) throw invalid("Alojamento não encontrado.");
+                return names.getFirst();
+            }
+            case "QUARTO" -> {
+                fields(audience,"kind","roomId");
+                var rows=jdbc.queryForList("SELECT r.code,u.name AS unit,a.name AS accommodation FROM sager_room r JOIN sager_accommodation a ON a.id=r.accommodation_id LEFT JOIN sager_accommodation_unit u ON u.id=r.unit_id WHERE r.id=?",uuid(audience,"roomId"));
+                if(rows.isEmpty()) throw invalid("Quarto não encontrado.");
+                var row=rows.getFirst();
+                return java.util.stream.Stream.of("Quarto "+row.get("code"),(String)row.get("unit"),(String)row.get("accommodation"))
+                        .filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.joining(", "));
+            }
+            default -> {
+                fields(audience,"kind");
+                return switch(kind) {
+                    case "TODOS" -> "Todos os moradores";
+                    case "MAIORES" -> "Só maiores de 18";
+                    case "MENORES" -> "Só menores de 18";
+                    default -> "Escolhidos um a um";
+                };
+            }
+        }
     }
     private void lockNotice(UUID id) { if(jdbc.queryForList("SELECT id FROM sager_notice WHERE id=? FOR UPDATE",id).isEmpty()) throw missing(); }
     private void requireResident(UUID id) { if(!Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM sager_resident WHERE id=?)",Boolean.class,id))) throw invalid("Destinatário não encontrado."); }

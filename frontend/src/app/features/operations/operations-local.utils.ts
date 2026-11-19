@@ -151,12 +151,16 @@ export const exitStatusLabels: Record<ShortExitStatus, string> = {
   CANCELADA: 'Cancelada',
   EXPIRADA: 'Expirada',
 };
-/** Pedido para sair agora: a partida pedida já chegou no relógio do servidor. */
+/** A partida pedida já chegou no relógio do servidor: a saída pode ser registrada. */
 export const leavesNow = (exit: { requestedDepartureAt: string; now: string }) =>
   Date.parse(exit.requestedDepartureAt) <= Date.parse(exit.now);
-/** A aprovação do pedido para sair agora já volta em andamento (auto-departure-on-approval). */
-export const approvalMessage = (exit: { status: ShortExitStatus }) =>
-  exit.status === 'EM_ANDAMENTO' ? 'Aprovação e saída registradas.' : 'Aprovação registrada.';
+/** Aprovar só decide; a saída é registrada à parte, com o residente presente (exit-departure-in-person). */
+export const approvalNote =
+  'Aprovar não registra a saída; ela é registrada quando o residente se apresentar.';
+/** Passo "Saída" do supervisor quando a hora pedida já chegou. */
+export const departureStepText = 'Registre a saída quando o residente se apresentar.';
+/** Saída aprovada cuja hora chegou, vista pelo residente. */
+export const residentDepartureText = 'Apresente-se ao supervisor para ele registrar a saída.';
 export const callMarkLabels = {
   PRESENTE: 'Presente',
   AUSENTE: 'Ausente',
