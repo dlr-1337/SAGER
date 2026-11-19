@@ -43,7 +43,7 @@ O SAGER ainda não passou pela homologação das regras pela Assistência Estuda
 | **Chamada noturna** | Das 22h às 23h30, lista dos residentes menores alocados, congelada na abertura, marcação de presença, ausência justificada por saída válida e correção com justificativa. |
 | **Saídas** | Pedido de saída curta (até 3 horas) ou longa pelo residente menor de idade, análise do supervisor, registro da partida e do retorno e expiração automática. Na saída longa, o supervisor confere a autorização do responsável antes de aprovar; a rejeição pode vir antes. |
 | **Disciplina e avisos** | Notificações abertas pelo sistema para análise, advertências, termos de compromisso e avisos com versão e registro de ciência. |
-| **Limpeza** | Avaliação de 0 a 10 em quatro critérios, histórico por quarto e ranking por semana, mês ou semestre. |
+| **Limpeza** | Avaliação de 0 a 10 em quatro critérios, histórico por quarto e ranking pelos últimos 5 dias, por semana, por mês ou por semestre. |
 | **Relatórios e auditoria** | Catálogo de relatórios com exportação em PDF e planilha, e auditoria de criações, edições e decisões. |
 | **WhatsApp (opcional)** | Envio do documento da saída longa ao responsável, recebimento da autorização e conversas com responsáveis por um gateway WAHA auto-hospedado e não oficial (não é a API da Meta), desligado por padrão. Ainda não foi testado com um número real; sem ele, o supervisor anexa o arquivo recebido por outro canal. |
 | **Demonstração e ajuda** | Modo de demonstração com dados fictícios, sem conta, e página de ajuda por perfil. |
