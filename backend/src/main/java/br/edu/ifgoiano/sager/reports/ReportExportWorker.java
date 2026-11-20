@@ -86,7 +86,8 @@ public class ReportExportWorker {
   return lines;
  }
  private static String metric(String key,Object value){
-  if(value==null)return "Não informado";
+  // Sem nenhuma nota no período, o mesmo texto da tela (cleaning-local.utils.ts, decimal).
+  if(value==null)return key.equals("cleaningMean")?"Sem avaliação":"Não informado";
   return key.equals("cleaningMean")?new BigDecimal(value.toString()).setScale(2,RoundingMode.HALF_UP).toPlainString().replace('.',','):value.toString();
  }
  private static String counts(Object value,Map<String,String> labels){
