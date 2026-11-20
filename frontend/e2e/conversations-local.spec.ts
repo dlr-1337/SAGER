@@ -1087,11 +1087,13 @@ async function wheelOver(page: Page, selector: string, deltaY: number) {
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   for (let turn = 0; turn < 6; turn++) await page.mouse.wheel(0, deltaY);
 }
+// Não lidas também fora da vista: o texto só para leitores de tela delas não pode esticar a página.
 const manyConversations = () => [
   linkedConversation(),
   ...Array.from({ length: 11 }, (_, index) => ({
     ...unlinkedConversation(),
     id: uuid(600 + index),
+    unreadCount: 1,
   })),
 ];
 
