@@ -106,6 +106,12 @@ PDF e Excel MUST trazer título, período, filtros legíveis, rótulos em portug
 - **THEN** a aba "Resultados" traz o título, o período, os filtros, o cabeçalho com filtro e uma linha por registro
 - **AND** a aba "Resumo" traz as métricas do relatório e, por último, o código de conferência
 
+#### Scenario: Limpeza sem avaliação
+
+- **GIVEN** um relatório de limpeza sem nenhuma avaliação no período
+- **WHEN** o usuário baixa o PDF ou a planilha
+- **THEN** o resumo mostra "Nota média de limpeza: Sem avaliação", como a tela
+
 ### Requirement: Mesmas regras de acesso
 
 Somente gestor e supervisor SHALL gerar relatórios, com validade de 24 horas, auditoria, e os limites vigentes de período e de linhas.

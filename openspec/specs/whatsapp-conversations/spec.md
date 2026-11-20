@@ -241,6 +241,12 @@ No computador, a tela de Conversas SHALL ocupar a largura da área de trabalho e
 - **WHEN** o supervisor abre uma conversa
 - **THEN** o campo de mensagem fica à vista sem rolar, e a página só rola até o rodapé
 
+#### Scenario: Conversa não lida fora da vista
+
+- **GIVEN** uma lista com mais conversas do que cabem na tela, e uma conversa não lida no fim dela, fora da vista
+- **WHEN** o supervisor rola a página para baixo até o fim
+- **THEN** a página desce só até mostrar o rodapé, sem espaço vazio depois dele
+
 ### Requirement: Lista de conversas recolhível
 
 No computador, com uma conversa aberta, o botão "Recolher conversas" SHALL esconder a lista, e a conversa SHALL ocupar a largura toda; o mesmo botão, então "Mostrar conversas", traz a lista de volta. O botão MUST informar a leitores de tela se a lista está aberta. Sem conversa aberta, a lista MUST ficar à vista. O mesmo navegador SHALL lembrar a escolha quando puder guardá-la.

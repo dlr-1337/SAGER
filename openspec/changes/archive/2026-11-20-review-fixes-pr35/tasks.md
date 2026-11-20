@@ -27,4 +27,4 @@ Os caminhos são relativos à raiz do repositório. Comandos Maven rodam em `bac
 ## 7. Verificação final
 
 - [x] 7.1 `npx @fission-ai/openspec@2.0.0 validate review-fixes-pr35 --strict` na raiz. Verificar pela saída sem erro.
-- [ ] 7.2 `./sager ci` na raiz. Verificar pelos logs em `.ci/`, com backend, frontend, infraestrutura e OpenSpec verdes.
+- [x] 7.2 `./sager ci` na raiz. Verificar pelos logs em `.ci/`, com backend, frontend, infraestrutura e OpenSpec verdes.
