@@ -236,11 +236,8 @@ export class OperationsLocalApiService {
       isExit,
     );
   }
-  async decideExit(
-    exit: ShortExit,
-    decision: 'APPROVE' | 'REJECT',
-    comment: string,
-  ): Promise<ShortExit> {
+  async decideExit(exit: ShortExit, decision: 'REJECT', comment: string): Promise<ShortExit> {
+    // A saída curta só é rejeitada pela decisão; o registro da saída a libera (short-exit-two-steps).
     return this.exitMutation(exit.id, 'decisao', {
       version: exit.version,
       decision,
@@ -303,7 +300,7 @@ export const freezesActions = (error: unknown) =>
   error.code !== 'physical_exit_conflict';
 export function operationsError(error: unknown): string {
   if (error instanceof OperationsApiError && error.code === 'overlapping_exit')
-    return 'Você já tem outro pedido nesse horário. Mude os horários e envie de novo.';
+    return 'Você já tem outra saída nesse período. Cancele o outro pedido ou espere a volta dele.';
   if (error instanceof OperationsApiError && error.code === 'physical_exit_conflict')
     return 'O residente ainda está fora com outra saída. Confirme a volta dela primeiro.';
   if (error instanceof OperationsApiError && error.status === 409)

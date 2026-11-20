@@ -1255,10 +1255,19 @@ export class HomePage {
         }
         <details>
           <summary>Quando a saída começa?</summary>
-          <p>
-            A saída começa quando o supervisor vê o residente e registra a saída, a partir do
-            horário pedido. A aprovação não registra a saída.
-          </p>
+          <!-- A demonstração segue a monografia; o sistema, a reunião de 20/11/2026. -->
+          @if (session.active()) {
+            <p>
+              A saída começa quando o supervisor vê o residente e registra a saída, a partir do
+              horário pedido. A aprovação não registra a saída.
+            </p>
+          } @else {
+            <p>
+              A saída curta é sempre para agora: depois de pedir, vá até o supervisor quando quiser
+              sair. Ela começa quando ele vê você e registra a saída. Na saída longa, a aprovação
+              não registra a saída: ela começa quando o supervisor registra a partida.
+            </p>
+          }
         </details>
         <details>
           <summary>Quem confirma o retorno de uma saída curta?</summary>

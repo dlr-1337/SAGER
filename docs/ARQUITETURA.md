@@ -89,7 +89,7 @@ Cada decisão traz o contexto, a escolha, o que foi descartado e a consequência
 
 - **Contexto:** o sistema precisa de contas antes de existir integração autorizada com os sistemas do IF Goiano.
 - **Decisão:** contas próprias do SAGER, com usuário e senha (o residente usa a matrícula; o supervisor pode usar o SIAPE). E-mail é só contato.
-- **Alternativa rejeitada:** Google OIDC ou SUAP agora. Não há autorização institucional para nenhum dos dois, e o domínio do e-mail não prova o perfil.
+- **Alternativa rejeitada:** Google OIDC ou SUAP agora. Não há autorização institucional para o Google, e o domínio do e-mail não prova o perfil. A integração com o SUAP foi dispensada pela Assistência Estudantil na reunião de 20/11/2026 (change suap-dispensed): o sistema funciona com contas próprias e cadastro manual.
 - **Consequência:** a identidade institucional não é comprovada pelo login. Provisionamento, desligamento e recuperação seguem procedimento do operador.
 
 ### 2. Sessão no servidor com CSRF
@@ -180,10 +180,10 @@ Nenhuma das escolhas abaixo tem aprovação institucional registrada. Elas permi
 | Item | Regra local adotada | A confirmar com a AE/TI |
 | --- | --- | --- |
 | D01 Perfis e permissões | Gestor e supervisor têm as mesmas permissões nos cadastros, exceto supervisores, que só o gestor gerencia (31/10/2026). Operações são do supervisor. O residente vê só o que é seu. | Matriz de recursos e operações por perfil. |
-| D02 Cadastro do residente | Cadastro manual. Nome, matrícula, nascimento, curso e ano de ingresso obrigatórios em novas gravações (o ano é sugerido pelos 4 primeiros dígitos da matrícula); regras de formato só para valor novo ou alterado; matrícula única sem diferenciar maiúsculas. SUAP adiado. | Conferência da matrícula, comprovação dos campos, correção, desligamento e ciclo do vínculo. |
+| D02 Cadastro do residente | Cadastro manual. Nome, matrícula, nascimento, curso e ano de ingresso obrigatórios em novas gravações (o ano é sugerido pelos 4 primeiros dígitos da matrícula); regras de formato só para valor novo ou alterado; matrícula única sem diferenciar maiúsculas. Integração com o SUAP dispensada pela AE em 20/11/2026: a matrícula é digitada à mão. | Conferência da matrícula, comprovação dos campos, correção, desligamento e ciclo do vínculo. |
 | D03 Horário "agora" na saída | Vale o relógio do servidor no instante do envio; o cliente não manda a hora. | Referência de tempo e tolerância de preenchimento. |
 | D04 Modalidades de saída | Só Curta e Longa. | Se existem outras modalidades. |
-| D05 Início da saída | Só o supervisor registra a partida física, que inicia a saída. A aprovação nunca registra a partida, nem no pedido para sair agora: ele a registra num ato separado, ao ver o residente, a partir do horário pedido (decisão do dono de 19/11/2026, change exit-departure-in-person). Assim, um pedido feito do celular do residente por outra pessoa não começa a contar o tempo fora. | Evento que marca a saída como em andamento. Desistência depois da aprovação. |
+| D05 Início da saída | Só o supervisor registra a partida física, que inicia a saída, ao ver o residente. Saída curta: é sempre para agora e tem dois passos; "Registrar saída" libera o pedido e grava a partida no mesmo ato, e "Rejeitar" continua (reunião de 20/11/2026, change short-exit-two-steps). Saída longa: a aprovação nunca registra a partida; ela é registrada num ato separado, a partir do horário pedido (decisão do dono de 19/11/2026, change exit-departure-in-person). Assim, um pedido feito do celular do residente por outra pessoa não começa a contar o tempo fora. | Evento que marca a saída como em andamento. Desistência depois da aprovação. |
 | D06 Prazos e expiração | Pendente "agora" expira no retorno previsto; pendente agendada, na partida pedida; aprovada sem partida registrada (agora ou agendada), no retorno previsto. Em andamento nunca expira. | Antecedência, cancelamento e tratamento de pedidos vencidos. |
 | D07 Rejeição de saída longa | A aprovação exige autorização conferida na revisão atual do documento; a rejeição pode vir antes. | Ordem permitida e se a conferência basta. |
 | D08 Registro tardio e correção | Registro retroativo exige instante não futuro e justificativa; retorno atrasado continua registrável, com observação. | Limites para lançamentos tardios e correções. |
@@ -223,7 +223,10 @@ Nenhuma das escolhas abaixo tem aprovação institucional registrada. Elas permi
 | Item | Regra local adotada | A confirmar com a AE/TI |
 | --- | --- | --- |
 | Residente maior de idade | O servidor recusa pedido de saída de residente com 18 anos ou mais, ou sem nascimento. | Se o maior de idade fica fora de todo controle de saída. |
-| Prazo da saída curta | O residente não informa a volta: a saída curta dura até 3 horas a partir da saída registrada pelo supervisor (antes dela, conta da partida pedida). Passado o prazo sem volta, a rotina de 60 s abre a ocorrência e a notificação de ocorrência pendente, sem advertência automática (reunião de 14/11/2026). | Se o prazo conta da saída registrada e se a notificação antes da volta está certa. |
+| Prazo da saída curta | O residente não informa a volta nem a hora de sair: a saída curta é pedida para agora e dura até 3 horas a partir da saída registrada pelo supervisor; o pedido sem saída registrada vale por 3 horas. Passado o prazo sem volta, a saída aparece como "Atrasada" e a rotina de 60 s abre a ocorrência e a notificação de ocorrência pendente, sem advertência automática (reuniões de 14/11 e 20/11/2026). | Se o prazo conta da saída registrada e se a notificação antes da volta está certa. |
+| Saída curta registrada pelo supervisor | Só o residente menor pede a saída curta pelo sistema. | Se o supervisor deve poder criar a saída de quem chega sem pedido (levantado na reunião de 20/11/2026). |
+| Aviso de atraso ao residente | A saída atrasada aparece como "Atrasada" para todos, sem mensagem ao residente. | Se o residente deve receber aviso quando passar da hora. |
+| Recuperação de senha por e-mail | A recuperação do residente confere nome, nascimento e responsável; a dos servidores é administrativa. Não há e-mail. | Se haverá recuperação por e-mail, sabendo que o aluno chega sem e-mail institucional (reunião de 20/11/2026). |
 | Retenção dos demais dados | Nada é apagado automaticamente, salvo relatórios temporários. | Prazos de retenção e descarte. |
 | Custódia da recuperação | A identidade privada `age` fica fora do servidor, com o operador. | Quem guarda e como. |
 | Backups | Feitos sob demanda pelo operador, sem agendamento. | Frequência e cópia externa. |

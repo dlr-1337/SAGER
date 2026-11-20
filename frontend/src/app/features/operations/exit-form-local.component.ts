@@ -1,4 +1,3 @@
-import { SearchableSelectDirective } from '../../shared/searchable-select.directive';
 import { UnsavedFormDirective } from '../../shared/unsaved-form';
 import { trimmedLength } from '../../shared/field-rules';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
@@ -11,19 +10,12 @@ import {
   operationsError,
 } from './operations-local-api.service';
 import { ExitEligibility, ShortExit, ShortExitInput } from './operations-local.models';
-import {
-  eligibilityBlocker,
-  minutesAfter,
-  saoPauloInput,
-  saoPauloInstant,
-  serverClock,
-  shortExitFormError,
-} from './operations-local.utils';
+import { eligibilityBlocker, shortExitFormError } from './operations-local.utils';
 
 @Component({
   standalone: true,
   selector: 'app-exit-form-local',
-  imports: [SearchableSelectDirective, UnsavedFormDirective, ReactiveFormsModule, RouterLink],
+  imports: [UnsavedFormDirective, ReactiveFormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="page op-page op-narrow">
@@ -33,7 +25,7 @@ import {
             ><span class="back-arrow" aria-hidden="true">←</span>Saídas</a
           >
           <h1>{{ editing ? 'Mudar saída curta' : 'Pedir saída curta' }}</h1>
-          <p>Diga quando sai e por quê.</p>
+          <p>Diga por que quer sair.</p>
         </div>
       </header>
       @if (!session.hasRole('residente')) {
@@ -82,33 +74,9 @@ import {
               {{ resident.roomNumber }}
             </p>
             <p class="op-help">
-              Saída curta: até 3 horas a partir da hora em que o supervisor registra sua saída. Fale
-              com o supervisor antes de sair e ao voltar. Vai ficar mais tempo? Peça uma saída
-              longa.
+              Saída curta: até 3 horas a partir da hora em que o supervisor registra sua saída. Vai
+              ficar mais tempo? Peça uma saída longa.
             </p>
-            <label class="field"
-              >Quando você quer sair?<select
-                sagerSearchable
-                formControlName="departureMode"
-                (change)="modeChanged()"
-              >
-                <option value="NOW">Agora</option>
-                <option value="SCHEDULED">Escolher data e hora</option>
-              </select></label
-            >
-            @if (form.controls.departureMode.value === 'SCHEDULED') {
-              <label class="field"
-                >Data e hora de saída<input
-                  type="datetime-local"
-                  formControlName="departure"
-                  required
-                  [attr.min]="departureMin()"
-                />
-                @if (form.controls.departure.touched && !form.controls.departure.value) {
-                  <span class="op-field-error">Informe a data e hora de saída.</span>
-                }
-              </label>
-            }
             <label class="field"
               >Por que você quer sair?<textarea
                 rows="3"
@@ -168,11 +136,8 @@ export class ExitFormLocalComponent {
   readonly loadError = signal('');
   readonly error = signal('');
   readonly conflict = signal<string | null>(null);
-  private clock: () => string = () => '';
   readonly blockerLabel = eligibilityBlocker;
   readonly form = new FormGroup({
-    departureMode: new FormControl<'NOW' | 'SCHEDULED'>('NOW', { nonNullable: true }),
-    departure: new FormControl('', { nonNullable: true }),
     reason: new FormControl('', {
       nonNullable: true,
       validators: [trimmedLength(3, 2000)],
@@ -195,13 +160,7 @@ export class ExitFormLocalComponent {
       ]);
       this.eligibility.set(eligibility);
       this.original.set(original);
-      this.clock = serverClock(eligibility.now);
       this.form.reset({
-        departureMode: original?.departureMode ?? 'NOW',
-        departure:
-          original?.departureMode === 'SCHEDULED'
-            ? saoPauloInput(original.requestedDepartureAt)
-            : '',
         reason: original?.reason ?? '',
         notes: original?.notes ?? '',
       });
@@ -210,12 +169,6 @@ export class ExitFormLocalComponent {
     } finally {
       this.loading.set(false);
     }
-  }
-  modeChanged(): void {
-    this.error.set('');
-  }
-  departureMin(): string {
-    return saoPauloInput(minutesAfter(this.clock(), 1));
   }
   async save(): Promise<void> {
     const resident = this.eligibility();
@@ -231,26 +184,18 @@ export class ExitFormLocalComponent {
     this.form.markAllAsTouched();
     this.error.set('');
     this.conflict.set(null);
-    // Removing the field in "Agora" drops its required rule without revalidating the control.
-    this.form.controls.departure.updateValueAndValidity();
     if (this.form.invalid) {
       this.error.set('Revise os campos obrigatórios indicados.');
       return;
     }
     const value = this.form.getRawValue();
-    const requestedDepartureAt =
-      value.departureMode === 'SCHEDULED' ? saoPauloInstant(value.departure) : null;
-    if (value.departureMode === 'SCHEDULED' && !requestedDepartureAt) {
-      this.error.set('Informe datas e horas válidas no horário de Brasília.');
-      return;
-    }
+    // Sempre para agora: o servidor grava a hora do pedido (short-exit-two-steps).
     const input: ShortExitInput = {
-      departureMode: value.departureMode,
+      departureMode: 'NOW',
       reason: value.reason.trim(),
       notes: value.notes.trim() || null,
-      ...(requestedDepartureAt ? { requestedDepartureAt } : {}),
     };
-    const error = shortExitFormError(input, this.clock());
+    const error = shortExitFormError(input);
     if (error) {
       this.error.set(error);
       return;
@@ -259,20 +204,17 @@ export class ExitFormLocalComponent {
     try {
       const fresh = await this.api.eligibility();
       this.eligibility.set(fresh);
-      this.clock = serverClock(fresh.now);
       if (!fresh.eligible) {
         this.error.set('Seu cadastro deixou de atender aos requisitos da saída curta.');
-        return;
-      }
-      const freshError = shortExitFormError(input, fresh.now);
-      if (freshError) {
-        this.error.set(freshError);
         return;
       }
       const exit = await this.api.saveExit(input, original ?? undefined);
       this.saving.set(false);
       this.form.markAsPristine();
-      await this.router.navigate(['/saidas', exit.id], { queryParams: { saved: '1' } });
+      // O pedido novo abre o aviso "Pedido enviado"; a mudança mostra "Pedido salvo.".
+      await this.router.navigate(['/saidas', exit.id], {
+        queryParams: original ? { saved: '1' } : { enviado: '1' },
+      });
     } catch (error) {
       this.error.set(operationsError(error));
       if (

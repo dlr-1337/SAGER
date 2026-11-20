@@ -86,7 +86,7 @@ public class ShortExitController {
     }
 
     private ShortExitService.Plan plan(JsonNode body) {
-        String mode = OpsInput.text(body, "departureMode", true, 1, 16);
+        String mode = OpsInput.text(body, "departureMode", false, 1, 16);
         if ("NOW".equals(mode) && body.has("requestedDepartureAt")) {
             throw OpsInput.invalid("NOW usa somente o horário do servidor.");
         }

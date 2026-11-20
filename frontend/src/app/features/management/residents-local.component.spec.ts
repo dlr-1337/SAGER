@@ -504,7 +504,10 @@ describe('Residentes em sessão local', () => {
     await fixture.whenStable();
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Quarto 01');
-    expect(fixture.nativeElement.textContent).toContain('Mudar de quarto');
+    expect(fixture.nativeElement.textContent).toContain('Selecione o novo quarto');
+    expect(fixture.nativeElement.textContent).toContain('Confirmar mudança');
+    // "Mudar" nunca aparece duas vezes no campo e no botão (room-move-labels).
+    expect(fixture.nativeElement.textContent).not.toContain('Mudar para');
     expect(fixture.nativeElement.textContent).toContain('Tirar do quarto');
   });
 

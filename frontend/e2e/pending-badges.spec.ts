@@ -58,8 +58,9 @@ test('supervisor da demonstração vê no menu o que espera por ele, sem consult
   const exits = menu.getByRole('link', { name: withCount('Saídas e retornos', 3) });
   await expect(exits).toBeVisible();
   await expect(exits.locator('.pending-badge')).toHaveText('3');
+  // Só a notificação que ninguém viu conta (notification-seen-evidence).
   await expect(
-    menu.getByRole('link', { name: withCount('Notificações de ocorrência', 2) }),
+    menu.getByRole('link', { name: withCount('Notificações de ocorrência', 1) }),
   ).toBeVisible();
   await expect(menu.getByRole('link', { name: withCount('Chamada noturna', 1) })).toBeVisible();
   // Itens sem nada à espera, ou sem regra de contagem, ficam só com o nome.
@@ -81,8 +82,8 @@ test('no celular, o botão Menu mostra a soma e mantém o nome', async ({ page }
   const calls = await enterDemoCounting(page, 'Supervisor');
   const toggle = page.getByRole('button', { name: 'Menu', exact: true });
   await expect(toggle).toBeVisible();
-  await expect(toggle.locator('.pending-badge')).toHaveText('6');
-  await expect(toggle).toHaveAccessibleDescription('6 pendentes no menu');
+  await expect(toggle.locator('.pending-badge')).toHaveText('5');
+  await expect(toggle).toHaveAccessibleDescription('5 pendentes no menu');
   await toggle.click();
   const drawer = page.getByRole('dialog', { name: 'SAGER' });
   await expect(drawer.getByRole('link', { name: withCount('Saídas e retornos', 3) })).toBeVisible();
@@ -119,3 +120,41 @@ test('residente da demonstração vê as comunicações sem ciência no menu e n
   await page.waitForLoadState('networkidle');
   expectNoApiInDemo(calls);
 });
+
+// Menu lateral entre 801 e 1180 px, numa janela baixa: a lista rola, e nenhum nome com contador
+// sai do próprio item nem cobre o vizinho (print da reunião de 20/11 em /notificacoes).
+for (const size of [
+  { width: 1000, height: 560 },
+  { width: 820, height: 600 },
+  { width: 1180, height: 620 },
+]) {
+  test(`menu lateral com contadores não sobrepõe itens em ${size.width}×${size.height}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(size);
+    await enterDemo(page, 'Supervisor');
+    const menu = page.getByRole('complementary', { name: 'Navegação principal' });
+    await expect(menu.locator('.pending-badge').first()).toBeVisible();
+    const boxes = await menu.locator('nav a').evaluateAll((links) =>
+      links.map((link) => {
+        const box = link.getBoundingClientRect();
+        const label = link.querySelector(':scope > span:not(.material-symbols-rounded)');
+        const text = label?.getBoundingClientRect();
+        return {
+          name: label?.textContent?.trim() ?? '',
+          top: box.top,
+          bottom: box.bottom,
+          labelInside: !!text && text.top >= box.top - 0.5 && text.bottom <= box.bottom + 0.5,
+        };
+      }),
+    );
+    expect(boxes.length).toBeGreaterThan(5);
+    for (const [index, box] of boxes.entries()) {
+      expect(box.labelInside, `${box.name} cabe no próprio item`).toBe(true);
+      if (index)
+        expect(box.top, `${box.name} começa depois do anterior`).toBeGreaterThanOrEqual(
+          boxes[index - 1].bottom - 0.5,
+        );
+    }
+  });
+}

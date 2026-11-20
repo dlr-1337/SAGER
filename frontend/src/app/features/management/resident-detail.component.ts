@@ -219,9 +219,11 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico';
                       (submit)="$event.preventDefault(); saveAllocation()"
                     >
                       <label class="field mg-field"
-                        >{{ activeAllocation() ? 'Mudar para' : 'Colocar no quarto' }}
+                        >{{
+                          activeAllocation() ? 'Selecione o novo quarto' : 'Selecione um quarto'
+                        }}
                         <select sagerSearchable [formControl]="selectedRoom" required>
-                          <option value="">Selecione um quarto</option>
+                          <option value="">Escolha na lista</option>
                           @for (room of roomOptions(); track room.id) {
                             <option
                               [value]="room.id"
@@ -249,7 +251,7 @@ type ResidentTab = 'dados' | 'responsaveis' | 'historico';
                             allocationSaving()
                               ? 'Salvando...'
                               : activeAllocation()
-                                ? 'Mudar de quarto'
+                                ? 'Confirmar mudança'
                                 : 'Colocar no quarto'
                           }}
                         </button>

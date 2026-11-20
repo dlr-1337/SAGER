@@ -192,8 +192,21 @@ class ApiFoundationIntegrationTest {
             JsonNode plan = schemas.path("ShortExitCreateRequest");
             assertThat(plan.path("properties").has("residentId")).isFalse();
             assertThat(plan.path("additionalProperties").asBoolean()).isFalse();
+            // A saída curta é sempre para agora: sem horário enviado e com departureMode opcional.
             assertThat(plan.path("properties").path("departureMode").path("enum").toString())
-                    .contains("NOW", "SCHEDULED");
+                    .isEqualTo("[\"NOW\"]");
+            assertThat(plan.path("properties").has("requestedDepartureAt")).isFalse();
+            assertThat(plan.path("required").toString()).isEqualTo("[\"reason\"]");
+            JsonNode edit = schemas.path("ShortExitUpdateRequest");
+            assertThat(edit.path("properties").has("requestedDepartureAt")).isFalse();
+            assertThat(edit.path("properties").path("departureMode").path("enum").toString())
+                    .isEqualTo("[\"NOW\"]");
+            List<String> editRequired = new java.util.ArrayList<>();
+            edit.path("required").forEach(field -> editRequired.add(field.asText()));
+            assertThat(editRequired).containsExactlyInAnyOrder("version", "reason");
+            // A decisão da saída curta só rejeita; a liberação é o registro da saída.
+            assertThat(schemas.path("ShortExitDecisionRequest").path("properties").path("decision")
+                    .path("enum").toString()).isEqualTo("[\"REJECT\"]");
             assertThat(plan.path("properties").path("reason").path("maxLength").asInt()).isEqualTo(2000);
             assertThat(schemas.path("NightCallCorrectionRequest").path("properties")
                     .path("justification").path("minLength").asInt()).isEqualTo(10);
@@ -201,7 +214,10 @@ class ApiFoundationIntegrationTest {
             assertThat(version.path("type").asText()).isEqualTo("integer");
             assertThat(version.path("maximum").asLong()).isEqualTo(Long.MAX_VALUE - 1);
             assertThat(document.path("paths").path("/api/v1/saidas-curtas/{id}/partida").path("post")
-                    .path("description").asText()).contains("America/Sao_Paulo", "10 caracteres");
+                    .path("description").asText()).contains("America/Sao_Paulo", "10 caracteres",
+                            "sempre para agora", "/decisao só rejeita", "ATRASADA");
+            assertThat(document.path("paths").path("/api/v1/saidas-curtas").path("post").path("description")
+                    .asText()).doesNotContain("SCHEDULED");
         }
     }
 

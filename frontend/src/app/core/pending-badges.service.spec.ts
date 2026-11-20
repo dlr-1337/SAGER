@@ -188,8 +188,8 @@ describe('Contadores de pendências', () => {
     // O código da demonstração chega por import(): espera o carregamento.
     await vi.waitFor(() => expect(service.forPath('/saidas')).toBe(3));
     expect(fetchMock).not.toHaveBeenCalled();
-    // Dados fictícios: 1 saída curta e 2 longas à espera, 2 notificações e a chamada aberta.
-    expect(service.forPath('/notificacoes')).toBe(2);
+    // Dados fictícios: 1 saída curta e 2 longas à espera, 1 notificação não vista e a chamada aberta.
+    expect(service.forPath('/notificacoes')).toBe(1);
     expect(service.forPath('/chamada')).toBe(1);
     session.deactivate();
     expect(service.forPath('/saidas')).toBe(0);

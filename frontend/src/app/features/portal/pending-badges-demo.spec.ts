@@ -25,11 +25,12 @@ describe('Contadores da demonstração', () => {
   });
   afterEach(() => session.deactivate());
 
-  it('mostra ao supervisor as saídas, as notificações e a chamada à espera', () => {
+  it('mostra ao supervisor as saídas, as notificações não vistas e a chamada à espera', () => {
+    // N-201 está pendente; N-200, já em análise, fica na lista e fora do contador.
     expect(counts()).toEqual({
       shortExits: 1,
       longExits: 2,
-      notifications: 2,
+      notifications: 1,
       nightCalls: 1,
       conversations: 0,
     });
@@ -38,12 +39,13 @@ describe('Contadores da demonstração', () => {
   it('acompanha as decisões e a chamada concluída na demonstração', () => {
     expect(operations.decideExit('S-1045', 'reject', 'Recusa sintética para o teste.')).toBe(true);
     expect(counts().shortExits).toBe(0);
-    // Abrir a notificação não é decidir: ela continua na contagem.
+    // A notificação vista sai do contador e continua na lista como "Visualizada".
+    expect(counts().notifications).toBe(1);
     operations.viewNotification('N-201');
     expect(operations.getNotification('N-201')?.status).toBe('Visualizada');
-    expect(counts().notifications).toBe(2);
+    expect(counts().notifications).toBe(0);
     expect(operations.archiveNotification('N-201', 'Arquivada no teste.')).toBe(true);
-    expect(counts().notifications).toBe(1);
+    expect(counts().notifications).toBe(0);
     operations.callCompleted.set(true);
     expect(counts().nightCalls).toBe(0);
   });

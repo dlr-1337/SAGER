@@ -135,4 +135,23 @@ describe('Origem da notificação de ocorrência', () => {
       { label: 'Voltou em', value: 'Não informado' },
     ]);
   });
+  it('avaliação de limpeza mostra a data, a nota e cada critério pelo nome, sem códigos', () => {
+    const rows = evidenceRows({
+      roomId: '0b6f1b2e-1c1d-4c55-9f7e-3a2b1c0d9e8f',
+      assessmentDate: '2026-11-18',
+      policyVersion: 1,
+      criteria: { PISO: 7, SUPERFICIES: 8, RESIDUOS: 6.5, ORGANIZACAO: 9 },
+      score: 7.63,
+      residentIds: ['3f2a1b0c-0000-4000-8000-000000000001'],
+    });
+    expect(rows).toEqual([
+      { label: 'Data da avaliação', value: '18/11/2026' },
+      { label: 'Piso', value: '7' },
+      { label: 'Superfícies', value: '8' },
+      { label: 'Lixo', value: '6,5' },
+      { label: 'Organização', value: '9' },
+      { label: 'Nota de limpeza', value: '7,63' },
+    ]);
+    expect(JSON.stringify(rows)).not.toMatch(/0b6f1b2e|3f2a1b0c|policy/i);
+  });
 });

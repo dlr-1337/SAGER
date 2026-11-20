@@ -4,6 +4,7 @@ import br.edu.ifgoiano.sager.documents.StoredFile;
 import br.edu.ifgoiano.sager.operations.AuthorizedExitLookup;
 import br.edu.ifgoiano.sager.operations.ExitOccupancyLookup;
 import br.edu.ifgoiano.sager.operations.OperationResidents.Eligibility;
+import br.edu.ifgoiano.sager.operations.shortexits.ShortExitRepository;
 
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -65,10 +66,14 @@ public class LongExitRepository implements AuthorizedExitLookup, ExitOccupancyLo
                 .findFirst();
     }
 
-    public br.edu.ifgoiano.sager.management.ManagementSearch.Page<Row> search(java.util.Map<String,String> filters) {
+    /** As atrasadas primeiro e o filtro "Atrasada", como na saída curta (overdue-exit-badge). */
+    public br.edu.ifgoiano.sager.management.ManagementSearch.Page<Row> search(java.util.Map<String,String> filters,
+            Instant now) {
         return br.edu.ifgoiano.sager.management.ManagementSearch.query(jdbc,"*","sager_long_exit",
-                "concat_ws(' ',resident_name,enrollment)","enrollment","created_at DESC,id DESC",
+                "concat_ws(' ',resident_name,enrollment)","enrollment",ShortExitRepository.OVERDUE_FIRST,
+                List.of(time(now)),
                 java.util.Map.of("residentId","resident_id=?::uuid","status","status=?",
+                    "overdueAt",ShortExitRepository.OVERDUE_FILTER,"onTimeAt",ShortExitRepository.ON_TIME_FILTER,
                     "from","(requested_departure_at AT TIME ZONE 'America/Sao_Paulo')::date>=?::date",
                     "to","(requested_departure_at AT TIME ZONE 'America/Sao_Paulo')::date<=?::date",
                     "accommodationId","EXISTS (SELECT 1 FROM sager_room_allocation al JOIN sager_room room ON room.id=al.room_id WHERE al.resident_id=sager_long_exit.resident_id AND al.started_at<=sager_long_exit.requested_departure_at AND (al.ended_at IS NULL OR al.ended_at>sager_long_exit.requested_departure_at) AND room.accommodation_id=?::uuid)",

@@ -35,7 +35,12 @@ import { PendingBadgesService } from '../../core/pending-badges.service';
 import { PendingBadgeComponent } from '../../shared/pending-badge.component';
 import { OperationsLocalApiService, operationsError } from './operations-local-api.service';
 import { ShortExit } from './operations-local.models';
-import { exitStatusLabels, formatOperationsTime, shortReturnText } from './operations-local.utils';
+import {
+  exitStatusLabel,
+  formatOperationsTime,
+  shortReturnText,
+  shownExitStatusLabels,
+} from './operations-local.utils';
 import { LongExitApiService } from './long-exit-api.service';
 import { LongExit } from './long-exit.models';
 import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
@@ -198,14 +203,11 @@ import { messageStatusLabels, signatureStatusLabels } from './long-exit.utils';
                       Matrícula {{ exit.enrollment }} ·
                       {{ longMode() ? 'Saída longa' : 'Saída curta' }}
                     </p>
-                    <p>
-                      Saída: {{ formatTime(exit.requestedDepartureAt) }} · Volta:
-                      {{ longMode() ? formatTime(exit.expectedReturnAt) : shortReturn(exit) }}
-                    </p>
+                    <p>{{ when(exit) }}</p>
                   </div>
                   <div class="op-row-side">
-                    <span class="status" [attr.data-tone]="tone(labels[exit.status])">{{
-                      labels[exit.status]
+                    <span class="status" [attr.data-tone]="tone(statusLabel(exit))">{{
+                      statusLabel(exit)
                     }}</span>
                     @if (longExit(exit); as long) {
                       <span
@@ -281,17 +283,33 @@ export class ExitsLocalComponent {
   readonly messages = messageStatusLabels;
   readonly loading = signal(false);
   readonly error = signal('');
-  readonly labels = exitStatusLabels;
+  /** Situações do filtro e da legenda, com "Atrasada" calculada pelo servidor (overdue-exit-badge). */
+  readonly labels = shownExitStatusLabels;
   readonly legendNames = computed(() => [
-    ...Object.values(exitStatusLabels),
+    ...Object.values(shownExitStatusLabels),
     ...(this.longMode()
       ? [...Object.values(signatureStatusLabels), ...Object.values(messageStatusLabels)]
       : []),
   ]);
   readonly tone = toneAttr;
-  readonly statuses = Object.keys(exitStatusLabels) as (keyof typeof exitStatusLabels)[];
+  readonly statusLabel = exitStatusLabel;
+  readonly statuses = Object.keys(shownExitStatusLabels) as (keyof typeof shownExitStatusLabels)[];
   readonly formatTime = formatOperationsTime;
   readonly shortReturn = shortReturnText;
+  /**
+   * Quando da linha. Saída curta: "Pedido em" até o supervisor registrar a saída, depois "Saiu" e
+   * "Volta até" (short-exit-two-steps); "Saída agendada" só nos pedidos antigos.
+   */
+  when(exit: ShortExit | LongExit): string {
+    const time = formatOperationsTime;
+    if (this.longMode())
+      return `Saída: ${time(exit.requestedDepartureAt)} · Volta: ${time(exit.expectedReturnAt)}`;
+    if (exit.actualDepartureAt)
+      return `Saiu: ${time(exit.actualDepartureAt)} · Volta até: ${time(exit.expectedReturnAt)}`;
+    return exit.departureMode === 'SCHEDULED'
+      ? `Saída agendada: ${time(exit.requestedDepartureAt)}`
+      : `Pedido em: ${time(exit.requestedDepartureAt)}`;
+  }
   readonly filters = new FormGroup({
     search: new FormControl('', { nonNullable: true }),
     status: new FormControl('', { nonNullable: true }),

@@ -505,7 +505,8 @@ test('situação Aprovada permanece no retorno à lista longa e limpa ao trocar 
   ]);
   await expect(tags.nth(1)).toHaveAttribute('data-tone', 'warning');
   await expect(tags.nth(2)).toHaveAttribute('data-tone', 'success');
-  await expect(page.locator('sager-status-legend dl > div')).toHaveCount(23);
+  // 9 situações da saída, com "Atrasada" (overdue-exit-badge), e as do documento e do envio.
+  await expect(page.locator('sager-status-legend dl > div')).toHaveCount(24);
   const filtered = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return (
