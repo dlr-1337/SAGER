@@ -68,9 +68,11 @@ public class ShortExitService {
             if (requested != null && !requested.isBlank() && !requested.equals(actor.residentId().toString())) throw OpsInput.notFound();
             filters.put("residentId",actor.residentId().toString());
         }
+        Instant now = now();
+        ShortExitRepository.overdueFilter(filters, now);
         String status=filters.get("status");
         if (status != null && !status.isBlank() && !STATUSES.contains(status)) throw OpsInput.invalid("Situação inválida.");
-        var page=exits.search(filters);
+        var page=exits.search(filters, now);
         return new br.edu.ifgoiano.sager.management.ManagementSearch.Page<>(page.items().stream().map(exit->view(exit,actor)).toList(),page.total());
     }
 
@@ -135,16 +137,16 @@ public class ShortExitService {
     public ShortExit decide(UUID id, long version, String decision, String comment) {
         LocalAccountPrincipal actor = actors.supervisor();
         if (!Set.of("APPROVE", "REJECT").contains(decision)) throw OpsInput.invalid("Decisão inválida.");
-        if ("REJECT".equals(decision)) reason(comment);
+        // A saída curta é liberada pelo próprio registro da saída, com o residente presente (reunião de 20/11).
+        if ("APPROVE".equals(decision)) throw OpsInput.invalid("Para liberar a saída curta, registre a saída.");
+        reason(comment);
         ShortExit current = lockedVisible(id, actor);
         checkVersion(current, version);
         requireStatus(current, ShortExit.PENDING);
         Instant now = now();
         checkDeadline(current, now);
-        if ("APPROVE".equals(decision)) eligible(current.residentId(), now);
-        // A aprovação só decide: a partida é registrada à parte, com o residente presente (RN06).
         Map<String, Object> changes = new HashMap<>();
-        changes.put("status", "APPROVE".equals(decision) ? ShortExit.APPROVED : "REJEITADA");
+        changes.put("status", "REJEITADA");
         changes.put("decision", decision);
         changes.put("decision_comment", comment);
         changes.put("decided_at", now);
@@ -178,21 +180,36 @@ public class ShortExitService {
         LocalAccountPrincipal actor = actors.supervisor();
         ShortExit current = lockedVisible(id, actor);
         checkVersion(current, version);
-        requireStatus(current, ShortExit.APPROVED);
+        // O pedido que espera é liberado pelo próprio registro da saída; a aprovada é de antes de 20/11.
+        boolean pending = ShortExit.PENDING.equals(current.status());
+        if (!pending) requireStatus(current, ShortExit.APPROVED);
         Instant now = now();
         checkDeadline(current, now);
         eligible(current.residentId(), now);
         Instant departure = physicalTime(request, now);
-        if (departure.isBefore(current.requestedDepartureAt()) || departure.isBefore(current.decidedAt())
+        if (departure.isBefore(current.requestedDepartureAt())
+                || !pending && departure.isBefore(current.decidedAt())
                 || !departure.isBefore(current.expectedReturnAt())) {
-            throw OpsInput.invalid("A partida física deve seguir a partida solicitada e a aprovação, antes do retorno previsto.");
+            // O pedido ainda não aprovado é liberado pela própria partida: a mensagem não cita aprovação.
+            throw OpsInput.invalid(pending
+                    ? "A partida física deve seguir a partida solicitada, antes do retorno previsto."
+                    : "A partida física deve seguir a partida solicitada e a aprovação, antes do retorno previsto.");
         }
         noPhysicalExitOpen(current.residentId());
         // As 3 horas contam da partida registrada, mesmo retroativa (RN01, RN06).
-        ShortExit updated = changed(current, Map.of("status", ShortExit.IN_PROGRESS,
-                "actual_departure_at", departure, "expected_return_at", departure.plus(LIMIT)), now);
+        Map<String, Object> changes = new HashMap<>();
+        changes.put("status", ShortExit.IN_PROGRESS);
+        changes.put("actual_departure_at", departure);
+        changes.put("expected_return_at", departure.plus(LIMIT));
+        if (pending) {
+            // Liberação e partida num ato só: a decisão vale desde a partida registrada.
+            changes.put("decision", "APPROVE");
+            changes.put("decided_at", departure);
+        }
+        ShortExit updated = changed(current, changes, now);
         record(updated, "DEPARTURE", now, departure, actor, request.justification(), AuditAction.UPDATE,
-                Set.of("status", "actualDepartureAt", "expectedReturnAt"));
+                pending ? Set.of("status", "decision", "actualDepartureAt", "expectedReturnAt")
+                        : Set.of("status", "actualDepartureAt", "expectedReturnAt"));
         return view(updated, actor);
     }
 
@@ -251,25 +268,19 @@ public class ShortExitService {
     }
 
     private Plan plan(Plan request, Instant now) {
-        if (request == null || request.departureMode() == null
-                || !Set.of("NOW", "SCHEDULED").contains(request.departureMode())) {
-            throw OpsInput.invalid("departureMode deve ser NOW ou SCHEDULED.");
+        // A saída curta é sempre para agora, sem horário escolhido (reunião de 20/11/2026).
+        if (request == null || request.departureMode() != null && !"NOW".equals(request.departureMode())) {
+            throw OpsInput.invalid("A saída curta é sempre para agora: departureMode aceita só NOW.");
         }
-        Instant departure;
-        if ("NOW".equals(request.departureMode())) {
-            if (request.requestedDepartureAt() != null) throw OpsInput.invalid("NOW usa somente o horário do servidor.");
-            departure = now;
-        } else {
-            departure = normalize(request.requestedDepartureAt());
-            if (departure == null || departure.isBefore(now)) throw OpsInput.invalid("A partida agendada não pode ser passada.");
-        }
-        // O residente não escolhe a volta: até a partida registrada, o prazo conta da partida pedida (RN01).
+        if (request.requestedDepartureAt() != null) throw OpsInput.invalid("NOW usa somente o horário do servidor.");
+        Instant departure = now;
+        // O residente não escolhe a volta: até a partida registrada, o prazo conta da hora do pedido (RN01).
         Instant returning = departure.plus(LIMIT);
         if (request.reason() == null || OpsInput.characters(request.reason()) < 3
                 || OpsInput.characters(request.reason()) > 2000) {
             throw OpsInput.invalid("Informe o motivo da saída, de 3 a 2000 caracteres.");
         }
-        return new Plan(request.departureMode(), departure, returning, request.reason(), request.notes());
+        return new Plan("NOW", departure, returning, request.reason(), request.notes());
     }
 
     private void noPhysicalExitOpen(UUID residentId) {
@@ -351,9 +362,10 @@ public class ShortExitService {
         boolean pending = ShortExit.PENDING.equals(exit.status());
         boolean approved = ShortExit.APPROVED.equals(exit.status());
         boolean live = exit.deadline() == null || now.isBefore(exit.deadline());
+        // canDecide só rejeita; "Registrar saída" libera o pedido que espera (reunião de 20/11).
         ShortExit.Capabilities capabilities = new ShortExit.Capabilities(!supervisor && pending && live,
                 supervisor && pending && live, live && (pending || supervisor && approved),
-                supervisor && approved && live && !now.isBefore(exit.requestedDepartureAt()),
+                supervisor && (pending || approved) && live && !now.isBefore(exit.requestedDepartureAt()),
                 supervisor && ShortExit.IN_PROGRESS.equals(exit.status()));
         return exit.view(now, capabilities, exits.history(exit.id()));
     }

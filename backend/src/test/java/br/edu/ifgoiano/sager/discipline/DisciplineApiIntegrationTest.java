@@ -103,11 +103,11 @@ class DisciplineApiIntegrationTest {
         try(var sup=login("supervisor");var student=login("residente")) {
             String id=departedShortExit(sup,student);
             clock.set(START.plusSeconds(3*3600+1));
-            ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/retorno",Map.of("version",2,"timeMode","NOW","lateObservation","Trânsito atrasou o retorno confirmado presencialmente."));
+            ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/retorno",Map.of("version",1,"timeMode","NOW","lateObservation","Trânsito atrasou o retorno confirmado presencialmente."));
             assertThat(count("sager_occurrence")).isEqualTo(1);assertThat(count("sager_warning")).isZero();
             id=departedShortExit(sup,student);
             clock.set(clock.instant().plusSeconds(3*3600-1));assertThat(expiry.flagOverdue()).isZero();
-            ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/retorno",Map.of("version",2,"timeMode","NOW"));
+            ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/retorno",Map.of("version",1,"timeMode","NOW"));
             assertThat(count("sager_occurrence")).isEqualTo(1);
         }
     }
@@ -121,7 +121,7 @@ class DisciplineApiIntegrationTest {
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sager_audit_event WHERE origin='SYSTEM_JOB' AND resource_id IN (SELECT id FROM sager_occurrence UNION SELECT id FROM sager_discipline_notification)",Integer.class)).isEqualTo(2);
             expiry.flagOverdue();assertThat(count("sager_occurrence_revision")).isEqualTo(1);
             clock.set(START.plusSeconds(3*3600+1800));
-            ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/retorno",Map.of("version",2,"timeMode","NOW","lateObservation","Voltou meia hora depois, confirmado presencialmente."));
+            ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/retorno",Map.of("version",1,"timeMode","NOW","lateObservation","Voltou meia hora depois, confirmado presencialmente."));
             assertThat(count("sager_occurrence")).isEqualTo(1);assertThat(count("sager_discipline_notification")).isEqualTo(1);assertThat(count("sager_occurrence_revision")).isEqualTo(2);
             assertThat(jdbc.queryForObject("SELECT valid FROM sager_occurrence",Boolean.class)).isTrue();
             assertThat(jdbc.queryForObject("SELECT requires_review FROM sager_discipline_notification",Boolean.class)).isFalse();
@@ -131,16 +131,15 @@ class DisciplineApiIntegrationTest {
         try(var sup=login("supervisor");var student=login("residente")) {
             String id=departedShortExit(sup,student);
             clock.set(START.plusSeconds(3*3600+60));expiry.flagOverdue();
-            ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/retorno",Map.of("version",2,"timeMode","RETROACTIVE","occurredAt",START.plusSeconds(3*3600-600).toString(),"justification","Retorno conferido depois no livro da portaria."));
+            ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/retorno",Map.of("version",1,"timeMode","RETROACTIVE","occurredAt",START.plusSeconds(3*3600-600).toString(),"justification","Retorno conferido depois no livro da portaria."));
             assertThat(jdbc.queryForObject("SELECT valid FROM sager_occurrence",Boolean.class)).isFalse();
             assertThat(jdbc.queryForObject("SELECT requires_review FROM sager_discipline_notification",Boolean.class)).isTrue();
         }
     }
-    /** Pedido para sair agora aprovado e saída registrada em pessoa no mesmo instante: o prazo fica em 3 horas. */
+    /** Pedido para sair agora e saída registrada em pessoa no mesmo instante, num ato só: o prazo fica em 3 horas (versão 1). */
     private String departedShortExit(HttpClient sup,HttpClient student) throws Exception {
-        String id=ok(student,"POST","/api/v1/saidas-curtas",Map.of("departureMode","NOW","reason","Compromisso sintético")).path("id").asText();
-        assertThat(ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/decisao",Map.of("version",0,"decision","APPROVE")).path("status").asText()).isEqualTo("APROVADA");
-        assertThat(ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/partida",Map.of("version",1,"timeMode","NOW")).path("status").asText()).isEqualTo("EM_ANDAMENTO");
+        String id=ok(student,"POST","/api/v1/saidas-curtas",Map.of("reason","Compromisso sintético")).path("id").asText();
+        assertThat(ok(sup,"POST","/api/v1/saidas-curtas/"+id+"/partida",Map.of("version",0,"timeMode","NOW")).path("status").asText()).isEqualTo("EM_ANDAMENTO");
         return id;
     }
     @Test void conversionIsIdempotentConcurrentAndOnlyOwnFormalContentIsPublished() throws Exception {

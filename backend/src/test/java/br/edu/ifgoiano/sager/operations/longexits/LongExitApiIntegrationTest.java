@@ -546,18 +546,13 @@ class LongExitApiIntegrationTest {
             shortPlan.remove("guardianId");
             shortPlan.remove("expectedReturnAt");
             String shortId = created(post(student, "/api/v1/saidas-curtas", shortPlan)).path("id").asText();
-            readResponse(
-                    post(
-                            supervisor,
-                            "/api/v1/saidas-curtas/" + shortId + "/decisao",
-                            Map.of("version", 0, "decision", "APPROVE")),
-                    200);
+            // Na saída curta, o registro da saída libera o pedido e começa a saída num ato só.
             JsonNode out =
                     readResponse(
                             post(
                                     supervisor,
                                     "/api/v1/saidas-curtas/" + shortId + "/partida",
-                                    Map.of("version", 1, "timeMode", "NOW")),
+                                    Map.of("version", 0, "timeMode", "NOW")),
                             200);
             assertThat(out.path("status").asText()).isEqualTo("EM_ANDAMENTO");
             // The short exit is late (3 hours after the recorded departure) and still without a confirmed return.
@@ -576,6 +571,83 @@ class LongExitApiIntegrationTest {
             assertThat(unchanged.path("status").asText()).isEqualTo("APROVADA");
             assertThat(unchanged.path("version").asLong()).isEqualTo(approved.path("version").asLong());
         }
+    }
+
+    @Test
+    void overdueLongExitsComeFirstAndHaveTheirOwnStatusFilter() throws Exception {
+        UUID second = UUID.randomUUID();
+        UUID secondGuardian = UUID.randomUUID();
+        jdbc.update(
+                "INSERT INTO sager_resident(id,name,enrollment,birth_date) VALUES (?,'Estudante"
+                        + " sintético','F4-B',?)",
+                second,
+                LocalDate.of(2009, 1, 1));
+        jdbc.update(
+                "INSERT INTO sager_room_allocation(id,resident_id,room_id,started_at) VALUES"
+                        + " (?,?,?,?)",
+                UUID.randomUUID(),
+                second,
+                room,
+                OffsetDateTime.ofInstant(START.minusSeconds(86400), ZoneOffset.UTC));
+        jdbc.update(
+                "INSERT INTO sager_guardian(id,resident_id,name,relationship,phone,active) VALUES"
+                        + " (?,?,'Responsável sintético','Pai','+5562999990001',true)",
+                secondGuardian,
+                second);
+        provisioning.create(
+                br.edu.ifgoiano.sager.TestIdentity.enrollment("outro@example.invalid"),
+                "outro@example.invalid",
+                "Pessoa sintética",
+                "residente",
+                PASSWORD.toCharArray());
+        provisioning.linkResident("outro@example.invalid", second);
+        try (HttpClient student = login("residente");
+                HttpClient other = login("outro");
+                HttpClient supervisor = login("supervisor")) {
+            // A mais antiga sai em START e deve voltar até START + 4 h.
+            JsonNode first = confirmed(student, supervisor, plan(4 * 3600));
+            String overdue = first.path("id").asText();
+            depart(supervisor, readResponse(approve(supervisor, first), 200));
+            clock.value = START.plusSeconds(3600);
+            Map<String, Object> secondPlan = plan(5 * 3600);
+            secondPlan.put("guardianId", secondGuardian.toString());
+            JsonNode next = confirmed(other, supervisor, secondPlan);
+            String onTime = next.path("id").asText();
+            depart(supervisor, readResponse(approve(supervisor, next), 200));
+            // Antes do retorno previsto, a ordem é do pedido mais novo ao mais antigo.
+            clock.value = START.plusSeconds(4 * 3600 - 1);
+            assertThat(ids(read(supervisor, ROOT))).containsExactly(onTime, overdue);
+            assertThat(ids(read(supervisor, ROOT + "?status=ATRASADA"))).isEmpty();
+            assertThat(ids(read(supervisor, ROOT + "?status=EM_ANDAMENTO")))
+                    .containsExactly(onTime, overdue);
+            // No retorno previsto exato, pelo relógio da aplicação, ela já está atrasada e sobe para o topo.
+            clock.value = START.plusSeconds(4 * 3600);
+            assertThat(ids(read(supervisor, ROOT))).containsExactly(overdue, onTime);
+            assertThat(ids(read(supervisor, ROOT + "?limit=1"))).containsExactly(overdue);
+            HttpResponse<String> late = get(supervisor, ROOT + "?status=ATRASADA&limit=25");
+            assertThat(late.statusCode()).describedAs(late.body()).isEqualTo(200);
+            assertThat(late.headers().firstValue("X-Total-Count")).contains("1");
+            assertThat(ids(json.readTree(late.body()))).containsExactly(overdue);
+            HttpResponse<String> inProgress = get(supervisor, ROOT + "?status=EM_ANDAMENTO&limit=25");
+            assertThat(inProgress.headers().firstValue("X-Total-Count")).contains("1");
+            assertThat(ids(json.readTree(inProgress.body()))).containsExactly(onTime);
+            // A situação gravada não muda, e o residente filtra só as próprias saídas.
+            assertThat(read(supervisor, ROOT + "/" + overdue).path("status").asText())
+                    .isEqualTo("EM_ANDAMENTO");
+            assertThat(ids(read(student, ROOT + "?status=ATRASADA"))).containsExactly(overdue);
+            assertThat(ids(read(other, ROOT + "?status=ATRASADA"))).isEmpty();
+            assertThat(ids(read(other, ROOT + "?status=EM_ANDAMENTO"))).containsExactly(onTime);
+            // Um instante enviado na consulta não substitui o relógio da aplicação.
+            assertThat(ids(read(supervisor, ROOT + "?status=ATRASADA&overdueAt=2999-01-01T00:00:00Z")))
+                    .containsExactly(overdue);
+            assertThat(get(supervisor, ROOT + "?status=ADIADA").statusCode()).isEqualTo(400);
+        }
+    }
+
+    List<String> ids(JsonNode exits) {
+        List<String> ids = new java.util.ArrayList<>();
+        exits.forEach(exit -> ids.add(exit.path("id").asText()));
+        return ids;
     }
 
     @Test

@@ -43,18 +43,18 @@ public class OperationsOpenApiConfiguration {
             body(api, "/api/v1/chamadas/{id}/correcoes/{residentId}", false, "NightCallCorrectionRequest",
                     copy(mark).addProperty("justification", text(10, false))
                             .required(List.of("version", "mark", "justification")));
+            // A saída curta é sempre para agora: sem horário enviado (short-exit-two-steps).
             var plan = new ObjectSchema()
-                    .addProperty("departureMode", choice("NOW", "SCHEDULED"))
-                    .addProperty("requestedDepartureAt", instant(true))
+                    .addProperty("departureMode", choice("NOW"))
                     .addProperty("reason", text(3, false)).addProperty("notes", text(1, true))
-                    .required(List.of("departureMode", "reason"));
+                    .required(List.of("reason"));
             body(api, "/api/v1/saidas-curtas", false, "ShortExitCreateRequest", plan);
             body(api, "/api/v1/saidas-curtas/{id}", true, "ShortExitUpdateRequest",
                     copy(plan).addProperty("version", version())
-                            .required(List.of("version", "departureMode", "reason")));
+                            .required(List.of("version", "reason")));
             body(api, "/api/v1/saidas-curtas/{id}/decisao", false, "ShortExitDecisionRequest",
                     new ObjectSchema().addProperty("version", version())
-                            .addProperty("decision", choice("APPROVE", "REJECT"))
+                            .addProperty("decision", choice("REJECT"))
                             .addProperty("comment", text(1, true)).required(List.of("version", "decision")));
             body(api, "/api/v1/saidas-curtas/{id}/cancelamento", false, "ShortExitCancelRequest",
                     new ObjectSchema().addProperty("version", version()).addProperty("comment", text(10, false))
@@ -72,7 +72,9 @@ public class OperationsOpenApiConfiguration {
                             "Operação local: somente supervisor opera chamadas e confirma movimentos físicos. "
                             + "Residente solicita e consulta a própria saída. Version é inteiro não negativo. "
                             + "America/Sao_Paulo governa datas civis; instantes têm fuso explícito. "
-                            + "NOW omite a hora enviada; SCHEDULED exige requestedDepartureAt. "
+                            + "A saída curta é sempre para agora, na hora do servidor; o registro da saída "
+                            + "(/partida) a libera, e /decisao só rejeita. "
+                            + "O filtro status aceita ATRASADA; EM_ANDAMENTO traz só as saídas no prazo. "
                             + "Janela excepcional, rejeição, registro retroativo e retorno atrasado exigem "
                             + "justificativa correspondente de pelo menos 10 caracteres. "
                             + "Ausência justificada exige autorização e partida válidas no instante da chamada."));

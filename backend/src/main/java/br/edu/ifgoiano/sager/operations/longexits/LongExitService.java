@@ -25,6 +25,7 @@ import br.edu.ifgoiano.sager.operations.OpsInput;
 import br.edu.ifgoiano.sager.operations.longexits.LongExitGuardians.Guardian;
 import br.edu.ifgoiano.sager.operations.longexits.LongExitRepository.DocumentRow;
 import br.edu.ifgoiano.sager.operations.longexits.LongExitRepository.Row;
+import br.edu.ifgoiano.sager.operations.shortexits.ShortExitRepository;
 
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
@@ -136,9 +137,11 @@ public class LongExitService {
             if (requested != null && !requested.isBlank() && !requested.equals(a.residentId().toString())) throw OpsInput.notFound();
             filters.put("residentId",a.residentId().toString());
         }
+        Instant now = now();
+        ShortExitRepository.overdueFilter(filters, now);
         String status=filters.get("status");
         if (status != null && !status.isBlank() && !STATUSES.contains(status)) throw OpsInput.invalid("Situação inválida.");
-        var page=exits.search(filters);
+        var page=exits.search(filters, now);
         return new br.edu.ifgoiano.sager.management.ManagementSearch.Page<>(page.items().stream().map(exit->view(exit,a)).toList(),page.total());
     }
 

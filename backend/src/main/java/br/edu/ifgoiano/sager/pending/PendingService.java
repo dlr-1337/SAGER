@@ -37,7 +37,7 @@ public class PendingService {
                 (SELECT COUNT(*) FROM sager_long_exit e CROSS JOIN t WHERE %1$s) AS long_exits,
                 (SELECT COUNT(*) FROM sager_discipline_notification n
                     JOIN sager_occurrence o ON o.id = n.occurrence_id
-                    WHERE n.status IN ('PENDENTE', 'VISUALIZADA', 'EM_ANALISE')
+                    WHERE n.status = 'PENDENTE'
                         OR (n.status = 'CONVERTIDA' AND n.requires_review AND o.valid)) AS notifications,
                 (SELECT COUNT(*) FROM sager_night_call c WHERE c.status = 'ABERTA') AS night_calls,
                 (SELECT COUNT(*) FROM sager_whatsapp_conversation c WHERE EXISTS (
@@ -92,8 +92,8 @@ public class PendingService {
 
     /**
      * One count per menu item or tab, only with the fields of the profile. Supervisor: exits split
-     * by tab, notifications awaiting a decision or the confirmation of a corrected origin, open night
-     * calls and conversations with unread messages. Resident: current notices, warnings and terms
+     * by tab, notifications nobody has viewed yet or awaiting the confirmation of a corrected
+     * origin, open night calls and conversations with unread messages. Resident: current notices, warnings and terms
      * still without acknowledgment.
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)

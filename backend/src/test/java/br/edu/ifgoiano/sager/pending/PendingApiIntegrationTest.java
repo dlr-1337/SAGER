@@ -147,7 +147,8 @@ class PendingApiIntegrationTest {
             String notification = read(sup, "/api/v1/notificacoes").path("items").get(0).path("id").asString();
             String base = "/api/v1/notificacoes/" + notification;
             ok(sup, "POST", base + "/visualizar", Map.of("version", version(sup, base)));
-            expect(sup, supervisor(3, 1, 1, 0, 0));
+            // A notificação vista sai da contagem (notification-seen-evidence).
+            expect(sup, supervisor(3, 1, 0, 0, 0));
             Map<String, Object> warning = warningPayload();
             warning.put("version", version(sup, base));
             ok(sup, "POST", base + "/converter", warning);
@@ -174,6 +175,30 @@ class PendingApiIntegrationTest {
 
             // Consultar nunca marca nada: a leitura repetida devolve o mesmo número.
             expect(sup, supervisor(3, 1, 0, 0, 1));
+        }
+    }
+
+    @Test
+    void seenOrAnalyzedNotificationLeavesTheCountAndStaysInTheList() throws Exception {
+        try (var sup = login("supervisor")) {
+            String call = ok(sup, "POST", "/api/v1/chamadas", Map.of("accommodationId", accommodation))
+                    .path("id").asString();
+            ok(sup, "PUT", "/api/v1/chamadas/" + call + "/registros/" + resident, Map.of("version", 0, "mark", "AUSENTE"));
+            ok(sup, "POST", "/api/v1/chamadas/" + call + "/fechamento", Map.of("version", 1));
+            // Pendente: ninguém viu ainda.
+            expect(sup, supervisor(0, 0, 1, 0, 0));
+            String notification = read(sup, "/api/v1/notificacoes").path("items").get(0).path("id").asString();
+            String base = "/api/v1/notificacoes/" + notification;
+
+            ok(sup, "POST", base + "/visualizar", Map.of("version", version(sup, base)));
+            expect(sup, supervisor(0, 0, 0, 0, 0));
+            assertThat(read(sup, base).path("status").asString()).isEqualTo("VISUALIZADA");
+            assertThat(read(sup, "/api/v1/notificacoes?status=VISUALIZADA").path("items").size()).isEqualTo(1);
+
+            ok(sup, "POST", base + "/analisar", Map.of("version", version(sup, base)));
+            expect(sup, supervisor(0, 0, 0, 0, 0));
+            assertThat(read(sup, base).path("status").asString()).isEqualTo("EM_ANALISE");
+            assertThat(read(sup, "/api/v1/notificacoes?status=EM_ANALISE").path("items").size()).isEqualTo(1);
         }
     }
 

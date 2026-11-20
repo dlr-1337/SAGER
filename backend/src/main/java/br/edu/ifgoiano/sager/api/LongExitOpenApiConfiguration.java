@@ -80,7 +80,8 @@ public class LongExitOpenApiConfiguration {
                             + "arquivos íntegros e autorização conferida por supervisor. REJECT, cancelamento, "
                             + "reenvio, recusa de arquivo, horário retroativo e atraso exigem motivo correspondente "
                             + "de 10 caracteres. Reenvio revoga o envio anterior; entrega, leitura ou recebimento de "
-                            + "mensagem nunca conferem autorização."));
+                            + "mensagem nunca conferem autorização. O filtro status aceita ATRASADA; "
+                            + "EM_ANDAMENTO traz só as saídas no prazo."));
                 }
                 if (path.startsWith(base)) {
                     item.readOperations().forEach(operation -> operation.getResponses().addApiResponse("503",

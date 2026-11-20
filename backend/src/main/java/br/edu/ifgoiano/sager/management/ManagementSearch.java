@@ -13,6 +13,12 @@ public final class ManagementSearch {
     public record Page<T>(List<T> items, long total) {}
     public static <T> Page<T> query(JdbcTemplate jdbc, String select, String table, String searchFields,
             String exactField, String order, Map<String,String> filters, Map<String,String> params, RowMapper<T> mapper) {
+        return query(jdbc, select, table, searchFields, exactField, order, List.of(), filters, params, mapper);
+    }
+    /** `orderArgs` fill the placeholders of `order`, such as the server clock in "overdue first". */
+    public static <T> Page<T> query(JdbcTemplate jdbc, String select, String table, String searchFields,
+            String exactField, String order, List<Object> orderArgs, Map<String,String> filters,
+            Map<String,String> params, RowMapper<T> mapper) {
         Set<String> allowed = new HashSet<>(filters.keySet()); allowed.addAll(Set.of("search", "offset", "limit"));
         if (!allowed.containsAll(params.keySet())) throw bad();
         String search = normalize(params.getOrDefault("search", ""));
@@ -34,6 +40,7 @@ public final class ManagementSearch {
         Long count = jdbc.queryForObject("SELECT count(*) FROM " + table + condition, Long.class, args.toArray());
         String ranking = "";
         if (!search.isEmpty()) { ranking = "CASE WHEN sager_search_text(" + exactField + ") = ? THEN 0 ELSE 1 END, "; args.add(search); }
+        args.addAll(orderArgs);
         String paging = "";
         if (params.containsKey("limit") || params.containsKey("offset")) {
             int limit = number(params.getOrDefault("limit", "25"), 1, 100);

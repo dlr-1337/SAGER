@@ -37,10 +37,33 @@ public class ShortExitRepository implements AuthorizedExitLookup, ExitOccupancyL
                 (result, row) -> map(result), id).stream().findFirst();
     }
 
-    public br.edu.ifgoiano.sager.management.ManagementSearch.Page<ShortExit> search(java.util.Map<String,String> filters) {
+    /**
+     * "Atrasada" é a saída em andamento depois do retorno previsto, e "Em andamento" passa a ser só a
+     * que está no prazo, pelo relógio da aplicação (overdue-exit-badge). Vale para curtas e longas.
+     */
+    public static void overdueFilter(java.util.Map<String,String> filters, Instant now) {
+        filters.remove("overdueAt");
+        filters.remove("onTimeAt");
+        String status = filters.get("status");
+        if ("ATRASADA".equals(status) || IN_PROGRESS_STATUS.equals(status)) {
+            filters.remove("status");
+            filters.put("ATRASADA".equals(status) ? "overdueAt" : "onTimeAt", now.toString());
+        }
+    }
+
+    private static final String IN_PROGRESS_STATUS = "EM_ANDAMENTO";
+    /** As atrasadas primeiro; depois, do pedido mais novo ao mais antigo. */
+    public static final String OVERDUE_FIRST =
+            "(status='EM_ANDAMENTO' AND expected_return_at<=?) DESC,created_at DESC,id DESC";
+    public static final String OVERDUE_FILTER = "status='EM_ANDAMENTO' AND expected_return_at<=?::timestamptz";
+    public static final String ON_TIME_FILTER = "status='EM_ANDAMENTO' AND expected_return_at>?::timestamptz";
+
+    public br.edu.ifgoiano.sager.management.ManagementSearch.Page<ShortExit> search(java.util.Map<String,String> filters,
+            Instant now) {
         return br.edu.ifgoiano.sager.management.ManagementSearch.query(jdbc,"*","sager_short_exit",
-                "concat_ws(' ',resident_name,enrollment)","enrollment","created_at DESC,id DESC",
+                "concat_ws(' ',resident_name,enrollment)","enrollment",OVERDUE_FIRST,List.of(timestamp(now)),
                 java.util.Map.of("residentId","resident_id=?::uuid","status","status=?",
+                    "overdueAt",OVERDUE_FILTER,"onTimeAt",ON_TIME_FILTER,
                     "from","(requested_departure_at AT TIME ZONE 'America/Sao_Paulo')::date>=?::date",
                     "to","(requested_departure_at AT TIME ZONE 'America/Sao_Paulo')::date<=?::date",
                     "accommodationId","EXISTS (SELECT 1 FROM sager_room_allocation al JOIN sager_room room ON room.id=al.room_id WHERE al.resident_id=sager_short_exit.resident_id AND al.started_at<=sager_short_exit.requested_departure_at AND (al.ended_at IS NULL OR al.ended_at>sager_short_exit.requested_departure_at) AND room.accommodation_id=?::uuid)",
