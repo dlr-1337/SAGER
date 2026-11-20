@@ -35,7 +35,7 @@ Para conhecer as telas sem conta, use **Explorar com um perfil fictício** na te
 ## Gestor
 
 1. **Cadastros.** Comece pela estrutura: em **Cursos**, clique em **Cadastrar curso** (o formulário só abre pelo botão; no ensino médio a duração já fica em 3 anos, e no superior você informa de 1 a 6); em **Quartos** › **Gerenciar alojamentos**, os alojamentos (com a faixa etária, se houver) e as casas ou blocos; depois, os quartos. Só então cadastre os residentes, que exigem curso e ano de entrada, e os responsáveis. O cadastro de residente e de supervisor já cria a conta de acesso, com a senha escolhida por quem cadastra.
-2. **Alocação.** Abra o residente em **Residentes**, escolha o quarto em **Colocar no quarto** (ou em **Mudar para**, se ele já tem quarto) e confirme. **Tirar do quarto** encerra a alocação. O histórico guarda a ocupação anterior. O sistema recusa alocar em alojamento de outra faixa etária e alocar quem já concluiu o curso.
+2. **Alocação.** Abra o residente em **Residentes**, escolha o quarto em **Selecione um quarto** (ou em **Selecione o novo quarto**, se ele já tem quarto) e clique em **Colocar no quarto** (ou em **Confirmar mudança**). **Tirar do quarto** encerra a alocação. O histórico guarda a ocupação anterior. O sistema recusa alocar em alojamento de outra faixa etária e alocar quem já concluiu o curso.
 3. **Limpeza e ranking.** Em **Limpeza**, acompanhe as avaliações. O **Ranking** abre nos últimos 5 dias, com a posição e a nota de cada quarto; em **Período**, você também escolhe semana, mês ou semestre. Nota zero e falta de avaliação são coisas diferentes: dia sem avaliação não entra na média.
 4. **Relatórios.** Em **Relatórios**, escolha o tipo, o período e os filtros e gere PDF ou planilha. O arquivo traz o recorte daquele momento e fica disponível por 24 horas; para ver mudanças posteriores, gere outro. Cada relatório mostra só as colunas e os totais do seu assunto (o de saídas não traz nota de limpeza, por exemplo); só **Tudo junto** reúne todos. Os registros vêm do mais recente para o mais antigo, e o PDF e a planilha saem em tabela, com uma linha por registro; na planilha, o cabeçalho tem filtro e a aba **Resumo** traz os totais e o código de conferência.
 
@@ -44,11 +44,15 @@ O gestor não opera chamada noturna, saídas, disciplina nem avisos.
 ## Supervisor
 
 1. **Chamada noturna.** Entre 22h e 23h30, escolha o alojamento e clique em **Abrir chamada**. A lista dos residentes menores alocados fica congelada na abertura, e quem está fora com saída válida já aparece com ausência justificada; confira e corrija se preciso. Para achar alguém, use a busca por nome ou matrícula, ou casa ou bloco e quarto em **Mais filtros**. Marque cada um e clique em **Fechar chamada**, que só funciona com todos marcados. Fora desse horário, o sistema pede confirmação e justificativa. Corrigir depois também exige justificativa e preserva o registro original.
-2. **Saídas e retornos.** Analise os pedidos e registre a partida e o retorno reais. Aprovar não registra a saída, nem no pedido para sair agora: registre a saída quando o residente se apresentar a você, a partir do horário pedido. Na saída curta, as 3 horas contam da saída que você registra; se o residente não voltar nesse prazo, o sistema abre uma notificação de ocorrência. O detalhe da saída mostra só o passo da vez:
-   - **Autorização do responsável** (só na longa): abra o arquivo com **Baixar arquivo** e clique em **Confirmar conferência** ou **Recusar arquivo**. Recebeu por outro meio? Use **Anexar arquivo**. A rejeição, com motivo, pode vir antes da conferência.
-   - **Decisão:** **Aprovar** (na longa, **Aprovar saída**) ou **Rejeitar**. Aprovar é um passo separado da conferência. Mensagem enviada ou arquivo recebido não aprova nada.
+2. **Saídas e retornos.** Registre a partida e o retorno reais, sempre com o residente na sua frente. A saída curta é sempre para agora e tem dois passos:
+   - **Saída:** quando o residente se apresentar, clique em **Registrar saída**. Esse clique libera a saída e marca a hora em que ele sai; as 3 horas contam dela. Não vai liberar? Clique em **Rejeitar** e escreva o motivo.
+   - **Volta:** quando o residente chegar, **Registrar volta**. Passou da hora? A saída aparece como **Atrasada**, em vermelho, no topo da lista, e o sistema abre uma notificação de ocorrência.
+
+   A saída longa mostra só o passo da vez:
+   - **Autorização do responsável:** abra o arquivo com **Baixar arquivo** e clique em **Confirmar conferência** ou **Recusar arquivo**. Recebeu por outro meio? Use **Anexar arquivo**. A rejeição, com motivo, pode vir antes da conferência.
+   - **Decisão:** **Aprovar saída** ou **Rejeitar**. Aprovar é um passo separado da conferência e não registra a saída. Mensagem enviada ou arquivo recebido não aprova nada.
    - **Saída:** a partir do horário pedido, quando o residente se apresentar, **Registrar saída**. Se a saída não for registrada até o fim do prazo, o pedido aprovado expira.
-   - **Volta:** quando o residente chegar, **Registrar volta**.
+   - **Volta:** quando o residente chegar, **Registrar volta**. Passou da hora, a saída também aparece como **Atrasada**.
 
    Histórico, arquivos antigos e **Cancelar pedido** ficam em **Mais detalhes**.
 3. **Notificações de ocorrência, advertências e termos.** O sistema abre uma notificação de ocorrência para análise quando há falta sem justificativa na chamada, saída curta que passou das 3 horas sem volta registrada, volta atrasada ou limpeza abaixo de 6. Analise a origem e as evidências e arquive a notificação de ocorrência com motivo ou converta-a em advertência. Você também registra advertências manuais e as anula com motivo. Quando o sistema indicar possível reincidência (duas advertências vigentes da mesma categoria em 90 dias), use **Revisar possível reincidência** e decida se emite o termo de compromisso. Nada vira punição sozinho.
@@ -58,8 +62,8 @@ O gestor não opera chamada noturna, saídas, disciplina nem avisos.
 7. **Cadastros, ranking e relatórios.** Funcionam como para o gestor, exceto o cadastro de supervisores, que é só do gestor.
 
 **O que os números do menu contam:**
-- **Saídas e retornos:** pedidos que esperam sua análise dentro do prazo e saídas aprovadas cuja hora de sair chegou, sem a saída registrada. As abas **Saídas curtas** e **Saídas longas** mostram a parte de cada uma.
-- **Notificações de ocorrência:** as que esperam decisão, mesmo já abertas, e as convertidas cuja origem foi corrigida e precisa ser conferida.
+- **Saídas e retornos:** pedidos que esperam a saída registrada ou a sua análise dentro do prazo, e saídas longas aprovadas cuja hora de sair chegou. As abas **Saídas curtas** e **Saídas longas** mostram a parte de cada uma.
+- **Notificações de ocorrência:** as que ninguém abriu ainda e as convertidas cuja origem foi corrigida e precisa ser conferida. Abriu a notificação, ela sai do número, mas continua na lista esperando a sua decisão.
 - **Chamada noturna:** a chamada aberta e ainda não fechada.
 - **Conversas:** conversas com mensagem do responsável que ninguém leu ainda. A leitura vale para todos os supervisores.
 
@@ -70,7 +74,7 @@ Limpeza, advertências e avisos não têm número.
 1. **Meu perfil.** Confira seu nome, sua matrícula e seu quarto. Se algum dado estiver errado, ou se o quarto não aparecer, procure a equipe da residência. Se a tela disser que sua conta não está ligada ao seu cadastro, peça ao suporte da instituição para ligar.
 2. **Minhas comunicações.** Leia avisos, advertências e termos de compromisso. O que está em vigor aparece como **Valendo**, na lista e no filtro. Confirme a ciência só depois de ler a versão apresentada. Ciência não é assinatura. O número no menu e em cada aba conta o que ainda está sem a sua ciência; abrir o item não tira o número, só a ciência tira.
 3. **Minha limpeza e Ranking.** Veja as avaliações do seu quarto e a posição geral. No ranking, seu quarto aparece uma vez, no topo, com a posição e a nota dos últimos 5 dias; dos outros quartos, você vê só a posição.
-4. **Minhas saídas** (só para menores de idade). Peça uma saída curta ou longa e acompanhe o pedido. Na curta, você diz só quando quer sair e por quê: ela dura até 3 horas a partir da hora em que o supervisor registra sua saída. Na saída longa, escolha o responsável que vai autorizar; o supervisor confere a autorização antes de aprovar. Quem registra a saída e a volta é o supervisor: depois da aprovação, apresente-se a ele para ele registrar a saída. O tempo fora só começa a contar nesse registro. O residente maior de idade não pede saídas e não vê esse item no menu.
+4. **Minhas saídas** (só para menores de idade). Peça uma saída curta ou longa e acompanhe o pedido. Na curta, você diz só por que quer sair: o pedido é para agora. Depois de enviar, vá até o supervisor quando quiser sair; ela dura até 3 horas a partir da hora em que ele registra sua saída. Na saída longa, escolha o responsável que vai autorizar; o supervisor confere a autorização antes de aprovar e, depois da aprovação, você se apresenta a ele para ele registrar a saída. Quem registra a saída e a volta é sempre o supervisor, e o tempo fora só começa a contar nesse registro. O residente maior de idade não pede saídas e não vê esse item no menu.
 
 ## Quando algo dá errado
 
