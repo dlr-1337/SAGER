@@ -22,6 +22,7 @@ import {
 import { ShortExit } from './operations-local.models';
 import {
   approvalNote,
+  departureMinimum,
   departureStepText,
   exitEventLabels,
   exitStatusLabels,
@@ -505,7 +506,7 @@ export class ExitDetailLocalComponent {
           physical: {
             action,
             now: fresh.now,
-            minimum: action === 'partida' ? exit.requestedDepartureAt : exit.actualDepartureAt!,
+            minimum: action === 'partida' ? departureMinimum(exit) : exit.actualDepartureAt!,
             expectedReturnAt: exit.expectedReturnAt,
             version: exit.version,
           },

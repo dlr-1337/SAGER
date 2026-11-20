@@ -279,6 +279,8 @@ describe('Detalhe da saída curta em passos', () => {
     await fixture.whenStable();
     expect(reviewData().title).toBe('A saída será registrada.');
     expect(reviewData().warning).toBe('Veja o residente pessoalmente antes de liberar a saída.');
+    // Pedida às 15h59 e aprovada às 16h00 (UTC): o horário anterior não pode vir antes da aprovação.
+    expect(reviewData().physical!.minimum).toBe(now);
     expect(api['physicalExit']).toHaveBeenCalledWith('saida-sintetica', 'partida', {
       version: 2,
       timeMode: 'NOW',

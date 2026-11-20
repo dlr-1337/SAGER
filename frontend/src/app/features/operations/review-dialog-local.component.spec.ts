@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { describe, expect, it, vi } from 'vitest';
+import { departureMinimum } from './operations-local.utils';
 import {
   LocalOperationsReviewDialogComponent,
   LocalReviewData,
@@ -171,6 +172,37 @@ describe('Revisão das operações locais', () => {
     component.confirm();
     expect(close).not.toHaveBeenCalled();
     expect(component.error()).toContain('futuro');
+  });
+  it('recusa partida anterior à aprovação no diálogo, sem fechar nem perder a justificativa', () => {
+    // Pedida para 14h e aprovada às 14h20 (Brasília): o mínimo é a aprovação.
+    const { component, close } = create({
+      physical: {
+        action: 'partida',
+        now: '2026-09-30T18:00:00Z',
+        minimum: departureMinimum({
+          requestedDepartureAt: '2026-09-30T17:00:00Z',
+          decidedAt: '2026-09-30T17:20:00Z',
+        }),
+        expectedReturnAt: '2026-09-30T20:00:00Z',
+        version: 2,
+      },
+    });
+    component.timeMode.setValue('RETROACTIVE');
+    component.reason.setValue('Saída vista na portaria antes do registro.');
+    component.time.setValue('2026-09-30T14:10');
+    component.confirm();
+    expect(close).not.toHaveBeenCalled();
+    expect(component.error()).toBe(
+      'A partida não pode ser anterior à saída solicitada nem à aprovação.',
+    );
+    expect(component.reason.value).toBe('Saída vista na portaria antes do registro.');
+    component.time.setValue('2026-09-30T14:25');
+    component.confirm();
+    expect(close).toHaveBeenCalledWith(
+      expect.objectContaining({
+        physical: expect.objectContaining({ occurredAt: '2026-09-30T17:25:00.000Z' }),
+      }),
+    );
   });
   it('exige escolha explícita entre múltiplas saídas autorizadas', () => {
     const { component, close } = create({

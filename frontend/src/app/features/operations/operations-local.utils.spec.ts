@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ShortExitInput } from './operations-local.models';
 import {
+  departureMinimum,
   formatDuration,
   formatOperationsTime,
   minutesAfter,
@@ -23,6 +24,16 @@ const input: ShortExitInput = {
 };
 
 describe('Horários e regras das operações locais', () => {
+  it('a partida registrada começa na mais tardia entre a partida pedida e a aprovação', () => {
+    const requested = '2026-09-30T17:00:00Z';
+    expect(departureMinimum({ requestedDepartureAt: requested, decidedAt: null })).toBe(requested);
+    expect(
+      departureMinimum({ requestedDepartureAt: requested, decidedAt: '2026-09-30T16:40:00Z' }),
+    ).toBe(requested);
+    expect(
+      departureMinimum({ requestedDepartureAt: requested, decidedAt: '2026-09-30T17:20:00.123Z' }),
+    ).toBe('2026-09-30T17:20:00.123Z');
+  });
   it('converte horário civil de São Paulo para instante UTC e faz a conversão inversa', () => {
     expect(saoPauloInstant('2026-09-30T13:00')).toBe('2026-09-30T16:00:00.000Z');
     expect(saoPauloInput('2026-10-01T01:30:00Z')).toBe('2026-09-30T22:30');

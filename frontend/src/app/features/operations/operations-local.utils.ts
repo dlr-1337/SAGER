@@ -154,6 +154,17 @@ export const exitStatusLabels: Record<ShortExitStatus, string> = {
 /** A partida pedida já chegou no relógio do servidor: a saída pode ser registrada. */
 export const leavesNow = (exit: { requestedDepartureAt: string; now: string }) =>
   Date.parse(exit.requestedDepartureAt) <= Date.parse(exit.now);
+/**
+ * Primeiro horário aceito para a partida registrada: nem antes da partida pedida nem antes da
+ * aprovação, como o servidor confere ("Partida física").
+ */
+export function departureMinimum(exit: {
+  requestedDepartureAt: string;
+  decidedAt: string | null;
+}): string {
+  const { requestedDepartureAt: requested, decidedAt: decided } = exit;
+  return decided && Date.parse(decided) > Date.parse(requested) ? decided : requested;
+}
 /** Aprovar só decide; a saída é registrada à parte, com o residente presente (exit-departure-in-person). */
 export const approvalNote =
   'Aprovar não registra a saída; ela é registrada quando o residente se apresentar.';
