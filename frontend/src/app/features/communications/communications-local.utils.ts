@@ -8,6 +8,7 @@ import {
   WarningSeverity,
 } from './communications-local.models';
 import { formatOperationsTime } from '../operations/operations-local.utils';
+import { criterionLabels } from '../cleaning/cleaning-local.utils';
 
 export const categoryLabels: Record<DisciplineCategory, string> = {
   AUSENCIA: 'Ausência',
@@ -149,7 +150,7 @@ export function evidenceRows(evidence: EvidenceValue): { label: string; value: s
     score: 'Nota de limpeza',
     roomNumber: 'Quarto',
     evaluationDate: 'Data da avaliação',
-    residentIds: 'Moradores registrados na avaliação',
+    assessmentDate: 'Data da avaliação',
   };
   const values: Record<string, string> = {
     AUSENTE: 'Ausente sem justificativa',
@@ -161,8 +162,17 @@ export function evidenceRows(evidence: EvidenceValue): { label: string; value: s
     RETORNO_CONFIRMADO_COM_ATRASO: 'Retorno confirmado com atraso',
     RETORNO_CONFIRMADO: 'Retorno confirmado',
   };
-  return Object.entries(evidence).map(([key, value]) => ({
-    label: labels[key] ?? key.replace(/([a-z])([A-Z])/g, '$1 $2'),
+  // Códigos internos (quarto, moradores, versão da regra) ficam só na auditoria; os critérios da
+  // limpeza aparecem um por linha, pelo nome (notification-seen-evidence).
+  const shown = Object.entries(evidence).flatMap(([key, value]): [string, typeof value][] => {
+    if (/Ids?$/.test(key) || key === 'policyVersion') return [];
+    if (key === 'criteria' && value && typeof value === 'object' && !Array.isArray(value))
+      return Object.entries(value).map(([criterion, score]) => [criterion, score]);
+    return [[key, value]];
+  });
+  const names: Record<string, string> = { ...labels, ...criterionLabels };
+  return shown.map(([key, value]) => ({
+    label: names[key] ?? key.replace(/([a-z])([A-Z])/g, '$1 $2'),
     value:
       typeof value === 'boolean'
         ? value
