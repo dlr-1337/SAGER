@@ -15,7 +15,8 @@ const WAITING_EXIT: ExitStatus[] = [
   'Aguardando autorização',
   'Falha no envio',
 ];
-const WAITING_NOTIFICATION: NotificationStatus[] = ['Pendente', 'Visualizada', 'Em análise'];
+// Só a notificação que ninguém viu ainda conta, como no servidor (notification-seen-evidence).
+const WAITING_NOTIFICATION: NotificationStatus[] = ['Pendente'];
 
 /**
  * Regra do servidor (design D2): no prazo, ou aprovado com a saída já chegada. A demonstração aceita
