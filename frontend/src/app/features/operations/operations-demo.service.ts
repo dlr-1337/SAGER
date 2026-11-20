@@ -11,6 +11,17 @@ export type ExitStatus =
   | 'Retorno confirmado'
   | 'Retorno confirmado com atraso';
 
+const PENDING_EXIT: ExitStatus[] = [
+  'Aguardando análise',
+  'Aguardando autorização',
+  'Falha no envio',
+  // A aprovada ainda espera o supervisor registrar a saída ao ver o residente.
+  'Aprovada',
+  'Em andamento',
+];
+/** Filtro "Pendentes" da lista de saídas da demonstração; "Concluídas" é o resto. */
+export const pendingDemoExit = (status: ExitStatus): boolean => PENDING_EXIT.includes(status);
+
 export interface TimelineEvent {
   label: string;
   at: string;

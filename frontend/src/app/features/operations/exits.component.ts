@@ -6,7 +6,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { DemoSessionService } from '../../core/demo-session.service';
-import { OperationsDemoService } from './operations-demo.service';
+import { OperationsDemoService, pendingDemoExit } from './operations-demo.service';
 
 import { ExitsLocalComponent } from './exits-local.component';
 @Component({
@@ -188,23 +188,8 @@ export class ExitsComponent {
       )
         return false;
       if (kind && item.kind !== kind) return false;
-      if (
-        status === 'pendente' &&
-        ![
-          'Aguardando análise',
-          'Aguardando autorização',
-          'Falha no envio',
-          'Em andamento',
-        ].includes(item.status)
-      )
-        return false;
-      if (
-        status === 'concluida' &&
-        ['Aguardando análise', 'Aguardando autorização', 'Falha no envio', 'Em andamento'].includes(
-          item.status,
-        )
-      )
-        return false;
+      if (status === 'pendente' && !pendingDemoExit(item.status)) return false;
+      if (status === 'concluida' && pendingDemoExit(item.status)) return false;
       return true;
     });
   });
