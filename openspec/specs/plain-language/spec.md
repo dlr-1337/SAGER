@@ -23,6 +23,13 @@ As telas MUST NOT mostrar UUID, hash, número de versão interna, nem códigos c
 - **WHEN** o supervisor vê uma ausência justificada
 - **THEN** a tela mostra o tipo da saída, sem identificador
 
+#### Scenario: Evidência da avaliação de limpeza
+
+- **GIVEN** uma notificação de ocorrência vinda de uma avaliação de limpeza
+- **WHEN** o supervisor abre o detalhe dela
+- **THEN** ele vê a data da avaliação, a nota de limpeza e a nota de cada critério pelo nome, como "Piso" e "Organização"
+- **AND** não vê o código interno do quarto nem a versão da regra
+
 ### Requirement: Palavras do dia a dia
 
 Rótulos e ajudas SHALL usar o glossário da change, com frases curtas que digam o que fazer.
