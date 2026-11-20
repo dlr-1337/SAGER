@@ -14,8 +14,9 @@ const neutral = (meaning: string) => ({ tone: 'neutral', meaning }) as const;
 export const statusTones: Record<string, { tone: StatusTone; meaning: string }> = {
   // Saídas
   'Aguardando análise': warning('Espera a decisão do supervisor.'),
-  Aprovada: info('Pode sair no horário pedido.'),
+  Aprovada: info('Falta o supervisor registrar a saída.'),
   'Em andamento': info('O residente saiu e ainda não voltou.'),
+  Atrasada: danger('Passou da hora de voltar, e a volta não foi registrada.'),
   'Retorno confirmado': success('Voltou no horário.'),
   'Retorno confirmado com atraso': warning('Voltou depois do horário.'),
   Rejeitada: danger('O pedido foi negado.'),

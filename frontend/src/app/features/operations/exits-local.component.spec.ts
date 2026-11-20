@@ -453,7 +453,28 @@ describe('Critérios restaurados da lista de saídas', () => {
       history: [],
     }) as unknown as ShortExit;
 
-  it('cada situação tem o seu tom e a legenda começa fechada, com as oito situações', async () => {
+  const shownStatuses = [
+    'Aguardando análise',
+    'Aprovada',
+    'Em andamento',
+    'Atrasada',
+    'Retorno confirmado',
+    'Retorno confirmado com atraso',
+    'Rejeitada',
+    'Cancelada',
+    'Expirada',
+  ];
+  const chips = (element: HTMLElement) =>
+    Array.from(element.querySelectorAll('.op-row .status')).map((chip) => [
+      chip.textContent?.trim(),
+      chip.getAttribute('data-tone'),
+    ]);
+  const rows = (element: HTMLElement) =>
+    Array.from(element.querySelectorAll('.op-row-main p:last-child')).map((row) =>
+      row.textContent!.replace(/\s+/g, ' ').trim(),
+    );
+
+  it('cada situação tem o seu tom e a legenda começa fechada, com as nove situações', async () => {
     shortPage.mockResolvedValue({
       items: [item('1', 'AGUARDANDO_ANALISE'), item('2', 'REJEITADA'), item('3', 'EXPIRADA')],
       total: 3,
@@ -461,39 +482,109 @@ describe('Critérios restaurados da lista de saídas', () => {
     const fixture = TestBed.createComponent(ExitsLocalComponent);
     await fixture.whenStable();
     const element: HTMLElement = fixture.nativeElement;
-    const chips = Array.from(element.querySelectorAll('.op-row .status')).map((chip) => [
-      chip.textContent?.trim(),
-      chip.getAttribute('data-tone'),
-    ]);
-    expect(chips).toEqual([
+    expect(chips(element)).toEqual([
       ['Aguardando análise', 'warning'],
       ['Rejeitada', 'danger'],
       ['Expirada', null],
     ]);
     const legend = element.querySelector<HTMLDetailsElement>('sager-status-legend details')!;
     expect(legend.open).toBe(false);
-    expect(legend.querySelectorAll('dl > div')).toHaveLength(8);
+    expect(legend.querySelectorAll('dl > div')).toHaveLength(9);
+    expect(
+      Array.from(legend.querySelectorAll('dt')).map((term) => term.textContent?.trim()),
+    ).toEqual(shownStatuses);
   });
 
-  it('mostra a volta da saída curta como 3 h depois da saída até a partida ser registrada', async () => {
+  it('o filtro de situação oferece "Atrasada" logo depois de "Em andamento"', async () => {
+    const fixture = TestBed.createComponent(ExitsLocalComponent);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const select = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('label'))
+      .find((label) => label.textContent?.trim().startsWith('Situação'))
+      ?.querySelector('select');
+    expect(Array.from(select?.options ?? []).map((option) => option.textContent?.trim())).toEqual([
+      'Todas',
+      ...shownStatuses,
+    ]);
+    expect(select?.querySelector<HTMLOptionElement>('option[value="ATRASADA"]')?.text).toBe(
+      'Atrasada',
+    );
+  });
+
+  it('a saída em andamento com a volta passada mostra o selo "Atrasada" em vermelho', async () => {
     shortPage.mockResolvedValue({
       items: [
-        item('1', 'APROVADA'),
+        // Retorno previsto igual ao relógio do servidor: já está atrasada.
+        {
+          ...item('1', 'EM_ANDAMENTO'),
+          actualDepartureAt: '2026-10-02T13:00:00Z',
+          expectedReturnAt: '2026-10-02T16:00:00Z',
+        },
+        {
+          ...item('2', 'EM_ANDAMENTO'),
+          actualDepartureAt: '2026-10-02T15:00:00Z',
+          expectedReturnAt: '2026-10-02T18:00:00Z',
+        },
+        { ...item('3', 'RETORNO_CONFIRMADO'), expectedReturnAt: '2026-10-02T15:00:00Z' },
+      ],
+      total: 3,
+    });
+    const fixture = TestBed.createComponent(ExitsLocalComponent);
+    await fixture.whenStable();
+    expect(chips(fixture.nativeElement)).toEqual([
+      ['Atrasada', 'danger'],
+      ['Em andamento', 'info'],
+      ['Retorno confirmado', 'success'],
+    ]);
+  });
+
+  it('a linha da saída curta mostra "Pedido em", depois "Saiu" e "Volta até", e "Saída agendada" no pedido antigo', async () => {
+    shortPage.mockResolvedValue({
+      items: [
+        item('1', 'AGUARDANDO_ANALISE'),
         {
           ...item('2', 'EM_ANDAMENTO'),
           actualDepartureAt: '2026-10-02T17:40:00Z',
           expectedReturnAt: '2026-10-02T20:40:00Z',
         },
+        {
+          ...item('3', 'APROVADA'),
+          departureMode: 'SCHEDULED',
+          requestedDepartureAt: '2026-10-02T19:00:00Z',
+        },
       ],
-      total: 2,
+      total: 3,
     });
     const fixture = TestBed.createComponent(ExitsLocalComponent);
     await fixture.whenStable();
-    const rows = Array.from(
-      (fixture.nativeElement as HTMLElement).querySelectorAll('.op-row-main p:last-child'),
-    ).map((row) => row.textContent!.replace(/\s+/g, ' ').trim());
-    expect(rows[0]).toContain('Volta: até 3 h depois da saída');
-    expect(rows[1]).toContain('Volta: 02/10/2026, 17:40');
+    expect(rows(fixture.nativeElement)).toEqual([
+      'Pedido em: 02/10/2026, 13:00',
+      'Saiu: 02/10/2026, 14:40 · Volta até: 02/10/2026, 17:40',
+      'Saída agendada: 02/10/2026, 16:00',
+    ]);
+  });
+
+  it('a linha da saída longa segue com "Saída" e "Volta", e também mostra "Atrasada"', async () => {
+    params.next(convertToParamMap({ tipo: 'longa' }));
+    longPage.mockResolvedValue({
+      items: [
+        {
+          ...item('1', 'EM_ANDAMENTO'),
+          requestedDepartureAt: '2026-10-01T12:00:00Z',
+          actualDepartureAt: '2026-10-01T12:00:00Z',
+          expectedReturnAt: '2026-10-02T12:00:00Z',
+          signatureStatus: 'VALID',
+          messageStatus: 'READ',
+        },
+      ],
+      total: 1,
+    });
+    const fixture = TestBed.createComponent(ExitsLocalComponent);
+    await fixture.whenStable();
+    expect(rows(fixture.nativeElement)).toEqual([
+      'Saída: 01/10/2026, 09:00 · Volta: 02/10/2026, 09:00',
+    ]);
+    expect(chips(fixture.nativeElement)[0]).toEqual(['Atrasada', 'danger']);
   });
 
   describe('atualização automática', () => {

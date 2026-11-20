@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { ShortExitInput } from './operations-local.models';
 import {
   departureMinimum,
+  exitStatusLabel,
   formatDuration,
+  isOverdue,
   formatOperationsTime,
   minutesAfter,
   nextReturn,
@@ -17,8 +19,7 @@ import {
 
 const now = '2026-09-30T16:00:00Z';
 const input: ShortExitInput = {
-  departureMode: 'SCHEDULED',
-  requestedDepartureAt: now,
+  departureMode: 'NOW',
   reason: 'Buscar material escolar',
   notes: null,
 };
@@ -56,18 +57,18 @@ describe('Horários e regras das operações locais', () => {
     expect(saoPauloInstant('2018-12-01T13:00')).toBe('2018-12-01T15:00:00.000Z');
     expect(saoPauloInstant('2018-11-04T00:30')).toBeNull();
   });
-  it('aceita o pedido sem horário de volta e exige data válida ao agendar', () => {
-    expect(shortExitFormError(input, now)).toBe('');
-    expect(shortExitFormError({ ...input, requestedDepartureAt: undefined }, now)).toContain(
-      'válidas',
-    );
+  it('aceita o pedido para agora só com o motivo, sem horário (short-exit-two-steps)', () => {
+    expect(shortExitFormError(input)).toBe('');
   });
-  it('usa o horário do servidor para NOW e para o limite da saída agendada', () => {
-    expect(
-      shortExitFormError({ ...input, departureMode: 'NOW', requestedDepartureAt: undefined }, now),
-    ).toBe('');
-    expect(shortExitFormError(input, '2026-09-30T16:00:01Z')).toContain('antes de agora');
-    expect(shortExitFormError({ ...input, departureMode: 'NOW' }, '2026-09-30T19:00:01Z')).toBe('');
+  it('mostra "Atrasada" na saída em andamento depois do retorno previsto (overdue-exit-badge)', () => {
+    const exit = { status: 'EM_ANDAMENTO' as const, expectedReturnAt: now, now };
+    expect(isOverdue({ ...exit, now: '2026-09-30T15:59:59Z' })).toBe(false);
+    expect(exitStatusLabel({ ...exit, now: '2026-09-30T15:59:59Z' })).toBe('Em andamento');
+    expect(isOverdue(exit)).toBe(true);
+    expect(exitStatusLabel(exit)).toBe('Atrasada');
+    expect(exitStatusLabel({ ...exit, status: 'RETORNO_CONFIRMADO_COM_ATRASO' })).toBe(
+      'Retorno confirmado com atraso',
+    );
   });
   it('limita a saída curta: 1 min e 3 h aceitos, 3 h 01 recusado', () => {
     expect(shortPeriodError(now, minutesAfter(now, 1))).toBe('');
@@ -116,8 +117,8 @@ describe('Horários e regras das operações locais', () => {
     }
   });
   it('valida motivo, observação e justificativa sem aceitar apenas espaços', () => {
-    expect(shortExitFormError({ ...input, reason: '   ' }, now)).toContain('motivo');
-    expect(shortExitFormError({ ...input, notes: 'a'.repeat(2001) }, now)).toContain('observações');
+    expect(shortExitFormError({ ...input, reason: '   ' })).toContain('motivo');
+    expect(shortExitFormError({ ...input, notes: 'a'.repeat(2001) })).toContain('observações');
     expect(validJustification(' nove ')).toBe(false);
     expect(validJustification('Motivo institucional informado.')).toBe(true);
     expect(validJustification('a'.repeat(2000))).toBe(true);

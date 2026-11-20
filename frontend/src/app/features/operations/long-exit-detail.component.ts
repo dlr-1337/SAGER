@@ -41,9 +41,11 @@ import {
   departureMinimum,
   departureStepText,
   exitEventLabels,
+  exitStatusLabel,
   formatOperationsTime,
   leavesNow,
   residentDepartureText,
+  shownExitStatusLabels,
 } from './operations-local.utils';
 import {
   LocalOperationsReviewDialogComponent,
@@ -85,8 +87,8 @@ type LongExitStep = 'Autorização do responsável' | 'Decisão' | 'Saída' | 'V
         <div class="op-exit-title-row">
           <h1>Pedido de saída longa</h1>
           @if (item(); as exit) {
-            <span class="status" [attr.data-tone]="tone(labels[exit.status])">{{
-              labels[exit.status]
+            <span class="status" [attr.data-tone]="tone(statusLabel(exit))">{{
+              statusLabel(exit)
             }}</span>
           }
         </div>
@@ -866,6 +868,8 @@ export class LongExitDetailComponent {
   readonly brokenPreviews = signal<ReadonlySet<string>>(new Set());
   readonly saved = signal(this.route.snapshot.queryParamMap.get('saved') === '1');
   readonly labels = longExitStatusLabels;
+  /** "Atrasada" quando a volta passou do prazo, pelo relógio do servidor (overdue-exit-badge). */
+  readonly statusLabel = exitStatusLabel;
   readonly tone = toneAttr;
   readonly signatures = signatureStatusLabels;
   readonly messages = messageStatusLabels;
@@ -911,7 +915,7 @@ export class LongExitDetailComponent {
   };
   readonly legendNames = [
     ...new Set([
-      ...Object.values(longExitStatusLabels),
+      ...Object.values(shownExitStatusLabels),
       ...Object.values(signatureStatusLabels),
       ...Object.values(messageStatusLabels),
       ...Object.values(this.fileStates),

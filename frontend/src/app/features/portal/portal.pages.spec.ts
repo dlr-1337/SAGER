@@ -295,8 +295,9 @@ describe('HelpPage', () => {
     expect(start).toBeGreaterThan(-1);
     expect(questions[start + 1]).toBe('Quem confirma o retorno de uma saída curta?');
     expect(page.textContent).toContain(
-      'A saída começa quando o supervisor vê o residente e registra a saída, a partir do horário pedido. A aprovação não registra a saída.',
+      'A saída curta é sempre para agora: depois de pedir, vá até o supervisor quando quiser sair. Ela começa quando ele vê você e registra a saída. Na saída longa, a aprovação não registra a saída: ela começa quando o supervisor registra a partida.',
     );
+    expect(page.textContent).not.toContain('a partir do horário pedido');
     expect(page.textContent).not.toContain(whatsappQuestion);
   });
 
@@ -375,6 +376,11 @@ describe('HelpPage', () => {
     expect(page.querySelector('.color-guide')).toBeNull();
     expect(page.textContent).not.toContain(whatsappQuestion);
     expect(page.textContent).toContain('Quando a saída começa?');
+    // A demonstração segue a monografia: a saída começa a partir do horário pedido.
+    expect(page.textContent).toContain(
+      'A saída começa quando o supervisor vê o residente e registra a saída, a partir do horário pedido. A aprovação não registra a saída.',
+    );
+    expect(page.textContent).not.toContain('A saída curta é sempre para agora');
     session.deactivate();
   });
 

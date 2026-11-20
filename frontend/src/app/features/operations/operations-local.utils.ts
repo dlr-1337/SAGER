@@ -119,14 +119,8 @@ export function periodHint(
     error: expectedReturn ? periodError(departure, expectedReturn) : '',
   };
 }
-export function shortExitFormError(input: ShortExitInput, serverNow: string): string {
-  // A volta não é pedida: o servidor fixa 3 horas a partir da saída registrada.
-  if (input.departureMode === 'SCHEDULED') {
-    const departure = Date.parse(input.requestedDepartureAt ?? '');
-    if (!Number.isFinite(departure)) return 'Escolha uma data e uma hora válidas.';
-    if (departure < Date.parse(serverNow))
-      return 'A saída não pode ser antes de agora. Escolha outro horário.';
-  }
+/** O pedido é sempre para agora, e a volta é fixada pelo servidor (short-exit-two-steps). */
+export function shortExitFormError(input: ShortExitInput): string {
   if (input.reason.trim().length < 3 || input.reason.trim().length > 2000)
     return 'Escreva o motivo da saída.';
   if ((input.notes?.length ?? 0) > 2000) return 'As observações devem ter até 2.000 caracteres.';
@@ -151,6 +145,32 @@ export const exitStatusLabels: Record<ShortExitStatus, string> = {
   CANCELADA: 'Cancelada',
   EXPIRADA: 'Expirada',
 };
+/** Situação mostrada: a gravada, ou "Atrasada" quando a volta passou do prazo (overdue-exit-badge). */
+export type ShownExitStatus = ShortExitStatus | 'ATRASADA';
+/** Nomes da lista, do filtro, do detalhe e da legenda, com "Atrasada" logo depois de "Em andamento". */
+export const shownExitStatusLabels: Record<ShownExitStatus, string> = {
+  AGUARDANDO_ANALISE: exitStatusLabels.AGUARDANDO_ANALISE,
+  APROVADA: exitStatusLabels.APROVADA,
+  EM_ANDAMENTO: exitStatusLabels.EM_ANDAMENTO,
+  ATRASADA: 'Atrasada',
+  RETORNO_CONFIRMADO: exitStatusLabels.RETORNO_CONFIRMADO,
+  RETORNO_CONFIRMADO_COM_ATRASO: exitStatusLabels.RETORNO_CONFIRMADO_COM_ATRASO,
+  REJEITADA: exitStatusLabels.REJEITADA,
+  CANCELADA: exitStatusLabels.CANCELADA,
+  EXPIRADA: exitStatusLabels.EXPIRADA,
+};
+interface ExitClock {
+  status: ShortExitStatus;
+  expectedReturnAt: string;
+  now: string;
+}
+/** Em andamento com o retorno previsto já passado, pelo relógio do servidor. */
+export const isOverdue = (exit: ExitClock): boolean =>
+  exit.status === 'EM_ANDAMENTO' && Date.parse(exit.expectedReturnAt) <= Date.parse(exit.now);
+export const shownExitStatus = (exit: ExitClock): ShownExitStatus =>
+  isOverdue(exit) ? 'ATRASADA' : exit.status;
+export const exitStatusLabel = (exit: ExitClock): string =>
+  shownExitStatusLabels[shownExitStatus(exit)];
 /** A partida pedida já chegou no relógio do servidor: a saída pode ser registrada. */
 export const leavesNow = (exit: { requestedDepartureAt: string; now: string }) =>
   Date.parse(exit.requestedDepartureAt) <= Date.parse(exit.now);
@@ -172,6 +192,10 @@ export const approvalNote =
 export const departureStepText = 'Registre a saída quando o residente se apresentar.';
 /** Saída aprovada cuja hora chegou, vista pelo residente. */
 export const residentDepartureText = 'Apresente-se ao supervisor para ele registrar a saída.';
+/** Saída curta que espera o registro da saída, vista pelo residente (short-exit-two-steps). */
+export const shortExitPresentTitle = 'Apresente-se ao supervisor';
+export const shortExitPresentText =
+  'Quando quiser sair, vá até o supervisor. As 3 horas só começam quando ele registrar a sua saída.';
 export const callMarkLabels = {
   PRESENTE: 'Presente',
   AUSENTE: 'Ausente',

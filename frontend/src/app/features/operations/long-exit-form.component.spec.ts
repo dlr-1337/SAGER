@@ -192,7 +192,9 @@ describe('Formulário de saída longa', () => {
     const form = await create();
     api['save'].mockRejectedValueOnce(new OperationsApiError(409, 'overlapping_exit'));
     await form.submit();
-    expect(form.root.querySelector('[role="alert"]')!.textContent).toContain('nesse horário');
+    expect(form.root.querySelector('[role="alert"]')!.textContent).toContain(
+      'Você já tem outra saída nesse período. Cancele o outro pedido ou espere a volta dele.',
+    );
     expect(form.button().disabled).toBe(false);
     api['save'].mockRejectedValueOnce(new OperationsApiError(409, 'stale_version'));
     await form.submit();

@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { ExitFormLocalComponent } from './exit-form-local.component';
@@ -14,13 +14,14 @@ const eligibility = (at = now) => ({
   roomNumber: '101',
   now: at,
 });
+// Pedido agendado de antes de 20/11/2026: a edição manda só o motivo, sempre para agora.
 const saved = (overrides = {}) => ({
   id: 'saida-sintetica',
   departureMode: 'SCHEDULED',
   requestedDepartureAt: '2026-09-30T17:00:00Z', // 14:00
   expectedReturnAt: '2026-09-30T19:00:00Z', // 16:00
   reason: 'Buscar material escolar',
-  notes: null,
+  notes: 'Observação sintética',
   capabilities: { canEdit: true },
   ...overrides,
 });
@@ -57,28 +58,14 @@ describe('Formulário local de saída curta', () => {
         { provide: OperationsLocalApiService, useValue: api },
       ],
     });
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     const fixture = TestBed.createComponent(ExitFormLocalComponent);
     await fixture.whenStable();
     const root = fixture.nativeElement as HTMLElement;
-    const inputs = () => root.querySelectorAll<HTMLInputElement>('input[type="datetime-local"]');
-    const departure = () => inputs()[0];
     return {
       fixture,
       root,
-      inputs,
-      departure,
-      async type(input: HTMLInputElement, value: string) {
-        input.value = value;
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        input.dispatchEvent(new Event('change', { bubbles: true }));
-        await fixture.whenStable();
-      },
-      async mode(value: 'NOW' | 'SCHEDULED') {
-        const select = root.querySelector('select')!;
-        select.value = value;
-        select.dispatchEvent(new Event('change', { bubbles: true }));
-        await fixture.whenStable();
-      },
+      navigate,
       async submit(reason = 'Buscar material escolar') {
         const textarea = root.querySelector('textarea')!;
         textarea.value = reason;
@@ -94,9 +81,7 @@ describe('Formulário local de saída curta', () => {
 
   it('cabeçalho com uma frase só', async () => {
     const form = await create();
-    expect(form.root.querySelector('.op-heading p')!.textContent).toBe(
-      'Diga quando sai e por quê.',
-    );
+    expect(form.root.querySelector('.op-heading p')!.textContent).toBe('Diga por que quer sair.');
   });
 
   it('motivo só com espaços é recusado no próprio campo', async () => {
@@ -106,18 +91,18 @@ describe('Formulário local de saída curta', () => {
     expect(form.root.querySelector('.op-field-error')).not.toBeNull();
   });
 
-  it('não pede horário de volta e diz que o prazo conta da saída registrada', async () => {
+  it('não pergunta quando sai nem a hora de volta e diz que o prazo conta da saída registrada', async () => {
     const form = await create();
-    expect(form.inputs().length).toBe(0);
+    expect(form.root.querySelector('select')).toBeNull();
+    expect(form.root.querySelectorAll('input[type="datetime-local"]')).toHaveLength(0);
+    expect(form.root.textContent).not.toContain('Quando você quer sair?');
     expect(form.root.textContent).not.toContain('Que horas você volta?');
-    expect(form.root.querySelector('form .op-help')!.textContent!.replace(/\s+/g, ' ')).toContain(
-      'até 3 horas a partir da hora em que o supervisor registra sua saída',
+    expect(form.root.querySelector('form .op-help')!.textContent!.replace(/\s+/g, ' ').trim()).toBe(
+      'Saída curta: até 3 horas a partir da hora em que o supervisor registra sua saída. Vai ficar mais tempo? Peça uma saída longa.',
     );
-    await form.mode('SCHEDULED');
-    expect(form.inputs().length).toBe(1);
   });
 
-  it('envia o pedido Agora sem horário de volta', async () => {
+  it('envia o pedido sempre para agora, sem horário, e abre o aviso "Pedido enviado"', async () => {
     const form = await create();
     await form.submit();
     expect(api['saveExit'].mock.calls[0][0]).toEqual({
@@ -125,57 +110,35 @@ describe('Formulário local de saída curta', () => {
       reason: 'Buscar material escolar',
       notes: null,
     });
-  });
-
-  it('envia a saída agendada no horário de São Paulo sem horário de volta', async () => {
-    vi.stubEnv('TZ', 'Pacific/Auckland');
-    expect(new Date(2026, 0, 1).getTimezoneOffset()).toBe(-780);
-    const form = await create();
-    await form.mode('SCHEDULED');
-    expect(form.departure().min).toBe('2026-09-30T13:01');
-    await form.type(form.departure(), '2026-09-30T14:00');
-    await form.submit();
-    expect(api['saveExit'].mock.calls[0][0]).toEqual({
-      departureMode: 'SCHEDULED',
-      requestedDepartureAt: '2026-09-30T17:00:00.000Z',
-      reason: 'Buscar material escolar',
-      notes: null,
+    expect(form.navigate).toHaveBeenCalledWith(['/saidas', 'saida-sintetica'], {
+      queryParams: { enviado: '1' },
     });
   });
 
-  it('na edição envia a partida salva sem o retorno guardado', async () => {
+  it('na edição de um pedido agendado antigo envia só o motivo, para agora, e volta com "salvo"', async () => {
     const form = await create('saida-sintetica');
-    expect(form.departure().value).toBe('2026-09-30T14:00');
-    await form.submit();
-    expect(api['saveExit'].mock.calls[0][0]).not.toHaveProperty('expectedReturnAt');
-    expect(api['saveExit'].mock.calls[0][0].requestedDepartureAt).toBe('2026-09-30T17:00:00.000Z');
-  });
-
-  it('não reaproveita a partida de um pedido NOW ao agendar na edição', async () => {
-    api['exit'].mockResolvedValue(saved({ departureMode: 'NOW', requestedDepartureAt: now }));
-    const form = await create('saida-sintetica');
-    await form.mode('SCHEDULED');
-    expect(form.departure().value).toBe('');
-  });
-
-  it('pede a partida ao agendar e não trava ao voltar para Agora', async () => {
-    const form = await create();
-    await form.mode('SCHEDULED');
-    await form.submit();
-    expect(api['saveExit']).not.toHaveBeenCalled();
-    expect(form.root.querySelector('.op-field-error')!.textContent).toContain(
-      'data e hora de saída',
+    expect(form.root.querySelector('h1')!.textContent).toBe('Mudar saída curta');
+    await form.submit('Buscar material na biblioteca');
+    expect(api['saveExit']).toHaveBeenCalledWith(
+      {
+        departureMode: 'NOW',
+        reason: 'Buscar material na biblioteca',
+        notes: 'Observação sintética',
+      },
+      expect.objectContaining({ id: 'saida-sintetica' }),
     );
-    await form.mode('NOW');
-    await form.submit();
-    expect(api['saveExit']).toHaveBeenCalledTimes(1);
+    expect(form.navigate).toHaveBeenCalledWith(['/saidas', 'saida-sintetica'], {
+      queryParams: { saved: '1' },
+    });
   });
 
   it('sobreposição mantém o envio disponível e conflito de versão bloqueia até recarregar', async () => {
     const form = await create();
     api['saveExit'].mockRejectedValueOnce(new OperationsApiError(409, 'overlapping_exit'));
     await form.submit();
-    expect(form.root.querySelector('[role="alert"]')!.textContent).toContain('nesse horário');
+    expect(form.root.querySelector('[role="alert"]')!.textContent).toContain(
+      'Você já tem outra saída nesse período. Cancele o outro pedido ou espere a volta dele.',
+    );
     expect(form.button().disabled).toBe(false);
     expect(form.root.textContent).not.toContain('Recarregar dados');
     api['saveExit'].mockRejectedValueOnce(new OperationsApiError(409, 'stale_version'));

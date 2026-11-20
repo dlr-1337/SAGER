@@ -146,9 +146,10 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
     canCancel:
       exit.status === 'AGUARDANDO_ANALISE' ||
       (state.role === 'supervisor' && exit.status === 'APROVADA'),
+    // Como o servidor: o pedido aguardando análise já pode ter a saída registrada (2 passos).
     canDepart:
       state.role === 'supervisor' &&
-      exit.status === 'APROVADA' &&
+      (exit.status === 'AGUARDANDO_ANALISE' || exit.status === 'APROVADA') &&
       Date.parse(state.now) >= Date.parse(exit.requestedDepartureAt),
     canReturn: state.role === 'supervisor' && exit.status === 'EM_ANDAMENTO',
   });
@@ -276,18 +277,24 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
         return ok(eligibility);
       }
       if (path === '/api/v1/saidas-curtas') state.listReads++;
+      // Como o servidor: "Atrasada" é a em andamento depois do retorno previsto, e vem primeiro.
+      const late = (exit: ShortExit) =>
+        exit.status === 'EM_ANDAMENTO' &&
+        Date.parse(exit.expectedReturnAt) <= Date.parse(state.now);
+      const shown = (exit: ShortExit) => (late(exit) ? 'ATRASADA' : exit.status);
       if (path === '/api/v1/saidas-curtas')
         return ok(
           state.exits
             .filter(
               (exit) =>
                 (!url.searchParams.get('status') ||
-                  exit.status === url.searchParams.get('status')) &&
+                  shown(exit) === url.searchParams.get('status')) &&
                 (!url.searchParams.get('search') ||
                   `${exit.residentName} ${exit.enrollment}`.includes(
                     url.searchParams.get('search')!,
                   )),
             )
+            .sort((first, second) => Number(late(second)) - Number(late(first)))
             .map(view),
         );
       if (path === `/api/v1/saidas-curtas/${exitId}`)
@@ -353,9 +360,11 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
       const editing = method === 'PUT';
       const exit = editing ? state.exits[0] : exitFixture();
       if (editing) expect(body.version).toBe(exit.version);
-      if (body.departureMode === 'NOW') expect(body).not.toHaveProperty('requestedDepartureAt');
+      // A saída curta é sempre para agora: sem horário no corpo (short-exit-two-steps).
+      expect(body.departureMode).toBe('NOW');
+      expect(body).not.toHaveProperty('requestedDepartureAt');
       expect(body).not.toHaveProperty('expectedReturnAt');
-      const requested = body.departureMode === 'NOW' ? state.now : body.requestedDepartureAt;
+      const requested = state.now;
       Object.assign(exit, body, {
         requestedDepartureAt: requested,
         expectedReturnAt: plus3h(requested),
@@ -369,12 +378,13 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
       expect(body.version).toBe(exit.version);
       let kind = '';
       if (path.endsWith('/decisao')) {
+        // Como o servidor: a saída curta só é rejeitada aqui; liberar é registrar a saída.
+        expect(body.decision).toBe('REJECT');
         kind = body.decision;
-        exit.status = body.decision === 'APPROVE' ? 'APROVADA' : 'REJEITADA';
+        exit.status = 'REJEITADA';
         exit.decision = body.decision;
         exit.decisionComment = body.comment ?? null;
         exit.decidedAt = state.now;
-        // Como o servidor: aprovar só decide; a saída é registrada à parte, em /partida.
       }
       if (path.endsWith('/cancelamento')) {
         kind = 'CANCEL';
@@ -389,6 +399,11 @@ async function mockApi(page: Page, options: Partial<MockState> = {}): Promise<Mo
         const actual = body.timeMode === 'NOW' ? state.now : body.occurredAt;
         if (path.endsWith('/partida')) {
           kind = 'DEPARTURE';
+          // Registrar a saída do pedido aguardando análise também o libera, no mesmo ato.
+          if (exit.status === 'AGUARDANDO_ANALISE') {
+            exit.decision = 'APPROVE';
+            exit.decidedAt = actual;
+          }
           exit.actualDepartureAt = actual;
           exit.expectedReturnAt = plus3h(actual);
           exit.departureRecordedAt = state.now;
@@ -484,6 +499,50 @@ test('situação Aprovada permanece ao abrir uma saída curta e retornar à list
   await expect(page.getByLabel('Situação', { exact: true })).toHaveValue('APROVADA');
   expect(new URL((await restored).url()).searchParams.get('status')).toBe('APROVADA');
   await expect(page.getByRole('link', { name: 'Ver pedido' })).toHaveCount(1);
+});
+
+test('saída curta atrasada aparece primeiro, em vermelho, e tem filtro próprio', async ({
+  page,
+}) => {
+  const onTime = {
+    ...exitFixture(),
+    id: 'saida-no-prazo',
+    residentName: 'Residente No Prazo',
+    status: 'EM_ANDAMENTO' as ShortExitStatus,
+    actualDepartureAt: '2026-09-30T15:30:00Z',
+    expectedReturnAt: '2026-09-30T18:30:00Z',
+    deadlineAt: null,
+  };
+  const overdue = {
+    ...onTime,
+    id: 'saida-atrasada',
+    residentName: 'Residente Atrasado',
+    actualDepartureAt: '2026-09-30T12:00:00Z',
+    expectedReturnAt: '2026-09-30T15:00:00Z',
+  };
+  await mockApi(page, { exits: [onTime, overdue] });
+  await page.goto('/saidas');
+  const rows = page.locator('.op-row');
+  await expect(rows).toHaveCount(2);
+  await expect(rows.first().getByRole('heading')).toHaveText('Residente Atrasado');
+  await expect(rows.first().locator('.status')).toHaveText('Atrasada');
+  await expect(rows.first().locator('.status')).toHaveAttribute('data-tone', 'danger');
+  await expect(rows.first()).toContainText(
+    'Saiu: 30/09/2026, 09:00 · Volta até: 30/09/2026, 12:00',
+  );
+  await expect(rows.last().locator('.status')).toHaveText('Em andamento');
+  const filtered = page.waitForResponse(
+    (response) => new URL(response.url()).searchParams.get('status') === 'ATRASADA',
+  );
+  await openMoreFilters(page);
+  await page.getByLabel('Situação', { exact: true }).selectOption('ATRASADA');
+  await filtered;
+  await expect(page.getByRole('button', { name: 'Remover filtro Situação' })).toContainText(
+    'Situação: Atrasada',
+  );
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first().getByRole('heading')).toHaveText('Residente Atrasado');
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });
 
 test('chamada filtra por bloco e quarto, com número repetido, sem liberar o fechamento', async ({
@@ -663,7 +722,7 @@ test('residente maior de idade consulta as saídas sem pedir, mudar nem cancelar
   expect(state.writes).toEqual([]);
 });
 
-test('residente envia NOW sem relógio do navegador, edita e consulta depois de recarregar', async ({
+test('residente pede para agora, vê "Pedido enviado" uma vez, edita e consulta depois de recarregar', async ({
   page,
 }) => {
   const state = await mockApi(page, { role: 'residente' });
@@ -671,16 +730,29 @@ test('residente envia NOW sem relógio do navegador, edita e consulta depois de 
   await expect(page.getByRole('heading', { name: 'Nenhum pedido ainda.' })).toBeVisible();
   await page.getByRole('link', { name: 'Pedir saída curta' }).click();
   await expect(page.getByLabel('Que horas você volta?')).toHaveCount(0);
+  await expect(page.getByLabel('Quando você quer sair?')).toHaveCount(0);
   await page.getByLabel('Por que você quer sair?').fill('Buscar material escolar');
   await page.getByRole('button', { name: 'Enviar pedido' }).click();
-  await expect(page).toHaveURL(new RegExp(`/saidas/${exitId}`));
-  await expect(page.getByText('Pedido salvo.', { exact: true })).toBeVisible();
+  const sent = page.getByRole('dialog');
+  await expect(sent.getByRole('heading', { name: 'Pedido enviado' })).toBeVisible();
+  await expect(sent).toContainText(
+    'Quando quiser sair, vá até o supervisor. As 3 horas só começam quando ele registrar a sua saída.',
+  );
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  // O endereço perde "enviado": recarregar não abre a janela de novo.
+  await expect(page).toHaveURL(new RegExp(`/saidas/${exitId}$`));
+  await sent.getByRole('button', { name: 'Entendi' }).click();
+  await expect(sent).toHaveCount(0);
+  expect(state.writes[0].body).toMatchObject({ departureMode: 'NOW' });
   expect(state.writes[0].body).not.toHaveProperty('requestedDepartureAt');
   expect(state.writes[0].body).not.toHaveProperty('expectedReturnAt');
+  await expect(page.getByRole('heading', { name: 'Apresente-se ao supervisor' })).toBeVisible();
+  await expect(page.getByText('O que você pode fazer')).toHaveCount(0);
   await expect(page.getByText('até 3 h depois da saída', { exact: true })).toBeVisible();
   expect(state.exits[0].residentId).toBe(residentId);
   await page.reload();
   await expect(page.getByText('Buscar material escolar', { exact: true })).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Registrar volta' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Registrar saída' })).toHaveCount(0);
   await page.getByRole('link', { name: 'Mudar pedido' }).click();
@@ -689,6 +761,9 @@ test('residente envia NOW sem relógio do navegador, edita e consulta depois de 
   await expect(
     page.getByText('Buscar material escolar na papelaria', { exact: true }),
   ).toBeVisible();
+  await expect(page.getByText('Pedido salvo.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page).toHaveURL(new RegExp(`/saidas/${exitId}$`));
   expect(state.writes[1].body.version).toBe(1);
   await page.getByRole('button', { name: 'Cancelar pedido', exact: true }).click();
   const dialog = page.getByRole('dialog');
@@ -696,21 +771,33 @@ test('residente envia NOW sem relógio do navegador, edita e consulta depois de 
   await expect(dialog.getByRole('button', { name: 'Cancelar pedido' })).toHaveClass(/btn-danger/);
   await dialog.getByRole('button', { name: 'Voltar', exact: true }).click();
   expect(state.writes).toHaveLength(2);
+  await page.reload();
+  await expect(page.getByText('Pedido salvo.', { exact: true })).toHaveCount(0);
 });
 
-test('saída agendada converte São Paulo, não pede volta e não solicita sem alocação', async ({
+test('pedido de saída curta não pergunta o horário e não é feito sem alocação', async ({
   page,
 }) => {
-  const state = await mockApi(page, { role: 'residente' });
+  const state = await mockApi(page, { role: 'residente', now: '2026-09-30T16:00:20Z' });
   await page.goto('/saidas/nova');
-  await page.getByLabel('Quando você quer sair?').selectOption('SCHEDULED');
-  await page.getByLabel('Data e hora de saída').fill('2026-09-30T14:00');
+  await expect(page.getByText('Diga por que quer sair.', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText('até 3 horas a partir da hora em que o supervisor registra sua saída'),
+  ).toBeVisible();
+  await expect(page.getByLabel('Que horas você volta?')).toHaveCount(0);
+  await expect(page.getByLabel('Data e hora de saída')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Enviar pedido' }).click();
+  await expect(page.getByText('Escreva o motivo da saída.', { exact: true })).toBeVisible();
+  expect(state.writes).toHaveLength(0);
   await page.getByLabel('Por que você quer sair?').fill('Buscar material escolar');
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.getByRole('button', { name: 'Enviar pedido' }).click();
   await expect(page).toHaveURL(new RegExp(`/saidas/${exitId}`));
-  expect(state.writes[0].body.requestedDepartureAt).toBe('2026-09-30T17:00:00.000Z');
-  expect(state.writes[0].body).not.toHaveProperty('expectedReturnAt');
-  await expect(page.getByText('até 3 h depois da saída', { exact: true })).toBeVisible();
+  expect(state.writes[0].body).toEqual({
+    departureMode: 'NOW',
+    reason: 'Buscar material escolar',
+    notes: null,
+  });
   state.eligible = false;
   await page.goto('/saidas/nova');
   await expect(
@@ -722,74 +809,50 @@ test('saída agendada converte São Paulo, não pede volta e não solicita sem a
   await expect(page.getByRole('button', { name: 'Enviar pedido' })).toHaveCount(0);
 });
 
-test('Agendar pede a partida e a ajuda diz que são 3 horas a partir da saída registrada', async ({
-  page,
-}) => {
-  const state = await mockApi(page, { role: 'residente', now: '2026-09-30T16:00:20Z' });
-  await page.goto('/saidas/nova');
-  await expect(page.getByText('Diga quando sai e por quê.', { exact: true })).toBeVisible();
-  await expect(
-    page.getByText('até 3 horas a partir da hora em que o supervisor registra sua saída'),
-  ).toBeVisible();
-  await expect(page.getByLabel('Que horas você volta?')).toHaveCount(0);
-  const departure = page.getByLabel('Data e hora de saída');
-  await page.getByLabel('Quando você quer sair?').selectOption('SCHEDULED');
-  await expect(departure).toHaveValue('');
-  await expect(departure).toHaveAttribute('min', '2026-09-30T13:01');
-  await page.getByLabel('Por que você quer sair?').fill('Buscar material escolar');
-  await page.getByRole('button', { name: 'Enviar pedido' }).click();
-  await expect(page.getByText('Informe a data e hora de saída.', { exact: true })).toBeVisible();
-  expect(state.writes).toHaveLength(0);
-  await departure.fill('2026-09-30T16:00');
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-  await page.getByRole('button', { name: 'Enviar pedido' }).click();
-  await expect(page).toHaveURL(new RegExp(`/saidas/${exitId}`));
-  expect(state.writes[0].body.requestedDepartureAt).toBe('2026-09-30T19:00:00.000Z');
-  expect(state.writes[0].body).not.toHaveProperty('expectedReturnAt');
-});
-
-test('supervisor aprova o pedido para sair agora, registra a saída quando o residente se apresenta e depois a volta tardia', async ({
+test('supervisor registra a saída quando o residente se apresenta, vê "Atrasada" e registra a volta tardia', async ({
   page,
 }) => {
   const state = await mockApi(page, { exits: [exitFixture()] });
   await page.goto(`/saidas/${exitId}`);
-  await page.getByRole('button', { name: 'Aprovar', exact: true }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Cancelar', exact: true }).click();
-  expect(state.writes).toHaveLength(0);
-  await page.getByRole('button', { name: 'Aprovar', exact: true }).click();
-  let dialog = page.getByRole('dialog');
-  await expect(dialog).toContainText(
-    'Aprovar não registra a saída; ela é registrada quando o residente se apresentar.',
-  );
-  await dialog.getByRole('button', { name: 'Confirmar aprovação' }).click();
-  await expect(page.locator('.op-exit-heading .status')).toHaveText('Aprovada');
-  await expect(page.getByText('Aprovação registrada.')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Saída', exact: true })).toBeFocused();
+  await expect(page.getByText('Passo 1 de 2', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Saída', exact: true })).toBeVisible();
   await expect(page.getByText('Registre a saída quando o residente se apresentar.')).toBeVisible();
   await expect(page.locator('.op-exit-actions').getByRole('button')).toHaveText([
     'Registrar saída',
+    'Rejeitar',
   ]);
-  expect(state.writes).toHaveLength(1);
-  expect(state.exits[0].version).toBe(1);
-  expect(state.exits[0].status).toBe('APROVADA');
-  expect(state.exits[0].actualDepartureAt).toBeNull();
-  expect(state.exits[0].history.map((event) => event.event)).toEqual(['APPROVE']);
+  await expect(page.getByRole('button', { name: 'Aprovar', exact: true })).toHaveCount(0);
+  await expect(page.locator('dt', { hasText: 'Pedido em' })).toBeVisible();
   // O residente se apresenta 30 minutos depois: só então a saída começa.
   state.now = '2026-09-30T16:30:00Z';
   await page.getByRole('button', { name: 'Registrar saída' }).click();
-  dialog = page.getByRole('dialog');
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancelar', exact: true }).click();
+  expect(state.writes).toHaveLength(0);
+  await page.getByRole('button', { name: 'Registrar saída' }).click();
+  let dialog = page.getByRole('dialog');
   await expect(dialog).toContainText('Veja o residente pessoalmente antes de liberar a saída.');
   await dialog.getByRole('button', { name: 'Confirmar saída', exact: true }).click();
   await expect(page.locator('.op-exit-heading .status')).toHaveText('Em andamento');
-  await expect(page.getByRole('heading', { name: 'Volta' })).toBeFocused();
-  expect(state.writes[1].body).toEqual({ version: 1, timeMode: 'NOW' });
-  expect(state.exits[0].version).toBe(2);
-  expect(state.exits[0].history.map((event) => event.event)).toEqual(['APPROVE', 'DEPARTURE']);
   // Saída registrada às 13:30 de Brasília: a volta fica para 16:30.
+  await expect(page.getByText('Saída registrada. Volta até 30/09/2026, 16:30.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Volta' })).toBeFocused();
+  await expect(page.getByText('Passo 2 de 2', { exact: true })).toBeVisible();
+  await expect(page.locator('.op-exit-actions').getByRole('button')).toHaveText([
+    'Registrar volta',
+  ]);
+  expect(state.writes[0].body).toEqual({ version: 0, timeMode: 'NOW' });
+  expect(state.writes[0].path).toBe(`/api/v1/saidas-curtas/${exitId}/partida`);
+  expect(state.exits[0].version).toBe(1);
+  expect(state.exits[0].decision).toBe('APPROVE');
+  expect(state.exits[0].history.map((event) => event.event)).toEqual(['DEPARTURE']);
   await expect(page.locator('dt:has-text("Retorno previsto") + dd').first()).toHaveText(
     '30/09/2026, 16:30',
   );
+  // Passou da volta prevista sem volta registrada: o selo vira "Atrasada".
   state.now = '2026-09-30T20:00:00Z';
+  await page.reload();
+  await expect(page.locator('.op-exit-heading .status')).toHaveText('Atrasada');
+  await expect(page.getByText('A volta era até 30/09/2026, 16:30.')).toBeVisible();
   await page.getByRole('button', { name: 'Registrar volta' }).click();
   dialog = page.getByRole('dialog');
   await expect(dialog).toContainText('Veja o residente pessoalmente antes de confirmar a volta.');
@@ -807,8 +870,8 @@ test('supervisor aprova o pedido para sair agora, registra a saída quando o res
   await expect(page.locator('.op-exit-heading .status')).toHaveText(
     'Retorno confirmado com atraso',
   );
-  expect(state.writes[2].body).toEqual({
-    version: 2,
+  expect(state.writes[1].body).toEqual({
+    version: 1,
     timeMode: 'RETROACTIVE',
     occurredAt: '2026-09-30T19:45:00.000Z',
     justification: 'Retorno conferido no livro da portaria.',
@@ -818,13 +881,12 @@ test('supervisor aprova o pedido para sair agora, registra a saída quando o res
   const more = page.locator('details.more-details');
   await expect(more).not.toHaveAttribute('open', '');
   await more.getByText('Mais detalhes', { exact: true }).click();
-  await expect(more.getByText('Pedido aprovado', { exact: true })).toBeVisible();
   await expect(more.getByText('Saída registrada', { exact: true })).toBeVisible();
   await expect(more.getByText('Volta registrada', { exact: true })).toBeVisible();
-  expect(state.exits[0].history).toHaveLength(3);
+  expect(state.exits[0].history).toHaveLength(2);
 });
 
-test('saída agendada aprovada mostra a hora marcada e só oferece "Registrar saída" na hora', async ({
+test('saída agendada e aprovada antes da mudança mostra a hora marcada e só "Registrar saída" na hora', async ({
   page,
 }) => {
   const scheduled = {
@@ -832,15 +894,17 @@ test('saída agendada aprovada mostra a hora marcada e só oferece "Registrar sa
     departureMode: 'SCHEDULED' as const,
     requestedDepartureAt: '2026-09-30T18:00:00Z',
     expectedReturnAt: '2026-09-30T20:00:00Z',
+    status: 'APROVADA' as ShortExitStatus,
+    decision: 'APPROVE' as const,
+    decidedAt: initialNow,
   };
   const state = await mockApi(page, { exits: [scheduled] });
   await page.goto(`/saidas/${exitId}`);
-  await page.getByRole('button', { name: 'Aprovar', exact: true }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Confirmar aprovação' }).click();
-  await expect(page.getByText('Aprovação registrada.')).toBeVisible();
   await expect(page.locator('.op-exit-heading .status')).toHaveText('Aprovada');
+  await expect(page.locator('dt', { hasText: 'Saída agendada para' })).toBeVisible();
   await expect(page.getByText('Saída marcada para 30/09/2026, 15:00.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Registrar saída' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Rejeitar' })).toHaveCount(0);
   const cancel = page.getByRole('button', { name: 'Cancelar pedido' });
   await expect(cancel).toBeHidden();
   await page.getByText('Mais detalhes', { exact: true }).click();
@@ -857,20 +921,17 @@ test('saída agendada aprovada mostra a hora marcada e só oferece "Registrar sa
   await page.getByRole('button', { name: 'Registrar saída' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Confirmar saída' }).click();
   await expect(page.locator('.op-exit-heading .status')).toHaveText('Em andamento');
-  expect(state.writes[1].body).toEqual({ version: 1, timeMode: 'NOW' });
+  expect(state.writes[0].body).toEqual({ version: 0, timeMode: 'NOW' });
   // Saída registrada às 15:00 de Brasília: a volta fica para 18:00.
   await expect(returnAt).toHaveText('30/09/2026, 18:00');
 });
 
-test('conflito físico ao registrar a saída explica o que fazer e mantém as ações', async ({
+test('conflito físico ao registrar a saída explica o que fazer e mantém o pedido à espera', async ({
   page,
 }) => {
   const state = await mockApi(page, { exits: [exitFixture()] });
   await page.goto(`/saidas/${exitId}`);
-  await page.getByRole('button', { name: 'Aprovar', exact: true }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Confirmar aprovação' }).click();
-  await expect(page.locator('.op-exit-heading .status')).toHaveText('Aprovada');
-  // O residente ainda está fora com outra saída: o servidor recusa a partida, não a aprovação.
+  // O residente ainda está fora com outra saída: o servidor recusa a partida, e o pedido continua.
   state.conflictOnce = true;
   state.conflictCode = 'physical_exit_conflict';
   await page.getByRole('button', { name: 'Registrar saída' }).click();
@@ -880,26 +941,29 @@ test('conflito físico ao registrar a saída explica o que fazer e mantém as a�
   );
   await expect(page.getByRole('button', { name: 'Registrar saída' })).toBeEnabled();
   await expect(page.getByRole('button', { name: 'Recarregar dados' })).toHaveCount(0);
-  expect(state.writes.map((write) => write.path.split('/').pop())).toEqual(['decisao', 'partida']);
-  expect(state.exits[0].status).toBe('APROVADA');
+  expect(state.writes.map((write) => write.path.split('/').pop())).toEqual(['partida']);
+  expect(state.exits[0].status).toBe('AGUARDANDO_ANALISE');
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });
 
-test('conflito exige recarga explícita e nunca repete a decisão com outra versão', async ({
+test('conflito exige recarga explícita e nunca repete a rejeição com outra versão', async ({
   page,
 }) => {
   const state = await mockApi(page, { exits: [exitFixture()], conflictOnce: true });
   await page.goto(`/saidas/${exitId}`);
-  await page.getByRole('button', { name: 'Aprovar', exact: true }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Confirmar aprovação' }).click();
+  await page.getByRole('button', { name: 'Rejeitar', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Justificativa', { exact: true }).fill('Sem vaga no momento.');
+  await dialog.getByRole('button', { name: 'Confirmar rejeição' }).click();
   await expect(page.getByRole('alert')).toContainText('Clique em Recarregar');
-  await expect(page.getByRole('button', { name: 'Aprovar', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Rejeitar', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Registrar saída' })).toBeDisabled();
   expect(state.writes).toHaveLength(1);
   state.exits[0].status = 'REJEITADA';
   state.exits[0].version = 1;
   await page.getByRole('button', { name: 'Recarregar dados' }).click();
   await expect(page.locator('.op-exit-heading .status')).toHaveText('Rejeitada');
-  await expect(page.getByRole('button', { name: 'Aprovar', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Rejeitar', exact: true })).toHaveCount(0);
   expect(state.writes).toHaveLength(1);
 });
 
@@ -927,12 +991,12 @@ test('layout de 320px, revisão por teclado, foco restaurado e acessibilidade', 
   await page.setViewportSize({ width: 320, height: 900 });
   const state = await mockApi(page, { exits: [exitFixture()] });
   await page.goto(`/saidas/${exitId}`);
-  const approve = page.getByRole('button', { name: 'Aprovar', exact: true });
+  const approve = page.getByRole('button', { name: 'Registrar saída', exact: true });
   await approve.focus();
   await page.keyboard.press('Enter');
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByLabel('Comentário (opcional)')).toBeFocused();
+  await expect(dialog.locator(':focus')).toHaveCount(1);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.keyboard.press('Escape');
   await expect(dialog).not.toBeVisible();
@@ -1012,10 +1076,10 @@ test('saídas e chamada com orientação curta, cores, legenda e detalhes recolh
   const legend = page.locator('sager-status-legend details');
   await expect(legend).not.toHaveAttribute('open', '');
   await legend.getByText('O que significa cada cor?').click();
-  await expect(legend.locator('dl > div')).toHaveCount(8);
+  await expect(legend.locator('dl > div')).toHaveCount(9);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.getByRole('link', { name: 'Ver pedido' }).click();
-  await expect(page.getByRole('heading', { name: 'Decisão' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Saída', exact: true })).toBeVisible();
   await expectShortGuidance(page);
   await expect(page.locator('details.more-details')).not.toHaveAttribute('open', '');
   await expect(page.getByRole('heading', { name: 'Histórico' })).toBeHidden();
@@ -1093,9 +1157,9 @@ for (const size of [...phoneSizes, { width: 360, height: 600 }]) {
     await openMoreFilters(page);
     await expectFits(page, 'lista de saídas');
     await page.goto(`/saidas/${exitId}`);
-    await expect(page.getByRole('heading', { name: 'Decisão' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Saída', exact: true })).toBeVisible();
     await expectFits(page, 'detalhe da saída');
-    for (const action of ['Aprovar', 'Rejeitar']) {
+    for (const action of ['Registrar saída', 'Rejeitar']) {
       await page.getByRole('button', { name: action, exact: true }).click();
       await expect(dialog).toBeVisible();
       await expectFits(page, `diálogo ${action}`);

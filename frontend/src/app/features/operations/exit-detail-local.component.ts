@@ -9,7 +9,7 @@ import {
   signal,
 } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { autoRefresh } from '../../core/auto-refresh';
 import { DemoSessionService } from '../../core/demo-session.service';
 import { LocalAuthService } from '../../core/local-auth.service';
@@ -21,23 +21,28 @@ import {
 } from './operations-local-api.service';
 import { ShortExit } from './operations-local.models';
 import {
-  approvalNote,
   departureMinimum,
   departureStepText,
   exitEventLabels,
+  exitStatusLabel,
   exitStatusLabels,
   formatOperationsTime,
-  residentDepartureText,
+  isOverdue,
+  shortExitPresentText,
+  shortExitPresentTitle,
   shortReturnText,
+  shownExitStatusLabels,
   leavesNow,
 } from './operations-local.utils';
+import { ExitSentDialogComponent } from './exit-sent-dialog.component';
 import {
   LocalOperationsReviewDialogComponent,
   LocalReviewData,
   LocalReviewResult,
 } from './review-dialog-local.component';
 
-type ExitStep = 'Decisão' | 'Saída' | 'Volta';
+/** Dois passos do supervisor: registrar a saída e registrar a volta (short-exit-two-steps). */
+type ExitStep = 'Saída' | 'Volta';
 
 @Component({
   standalone: true,
@@ -53,8 +58,8 @@ type ExitStep = 'Decisão' | 'Saída' | 'Volta';
         <div class="op-exit-title-row">
           <h1>Pedido de saída curta</h1>
           @if (item(); as exit) {
-            <span class="status" [attr.data-tone]="tone(labels[exit.status])">{{
-              labels[exit.status]
+            <span class="status" [attr.data-tone]="tone(statusLabel(exit))">{{
+              statusLabel(exit)
             }}</span>
           }
         </div>
@@ -81,11 +86,7 @@ type ExitStep = 'Decisão' | 'Saída' | 'Volta';
         }
         @if (exit.deadlineAt) {
           <p class="op-help">
-            {{
-              exit.status === 'AGUARDANDO_ANALISE'
-                ? 'Prazo para análise'
-                : 'Prazo para iniciar a saída'
-            }}: {{ formatTime(exit.deadlineAt) }}. Depois, o pedido perde a validade.
+            O pedido vale até {{ formatTime(exit.deadlineAt) }}. Depois, perde a validade.
           </p>
         }
         <div class="op-exit-grid op-step-grid">
@@ -93,13 +94,7 @@ type ExitStep = 'Decisão' | 'Saída' | 'Volta';
             <h2 id="local-exit-overview">Dados do pedido</h2>
             <dl class="op-definition">
               <div>
-                <dt>Quando</dt>
-                <dd>
-                  {{ exit.departureMode === 'NOW' ? 'Assim que liberar' : 'Saída agendada' }}
-                </dd>
-              </div>
-              <div>
-                <dt>Saída pedida</dt>
+                <dt>{{ requestedLabel(exit) }}</dt>
                 <dd>{{ formatTime(exit.requestedDepartureAt) }}</dd>
               </div>
               <div>
@@ -116,7 +111,9 @@ type ExitStep = 'Decisão' | 'Saída' | 'Volta';
                   <dd>{{ exit.notes }}</dd>
                 </div>
               }
-              @if (exit.decision) {
+              <!-- A liberação é o próprio registro da saída: a decisão só aparece na rejeição e
+                na saída aprovada antes de 20/11/2026. -->
+              @if (exit.decision === 'REJECT' || exit.status === 'APROVADA') {
                 <div>
                   <dt>Decisão</dt>
                   <dd>
@@ -178,43 +175,42 @@ type ExitStep = 'Decisão' | 'Saída' | 'Volta';
               }
               <h2 id="exit-step" tabindex="-1">{{ step() ?? 'Próximo passo' }}</h2>
               @switch (step()) {
-                @case ('Decisão') {
-                  <div class="op-actions">
-                    <button
-                      class="btn op-primary"
-                      type="button"
-                      [disabled]="locked()"
-                      (click)="decide('APPROVE')"
-                    >
-                      Aprovar</button
-                    ><button
-                      class="btn-danger"
-                      type="button"
-                      [disabled]="locked()"
-                      (click)="decide('REJECT')"
-                    >
-                      Rejeitar
-                    </button>
-                  </div>
-                }
                 @case ('Saída') {
                   @if (leavesNow(exit)) {
                     <p>{{ departureStepText }}</p>
                   } @else {
                     <p>Saída marcada para {{ formatTime(exit.requestedDepartureAt) }}.</p>
                   }
-                  @if (exit.capabilities.canDepart) {
-                    <button
-                      class="btn op-primary"
-                      type="button"
-                      [disabled]="locked()"
-                      (click)="physical('partida')"
-                    >
-                      Registrar saída
-                    </button>
+                  @if (exit.capabilities.canDepart || exit.capabilities.canDecide) {
+                    <div class="op-actions">
+                      @if (exit.capabilities.canDepart) {
+                        <button
+                          class="btn op-primary"
+                          type="button"
+                          [disabled]="locked()"
+                          (click)="physical('partida')"
+                        >
+                          Registrar saída
+                        </button>
+                      }
+                      @if (exit.capabilities.canDecide) {
+                        <button
+                          class="btn-danger"
+                          type="button"
+                          [disabled]="locked()"
+                          (click)="reject()"
+                        >
+                          Rejeitar
+                        </button>
+                      }
+                    </div>
                   }
                 }
                 @case ('Volta') {
+                  <p>
+                    {{ overdue(exit) ? 'A volta era até' : 'Volta até' }}
+                    {{ formatTime(exit.expectedReturnAt) }}.
+                  </p>
                   @if (exit.capabilities.canReturn) {
                     <button
                       class="btn op-primary"
@@ -231,13 +227,14 @@ type ExitStep = 'Decisão' | 'Saída' | 'Volta';
                 }
               }
             } @else {
-              <h2 id="exit-step" tabindex="-1">O que você pode fazer</h2>
-              @if (exit.status === 'APROVADA') {
-                @if (leavesNow(exit)) {
-                  <p>{{ residentDepartureText }}</p>
-                } @else {
-                  <p>Saída marcada para {{ formatTime(exit.requestedDepartureAt) }}.</p>
-                }
+              <!-- O passo do residente em destaque, sem "O que você pode fazer" (short-exit-two-steps). -->
+              @if (residentStep(exit); as current) {
+                <div class="op-present" [class.op-present-late]="current.late">
+                  <h2 id="exit-step" tabindex="-1">{{ current.title }}</h2>
+                  <p>{{ current.text }}</p>
+                </div>
+              } @else {
+                <h2 id="exit-step" tabindex="-1">Próximo passo</h2>
               }
               @if (exit.capabilities.canEdit && !adult()) {
                 <a
@@ -259,10 +256,12 @@ type ExitStep = 'Decisão' | 'Saída' | 'Volta';
                   </button>
                 </div>
               }
-              @if (adult() || (!exit.capabilities.canEdit && !exit.capabilities.canCancel)) {
+              @if (
+                !residentStep(exit) &&
+                (adult() || (!exit.capabilities.canEdit && !exit.capabilities.canCancel))
+              ) {
                 <p class="op-help">Nenhuma ação disponível para este pedido.</p>
               }
-              <p class="op-help">O supervisor registra a saída e a volta.</p>
             }
             @if (busy()) {
               <p role="status">Processando registro…</p>
@@ -345,6 +344,30 @@ type ExitStep = 'Decisão' | 'Saída' | 'Volta';
         font-weight: 400;
         margin-top: 5px;
       }
+      /* O passo do residente em destaque (short-exit-two-steps). */
+      .op-present {
+        background: var(--info-bg);
+        color: var(--info-ink);
+        border-left: 4px solid currentColor;
+        border-radius: 12px;
+        padding: 16px 18px;
+        margin-bottom: 16px;
+      }
+      .op-present h2 {
+        color: inherit;
+        font-size: 1.375rem;
+        margin: 0 0 6px;
+      }
+      .op-present p {
+        font-size: 1.0625rem;
+        font-weight: 600;
+        line-height: 1.45;
+        margin: 0;
+      }
+      .op-present.op-present-late {
+        background: var(--danger-bg);
+        color: var(--danger-ink);
+      }
     `,
   ],
 })
@@ -357,6 +380,7 @@ export class ExitDetailLocalComponent {
   private readonly dialog = inject(MatDialog);
   private readonly injector = inject(Injector);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly id = this.route.snapshot.paramMap.get('id') ?? '';
   readonly item = signal<ShortExit | null>(null);
   readonly loading = signal(false);
@@ -368,19 +392,22 @@ export class ExitDetailLocalComponent {
   readonly locked = computed(() => this.busy() || this.conflict());
   readonly saved = signal(this.route.snapshot.queryParamMap.get('saved') === '1');
   readonly labels = exitStatusLabels;
-  readonly legendNames = Object.values(exitStatusLabels);
+  readonly legendNames = Object.values(shownExitStatusLabels);
   readonly tone = toneAttr;
-  /** Só a ação do momento: Decisão, Saída (toda aprovada) e Volta (exit-departure-in-person, D3). */
+  readonly statusLabel = exitStatusLabel;
+  readonly overdue = isOverdue;
+  /**
+   * Só a ação do momento: "Saída" registra a saída e a libera no mesmo ato, ou rejeita; "Volta"
+   * registra a volta (short-exit-two-steps). A aprovada antes de 20/11/2026 também cai em "Saída".
+   */
   readonly step = computed<ExitStep | null>(() => {
     const exit = this.item();
-    if (exit?.capabilities.canDecide) return 'Decisão';
-    if (exit?.status === 'APROVADA') return 'Saída';
+    if (exit?.capabilities.canDecide || exit?.status === 'APROVADA') return 'Saída';
     return exit?.status === 'EM_ANDAMENTO' ? 'Volta' : null;
   });
-  readonly steps: ExitStep[] = ['Decisão', 'Saída', 'Volta'];
+  readonly steps: ExitStep[] = ['Saída', 'Volta'];
   readonly leavesNow = leavesNow;
   readonly departureStepText = departureStepText;
-  readonly residentDepartureText = residentDepartureText;
   readonly events = {
     ...exitEventLabels,
     EDIT: 'Pedido alterado',
@@ -396,7 +423,48 @@ export class ExitDetailLocalComponent {
     busy: () => this.busy() || this.conflict() || this.loading(),
   });
   constructor() {
+    const query = this.route.snapshot.queryParamMap;
+    const sent = query.get('enviado') === '1';
+    // A janela e o aviso aparecem uma vez: recarregar a página não os mostra de novo.
+    if (sent || query.has('saved'))
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: {},
+        replaceUrl: true,
+      });
+    if (sent)
+      this.dialog.open(ExitSentDialogComponent, {
+        width: '480px',
+        maxWidth: 'calc(100vw - 32px)',
+        restoreFocus: true,
+      });
     void this.load();
+  }
+  /** "Pedido em" no pedido para agora; "Saída agendada para" no agendado antes de 20/11/2026. */
+  requestedLabel(exit: ShortExit): string {
+    return exit.departureMode === 'SCHEDULED' ? 'Saída agendada para' : 'Pedido em';
+  }
+  /** O passo do residente, em destaque; null quando não há nada a fazer. */
+  residentStep(exit: ShortExit): { title: string; text: string; late: boolean } | null {
+    // O maior de idade só consulta: o servidor não registra a saída dele (RN02).
+    if (this.adult()) return null;
+    if (exit.status === 'AGUARDANDO_ANALISE' || exit.status === 'APROVADA')
+      return {
+        title: shortExitPresentTitle,
+        text: leavesNow(exit)
+          ? shortExitPresentText
+          : `Saída marcada para ${formatOperationsTime(exit.requestedDepartureAt)}. Nessa hora, vá até o supervisor.`,
+        late: false,
+      };
+    if (exit.status !== 'EM_ANDAMENTO') return null;
+    const back = formatOperationsTime(exit.expectedReturnAt);
+    return isOverdue(exit)
+      ? {
+          title: 'Volta atrasada',
+          text: `A volta era até ${back}. Apresente-se ao supervisor ao voltar.`,
+          late: true,
+        }
+      : { title: `Volte até ${back}`, text: 'Apresente-se ao supervisor ao voltar.', late: false };
   }
   /** `silent`: atualização automática; mantém mensagens e conflito e lança a falha. */
   async load(silent = false): Promise<void> {
@@ -423,7 +491,8 @@ export class ExitDetailLocalComponent {
       if (sequence === this.sequence) this.loading.set(false);
     }
   }
-  decide(decision: 'APPROVE' | 'REJECT'): void {
+  /** A saída curta não tem botão de aprovar: liberar é registrar a saída (short-exit-two-steps). */
+  reject(): void {
     const exit = this.item();
     if (
       !exit ||
@@ -433,19 +502,16 @@ export class ExitDetailLocalComponent {
       this.conflict()
     )
       return;
-    const approve = decision === 'APPROVE';
     this.review(
       {
-        title: approve ? 'A saída será aprovada.' : 'O pedido será rejeitado.',
-        action: approve ? 'Confirmar aprovação' : 'Confirmar rejeição',
-        note: approve ? approvalNote : undefined,
+        title: 'O pedido será rejeitado.',
+        action: 'Confirmar rejeição',
         lines: this.summary(exit),
-        requireReason: !approve,
-        comment: approve,
-        danger: !approve,
+        requireReason: true,
+        danger: true,
       },
-      (result) => this.api.decideExit(exit, decision, result.reason),
-      approve ? 'Aprovação registrada.' : 'Rejeição registrada.',
+      (result) => this.api.decideExit(exit, 'REJECT', result.reason),
+      'Rejeição registrada.',
     );
   }
   cancel(): void {
@@ -480,6 +546,8 @@ export class ExitDetailLocalComponent {
       this.conflict()
     )
       return;
+    // O botão fica desabilitado durante a leitura e perde o foco; Esc no diálogo o devolve a ele.
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     this.busy.set(true);
     this.error.set('');
     try {
@@ -512,7 +580,11 @@ export class ExitDetailLocalComponent {
           },
         },
         (result) => this.api.physicalExit(exit.id, action, result.physical!),
-        action === 'partida' ? 'Saída registrada.' : 'Volta registrada.',
+        action === 'partida'
+          ? (saved) =>
+              `Saída registrada. Volta até ${formatOperationsTime(saved.expectedReturnAt)}.`
+          : 'Volta registrada.',
+        trigger,
       );
     } catch (error) {
       this.error.set(operationsError(error));
@@ -524,7 +596,7 @@ export class ExitDetailLocalComponent {
     return [
       { label: 'Residente', value: exit.residentName },
       { label: 'Matrícula', value: exit.enrollment },
-      { label: 'Saída pedida', value: formatOperationsTime(exit.requestedDepartureAt) },
+      { label: this.requestedLabel(exit), value: formatOperationsTime(exit.requestedDepartureAt) },
       { label: 'Retorno previsto', value: shortReturnText(exit) },
       { label: 'Motivo', value: exit.reason },
     ];
@@ -533,6 +605,7 @@ export class ExitDetailLocalComponent {
     data: LocalReviewData,
     action: (result: LocalReviewResult) => Promise<ShortExit>,
     message: string | ((exit: ShortExit) => string),
+    trigger: HTMLElement | null = null,
   ): void {
     this.dialog
       .open<LocalOperationsReviewDialogComponent, LocalReviewData, LocalReviewResult>(
@@ -548,6 +621,7 @@ export class ExitDetailLocalComponent {
       .afterClosed()
       .subscribe((result) => {
         if (result) void this.mutate(() => action(result), message);
+        else trigger?.focus();
       });
   }
   private async mutate(

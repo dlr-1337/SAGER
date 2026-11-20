@@ -83,9 +83,9 @@ export type ShortExitStatus =
   | 'REJEITADA'
   | 'CANCELADA'
   | 'EXPIRADA';
+/** A saída curta é sempre para agora: o servidor grava a hora do pedido (short-exit-two-steps). */
 export interface ShortExitInput {
-  departureMode: 'NOW' | 'SCHEDULED';
-  requestedDepartureAt?: string;
+  departureMode: 'NOW';
   reason: string;
   notes: string | null;
 }

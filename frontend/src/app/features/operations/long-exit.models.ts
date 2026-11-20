@@ -10,7 +10,10 @@ export type SignatureStatus =
   'UNAVAILABLE' | 'PENDING' | 'VALID' | 'FAILED' | 'UNCERTAIN' | 'EXPIRED' | 'INVALIDATED';
 export type DocumentMessageStatus =
   'UNAVAILABLE' | 'QUEUED' | 'ACCEPTED' | 'SENT' | 'DELIVERED' | 'READ' | 'FAILED' | 'UNCERTAIN';
-export interface LongExitInput extends ShortExitInput {
+/** A saída longa continua com "agora" ou com data e hora marcadas. */
+export interface LongExitInput extends Omit<ShortExitInput, 'departureMode'> {
+  departureMode: 'NOW' | 'SCHEDULED';
+  requestedDepartureAt?: string;
   expectedReturnAt: string;
   guardianId: string;
 }
