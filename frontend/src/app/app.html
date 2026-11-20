@@ -99,7 +99,7 @@
         <span class="material-symbols-rounded" aria-hidden="true">{{
           menuOpen() ? 'close' : 'menu'
         }}</span>
-        <span>Menu</span>
+        <span class="menu-toggle-label">Menu</span>
         <sager-pending-badge [count]="menuPending()" [announce]="false" />
       </button>
       @if (menuPending() > 0) {
