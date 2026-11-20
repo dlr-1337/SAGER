@@ -1,0 +1,30 @@
+unit: operations
+side_effects:
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/operations/shortexits/ShortExitService.java:1
+    effect: "records approval, physical departure/return, history and audit"
+    must_preserve: true
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/operations/shortexits/ShortExitExpiryScheduler.java:21
+    effect: "expires eligible pending operations on schedule"
+    must_preserve: true
+branches:
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/operations/nightcalls/NightCallService.java:1
+    condition: "mark is justified absence"
+    behavior: "requires an eligible authorized exit valid at opening"
+    must_preserve: true
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/operations/longexits/LongExitService.java:1
+    condition: "long exit requires guardian signature"
+    behavior: "uses current document revision and verified guardian snapshot before approval"
+    must_preserve: true
+error_paths:
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/operations/shortexits/ShortExitController.java:24
+    trigger: "invalid state, time or optimistic version"
+    outcome: "rejects command without partial movement"
+    contract: "existing API error shape"
+    must_preserve: true
+concurrency:
+  model: sync
+  tx_boundary:
+    source_loc: backend/src/main/java/br/edu/ifgoiano/sager/operations/shortexits/ShortExitService.java:1
+    scope: "lock operation, validate state, mutate state, append history/audit"
+    isolation: "database default"
+    must_preserve: true

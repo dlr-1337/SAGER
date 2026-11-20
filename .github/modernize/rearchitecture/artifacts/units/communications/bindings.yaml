@@ -1,0 +1,9 @@
+unit: communications
+bindings:
+  - type: route-declaration
+    name: "communications REST controller and Angular lazy routes"
+    source_loc: frontend/src/app/features/communications/communications.routes.ts:1
+    target: "communications pages"
+    must_appear_in_target: true
+    notes: "visible Portuguese labels and recipient actions are browser contracts"
+runtime_config: []

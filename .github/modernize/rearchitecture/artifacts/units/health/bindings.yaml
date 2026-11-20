@@ -1,0 +1,9 @@
+unit: health
+bindings:
+  - type: route-declaration
+    name: "health-specific routes and resident own route"
+    source_loc: frontend/src/app/app.routes.ts:59
+    target: "health pages"
+    must_appear_in_target: true
+    notes: "health role and resident identity are server-derived"
+runtime_config: []

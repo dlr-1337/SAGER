@@ -1,0 +1,9 @@
+unit: cleaning-reports
+bindings:
+  - type: convention
+    name: "@Scheduled report export"
+    source_loc: backend/src/main/java/br/edu/ifgoiano/sager/reports/ReportExportScheduler.java:12
+    target: "report export worker"
+    must_appear_in_target: true
+    notes: "lease and retry behavior must remain safe"
+runtime_config: []

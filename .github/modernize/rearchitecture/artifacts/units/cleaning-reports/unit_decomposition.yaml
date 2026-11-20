@@ -1,0 +1,7 @@
+unit: cleaning-reports
+commit: false
+candidate_splits:
+  - id: backend/src/main/java/br/edu/ifgoiano/sager/reports/ReportService.java:1
+    drivers: [execution_model_split, lifecycle_split]
+    rationale: "Synchronous snapshot reads and asynchronous export job lifecycle have different failure and lease semantics."
+    source_slice: {file: backend/src/main/java/br/edu/ifgoiano/sager/reports/ReportService.java, lines: [1, 130]}

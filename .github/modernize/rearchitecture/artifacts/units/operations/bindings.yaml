@@ -1,0 +1,15 @@
+unit: operations
+bindings:
+  - type: convention
+    name: "@Scheduled exit expiry"
+    source_loc: backend/src/main/java/br/edu/ifgoiano/sager/operations/shortexits/ShortExitExpiryScheduler.java:21
+    target: "expiry service"
+    must_appear_in_target: true
+    notes: "scheduler must remain safe for repeated execution"
+  - type: route-declaration
+    name: "operations Angular lazy routes"
+    source_loc: frontend/src/app/features/operations/operations.routes.ts:1
+    target: "operations pages"
+    must_appear_in_target: true
+    notes: "route paths are browser contracts"
+runtime_config: []

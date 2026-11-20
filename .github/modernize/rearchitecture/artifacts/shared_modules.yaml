@@ -1,0 +1,115 @@
+modules:
+  - name: angular-request-state
+    kind: mixin
+    source_loc: frontend/src/app/features/communications/communications-local.shared.ts:1
+    used_by_units: [management, operations, health, communications, cleaning, reports, signature]
+    fields:
+      - name: loading
+        type: "Signal<boolean>"
+      - name: busy
+        type: "Signal<boolean>"
+      - name: error
+        type: "Signal<string>"
+      - name: success
+        type: "Signal<string>"
+    god_class: false
+    split_candidate: false
+    migration_strategy: extract
+    notes: "Repeated page state should become a small feature-independent helper; do not hide domain transitions."
+  - name: date-time-formatters
+    kind: utility
+    source_loc: frontend/src/app/features/operations/operations-local.utils.ts:1
+    used_by_units: [operations, communications, cleaning, reports, signature]
+    fields:
+      - name: formatOperationsTime
+        type: "string formatter"
+      - name: formatCivilDate
+        type: "civil date formatter"
+      - name: formatCommunicationTime
+        type: "alias formatter"
+    god_class: false
+    split_candidate: false
+    migration_strategy: extract
+    notes: "There is already partial reuse; move canonical timezone/date helpers to shared."
+  - name: review-dialog
+    kind: component
+    source_loc: frontend/src/app/shared/review-dialog.component.ts:1
+    used_by_units: [management, operations, health, communications, cleaning, reports]
+    fields:
+      - name: ReviewDialogData
+        type: "interface"
+      - name: ReviewDialogService.open
+        type: "Observable<boolean | undefined>"
+    god_class: false
+    split_candidate: false
+    migration_strategy: copy
+    notes: "Existing shared component should replace local confirmation implementations where semantics match."
+  - name: authenticated-actor
+    kind: service
+    source_loc: backend/src/main/java/br/edu/ifgoiano/sager/discipline/DisciplineActor.java:1
+    used_by_units: [auth, management, operations, health, discipline, communications, cleaning, reports, integrations]
+    fields:
+      - name: current
+        type: "LocalAccount"
+      - name: supervisor
+        type: "LocalAccount"
+      - name: resident
+        type: "LocalAccount"
+    god_class: false
+    split_candidate: false
+    migration_strategy: extract
+    notes: "ReportingActor is an adapter around the same behavior; consolidate policy in one core actor service."
+  - name: jdbc-domain-primitives
+    kind: utility
+    source_loc: backend/src/main/java/br/edu/ifgoiano/sager/discipline/DisciplineService.java:263
+    used_by_units: [management, operations, health, discipline, communications, cleaning, reports, integrations]
+    fields:
+      - name: requireResident
+        type: "void(UUID)"
+      - name: lockById
+        type: "void(String, UUID)"
+      - name: utcNow
+        type: "OffsetDateTime()"
+      - name: requireVersion
+        type: "void(actual, expected)"
+    god_class: false
+    split_candidate: false
+    migration_strategy: extract
+    notes: "Extract only mechanics; domain-specific error types and authorization remain in each service."
+  - name: integration-transactions
+    kind: god-class
+    source_loc: backend/src/main/java/br/edu/ifgoiano/sager/integrations/IntegrationTransactions.java:1
+    used_by_units: [integrations, operations, signature]
+    fields:
+      - name: claimTask
+        type: "IntegrationTask"
+      - name: advanceSignature
+        type: "void"
+      - name: processWebhook
+        type: "void"
+      - name: markWhatsAppAttempt
+        type: "void"
+      - name: leaseOwner
+        type: "UUID"
+    god_class: true
+    split_candidate: true
+    migration_strategy: split
+    notes: "Split by transaction concern only after preserving worker leases and retry/idempotency semantics."
+  - name: repeated-crud-feature-shell
+    kind: base-class
+    source_loc: frontend/src/app/features/management/residents.component.ts:1
+    used_by_units: [management]
+    fields:
+      - name: loading
+        type: "Signal<boolean>"
+      - name: error
+        type: "Signal<string>"
+      - name: load
+        type: "Promise<void>"
+      - name: openDetail
+        type: "navigation action"
+    god_class: false
+    split_candidate: false
+    migration_strategy: extract
+    notes: "Prefer typed composition helpers over inheritance because fields and permissions differ."
+

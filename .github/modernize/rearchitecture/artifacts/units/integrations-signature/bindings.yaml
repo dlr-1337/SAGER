@@ -1,0 +1,21 @@
+unit: integrations-signature
+bindings:
+  - type: listener
+    name: "integration worker and scheduled task processing"
+    source_loc: backend/src/main/java/br/edu/ifgoiano/sager/integrations/IntegrationWorker.java:1
+    target: "provider task worker"
+    must_appear_in_target: true
+    notes: "worker lifecycle and retry scheduling are framework-bound"
+  - type: route-declaration
+    name: "signature access and provider webhook endpoints"
+    source_loc: backend/src/main/java/br/edu/ifgoiano/sager/integrations/SignatureAccessController.java:14
+    target: "signature API"
+    must_appear_in_target: true
+    notes: "tokenized access must remain isolated from authenticated management routes"
+runtime_config:
+  - key: "integration provider enabled/environment/credentials"
+    source_loc: backend/src/main/java/br/edu/ifgoiano/sager/integrations/IntegrationProperties.java:1
+    source: properties-file
+    default_value: "disabled"
+    must_appear_in_target: true
+    notes: "disabled integrations must not make external calls"

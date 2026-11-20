@@ -1,0 +1,26 @@
+unit: integrations-signature
+side_effects:
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/integrations/IntegrationWebhookController.java:181
+    effect: "stores provider webhook in inbox before processing"
+    must_preserve: true
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/integrations/IntegrationWorker.java:1
+    effect: "claims, retries and finalizes provider work through leases"
+    must_preserve: true
+branches:
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/integrations/WebhookHmacVerifier.java:1
+    condition: "HMAC/token validation fails"
+    behavior: "rejects callback without granting approval"
+    must_preserve: true
+error_paths:
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/integrations/IntegrationTransactions.java:337
+    trigger: "provider failure or lease loss"
+    outcome: "records retryable/permanent failure and releases lease"
+    contract: "provider callback acknowledgement and persisted task state"
+    must_preserve: true
+concurrency:
+  model: thread-pool
+  tx_boundary:
+    source_loc: backend/src/main/java/br/edu/ifgoiano/sager/integrations/IntegrationTransactions.java:79
+    scope: "claim one task, update in-flight lease, process idempotently and finalize"
+    isolation: "row lock with SKIP LOCKED"
+    must_preserve: true

@@ -1,0 +1,26 @@
+unit: cleaning-reports
+side_effects:
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/cleaning/CleaningService.java:1
+    effect: "records assessment/revision and emits discipline evidence"
+    must_preserve: true
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/reports/ReportExportScheduler.java:12
+    effect: "claims and processes export jobs with leases"
+    must_preserve: true
+branches:
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/reports/ReportService.java:42
+    condition: "snapshot expired or tombstoned"
+    behavior: "returns expired rather than silently rebuilding data"
+    must_preserve: true
+error_paths:
+  - source_loc: backend/src/main/java/br/edu/ifgoiano/sager/cleaning/CleaningController.java:16
+    trigger: "invalid score criteria or retroactive reason"
+    outcome: "rejects assessment"
+    contract: "current validation error shape"
+    must_preserve: true
+concurrency:
+  model: thread-pool
+  tx_boundary:
+    source_loc: backend/src/main/java/br/edu/ifgoiano/sager/reports/ReportExportJobs.java:21
+    scope: "claim one lease, render artifact, finalize or fail job"
+    isolation: "row lock with SKIP LOCKED"
+    must_preserve: true
