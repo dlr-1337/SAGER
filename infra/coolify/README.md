@@ -114,6 +114,7 @@ do `psql` somente leitura. O banco não publica porta (o smoke recusa porta
 publicada), então o acesso é só pelo servidor:
 
 ```bash
+export SAGER_CHECKOUT=/data/coolify/applications/rhamqqvry6aidhlfkqnzysk8
 docker compose --project-name sager-homologacao \
   --project-directory "$SAGER_CHECKOUT" --env-file "$SAGER_CHECKOUT/.env" \
   -f "$SAGER_CHECKOUT/compose.coolify.yml" exec database \

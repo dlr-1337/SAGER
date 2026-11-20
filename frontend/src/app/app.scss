@@ -520,6 +520,39 @@ app-root {
   }
 }
 
+// Até 400 px, com a etiqueta do ambiente e o contador, "SAGER", a etiqueta e o Menu não cabiam lado a
+// lado: o nome "Menu" passa para baixo do ícone, com o número ao lado, e as margens diminuem.
+@media (max-width: 400px) {
+  .masthead {
+    gap: 5px;
+    padding-inline: 12px;
+  }
+  .brand-product strong {
+    font-size: 1.3rem;
+  }
+  .menu-toggle {
+    display: grid;
+    grid-template-areas:
+      'icon badge'
+      'label badge';
+    align-items: center;
+    justify-items: center;
+    column-gap: 4px;
+    padding: 2px 4px;
+  }
+  .menu-toggle > .material-symbols-rounded {
+    grid-area: icon;
+    line-height: 1;
+  }
+  .menu-toggle-label {
+    grid-area: label;
+    line-height: 1.1;
+  }
+  .menu-toggle > sager-pending-badge {
+    grid-area: badge;
+  }
+}
+
 // Só aparece se a troca de tela passar de 150 ms, para não piscar nas rápidas.
 .navigation-bar {
   position: fixed;

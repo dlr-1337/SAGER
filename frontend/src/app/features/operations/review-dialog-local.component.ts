@@ -274,7 +274,7 @@ export class LocalOperationsReviewDialogComponent {
           this.error.set(
             p.action === 'retorno'
               ? 'A volta precisa ser depois da saída.'
-              : 'A partida não pode ser anterior à saída solicitada.',
+              : 'A partida não pode ser anterior à saída solicitada nem à aprovação.',
           );
           return;
         }

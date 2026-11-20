@@ -38,6 +38,7 @@ import {
 } from './operations-local-api.service';
 import {
   approvalNote,
+  departureMinimum,
   departureStepText,
   exitEventLabels,
   formatOperationsTime,
@@ -1207,7 +1208,7 @@ export class LongExitDetailComponent {
           physical: {
             action,
             now: fresh.now,
-            minimum: action === 'partida' ? exit.requestedDepartureAt : exit.actualDepartureAt!,
+            minimum: action === 'partida' ? departureMinimum(exit) : exit.actualDepartureAt!,
             expectedReturnAt: exit.expectedReturnAt,
             version: exit.version,
           },

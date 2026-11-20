@@ -182,3 +182,32 @@ for (const size of phoneSizes) {
     expect(issues).toEqual([]);
   });
 }
+
+for (const size of phoneSizes) {
+  test(`${size.width}×${size.height}: o cabeçalho com pendências mostra SAGER, a etiqueta e o Menu sem se cobrirem`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(size);
+    await enterDemo(page, 'Supervisor');
+    const toggle = page.getByRole('button', { name: 'Menu', exact: true });
+    await expect(toggle.locator('.pending-badge')).toBeVisible();
+    await expect(toggle.getByText('Menu', { exact: true })).toBeVisible();
+    const boxes = await Promise.all(
+      ['.brand-product strong', '.demo-flag strong', '.menu-toggle'].map(
+        async (selector) => (await page.locator(selector).boundingBox())!,
+      ),
+    );
+    for (const box of boxes) {
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(size.width);
+    }
+    for (let i = 1; i < boxes.length; i++)
+      expect(boxes[i - 1].x + boxes[i - 1].width).toBeLessThanOrEqual(boxes[i].x);
+    // O botão continua alvo de toque de 48 px e dentro do cabeçalho.
+    const masthead = (await page.locator('.masthead').boundingBox())!;
+    const button = boxes[2];
+    expect(button.height).toBeGreaterThanOrEqual(48);
+    expect(button.y).toBeGreaterThanOrEqual(masthead.y);
+    expect(button.y + button.height).toBeLessThanOrEqual(masthead.y + masthead.height);
+  });
+}

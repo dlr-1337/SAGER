@@ -158,6 +158,13 @@ Somente o supervisor SHALL registrar a partida de uma saída aprovada, num ato p
 - **WHEN** o supervisor abre o detalhe dela às 14h
 - **THEN** a tela mostra "Registrar saída"
 
+#### Scenario: Horário anterior à aprovação
+
+- **GIVEN** uma saída curta pedida para 14h e aprovada às 14h20
+- **WHEN** o supervisor registra a saída com o horário anterior 14h10 e uma justificativa
+- **THEN** o diálogo recusa antes de enviar, com "A partida não pode ser anterior à saída solicitada nem à aprovação."
+- **AND** o diálogo continua aberto com a justificativa digitada
+
 ### Requirement: Retorno físico confirmado pelo supervisor
 
 Somente o supervisor SHALL confirmar o retorno de uma saída em andamento, depois da partida física, e o residente MUST NOT confirmar o próprio retorno. Retorno depois do previsto MUST exigir observação de 10 a 2.000 caracteres e deixa a saída como retorno confirmado com atraso (RN06, RF014, UC17).

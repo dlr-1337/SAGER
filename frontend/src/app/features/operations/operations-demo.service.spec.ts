@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { OperationsDemoService } from './operations-demo.service';
+import { OperationsDemoService, pendingDemoExit } from './operations-demo.service';
 
 const dateAt = (hoursFromNow: number) =>
   new Date(Date.now() + hoursFromNow * 3_600_000).toISOString();
 
 describe('OperationsDemoService: critical operation rules', () => {
+  it('a saída aprovada à espera do registro fica em "Pendentes", não em "Concluídas"', () => {
+    expect(pendingDemoExit('Aprovada')).toBe(true);
+    expect(pendingDemoExit('Aguardando análise')).toBe(true);
+    expect(pendingDemoExit('Em andamento')).toBe(true);
+    expect(pendingDemoExit('Rejeitada')).toBe(false);
+    expect(pendingDemoExit('Retorno confirmado')).toBe(false);
+  });
   it('accepts exactly three hours for a short exit and rejects a longer return, including edits', () => {
     const service = new OperationsDemoService();
     const departure = dateAt(5);

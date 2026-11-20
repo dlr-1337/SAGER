@@ -387,6 +387,18 @@ describe('Detalhe da saída longa em passos', () => {
     expect(actions(fixture)).toEqual(['Registrar saída']);
   });
 
+  it('"Registrar saída" não aceita horário anterior à aprovação', async () => {
+    // Pedida às 15h59 e aprovada às 16h00 (UTC): o mínimo do horário anterior é a aprovação.
+    const approved = afterConference({ status: 'APROVADA' }, { canDepart: true, canCancel: true });
+    api['get'].mockResolvedValue(approved);
+    dialogResult = undefined;
+    const fixture = await create();
+    button(fixture, 'Registrar saída')!.click();
+    await fixture.whenStable();
+    expect(reviewData().title).toBe('A saída será registrada.');
+    expect(reviewData().physical).toMatchObject({ action: 'partida', minimum: now });
+  });
+
   it('agendada aprovada antes da hora: "Saída marcada para", sem "Registrar saída"', async () => {
     api['get'].mockResolvedValue(
       afterConference({

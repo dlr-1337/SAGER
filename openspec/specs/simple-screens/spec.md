@@ -322,6 +322,12 @@ A partir de 320 px de largura, no acesso por conta e na demonstração, a págin
 - **WHEN** o usuário abre o Menu num celular de 320 px
 - **THEN** a gaveta e todos os itens dela cabem na largura da tela
 
+#### Scenario: Cabeçalho com pendências
+
+- **GIVEN** o supervisor na demonstração, num celular de 320 px, com pendências no menu
+- **WHEN** ele olha o cabeçalho
+- **THEN** "SAGER", a etiqueta "Demonstração" e o botão "Menu" com o número ficam lado a lado, sem um cobrir o outro
+
 ### Requirement: Botões de decisão no mesmo padrão
 
 Nas decisões do supervisor da notificação de ocorrência, da avaliação de limpeza, do aviso, da advertência e do termo, os botões SHALL ficar num grupo só, com a ação principal primeiro e destacada e as outras na ordem do fluxo, todos do mesmo tamanho, alinhados numa grade e com o texto quebrando dentro do botão. No celular, cada botão SHALL ocupar a largura do painel. Links de consulta ficam fora do grupo.
