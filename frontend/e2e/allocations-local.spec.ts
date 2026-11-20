@@ -148,7 +148,7 @@ test('gestor aloca, transfere e encerra com histórico persistido na interface',
   const state = await mockLocal(context);
   await page.goto(`/residentes/${residentId}`);
   await expect(page.getByText('Nenhum quarto ativo vinculado')).toBeVisible();
-  await page.getByRole('combobox', { name: 'Colocar no quarto' }).selectOption(firstRoomId);
+  await page.getByRole('combobox', { name: 'Selecione um quarto' }).selectOption(firstRoomId);
   await page.getByRole('button', { name: 'Colocar no quarto' }).click();
   await expect.poll(() => state.writes.length).toBe(1);
   await expect.poll(() => state.allocations.length).toBe(1);
@@ -166,8 +166,8 @@ test('gestor aloca, transfere e encerra com histórico persistido na interface',
   expect(state.residentQueries.map((query) => query.get('roomId'))).toContain(firstRoomId);
   await page.goto(`/residentes/${residentId}`);
   await expect(page.getByRole('link', { name: /Quarto 01/ })).toBeVisible();
-  await page.getByRole('combobox', { name: 'Mudar para' }).selectOption(secondRoomId);
-  await page.getByRole('button', { name: 'Mudar de quarto' }).click();
+  await page.getByRole('combobox', { name: 'Selecione o novo quarto' }).selectOption(secondRoomId);
+  await page.getByRole('button', { name: 'Confirmar mudança' }).click();
   await expect(page.getByRole('link', { name: /Quarto 02/ })).toBeVisible();
   expect(state.writes[1].body).toMatchObject({ roomId: secondRoomId, version: 0 });
   await page.getByRole('button', { name: 'Tirar do quarto' }).click();
@@ -200,8 +200,8 @@ test('supervisor em celular transfere alocação; navegação é acessível', as
   await page.goto(`/residentes/${residentId}`);
   await expect(page.getByRole('link', { name: /Quarto 01/ })).toBeVisible();
   await page.screenshot({ path: test.info().outputPath('allocation-mobile.png'), fullPage: true });
-  await page.getByRole('combobox', { name: 'Mudar para' }).selectOption(secondRoomId);
-  await page.getByRole('button', { name: 'Mudar de quarto' }).click();
+  await page.getByRole('combobox', { name: 'Selecione o novo quarto' }).selectOption(secondRoomId);
+  await page.getByRole('button', { name: 'Confirmar mudança' }).click();
   await expect(page.getByRole('link', { name: /Quarto 02/ })).toBeVisible();
   expect(state.writes[0].body).toMatchObject({ roomId: secondRoomId, version: 0 });
   await page.keyboard.press('Tab');
@@ -226,11 +226,13 @@ test('duas abas exibem conflito de versão e recarregam o vínculo atual', async
   await page.goto(`/residentes/${residentId}`);
   const second = await context.newPage();
   await second.goto(`/residentes/${residentId}`);
-  await page.getByRole('combobox', { name: 'Mudar para' }).selectOption(secondRoomId);
-  await second.getByRole('combobox', { name: 'Mudar para' }).selectOption(secondRoomId);
-  await page.getByRole('button', { name: 'Mudar de quarto' }).click();
+  await page.getByRole('combobox', { name: 'Selecione o novo quarto' }).selectOption(secondRoomId);
+  await second
+    .getByRole('combobox', { name: 'Selecione o novo quarto' })
+    .selectOption(secondRoomId);
+  await page.getByRole('button', { name: 'Confirmar mudança' }).click();
   await expect(page.getByRole('link', { name: /Quarto 02/ })).toBeVisible();
-  await second.getByRole('button', { name: 'Mudar de quarto' }).click();
+  await second.getByRole('button', { name: 'Confirmar mudança' }).click();
   await expect(second.getByRole('alert')).toContainText('Outra pessoa alterou');
   await expect(second.getByRole('link', { name: /Quarto 02/ })).toBeVisible();
   await second.close();
@@ -242,7 +244,7 @@ test('residente menor só vê quartos da sua faixa e é colocado no de menores',
 }) => {
   const state = await mockLocal(context, 'gestor', true);
   await page.goto(`/residentes/${residentId}`);
-  const select = page.getByRole('combobox', { name: 'Colocar no quarto' });
+  const select = page.getByRole('combobox', { name: 'Selecione um quarto' });
   await expect(select.locator(`option[value="${firstRoomId}"]`)).toHaveCount(1);
   await expect(select.locator(`option[value="${secondRoomId}"]`)).toHaveCount(0);
   const axe = await new AxeBuilder({ page }).analyze();
